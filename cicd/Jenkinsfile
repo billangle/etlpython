@@ -1,0 +1,53 @@
+pipeline {
+  agent any
+
+  environment {
+    AWS_REGION   = 'us-east-1'
+    ENV_NAME     = 'dev'
+    PROJECT      = 'my-project'
+    // Option A: Jenkins "AWS Credentials" plugin can inject env vars; or use withCredentials below.
+  }
+
+  stages {
+    stage('Checkout') {
+      steps { checkout scm }
+    }
+
+    stage('Build Python venv') {
+      steps {
+        sh '''
+          python3 -m venv .venv
+          . .venv/bin/activate
+          pip install -U pip
+          pip install -r requirements.txt
+        '''
+      }
+    }
+
+    stage('Deploy') {
+      steps {
+        // Option B: store AWS keys in Jenkins credentials as "Username with password"
+        // where username=AWS_ACCESS_KEY_ID, password=AWS_SECRET_ACCESS_KEY
+        withCredentials([usernamePassword(credentialsId: 'aws-access-keys-dev',
+                         usernameVariable: 'AWS_ACCESS_KEY_ID',
+                         passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          sh '''
+            . .venv/bin/activate
+            python deploy.py \
+              --config config/env-dev.json \
+              --region ${AWS_REGION} \
+              --env ${ENV_NAME} \
+              --project ${PROJECT}
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      sh 'rm -rf .venv || true'
+    }
+  }
+}
+

@@ -1,0 +1,36 @@
+{
+  "account_id": "123456789012",
+
+  "lambda": {
+    "function_name": "dev-my-project-my-lambda",
+    "runtime": "python3.11",
+    "handler": "handler.lambda_handler",
+    "timeout": 30,
+    "memory_size": 256,
+    "role_arn": "arn:aws:iam::123456789012:role/dev-my-project-lambda-exec",
+    "source_dir": "lambda/my_lambda",
+    "env": {
+      "LOG_LEVEL": "INFO"
+    }
+  },
+
+  "stepfunctions": {
+    "state_machine_name": "dev-my-project-pipeline",
+    "role_arn": "arn:aws:iam::123456789012:role/dev-my-project-sfn-exec",
+    "definition_file": "stepfunctions/my_state_machine.asl.json"
+  },
+
+  "glue": {
+    "job_name": "dev-my-project-glue-job",
+    "role_arn": "arn:aws:iam::123456789012:role/dev-my-project-glue-exec",
+    "glue_version": "4.0",
+    "worker_type": "G.1X",
+    "number_of_workers": 2,
+    "script_local_path": "glue/jobs/my_glue_job.py",
+    "script_s3_bucket": "dev-my-project-artifacts",
+    "script_s3_prefix": "glue/scripts/",
+    "extra_py_files_local": ["glue/libs/extra_libs.zip"],
+    "extra_py_files_s3_prefix": "glue/libs/"
+  }
+}
+

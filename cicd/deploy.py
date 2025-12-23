@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 import argparse
 import json
-import os
-import sys
 import time
 import zipfile
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
@@ -13,9 +10,80 @@ import boto3
 from botocore.exceptions import ClientError
 
 
+# ---------------- Helpers ----------------
+
 def read_json(path: str) -> Dict[str, Any]:
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+def ssm_get(ssm, name: str) -> str:
+    return ssm.get_parameter(Name=name)["Parameter"]["Value"]
+
+def s3_upload_file(s3, local_path: str, bucket: str, key: str) -> str:
+    s3.upload_file(local_path, bucket, key)
+    return f"s3://{bucket}/{key}"
+
+from botocore.exceptions import ClientError
+
+
+def is_conflict(err: Exception) -> bool:
+    return isinstance(err, ClientError) and err.response["Error"]["Code"] in (
+        "ResourceConflictException",
+        "TooManyRequestsException",
+    )
+
+def call_with_conflict_retry(fn, *, fn_name: str, lambda_client, max_wait_s: int = 180, base_sleep_s: float = 1.5, **kwargs):
+    """
+    Calls a boto3 lambda operation, retrying if Lambda says 'update in progress' or throttles.
+    """
+    start = time.time()
+    attempt = 0
+    while True:
+        try:
+            return fn(**kwargs)
+        except ClientError as e:
+            if not is_conflict(e):
+                raise
+            # wait until current update completes, then retry
+            wait_for_lambda_update(lambda_client, fn_name, max_wait_s=max_wait_s)
+            attempt += 1
+            sleep_s = min(base_sleep_s * (2 ** min(attempt, 6)), 10.0)
+            if time.time() - start > max_wait_s:
+                raise TimeoutError(f"Timed out retrying Lambda operation due to conflicts: {fn_name}")
+            time.sleep(sleep_s)
+
+
+def ensure_bucket_exists(s3, bucket: str, region: str) -> None:
+    """
+    Ensures an S3 bucket exists. Creates it if missing.
+    Note: S3 buckets are global names; if someone else owns the name, create will fail.
+    """
+    try:
+        s3.head_bucket(Bucket=bucket)
+        return
+    except ClientError as e:
+        code = str(e.response.get("Error", {}).get("Code", ""))
+        # 404 / NotFound => bucket doesn't exist OR you have no access
+        if code not in ("404", "NotFound", "NoSuchBucket"):
+            raise
+
+    # Try create
+    params = {"Bucket": bucket}
+    if region != "us-east-1":
+        params["CreateBucketConfiguration"] = {"LocationConstraint": region}
+
+    try:
+        s3.create_bucket(**params)
+        # optional: wait until exists
+        waiter = s3.get_waiter("bucket_exists")
+        waiter.wait(Bucket=bucket)
+        print(f"[s3] created artifact bucket {bucket} in {region}")
+    except ClientError as e:
+        # If name is taken globally or you lack perms, this will fail with a clearer error
+        raise RuntimeError(
+            f"Artifact bucket '{bucket}' could not be created. "
+            f"Either the name is already taken globally, or you don't have s3:CreateBucket permission. "
+            f"Original error: {e}"
+        )
 
 
 def zip_dir(source_dir: str, out_zip: str) -> str:
@@ -27,90 +95,27 @@ def zip_dir(source_dir: str, out_zip: str) -> str:
         for p in src.rglob("*"):
             if p.is_dir():
                 continue
-            # skip venv/pycache
             rel = p.relative_to(src)
-            if "__pycache__" in rel.parts or rel.parts[0].startswith(".venv"):
+
+            # skip junk
+            if "__pycache__" in rel.parts:
                 continue
+            if rel.name.endswith((".pyc", ".pyo")):
+                continue
+            if rel.parts and rel.parts[0].startswith(".venv"):
+                continue
+            if rel.parts and rel.parts[0] in ("node_modules", ".git"):
+                continue
+
             z.write(p, arcname=str(rel))
     return str(out)
 
-
-def s3_upload_file(s3, local_path: str, bucket: str, key: str) -> str:
-    s3.upload_file(local_path, bucket, key)
-    return f"s3://{bucket}/{key}"
-
-
-def ensure_lambda(lambda_client, cfg: Dict[str, Any]) -> str:
-    """
-    Creates or updates lambda. Returns FunctionArn.
-    Expects code zip built from cfg['source_dir'].
-    """
-    fn = cfg["function_name"]
-    runtime = cfg["runtime"]
-    handler = cfg["handler"]
-    role_arn = cfg["role_arn"]
-    timeout = int(cfg.get("timeout", 30))
-    memory = int(cfg.get("memory_size", 256))
-    env_vars = cfg.get("env", {})
-
-    build_zip = zip_dir(cfg["source_dir"], f"build/{fn}.zip")
-    with open(build_zip, "rb") as f:
-        code_bytes = f.read()
-
-    try:
-        resp = lambda_client.get_function(FunctionName=fn)
-        arn = resp["Configuration"]["FunctionArn"]
-
-        # Update code
-        lambda_client.update_function_code(
-            FunctionName=fn,
-            ZipFile=code_bytes,
-            Publish=True
-        )
-
-        # Update config
-        lambda_client.update_function_configuration(
-            FunctionName=fn,
-            Runtime=runtime,
-            Role=role_arn,
-            Handler=handler,
-            Timeout=timeout,
-            MemorySize=memory,
-            Environment={"Variables": env_vars} if env_vars else {"Variables": {}},
-        )
-
-        wait_for_lambda_update(lambda_client, fn)
-        print(f"[lambda] updated {fn} -> {arn}")
-        return arn
-
-    except ClientError as e:
-        if e.response["Error"]["Code"] != "ResourceNotFoundException":
-            raise
-
-        # Create
-        resp = lambda_client.create_function(
-            FunctionName=fn,
-            Runtime=runtime,
-            Role=role_arn,
-            Handler=handler,
-            Code={"ZipFile": code_bytes},
-            Timeout=timeout,
-            MemorySize=memory,
-            Publish=True,
-            Environment={"Variables": env_vars} if env_vars else {"Variables": {}},
-        )
-        arn = resp["FunctionArn"]
-        wait_for_lambda_update(lambda_client, fn)
-        print(f"[lambda] created {fn} -> {arn}")
-        return arn
-
-
-def wait_for_lambda_update(lambda_client, fn_name: str, max_wait_s: int = 120) -> None:
+def wait_for_lambda_update(lambda_client, fn_name: str, max_wait_s: int = 180) -> None:
     start = time.time()
     while True:
         resp = lambda_client.get_function_configuration(FunctionName=fn_name)
-        status = resp.get("LastUpdateStatus", "Successful")
-        if status == "Successful":
+        status = resp.get("LastUpdateStatus")
+        if status in (None, "Successful"):
             return
         if status == "Failed":
             raise RuntimeError(f"Lambda update failed: {resp.get('LastUpdateStatusReason')}")
@@ -119,152 +124,628 @@ def wait_for_lambda_update(lambda_client, fn_name: str, max_wait_s: int = 120) -
         time.sleep(3)
 
 
-def ensure_glue_job(glue_client, s3_client, cfg: Dict[str, Any]) -> str:
-    """
-    Uploads script (and optional extra py files) to S3 and creates/updates Glue Job.
-    Returns job name.
-    """
-    job_name = cfg["job_name"]
-    role_arn = cfg["role_arn"]
-    script_local = cfg["script_local_path"]
-    bucket = cfg["script_s3_bucket"]
-    script_key = cfg["script_s3_prefix"].rstrip("/") + "/" + Path(script_local).name
-    script_s3_path = s3_upload_file(s3_client, script_local, bucket, script_key)
+# ---------------- Lambda ----------------
 
-    extra_py_files_local: List[str] = cfg.get("extra_py_files_local", [])
-    extra_py_uris: List[str] = []
-    for lp in extra_py_files_local:
-        k = cfg["extra_py_files_s3_prefix"].rstrip("/") + "/" + Path(lp).name
-        uri = s3_upload_file(s3_client, lp, bucket, k)
-        extra_py_uris.append(uri)
+def ensure_lambda(
+    lambda_client,
+    fn_name: str,
+    role_arn: str,
+    handler: str,
+    runtime: str,
+    source_dir: str,
+    env: Optional[Dict[str, str]] = None,
+    layers: Optional[List[str]] = None,
+    timeout: int = 30,
+    memory: int = 256,
+    architecture: str = "x86_64",  # or "arm64"
+    publish: bool = True,
+) -> str:
+    """
+    Creates or updates a Lambda function in-place (idempotent).
+    Works for Python, Node.js, etc., as long as runtime + handler are valid.
+    For Node.js ESM (.mjs), handler should be like "validate.handler" (file validate.mjs exporting handler).
+    """
+    env = env or {}
+    layers = layers or []
 
-    default_args = {
-        "--job-language": "python",
-        "--enable-metrics": "true",
-        "--enable-continuous-cloudwatch-log": "true",
-        "--enable-spark-ui": "true",
-    }
-    if extra_py_uris:
-        default_args["--extra-py-files"] = ",".join(extra_py_uris)
+    build_zip = zip_dir(source_dir, f"build/lambda/{fn_name}.zip")
+    code_bytes = Path(build_zip).read_bytes()
+
+    def update_config():
+        lambda_client.update_function_configuration(
+            FunctionName=fn_name,
+            Role=role_arn,
+            Runtime=runtime,
+            Handler=handler,
+            Timeout=timeout,
+            MemorySize=memory,
+            Environment={"Variables": env} if env else {"Variables": {}},
+            Layers=layers
+        )
+
+    try:
+            resp = lambda_client.get_function(FunctionName=fn_name)
+            arn = resp["Configuration"]["FunctionArn"]
+
+            call_with_conflict_retry(
+                lambda_client.update_function_code,
+                fn_name=fn_name,
+                lambda_client=lambda_client,
+                FunctionName=fn_name,
+                ZipFile=code_bytes,
+                Publish=publish,
+            )
+
+            call_with_conflict_retry(
+                lambda_client.update_function_configuration,
+                fn_name=fn_name,
+                lambda_client=lambda_client,
+                FunctionName=fn_name,
+                Role=role_arn,
+                Runtime=runtime,
+                Handler=handler,
+                Timeout=timeout,
+                MemorySize=memory,
+                Environment={"Variables": env} if env else {"Variables": {}},
+                Layers=layers,
+            )
+
+            wait_for_lambda_update(lambda_client, fn_name)
+            print(f"[lambda] updated {fn_name} -> {arn} (runtime={runtime}, handler={handler})")
+            return arn
+
+
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "ResourceNotFoundException":
+            raise
+
+        resp = lambda_client.create_function(
+            FunctionName=fn_name,
+            Role=role_arn,
+            Runtime=runtime,
+            Handler=handler,
+            Code={"ZipFile": code_bytes},
+            Timeout=timeout,
+            MemorySize=memory,
+            Publish=publish,
+            Environment={"Variables": env} if env else {"Variables": {}},
+            Layers=layers
+        )
+        arn = resp["FunctionArn"]
+        wait_for_lambda_update(lambda_client, fn_name)
+        print(f"[lambda] created {fn_name} -> {arn} (runtime={runtime}, handler={handler})")
+        return arn
+
+
+# ---------------- Glue ----------------
+
+def ensure_glue_job(
+    glue,
+    s3,
+    job_name: str,
+    role_arn: str,
+    script_local_path: str,
+    script_s3_bucket: str,
+    script_s3_key: str,
+    default_args: Dict[str, str],
+    glue_version: str = "4.0",
+    worker_type: str = "G.1X",
+    number_of_workers: int = 2,
+    timeout_minutes: int = 60,
+    max_retries: int = 0,
+) -> str:
+    script_s3_path = s3_upload_file(s3, script_local_path, script_s3_bucket, script_s3_key)
 
     job_update = {
         "Role": role_arn,
-        "ExecutionProperty": {"MaxConcurrentRuns": 1},
-        "Command": {
-            "Name": "glueetl",
-            "ScriptLocation": script_s3_path,
-            "PythonVersion": "3"
-        },
+        "Command": {"Name": "glueetl", "ScriptLocation": script_s3_path, "PythonVersion": "3"},
         "DefaultArguments": default_args,
-        "GlueVersion": cfg.get("glue_version", "4.0"),
-        "WorkerType": cfg.get("worker_type", "G.1X"),
-        "NumberOfWorkers": int(cfg.get("number_of_workers", 2)),
-        "MaxRetries": int(cfg.get("max_retries", 0)),
-        "Timeout": int(cfg.get("timeout_minutes", 60)),
+        "GlueVersion": glue_version,
+        "WorkerType": worker_type,
+        "NumberOfWorkers": number_of_workers,
+        "Timeout": timeout_minutes,
+        "MaxRetries": max_retries,
+        "ExecutionProperty": {"MaxConcurrentRuns": 1},
     }
 
     try:
-        glue_client.get_job(JobName=job_name)
-        glue_client.update_job(JobName=job_name, JobUpdate=job_update)
+        glue.get_job(JobName=job_name)
+        glue.update_job(JobName=job_name, JobUpdate=job_update)
         print(f"[glue] updated job {job_name} (script={script_s3_path})")
         return job_name
     except ClientError as e:
         if e.response["Error"]["Code"] != "EntityNotFoundException":
             raise
-
-        glue_client.create_job(Name=job_name, **job_update)
+        glue.create_job(Name=job_name, **job_update)
         print(f"[glue] created job {job_name} (script={script_s3_path})")
         return job_name
 
 
-def render_asl(template_path: str, replacements: Dict[str, str]) -> str:
-    raw = Path(template_path).read_text(encoding="utf-8")
-    for k, v in replacements.items():
-        raw = raw.replace(k, v)
-    # Validate JSON
-    json.loads(raw)
-    return raw
+def ensure_glue_crawler(
+    glue,
+    crawler_name: str,
+    role_arn: str,
+    database_name: str,
+    target_s3_path: str,
+) -> str:
+    crawler_def = {
+        "Name": crawler_name,
+        "Role": role_arn,
+        "DatabaseName": database_name,
+        "Targets": {"S3Targets": [{"Path": target_s3_path}]},
+        "SchemaChangePolicy": {
+            "UpdateBehavior": "UPDATE_IN_DATABASE",
+            "DeleteBehavior": "DEPRECATE_IN_DATABASE",
+        },
+    }
+
+    try:
+        glue.get_crawler(Name=crawler_name)
+        glue.update_crawler(**crawler_def)
+        print(f"[crawler] updated {crawler_name} -> {target_s3_path}")
+        return crawler_name
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "EntityNotFoundException":
+            raise
+        glue.create_crawler(**crawler_def)
+        print(f"[crawler] created {crawler_name} -> {target_s3_path}")
+        return crawler_name
 
 
-def ensure_state_machine(sfn_client, cfg: Dict[str, Any], definition_str: str) -> str:
-    """
-    Create/update SFN state machine. Returns state machine ARN.
-    """
-    name = cfg["state_machine_name"]
-    role_arn = cfg["role_arn"]
+# ---------------- Logs ----------------
 
-    # Find existing by listing (simple approach; ok for moderate counts)
-    existing_arn = None
-    paginator = sfn_client.get_paginator("list_state_machines")
+def ensure_log_group(logs_client, name: str, retention_days: Optional[int] = None) -> None:
+    try:
+        logs_client.create_log_group(logGroupName=name)
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "ResourceAlreadyExistsException":
+            raise
+    if retention_days:
+        logs_client.put_retention_policy(logGroupName=name, retentionInDays=retention_days)
+
+
+# ---------------- IAM for SFN (optional) ----------------
+
+def ensure_sfn_role(iam_client, role_name: str, lambda_arns, glue_job_names, crawler_name, log_group_arns) -> str:
+    assume = {
+        "Version": "2012-10-17",
+        "Statement": [{
+            "Effect": "Allow",
+            "Principal": {"Service": "states.amazonaws.com"},
+            "Action": "sts:AssumeRole"
+        }]
+    }
+
+    try:
+        role = iam_client.get_role(RoleName=role_name)["Role"]
+        role_arn = role["Arn"]
+
+        # IMPORTANT: enforce trust policy even if role already exists
+        iam_client.update_assume_role_policy(
+            RoleName=role_name,
+            PolicyDocument=json.dumps(assume)
+        )
+
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "NoSuchEntity":
+            raise
+
+        role = iam_client.create_role(
+            RoleName=role_name,
+            AssumeRolePolicyDocument=json.dumps(assume),
+            Description="SFN exec role for FPAC Cars pipeline (boto3-deployed)"
+        )["Role"]
+        role_arn = role["Arn"]
+
+    # ... keep the inline policy code as you already have ...
+    return role_arn
+
+
+    # Inline policy (least-priv-ish for this pipeline)
+    # Note: Glue JobRun permissions are not resource-scoped in a very satisfying way; job ARNs vary.
+    policy = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "InvokeLambdas",
+                "Effect": "Allow",
+                "Action": ["lambda:InvokeFunction"],
+                "Resource": lambda_arns
+            },
+            {
+                "Sid": "RunGlueJobs",
+                "Effect": "Allow",
+                "Action": [
+                    "glue:StartJobRun",
+                    "glue:GetJobRun",
+                    "glue:GetJobRuns",
+                    "glue:GetJob"
+                ],
+                "Resource": "*"
+            },
+            {
+                "Sid": "StartCrawler",
+                "Effect": "Allow",
+                "Action": ["glue:StartCrawler", "glue:GetCrawler"],
+                "Resource": "*"
+            },
+            {
+                "Sid": "WriteLogs",
+                "Effect": "Allow",
+                "Action": [
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents",
+                    "logs:DescribeLogStreams"
+                ],
+                "Resource": "*"
+            },
+            {
+                "Sid": "DescribeLogGroups",
+                "Effect": "Allow",
+                "Action": [
+                    "logs:DescribeLogGroups"
+                ],
+                "Resource": "*"
+            }
+        ]
+    }
+
+    iam_client.put_role_policy(
+        RoleName=role_name,
+        PolicyName="FpacCarsPipelineSfnInline",
+        PolicyDocument=json.dumps(policy)
+    )
+    return role_arn
+
+
+# ---------------- Step Functions ----------------
+
+def find_state_machine_arn(sfn, name: str) -> Optional[str]:
+    paginator = sfn.get_paginator("list_state_machines")
     for page in paginator.paginate():
         for sm in page.get("stateMachines", []):
             if sm["name"] == name:
-                existing_arn = sm["stateMachineArn"]
-                break
-        if existing_arn:
-            break
+                return sm["stateMachineArn"]
+    return None
 
-    if existing_arn:
-        sfn_client.update_state_machine(
-            stateMachineArn=existing_arn,
-            definition=definition_str,
-            roleArn=role_arn,
-        )
-        print(f"[sfn] updated {name} -> {existing_arn}")
-        return existing_arn
 
-    resp = sfn_client.create_state_machine(
-        name=name,
-        definition=definition_str,
-        roleArn=role_arn,
-        type="STANDARD"
-    )
+def ensure_state_machine(sfn, name: str, role_arn: str, definition: Dict[str, Any], log_group_arn: str) -> str:
+    arn = find_state_machine_arn(sfn, name)
+    params = {
+        "definition": json.dumps(definition),
+        "roleArn": role_arn,
+        "loggingConfiguration": {
+            "level": "ALL",
+            "includeExecutionData": True,
+            "destinations": [{"cloudWatchLogsLogGroup": {"logGroupArn": log_group_arn}}],
+        },
+        "tracingConfiguration": {"enabled": True},
+        "type": "STANDARD",
+    }
+
+    if arn:
+        sfn.update_state_machine(stateMachineArn=arn, **params)
+        print(f"[sfn] updated {name} -> {arn}")
+        return arn
+
+    resp = sfn.create_state_machine(name=name, **params)
     arn = resp["stateMachineArn"]
     print(f"[sfn] created {name} -> {arn}")
     return arn
 
 
+def asl_step1(validate_arn: str, create_id_arn: str, glue_step1_job: str) -> Dict[str, Any]:
+    return {
+        "StartAt": "ValidateInput",
+        "States": {
+            "ValidateInput": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {"FunctionName": validate_arn, "Payload.$": "$"},
+                "OutputPath": "$.Payload",
+                "Next": "CreateNewId"
+            },
+            "CreateNewId": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {"FunctionName": create_id_arn, "Payload.$": "$"},
+                "OutputPath": "$.Payload",
+                "Next": "Step1GlueJob"
+            },
+            "Step1GlueJob": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                "Parameters": {"JobName": glue_step1_job},
+                "ResultPath": "$.glueResult",
+                "End": True
+            }
+        }
+    }
+
+
+def asl_step2(glue_step2_job: str, glue_step3_job: str, log_results_arn: str, crawler_name: str) -> Dict[str, Any]:
+    return {
+        "StartAt": "Step2GlueJob",
+        "States": {
+            "Step2GlueJob": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                "Parameters": {"JobName": glue_step2_job},
+                "ResultPath": "$.glueResult",
+                "Next": "Step3GlueJob"
+            },
+            "Step3GlueJob": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                "Parameters": {"JobName": glue_step3_job},
+                "ResultPath": "$.glueResult",
+                "Next": "LogGlueResults"
+            },
+            "LogGlueResults": {
+                "Type": "Pass",
+                "Parameters": {
+                    "jobDetails.$": "$.glueResult",
+                    "timestamp.$": "$$.State.EnteredTime"
+                },
+                "ResultPath": "$.logged",
+                "Next": "FinalLogResults"
+            },
+            "FinalLogResults": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {"FunctionName": log_results_arn, "Payload.$": "$"},
+                "OutputPath": "$.Payload",
+                "Next": "StartCrawler"
+            },
+            "StartCrawler": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+                "Parameters": {"Name": crawler_name},
+                "ResultPath": "$.crawlerResult",
+                "Next": "WasGlueSuccessful"
+            },
+            "WasGlueSuccessful": {
+                "Type": "Choice",
+                "Choices": [
+                    {
+                        "Variable": "$.logged.jobDetails.JobRunState",
+                        "StringEquals": "SUCCEEDED",
+                        "Next": "Success"
+                    }
+                ],
+                "Default": "Fail"
+            },
+            "Success": {"Type": "Succeed"},
+            "Fail": {"Type": "Fail"}
+        }
+    }
+
+
+def asl_parent(step1_sm_arn: str, step2_sm_arn: str) -> Dict[str, Any]:
+    # CDK IntegrationPattern.RUN_JOB == startExecution.sync
+    return {
+        "StartAt": "RunStep1",
+        "States": {
+            "RunStep1": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::states:startExecution.sync",
+                "Parameters": {"StateMachineArn": step1_sm_arn, "Input.$": "$"},
+                "ResultPath": "$.step1Result",
+                "Next": "RunStep2"
+            },
+            "RunStep2": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::states:startExecution.sync",
+                "Parameters": {"StateMachineArn": step2_sm_arn, "Input.$": "$"},
+                "ResultPath": "$.step2Result",
+                "End": True
+            }
+        }
+    }
+
+
+# ---------------- Main ----------------
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
     ap.add_argument("--region", required=True)
-    ap.add_argument("--env", required=True)
-    ap.add_argument("--project", required=True)
     args = ap.parse_args()
 
-    config = read_json(args.config)
+    cfg = read_json(args.config)
+    region = args.region
 
-    session = boto3.Session(region_name=args.region)
-    lambda_client = session.client("lambda")
-    sfn_client = session.client("stepfunctions")
-    glue_client = session.client("glue")
-    s3_client = session.client("s3")
+    deploy_env = cfg["deployEnv"]
+    project = cfg["project"]
+    project_name = f"Fpac{project.upper()}"  # matches CDK
+    config_data = cfg["configData"]
 
-    # 1) Lambda
-    lambda_arn = ensure_lambda(lambda_client, config["lambda"])
+    session = boto3.Session(region_name=region)
+    ssm = session.client("ssm")
+    s3 = session.client("s3")
+    iam = session.client("iam")
+    lam = session.client("lambda")
+    glue = session.client("glue")
+    sfn = session.client("stepfunctions")
+    logs_client = session.client("logs")
 
-    # 2) Glue
-    glue_job_name = ensure_glue_job(glue_client, s3_client, config["glue"])
+    # --- SSM lookups (same as CDK) ---
+    landing_bucket_name = ssm_get(ssm, cfg["ssm"]["landingBucketNameParam"])
+    clean_bucket_name = ssm_get(ssm, cfg["ssm"]["cleanBucketNameParam"])
+    final_bucket_name = ssm_get(ssm, cfg["ssm"]["finalBucketNameParam"])
 
-    # 3) Step Functions (render template tokens)
-    definition_file = config["stepfunctions"]["definition_file"]
-    definition_str = render_asl(definition_file, {
-        "${LAMBDA_ARN}": lambda_arn,
-        "${GLUE_JOB_NAME}": glue_job_name,
-    })
-    sfn_arn = ensure_state_machine(sfn_client, config["stepfunctions"], definition_str)
+    glue_job_role_arn = ssm_get(ssm, cfg["ssm"]["glueJobRoleArnParam"])
+    etl_lambda_role_arn = ssm_get(ssm, cfg["ssm"]["etlRoleArnParam"])
+
+    third_party_layer_arn = ssm_get(ssm, cfg["ssm"]["thirdPartyLayerArnParam"])
+    custom_layer_arn = ssm_get(ssm, cfg["ssm"]["customLayerArnParam"])
+    layers = [third_party_layer_arn, custom_layer_arn]
+
+    # --- Artifact bucket for pushing scripts/zips ---
+    artifact_bucket = cfg["artifacts"]["artifactBucket"]
+    prefix = cfg["artifacts"]["prefix"].rstrip("/") + "/"
+    ensure_bucket_exists(s3, artifact_bucket, region)
+
+
+    # --- Lambda functions (names match CDK) ---
+    lambda_root = cfg["paths"]["lambdaRootPath"].rstrip("/") + "/"
+
+    validate_fn_name = f"FSA-{deploy_env}-{project_name}-ValidateInput"
+    create_id_fn_name = f"FSA-{deploy_env}-{project_name}-CreateNewId"
+    log_results_fn_name = f"FSA-{deploy_env}-{project_name}-LogResults"
+
+    env_vars = {"PROJECT": project, "TABLE_NAME": config_data["dynamoTableName"]}
+
+    validate_arn = ensure_lambda(
+        lam,
+        validate_fn_name,
+        etl_lambda_role_arn,
+        handler="index.handler",      
+        runtime="nodejs20.x",
+        source_dir=f"{lambda_root}Validate",
+        env=env_vars,
+        layers=layers
+    )
+
+    create_id_arn = ensure_lambda(
+        lam, create_id_fn_name, etl_lambda_role_arn,
+        handler="index.handler", runtime="nodejs20.x",
+        source_dir=f"{lambda_root}CreateNewId",
+        env=env_vars, layers=layers
+    )
+    log_results_arn = ensure_lambda(
+        lam, log_results_fn_name, etl_lambda_role_arn,
+        handler="index.handler", runtime="nodejs20.x",
+        source_dir=f"{lambda_root}LogResults",
+        env=env_vars, layers=layers
+    )
+
+    # --- Glue jobs (names modeled after your jobType/stepName patterns) ---
+    glue_root = cfg["paths"]["glueRootPath"].rstrip("/") + "/"
+
+    # You can change these job names to match your FpacGlueJob naming if you know the exact output.
+    # This keeps them stable and environment-scoped.
+    glue_job_step1 = f"FSA-{deploy_env}-{project_name}-Step1-LandingFiles"
+    glue_job_step2 = f"FSA-{deploy_env}-{project_name}-Step2-CleansedFiles"
+    glue_job_step3 = f"FSA-{deploy_env}-{project_name}-Step3-FinalFiles"
+
+    def glue_args(step: str) -> Dict[str, str]:
+        # Mirrors what your construct likely passes (buckets + env/project markers)
+        return {
+            "--ENV": deploy_env,
+            "--PROJECT": project,
+            "--LANDING_BUCKET": landing_bucket_name,
+            "--CLEAN_BUCKET": clean_bucket_name,
+            "--FINAL_BUCKET": final_bucket_name,
+            "--STEP": step,
+            "--enable-metrics": "true",
+            "--enable-continuous-cloudwatch-log": "true"
+        }
+
+    step1_script_local = f"{glue_root}landingFiles/landing_job.py"
+    step2_script_local = f"{glue_root}cleaningFiles/cleaning_job.py"
+    step3_script_local = f"{glue_root}finalFiles/final_job.py"
+
+    ensure_glue_job(
+        glue, s3,
+        job_name=glue_job_step1,
+        role_arn=glue_job_role_arn,
+        script_local_path=step1_script_local,
+        script_s3_bucket=artifact_bucket,
+        script_s3_key=f"{prefix}glue/landing_job.py",
+        default_args=glue_args("Step1")
+    )
+    ensure_glue_job(
+        glue, s3,
+        job_name=glue_job_step2,
+        role_arn=glue_job_role_arn,
+        script_local_path=step2_script_local,
+        script_s3_bucket=artifact_bucket,
+        script_s3_key=f"{prefix}glue/cleaning_job.py",
+        default_args=glue_args("Step2")
+    )
+    ensure_glue_job(
+        glue, s3,
+        job_name=glue_job_step3,
+        role_arn=glue_job_role_arn,
+        script_local_path=step3_script_local,
+        script_s3_bucket=artifact_bucket,
+        script_s3_key=f"{prefix}glue/final_job.py",
+        default_args=glue_args("Step3")
+    )
+
+    # --- Glue crawler (same naming as CDK) ---
+    crawler_name = f"FSA-{deploy_env}-{project_name}-CRAWLER"
+    ensure_glue_crawler(
+        glue,
+        crawler_name=crawler_name,
+        role_arn=glue_job_role_arn,  # CDK used same ARN for crawlerRole
+        database_name=config_data["databaseName"],
+        target_s3_path=f"s3://{final_bucket_name}/",
+    )
+
+    # --- CloudWatch log groups for SFN (match the 3 machines) ---
+    lg_step1 = f"/aws/vendedlogs/states/FSA-{deploy_env}-{project_name}-PipelineStep1"
+    lg_step2 = f"/aws/vendedlogs/states/FSA-{deploy_env}-{project_name}-PipelineStep2"
+    lg_parent = f"/aws/vendedlogs/states/FSA-{deploy_env}-{project_name}-Pipeline"
+    ensure_log_group(logs_client, lg_step1, retention_days=30)
+    ensure_log_group(logs_client, lg_step2, retention_days=30)
+    ensure_log_group(logs_client, lg_parent, retention_days=30)
+
+    # Need log group ARNs (DescribeLogGroups)
+    def log_group_arn(name: str) -> str:
+        resp = logs_client.describe_log_groups(logGroupNamePrefix=name)
+        for g in resp.get("logGroups", []):
+            if g.get("logGroupName") == name:
+                return g["arn"]
+        raise RuntimeError(f"Could not resolve log group ARN for {name}")
+
+    lg_step1_arn = log_group_arn(lg_step1)
+    lg_step2_arn = log_group_arn(lg_step2)
+    lg_parent_arn = log_group_arn(lg_parent)
+
+    # --- SFN role handling ---
+    sfn_role_arn = (cfg.get("stepFunctions", {}) or {}).get("roleArn") or ""
+    if not sfn_role_arn:
+        if not cfg["stepFunctions"].get("createRoleIfMissing", False):
+            raise RuntimeError("stepFunctions.roleArn is empty and createRoleIfMissing=false")
+        sfn_role_arn = ensure_sfn_role(
+            iam_client=iam,
+            role_name=cfg["stepFunctions"]["roleName"],
+            lambda_arns=[validate_arn, create_id_arn, log_results_arn],
+            glue_job_names=[glue_job_step1, glue_job_step2, glue_job_step3],
+            crawler_name=crawler_name,
+            log_group_arns=[lg_step1_arn + ":*", lg_step2_arn + ":*", lg_parent_arn + ":*"],
+        )
+
+    # --- Step Functions definitions (exact structure from your CDK) ---
+    sm_step1_name = f"FSA-{deploy_env}-{project_name}-PipelineStep1"
+    sm_step2_name = f"FSA-{deploy_env}-{project_name}-PipelineStep2"
+    sm_parent_name = f"FSA-{deploy_env}-{project_name}-Pipeline"
+
+    step1_def = asl_step1(validate_arn, create_id_arn, glue_job_step1)
+    step1_arn = ensure_state_machine(sfn, sm_step1_name, sfn_role_arn, step1_def, lg_step1_arn)
+
+    step2_def = asl_step2(glue_job_step2, glue_job_step3, log_results_arn, crawler_name)
+    step2_arn = ensure_state_machine(sfn, sm_step2_name, sfn_role_arn, step2_def, lg_step2_arn)
+
+    parent_def = asl_parent(step1_arn, step2_arn)
+    parent_arn = ensure_state_machine(sfn, sm_parent_name, sfn_role_arn, parent_def, lg_parent_arn)
 
     print("\nDEPLOY SUMMARY")
-    print(f"  Lambda ARN:         {lambda_arn}")
-    print(f"  Glue Job:           {glue_job_name}")
-    print(f"  State Machine ARN:  {sfn_arn}")
+    print(f"  Landing bucket (SSM): {landing_bucket_name}")
+    print(f"  Clean bucket   (SSM): {clean_bucket_name}")
+    print(f"  Final bucket   (SSM): {final_bucket_name}")
+    print(f"  Validate Lambda ARN : {validate_arn}")
+    print(f"  CreateNewId ARN     : {create_id_arn}")
+    print(f"  LogResults ARN      : {log_results_arn}")
+    print(f"  Glue jobs           : {glue_job_step1}, {glue_job_step2}, {glue_job_step3}")
+    print(f"  Glue crawler         : {crawler_name}")
+    print(f"  SFN Step1 ARN        : {step1_arn}")
+    print(f"  SFN Step2 ARN        : {step2_arn}")
+    print(f"  SFN Parent ARN       : {parent_arn}")
     return 0
 
 
 if __name__ == "__main__":
-    try:
-        raise SystemExit(main())
-    except Exception as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        raise
-
+    raise SystemExit(main())

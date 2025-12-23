@@ -1,0 +1,36 @@
+{
+  "deployEnv": "dev",
+  "project": "carspython",
+  "region": "us-east-1",
+
+  "configData": {
+    "databaseName": "fsa-fpac-db",
+    "dynamoTableName": "FsaFpacMetadata"
+  },
+
+  "ssm": {
+    "landingBucketNameParam": "fpacFsaLandingBucketSSMName",
+    "cleanBucketNameParam": "fpacFsaCleanBucketSSMName",
+    "finalBucketNameParam": "fpacFsaFinalBucketSSMName",
+    "glueJobRoleArnParam": "fpacFsaGlueJobRoleSSMArn",
+    "etlRoleArnParam": "fpacFsaLambdaExecuteRoleARN",
+    "thirdPartyLayerArnParam": "fpacfsaThirdPartyLayerArn",
+    "customLayerArnParam": "fpacfsaCustomLayerArn"
+  },
+
+  "paths": {
+    "glueRootPath": "../src/glue/",
+    "lambdaRootPath": "../src/lambda/"
+  },
+
+  "artifacts": {
+    "artifactBucket": "dev-cars-artifacts",
+    "prefix": "cars/"
+  },
+
+  "stepFunctions": {
+    "createRoleIfMissing": true,
+    "roleName": "FSA-dev-FPACCARS-SfnExec",
+    "roleArn": ""
+  }
+}

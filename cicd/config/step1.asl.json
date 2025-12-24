@@ -1,0 +1,66 @@
+{
+  "StartAt": "ValidateInput",
+  "States": {
+    "ValidateInput": {
+      "Next": "CreateNewId",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ClientExecutionTimeoutException",
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "Type": "Task",
+      "OutputPath": "$.Payload",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": validateinput_arn,
+        "Payload.$": "$"
+      }
+    },
+    "CreateNewId": {
+      "Next": "Step1",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ClientExecutionTimeoutException",
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "Type": "Task",
+      "OutputPath": "$.Payload",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": createnewid_arn,
+        "Payload.$": "$"
+      }
+    },
+    "Step1": {
+      "End": true,
+      "Type": "Task",
+      "ResultPath": "$.glueResult",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "FSA-punkdev-FpacCARS-LandingFiles",
+        "Arguments": {
+          "--landing_bucket": "punkdev-fpacfsa-landing-zone",
+          "--clean_bucket": "punkdev-fpacfsa-cleansed-zone",
+          "--final_bucket": "punkdev-fpacfsa-final-zone",
+          "--project": "cars"
+        }
+      }
+    }
+  }
+}

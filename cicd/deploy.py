@@ -447,26 +447,32 @@ def asl_step2(glue_step2_job: str, glue_step3_job: str, log_results_arn: str, cr
 
 
 def asl_parent(step1_sm_arn: str, step2_sm_arn: str) -> Dict[str, Any]:
-    # CDK IntegrationPattern.RUN_JOB == startExecution.sync
     return {
-        "StartAt": "RunStep1",
-        "States": {
-            "RunStep1": {
+            "StartAt": "Run Step1",
+            "States": {
+                "Run Step1": {
+                "Next": "Run Step2",
                 "Type": "Task",
-                "Resource": "arn:aws:states:::states:startExecution.sync",
-                "Parameters": {"StateMachineArn": step1_sm_arn, "Input.$": "$"},
                 "ResultPath": "$.step1Result",
-                "Next": "RunStep2"
-            },
-            "RunStep2": {
+                "Resource": "arn:aws:states:::states:startExecution.sync:2",
+                "Parameters": {
+                    "Input.$": "$",
+                    "StateMachineArn": step1_sm_arn
+                }
+                },
+                "Run Step2": {
+                "End": True,
                 "Type": "Task",
-                "Resource": "arn:aws:states:::states:startExecution.sync",
-                "Parameters": {"StateMachineArn": step2_sm_arn, "Input.$": "$"},
                 "ResultPath": "$.step2Result",
-                "End": True
+                "Resource": "arn:aws:states:::states:startExecution.sync:2",
+                "Parameters": {
+                    "Input.$": "$",
+                    "StateMachineArn": step2_sm_arn
+                }
+                }
             }
         }
-    }
+
 
 
 # ---------------- Main ----------------

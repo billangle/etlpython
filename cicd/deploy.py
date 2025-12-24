@@ -306,97 +306,6 @@ def ensure_log_group(logs_client, name: str, retention_days: Optional[int] = Non
 
 # ---------------- IAM for SFN (optional) ----------------
 
-def ensure_sfn_role(iam_client, role_name: str, lambda_arns, glue_job_names, crawler_name, log_group_arns) -> str:
-    assume = {
-        "Version": "2012-10-17",
-        "Statement": [{
-            "Effect": "Allow",
-            "Principal": {"Service": "states.amazonaws.com"},
-            "Action": "sts:AssumeRole"
-        }]
-    }
-
-    try:
-        role = iam_client.get_role(RoleName=role_name)["Role"]
-        role_arn = role["Arn"]
-
-        # IMPORTANT: enforce trust policy even if role already exists
-        iam_client.update_assume_role_policy(
-            RoleName=role_name,
-            PolicyDocument=json.dumps(assume)
-        )
-
-    except ClientError as e:
-        if e.response["Error"]["Code"] != "NoSuchEntity":
-            raise
-
-        role = iam_client.create_role(
-            RoleName=role_name,
-            AssumeRolePolicyDocument=json.dumps(assume),
-            Description="SFN exec role for FPAC Cars pipeline (boto3-deployed)"
-        )["Role"]
-        role_arn = role["Arn"]
-
-    # ... keep the inline policy code as you already have ...
-    return role_arn
-
-
-    # Inline policy (least-priv-ish for this pipeline)
-    # Note: Glue JobRun permissions are not resource-scoped in a very satisfying way; job ARNs vary.
-    policy = {
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Sid": "InvokeLambdas",
-                "Effect": "Allow",
-                "Action": ["lambda:InvokeFunction"],
-                "Resource": lambda_arns
-            },
-            {
-                "Sid": "RunGlueJobs",
-                "Effect": "Allow",
-                "Action": [
-                    "glue:StartJobRun",
-                    "glue:GetJobRun",
-                    "glue:GetJobRuns",
-                    "glue:GetJob"
-                ],
-                "Resource": "*"
-            },
-            {
-                "Sid": "StartCrawler",
-                "Effect": "Allow",
-                "Action": ["glue:StartCrawler", "glue:GetCrawler"],
-                "Resource": "*"
-            },
-            {
-                "Sid": "WriteLogs",
-                "Effect": "Allow",
-                "Action": [
-                    "logs:CreateLogStream",
-                    "logs:PutLogEvents",
-                    "logs:DescribeLogStreams"
-                ],
-                "Resource": "*"
-            },
-            {
-                "Sid": "DescribeLogGroups",
-                "Effect": "Allow",
-                "Action": [
-                    "logs:DescribeLogGroups"
-                ],
-                "Resource": "*"
-            }
-        ]
-    }
-
-    iam_client.put_role_policy(
-        RoleName=role_name,
-        PolicyName="FpacCarsPipelineSfnInline",
-        PolicyDocument=json.dumps(policy)
-    )
-    return role_arn
-
 
 # ---------------- Step Functions ----------------
 
@@ -409,29 +318,45 @@ def find_state_machine_arn(sfn, name: str) -> Optional[str]:
     return None
 
 
-def ensure_state_machine(sfn, name: str, role_arn: str, definition: Dict[str, Any], log_group_arn: str) -> str:
+from typing import Optional, Dict, Any
+import json
+
+def ensure_state_machine(
+    sfn,
+    name: str,
+    role_arn: str,
+    definition: Dict[str, Any],
+    log_group_arn: Optional[str],
+    enable_logging: bool = True,
+) -> str:
     arn = find_state_machine_arn(sfn, name)
-    params = {
+
+    common = {
         "definition": json.dumps(definition),
         "roleArn": role_arn,
-        "loggingConfiguration": {
+        "tracingConfiguration": {"enabled": True},
+    }
+
+    # IMPORTANT: only include loggingConfiguration if explicitly enabled
+    if enable_logging and log_group_arn:
+        common["loggingConfiguration"] = {
             "level": "ALL",
             "includeExecutionData": True,
             "destinations": [{"cloudWatchLogsLogGroup": {"logGroupArn": log_group_arn}}],
-        },
-        "tracingConfiguration": {"enabled": True},
-        "type": "STANDARD",
-    }
+        }
 
     if arn:
-        sfn.update_state_machine(stateMachineArn=arn, **params)
+        sfn.update_state_machine(stateMachineArn=arn, **common)
         print(f"[sfn] updated {name} -> {arn}")
         return arn
 
-    resp = sfn.create_state_machine(name=name, **params)
+    resp = sfn.create_state_machine(name=name, type="STANDARD", **common)
     arn = resp["stateMachineArn"]
     print(f"[sfn] created {name} -> {arn}")
     return arn
+
+
+
 
 
 def asl_step1(validate_arn: str, create_id_arn: str, glue_step1_job: str) -> Dict[str, Any]:
@@ -630,17 +555,19 @@ def main() -> int:
     glue_job_step3 = f"FSA-{deploy_env}-{project_name}-Step3-FinalFiles"
 
     def glue_args(step: str) -> Dict[str, str]:
-        # Mirrors what your construct likely passes (buckets + env/project markers)
         return {
-            "--ENV": deploy_env,
-            "--PROJECT": project,
-            "--LANDING_BUCKET": landing_bucket_name,
-            "--CLEAN_BUCKET": clean_bucket_name,
-            "--FINAL_BUCKET": final_bucket_name,
-            "--STEP": step,
+            "--env": deploy_env,
+            "--project": project,
+            "--landing_bucket": landing_bucket_name,
+            "--clean_bucket": clean_bucket_name,
+            "--final_bucket": final_bucket_name,
+            "--step": step,
+
+            # Glue logging/metrics toggles (these keys are standard)
             "--enable-metrics": "true",
-            "--enable-continuous-cloudwatch-log": "true"
+            "--enable-continuous-cloudwatch-log": "true",
         }
+
 
     step1_script_local = f"{glue_root}landingFiles/landing_job.py"
     step2_script_local = f"{glue_root}cleaningFiles/cleaning_job.py"
@@ -685,9 +612,10 @@ def main() -> int:
     )
 
     # --- CloudWatch log groups for SFN (match the 3 machines) ---
-    lg_step1 = f"/aws/vendedlogs/states/FSA-{deploy_env}-{project_name}-PipelineStep1"
-    lg_step2 = f"/aws/vendedlogs/states/FSA-{deploy_env}-{project_name}-PipelineStep2"
-    lg_parent = f"/aws/vendedlogs/states/FSA-{deploy_env}-{project_name}-Pipeline"
+    lg_step1  = f"/aws/states/FSA-{deploy_env}-{project_name}-PipelineStep1"
+    lg_step2  = f"/aws/states/FSA-{deploy_env}-{project_name}-PipelineStep2"
+    lg_parent = f"/aws/states/FSA-{deploy_env}-{project_name}-Pipeline"
+
     ensure_log_group(logs_client, lg_step1, retention_days=30)
     ensure_log_group(logs_client, lg_step2, retention_days=30)
     ensure_log_group(logs_client, lg_parent, retention_days=30)
@@ -730,7 +658,15 @@ def main() -> int:
     step2_arn = ensure_state_machine(sfn, sm_step2_name, sfn_role_arn, step2_def, lg_step2_arn)
 
     parent_def = asl_parent(step1_arn, step2_arn)
-    parent_arn = ensure_state_machine(sfn, sm_parent_name, sfn_role_arn, parent_def, lg_parent_arn)
+    parent_arn = ensure_state_machine(
+        sfn,
+        sm_parent_name,
+        sfn_role_arn,
+        parent_def,
+        lg_parent_arn,
+        enable_logging=False,   # <-- this avoids "create managed-rule"
+    )
+
 
     print("\nDEPLOY SUMMARY")
     print(f"  Landing bucket (SSM): {landing_bucket_name}")

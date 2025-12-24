@@ -29,8 +29,8 @@
   },
 
   "stepFunctions": {
-    "createRoleIfMissing": true,
+    "createRoleIfMissing": false,
     "roleName": "FSA-dev-FPACCARS-SfnExec",
-    "roleArn": ""
+    "roleArn": "arn:aws:iam::335965711887:role/FSA-dev-FPACCARS-SfnExec"
   }
 }

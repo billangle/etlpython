@@ -1,0 +1,68 @@
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Action": [
+				"glue:BatchStopJobRun",
+				"glue:GetJobRun",
+				"glue:GetJobRuns",
+				"glue:StartJobRun"
+			],
+			"Resource": "*",
+			"Effect": "Allow"
+		},
+		{
+			"Action": "lambda:InvokeFunction",
+			"Resource": "*",
+			"Effect": "Allow"
+		},
+		{
+			"Action": [
+				"glue:GetCrawler",
+				"glue:StartCrawler"
+			],
+			"Resource": "*",
+			"Effect": "Allow"
+		},
+		{
+			"Sid": "StartAndDescribeChildExecutions",
+			"Effect": "Allow",
+			"Action": [
+				"states:StartExecution",
+				"states:DescribeExecution",
+				"states:StopExecution"
+			],
+			"Resource": "*"
+		},
+		{
+			"Sid": "AllowManagedRuleForSyncIntegration",
+			"Effect": "Allow",
+			"Action": [
+				"events:PutRule",
+				"events:PutTargets",
+				"events:RemoveTargets",
+				"events:DeleteRule",
+				"events:DescribeRule"
+			],
+			"Resource": "*"
+		},
+		{
+			"Action": [
+				"logs:CreateLogDelivery",
+				"logs:DeleteLogDelivery",
+				"logs:DescribeLogGroups",
+				"logs:DescribeResourcePolicies",
+				"logs:GetLogDelivery",
+				"logs:ListLogDeliveries",
+				"logs:PutResourcePolicy",
+				"logs:UpdateLogDelivery",
+				"xray:GetSamplingRules",
+				"xray:GetSamplingTargets",
+				"xray:PutTelemetryRecords",
+				"xray:PutTraceSegments"
+			],
+			"Resource": "*",
+			"Effect": "Allow"
+		}
+	]
+}

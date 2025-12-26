@@ -21,8 +21,8 @@
     "landingBucketNameParam": "c108-dev-fpacfsa-landing-zone",
     "cleanBucketNameParam": "c108-dev-fpacfsa-cleansed-zone",
     "finalBucketNameParam": "c108-dev-fpacfsa-final-zone",
-    "glueJobRoleArnParam": "arn:aws:iam::241533156429:role/P_AWSX_PRD_PUB-241533156429-CloudEngineer_CDO_Role",
-    "etlRoleArnParam": "arn:aws:iam::241533156429:role/P_AWSX_PRD_PUB-241533156429-CloudEngineer_CDO_Role",
+    "glueJobRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-servicerole-glue",
+    "etlRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-lambda",
     "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:fpacfsa-thirdparty:1",
     "customLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:fpacfsa-custom:1"
   },
@@ -38,7 +38,7 @@
 
   "stepFunctions": {
     "createRoleIfMissing": false,
-    "roleName": "P_AWSX_PRD_PUB-241533156429-CloudEngineer_CDO_Role",
-    "roleArn": "arn:aws:iam::241533156429:role/P_AWSX_PRD_PUB-241533156429-CloudEngineer_CDO_Role"
+    "roleName": "disc-fsa-dev-stepfunction",
+    "roleArn": "arn:aws:iam::241533156429:role/disc-fsa-dev-stepfunction"
   }
 }

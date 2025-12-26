@@ -1,0 +1,44 @@
+{
+  "deployEnv": "dev",
+  "project": "carspython",
+  "region": "us-east-1",
+
+  "configData": {
+    "databaseName": "fsa-fpac-db",
+    "dynamoTableName": "FsaFpacMetadata"
+  },
+
+  "ssm": {
+    "landingBucketNameParam": "fpacFsaLandingBucketSSMName",
+    "cleanBucketNameParam": "fpacFsaCleanBucketSSMName",
+    "finalBucketNameParam": "fpacFsaFinalBucketSSMName",
+    "glueJobRoleArnParam": "fpacFsaGlueJobRoleSSMArn",
+    "etlRoleArnParam": "fpacFsaLambdaExecuteRoleARN",
+    "thirdPartyLayerArnParam": "fpacfsaThirdPartyLayerArn",
+    "customLayerArnParam": "fpacfsaCustomLayerArn"
+  },
+  "strparams": {
+    "fpacFsaLandingBucketSSMName": "c108-dev-fpacfsa-landing-zone",
+    "fpacFsaCleanBucketSSMName": "c108-dev-fpacfsa-cleansed-zone",
+    "fpacFsaFinalBucketSSMName": "c108-dev-fpacfsa-final-zone",
+    "fpacFsaGlueJobRoleSSMArn": "arn:aws:iam::241533156429:role/P_AWSX_PRD_PUB-241533156429-CloudEngineer_CDO_Role",
+    "fpacFsaLambdaExecuteRoleARN": "arn:aws:iam::241533156429:role/P_AWSX_PRD_PUB-241533156429-CloudEngineer_CDO_Role",
+    "fpacfsaThirdPartyLayerArn": "arn:aws:lambda:us-east-1:241533156429:layer:fpacfsa-thirdparty:1",
+    "fpacfsaCustomLayerArn": "arn:aws:lambda:us-east-1:241533156429:layer:fpacfsa-custom:1"
+  },
+  "paths": {
+    "glueRootPath": "../src/glue/",
+    "lambdaRootPath": "../src/lambda/"
+  },
+
+  "artifacts": {
+    "artifactBucket": "fsa-dev-ops",
+    "prefix": "carspython/"
+  },
+
+  "stepFunctions": {
+    "createRoleIfMissing": false,
+    "roleName": "P_AWSX_PRD_PUB-241533156429-CloudEngineer_CDO_Role",
+    "roleArn": "arn:aws:iam::241533156429:role/P_AWSX_PRD_PUB-241533156429-CloudEngineer_CDO_Role"
+  }
+}

@@ -528,7 +528,7 @@ def main() -> int:
     create_id_fn_name = f"FSA-{deploy_env}-{project_name}-CreateNewId"
     log_results_fn_name = f"FSA-{deploy_env}-{project_name}-LogResults"
 
-    env_vars = {"PROJECT": project, "TABLE_NAME": config_data["dynamoTableName"]}
+    env_vars = {"PROJECT": project, "LANDING_BUCKET": landing_bucket_name, "TABLE_NAME": config_data["dynamoTableName"]}
 
     validate_arn = ensure_lambda(
         lam,

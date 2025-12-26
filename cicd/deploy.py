@@ -326,8 +326,7 @@ def ensure_state_machine(
     name: str,
     role_arn: str,
     definition: Dict[str, Any],
-    log_group_arn: Optional[str],
-    enable_logging: bool = True,
+    enable_logging: bool = False,
 ) -> str:
     arn = find_state_machine_arn(sfn, name)
 
@@ -626,21 +625,21 @@ def main() -> int:
     lg_step2  = f"/aws/states/FSA-{deploy_env}-{project_name}-PipelineStep2"
     lg_parent = f"/aws/states/FSA-{deploy_env}-{project_name}-Pipeline"
 
-    ensure_log_group(logs_client, lg_step1, retention_days=30)
-    ensure_log_group(logs_client, lg_step2, retention_days=30)
-    ensure_log_group(logs_client, lg_parent, retention_days=30)
+    #ensure_log_group(logs_client, lg_step1, retention_days=30)
+    #ensure_log_group(logs_client, lg_step2, retention_days=30)
+    #ensure_log_group(logs_client, lg_parent, retention_days=30)
 
     # Need log group ARNs (DescribeLogGroups)
-    def log_group_arn(name: str) -> str:
-        resp = logs_client.describe_log_groups(logGroupNamePrefix=name)
-        for g in resp.get("logGroups", []):
-            if g.get("logGroupName") == name:
-                return g["arn"]
-        raise RuntimeError(f"Could not resolve log group ARN for {name}")
+   # def log_group_arn(name: str) -> str:
+   #     resp = logs_client.describe_log_groups(logGroupNamePrefix=name)
+   #     for g in resp.get("logGroups", []):
+   #         if g.get("logGroupName") == name:
+   #             return g["arn"]
+   #     raise RuntimeError(f"Could not resolve log group ARN for {name}")
 
-    lg_step1_arn = log_group_arn(lg_step1)
-    lg_step2_arn = log_group_arn(lg_step2)
-    lg_parent_arn = log_group_arn(lg_parent)
+   # lg_step1_arn = log_group_arn(lg_step1)
+   # lg_step2_arn = log_group_arn(lg_step2)
+  #  lg_parent_arn = log_group_arn(lg_parent)
 
     # --- SFN role handling ---
     sfn_role_arn = (cfg.get("stepFunctions", {}) or {}).get("roleArn") or ""
@@ -653,7 +652,7 @@ def main() -> int:
             lambda_arns=[validate_arn, create_id_arn, log_results_arn],
             glue_job_names=[glue_job_step1, glue_job_step2, glue_job_step3],
             crawler_name=crawler_name,
-            log_group_arns=[lg_step1_arn + ":*", lg_step2_arn + ":*", lg_parent_arn + ":*"],
+           # log_group_arns=[lg_step1_arn + ":*", lg_step2_arn + ":*", lg_parent_arn + ":*"],
         )
 
     # --- Step Functions definitions (exact structure from your CDK) ---
@@ -662,19 +661,17 @@ def main() -> int:
     sm_parent_name = f"FSA-{deploy_env}-{project_name}-Pipeline"
 
     step1_def = asl_step1(validate_arn, create_id_arn, glue_job_step1)
-    step1_arn = ensure_state_machine(sfn, sm_step1_name, sfn_role_arn, step1_def, lg_step1_arn)
+    step1_arn = ensure_state_machine(sfn, sm_step1_name, sfn_role_arn, step1_def)
 
     step2_def = asl_step2(glue_job_step2, glue_job_step3, log_results_arn, crawler_name)
-    step2_arn = ensure_state_machine(sfn, sm_step2_name, sfn_role_arn, step2_def, lg_step2_arn)
+    step2_arn = ensure_state_machine(sfn, sm_step2_name, sfn_role_arn, step2_def)
 
     parent_def = asl_parent(step1_arn, step2_arn)
     parent_arn = ensure_state_machine(
         sfn,
         sm_parent_name,
         sfn_role_arn,
-        parent_def,
-        lg_parent_arn,
-        enable_logging=False,   # <-- this avoids "create managed-rule"
+        parent_def
     )
 
 

@@ -1,6 +1,6 @@
 {
-  "deployEnv": "dev",
-  "project": "carspython",
+  "deployEnv": "punksdev",
+  "project": "carspy2",
   "region": "us-east-1",
 
   "configData": {
@@ -33,7 +33,7 @@
 
   "artifacts": {
     "artifactBucket": "dev-cars-artifacts",
-    "prefix": "cars/"
+    "prefix": "carspy2/"
   },
 
   "stepFunctions": {

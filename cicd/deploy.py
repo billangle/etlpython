@@ -492,7 +492,7 @@ def main() -> int:
     config_data = cfg["configData"]
 
     session = boto3.Session(region_name=region)
-    ssm = session.client("ssm")
+    #ssm = session.client("ssm")
     s3 = session.client("s3")
     iam = session.client("iam")
     lam = session.client("lambda")
@@ -501,15 +501,19 @@ def main() -> int:
     logs_client = session.client("logs")
 
     # --- SSM lookups (same as CDK) ---
-    landing_bucket_name = ssm_get(ssm, cfg["ssm"]["landingBucketNameParam"])
-    clean_bucket_name = ssm_get(ssm, cfg["ssm"]["cleanBucketNameParam"])
-    final_bucket_name = ssm_get(ssm, cfg["ssm"]["finalBucketNameParam"])
+    #landing_bucket_name = ssm_get(ssm, cfg["ssm"]["landingBucketNameParam"])
+    #clean_bucket_name = ssm_get(ssm, cfg["ssm"]["cleanBucketNameParam"])
+   # final_bucket_name = ssm_get(ssm, cfg["ssm"]["finalBucketNameParam"])
 
-    glue_job_role_arn = ssm_get(ssm, cfg["ssm"]["glueJobRoleArnParam"])
-    etl_lambda_role_arn = ssm_get(ssm, cfg["ssm"]["etlRoleArnParam"])
+    landing_bucket_name =  cfg["strparams"]["landingBucketNameParam"]
+    clean_bucket_name = cfg["strparams"]["cleanBucketNameParam"]
+    final_bucket_name = cfg["strparams"]["finalBucketNameParam"]
 
-    third_party_layer_arn = ssm_get(ssm, cfg["ssm"]["thirdPartyLayerArnParam"])
-    custom_layer_arn = ssm_get(ssm, cfg["ssm"]["customLayerArnParam"])
+    glue_job_role_arn = cfg["strparams"]["glueJobRoleArnParam"]
+    etl_lambda_role_arn = cfg["strparams"]["etlRoleArnParam"]
+
+    third_party_layer_arn = cfg["strparams"]["thirdPartyLayerArnParam"]
+    custom_layer_arn = cfg["strparams"]["customLayerArnParam"]
     layers = [third_party_layer_arn, custom_layer_arn]
 
     # --- Artifact bucket for pushing scripts/zips ---

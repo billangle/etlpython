@@ -1,0 +1,50 @@
+pipeline {
+    agent any
+ 
+    environment {
+        SONARQUBE_URL = 'https://sonarqube-dev.dl.usda.gov/sonarqube'
+        SONARQUBE_PROJECT_KEY = 'Dart-Dev'
+    }
+ 
+    stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+ 
+        stage('Checkout Code') {
+            steps {
+                echo 'Checking out code from Bitbucket'
+                script {
+                    checkout scm: [
+                        $class: 'GitSCM',
+                        branches: [[name: 'main']],
+                        userRemoteConfigs: [[
+                            url: 'https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git', 
+                            credentialsId: 'BitBucketRepoAccess'
+                        ]]
+                    ]
+                }
+            }
+        }
+ 
+        stage('Code Quality Analysis') {
+            steps {
+                echo 'Running SonarQube analysis'
+                withSonarQubeEnv('SonarQube') {
+                        withCredentials([string(credentialsId: 'SonarQubeToken', variable: 'SONAR_TOKEN')]) {
+                            script {
+                                echo "SonarQube analysis is about to start. Token is loaded securely."
+                                sh """
+                                   cd cicd;
+                                   ls -CF
+                                   aws s3 ls
+                                """     
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

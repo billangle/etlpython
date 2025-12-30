@@ -7,10 +7,10 @@ import {
 	marshall,
 	unmarshall
 } from "@aws-sdk/util-dynamodb";
-import { Utils } from "/opt/nodejs/Utils.mjs";
+//import { Utils } from "/opt/nodejs/Utils.mjs";
 
-const ddb = new DynamoDBClient();
-const utils = new Utils();
+
+//const utils = new Utils();
 
 export const handler = async (event) => {
   // Accept either { jobDetails, timestamp } payload or the raw logged structure
@@ -19,6 +19,9 @@ export const handler = async (event) => {
   const jobId = uuidv4();
   const tableName = process.env.TABLE_NAME;
   const project = process.env.PROJECT;
+   const bucketRegion = process.env.BUCKET_REGION;
+
+   const ddb = new DynamoDBClient({ region: bucketRegion });
 
   console.log("PutGlueResult: event: " + JSON.stringify(event));
 

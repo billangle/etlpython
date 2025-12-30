@@ -489,6 +489,7 @@ def main() -> int:
     project = cfg["project"]
     project_name = f"Fpac{project.upper()}"  # matches CDK
     config_data = cfg["configData"]
+    bucket_region = cfg.get("bucketRegion", region)
 
     session = boto3.Session(region_name=region)
     #ssm = session.client("ssm")
@@ -528,7 +529,7 @@ def main() -> int:
     create_id_fn_name = f"FSA-{deploy_env}-{project_name}-CreateNewId"
     log_results_fn_name = f"FSA-{deploy_env}-{project_name}-LogResults"
 
-    env_vars = {"PROJECT": project, "LANDING_BUCKET": landing_bucket_name, "TABLE_NAME": config_data["dynamoTableName"]}
+    env_vars = {"PROJECT": project, "LANDING_BUCKET": landing_bucket_name, "TABLE_NAME": config_data["dynamoTableName"], "BUCKET_REGION": bucket_region}
 
     validate_arn = ensure_lambda(
         lam,
@@ -570,6 +571,7 @@ def main() -> int:
             "--landing_bucket": landing_bucket_name,
             "--clean_bucket": clean_bucket_name,
             "--final_bucket": final_bucket_name,
+            "--bucket_region": bucket_region,
             "--step": step,
 
             # Glue logging/metrics toggles (these keys are standard)

@@ -2,6 +2,7 @@
   "deployEnv": "dev",
   "project": "carspyjenkins",
   "region": "us-east-2",
+  "bucketRegion": "us-east-1",
 
   "configData": {
     "databaseName": "fsa-fpac-db",

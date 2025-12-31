@@ -1,0 +1,22 @@
+repo/
+├── deploy.py
+├── common/
+│   ├── __init__.py
+│   └── aws_common.py
+├── projects/
+│   ├── __init__.py
+│   └── fpac_pipeline/
+│       ├── __init__.py
+│       ├── deploy.py
+│       ├── lambda/
+│       │   ├── Validate/
+│       │   ├── CreateNewId/
+│       │   └── LogResults/
+│       └── glue/
+│           ├── landingFiles/landing_job.py
+│           ├── cleaningFiles/cleaning_job.py
+│           └── finalFiles/final_job.py
+└── config/
+    ├── dev.json
+    └── prod.json
+

@@ -4,9 +4,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict
 
-from .fpac_stepfunctions import FpacStateMachineBuilder, FpacStateMachineInputs
-
-
 import boto3
 
 from common.aws_common import (
@@ -89,6 +86,117 @@ def build_glue_args(
 
 from typing import Any, Dict
 
+
+def asl_step1(validate_arn: str, create_id_arn: str, glue_step1_job: str) -> Dict[str, Any]:
+    return {
+        "StartAt": "ValidateInput",
+        "States": {
+            "ValidateInput": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {"FunctionName": validate_arn, "Payload.$": "$"},
+                "OutputPath": "$.Payload",
+                "Next": "CreateNewId",
+            },
+            "CreateNewId": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {"FunctionName": create_id_arn, "Payload.$": "$"},
+                "OutputPath": "$.Payload",
+                "Next": "Step1GlueJob",
+            },
+            "Step1GlueJob": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                "Parameters": {"JobName": glue_step1_job},
+                "ResultPath": "$.glueResult",
+                "End": True,
+            },
+        },
+    }
+
+
+def asl_step2(glue_step2_job: str, glue_step3_job: str, log_results_arn: str, crawler_name: str) -> Dict[str, Any]:
+    return {
+        "StartAt": "Step2GlueJob",
+        "States": {
+            "Step2GlueJob": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                "Parameters": {"JobName": glue_step2_job},
+                "ResultPath": "$.glueResult",
+                "Next": "Step3GlueJob",
+            },
+            "Step3GlueJob": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                "Parameters": {"JobName": glue_step3_job},
+                "ResultPath": "$.glueResult",
+                "Next": "LogGlueResults",
+            },
+            "LogGlueResults": {
+                "Type": "Pass",
+                "Parameters": {
+                    "jobDetails.$": "$.glueResult",
+                    "timestamp.$": "$$.State.EnteredTime",
+                },
+                "ResultPath": "$.logged",
+                "Next": "FinalLogResults",
+            },
+            "FinalLogResults": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {"FunctionName": log_results_arn, "Payload.$": "$"},
+                "OutputPath": "$.Payload",
+                "Next": "StartCrawler",
+            },
+            "StartCrawler": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+                "Parameters": {"Name": crawler_name},
+                "ResultPath": "$.crawlerResult",
+                "Next": "WasGlueSuccessful",
+            },
+            "WasGlueSuccessful": {
+                "Type": "Choice",
+                "Choices": [
+                    {
+                        "Variable": "$.logged.jobDetails.JobRunState",
+                        "StringEquals": "SUCCEEDED",
+                        "Next": "Success",
+                    }
+                ],
+                "Default": "Fail",
+            },
+            "Success": {"Type": "Succeed"},
+            "Fail": {"Type": "Fail"},
+        },
+    }
+
+
+def asl_parent(step1_sm_arn: str, step2_sm_arn: str) -> Dict[str, Any]:
+    return {
+        "StartAt": "Run Step1",
+        "States": {
+            "Run Step1": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::states:startExecution.sync:2",
+                "ResultPath": "$.step1Result",
+                "Parameters": {"Input.$": "$", "StateMachineArn": step1_sm_arn},
+                "Next": "Run Step2",
+            },
+            "Run Step2": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::states:startExecution.sync:2",
+                "ResultPath": "$.step2Result",
+                "Parameters": {"Input.$": "$", "StateMachineArn": step2_sm_arn},
+                "End": True,
+            },
+        },
+    }
+
+
+# ... ASL + naming helpers unchanged ...
 
 
 def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
@@ -252,39 +360,27 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         ),
     )
 
-       # ---- Step Functions definitions are now built in fpac_stepfunctions.py ----
     sfn_role_arn = (cfg.get("stepFunctions", {}) or {}).get("roleArn") or ""
     if not sfn_role_arn:
         raise RuntimeError("stepFunctions.roleArn is empty. (Role creation not implemented here.)")
 
-    sm_inputs = FpacStateMachineInputs(
-        validate_lambda_arn=validate_arn,
-        create_id_lambda_arn=create_id_arn,
-        log_results_lambda_arn=log_results_arn,
-        glue_step1_job_name=names.glue_step1,
-        glue_step2_job_name=names.glue_step2,
-        glue_step3_job_name=names.glue_step3,
-        crawler_name=names.crawler,
-    )
-
-    step1_def = FpacStateMachineBuilder.step1_asl(sm_inputs)
+    step1_def = asl_step1(validate_arn, create_id_arn, names.glue_step1)
     step1_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(name=names.sm_step1, role_arn=sfn_role_arn, definition=step1_def),
     )
 
-    step2_def = FpacStateMachineBuilder.step2_asl(sm_inputs)
+    step2_def = asl_step2(names.glue_step2, names.glue_step3, log_results_arn, names.crawler)
     step2_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(name=names.sm_step2, role_arn=sfn_role_arn, definition=step2_def),
     )
 
-    parent_def = FpacStateMachineBuilder.parent_asl(step1_arn, step2_arn)
+    parent_def = asl_parent(step1_arn, step2_arn)
     parent_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(name=names.sm_parent, role_arn=sfn_role_arn, definition=parent_def),
     )
-
 
     return {
         "landing_bucket": landing_bucket_name,

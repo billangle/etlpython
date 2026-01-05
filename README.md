@@ -39,6 +39,29 @@ This solution implements a **modular, Python based CI/CD deployment pipeline fra
 The structure emphasizes **separation of concerns**, **reusability**, and **least-privilege deployment practices**.
 
 ---
+## Deployment via Jenkins 
+
+The root level deployer is called via a Jenkins pipeline. This requires the following variables to be resolved:
+
+- Configuration file - defines all of the parameters for the targeted environment
+- AWS Region - AWS region
+- Project-type - this is the data pipeline that will be deployed
+
+```
+Example:
+
+python deploy.py --config config/depeast2.json --region us-east-2 --project-type fpac
+```
+
+The goal is to integrate this with BitBucket via webhooks. This will allow deployments to occur in specific environments based on the types of git actions. These can include:
+
+- Code Commits on specific branches
+- PR (pull requests) to merge specific branches
+- Feature Tags on specific branches
+
+The goal will be to automate the deployment of data pipelines, using a git branching and deployment strategy.
+
+---
 
 ## Key Features
 
@@ -65,7 +88,7 @@ config/       → Environment-specific configuration
 
 ### Step Functions–Driven Workflow Orchestration
 
-- Pipeline logic is coordinated via **AWS Step Functions**
+- Data pipeline logic is coordinated via **AWS Step Functions**
 - Workflow definitions are centralized in:
 
 ```
@@ -132,10 +155,10 @@ config/
 ### CI/CD Pipeline-Specific Deployment Entry Points
 
 - Root-level `deploy.py` for global or shared resources
-- Pipeline-specific deployment logic lives alongside the data pipeline implementation
+- CI/CD deployment pipeline-specific logic lives alongside the data pipeline implementation
 
 ```
-repo/deploy.py
+deploy/deploy.py
 projects/fpac_pipeline/deploy.py
 ```
 

@@ -7,7 +7,7 @@ This document provides an overview of the Python based deployer. The solution ut
 # Solution Structure Template
 
 ```
-repo/
+deploy/
 ├── deploy.py
 ├── common/
 │   ├── __init__.py
@@ -34,7 +34,7 @@ repo/
 
 # Overview
 
-This solution implements a **modular, Python based data pipeline framework** designed to support environment-specific deployments, reusable infrastructure components, and event-driven processing using AWS Step Functions, Lambda, and Glue.
+This solution implements a **modular, Python based CI/CD deployment pipeline framework** designed to support environment-specific deployments, reusable infrastructure components, and event-driven processing using AWS Step Functions, Lambda, and Glue.
 
 The structure emphasizes **separation of concerns**, **reusability**, and **least-privilege deployment practices**.
 
@@ -56,7 +56,7 @@ The structure emphasizes **separation of concerns**, **reusability**, and **leas
 - Each pipeline can evolve independently without impacting others
 
 ```
-common/        → Shared AWS/CDK utilities
+common/       → Shared AWS utilities
 projects/     → Independent, deployable pipelines
 config/       → Environment-specific configuration
 ```
@@ -129,10 +129,10 @@ config/
 
 ---
 
-### Pipeline-Specific Deployment Entry Points
+### CI/CD Pipeline-Specific Deployment Entry Points
 
 - Root-level `deploy.py` for global or shared resources
-- Pipeline-specific deployment logic lives alongside the pipeline
+- Pipeline-specific deployment logic lives alongside the data pipeline implementation
 
 ```
 repo/deploy.py

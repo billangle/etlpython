@@ -1,8 +1,8 @@
 {
-  "echo_ip": "10.204.59.18",
-  "echo_port": "990",
+  "echo_ip": "",
+  "echo_port": "",
   "echo_dart_path": "s_dart_cert",
-  "echo_dart_password": "E8t^@QOpuBH8VNp",
+  "echo_dart_password": "",
   "echo_dart_username": "S_DART-CERT",
   "flpidsload_cert_lambda": "FSA-CERT-DART-ECHO-FETCH",
   "flpidsrpt_cert_lambda": "FSA-CERT-DART-ECHO-FETCH",

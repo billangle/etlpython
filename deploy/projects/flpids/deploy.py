@@ -1,0 +1,106 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict
+
+
+
+import boto3
+
+from common.aws_common import (
+    ensure_bucket_exists,
+    ensure_lambda,
+    LambdaSpec,
+)
+
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class FpacNames:
+    project_name: str
+    checkfile_fn: str
+
+
+
+def build_names(deploy_env: str, project: str) -> FpacNames:
+    """
+    Centralized FPAC naming to match CDK exactly
+    """
+    project_name = f"Fpac{project.upper()}"
+    base = f"FSA-{deploy_env}-{project_name}"
+
+    return FpacNames(
+        project_name=project_name,
+        checkfile_fn=f"{base}-CheckFile",
+
+    )
+
+
+
+from typing import Any, Dict
+
+
+
+def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
+    deploy_env = cfg["deployEnv"]
+    project = cfg["project"]
+    config_data = cfg["configData"]
+    bucket_region = cfg.get("bucketRegion", region)
+
+    landing_bucket_name = cfg["strparams"]["landingBucketNameParam"]
+    clean_bucket_name = cfg["strparams"]["cleanBucketNameParam"]
+    final_bucket_name = cfg["strparams"]["finalBucketNameParam"]
+
+    glue_job_role_arn = cfg["strparams"]["glueJobRoleArnParam"]
+    etl_lambda_role_arn = cfg["strparams"]["etlRoleArnParam"]
+
+    layers = [
+        cfg["strparams"]["thirdPartyLayerArnParam"],
+        cfg["strparams"]["customLayerArnParam"],
+    ]
+
+    artifact_bucket = cfg["artifacts"]["artifactBucket"]
+    prefix = cfg["artifacts"]["prefix"].rstrip("/") + "/"
+
+    names = build_names(deploy_env, project)
+
+    # ✅ NEW: assets are located under this project directory
+    project_dir = Path(__file__).resolve().parent          # .../projects/fpac_pipeline
+    lambda_root = project_dir / "lambda"
+   
+    session = boto3.Session(region_name=region)
+    s3 = session.client("s3")
+    lam = session.client("lambda")
+  
+
+    ensure_bucket_exists(s3, artifact_bucket, region)
+
+    env_vars = {
+        "PROJECT": project,
+        "LANDING_BUCKET": landing_bucket_name,
+        "TABLE_NAME": config_data["dynamoTableName"],
+        "BUCKET_REGION": bucket_region,
+    }
+
+    # ---- Lambdas (paths now under projects/fpac_pipeline/lambda/...) ----
+    validate_arn = ensure_lambda(
+        lam,
+        LambdaSpec(
+            name=names.checkfile_fn,
+            role_arn=etl_lambda_role_arn,
+            handler="lambda_function.lambda_handler",
+            runtime="python3.12",
+            source_dir=str(lambda_root / "CheckFile"),
+            env=env_vars,
+            layers=layers,
+        ),
+    )
+
+   
+
+    return {
+        "validate_lambda_arn": validate_arn,
+     
+    }
+

@@ -1,0 +1,17 @@
+{
+  "echo_ip": "10.204.59.18",
+  "echo_port": "990",
+  "echo_dart_path": "s_dart_cert",
+  "echo_dart_password": "E8t^@QOpuBH8VNp",
+  "echo_dart_username": "S_DART-CERT",
+  "flpidsload_cert_lambda": "FSA-CERT-DART-ECHO-FETCH",
+  "flpidsrpt_cert_lambda": "FSA-CERT-DART-ECHO-FETCH",
+  "flpidscaorpt_cert_lambda": "FSA-CERT-DART-ECHO-FETCH",
+  "flpidscaorpt_congdist_cert_lambda": "FSA-CERT-DART-ECHO-FETCH",
+  "flpidscaorpt_organization_cert_lambda": "FSA-CERT-DART-ECHO-FETCH",
+  "flpidsgoalrpt_cert_lambda": "FSA-CERT-DART-ECHO-FETCH",
+  "flpidsofcrpt_cert_lambda": "FSA-CERT-DART-ECHO-FETCH",
+  "flpidsscims_cert_lambda": "FSA-CERT-DART-ECHO-FETCH",
+  "flpidsnats_cert_lambda": "FSA-CERT-DART-ECHO-FETCH",
+  "mssql_flpids_ip": "199.134.88.16   \t\t"
+}

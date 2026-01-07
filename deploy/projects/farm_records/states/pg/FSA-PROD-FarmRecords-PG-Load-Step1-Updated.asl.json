@@ -1,0 +1,413 @@
+{
+  "Comment": "FSA-PROD-FarmRecords-PG-Load-Step1",
+  "StartAt": "Get Job ID from S3",
+  "States": {
+    "Get Job ID from S3": {
+      "Type": "Task",
+      "Parameters": {
+        "Bucket": "c108-prod-fpacfsa-landing-zone",
+        "Key": "farm_records/IncrementalLoad/RAW_SAP_TEXT_FILES/job_id.json"
+      },
+      "Resource": "arn:aws:states:::aws-sdk:s3:getObject",
+      "Next": "Group 1",
+      "ResultSelector": {
+        "JobId.$": "States.StringToJson($.Body)"
+      }
+    },
+    "Group 1": {
+      "Type": "Parallel",
+      "Next": "Group 2",
+      "Branches": [
+        {
+          "StartAt": "crop",
+          "States": {
+            "crop": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--edv_table_name": "crop",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail crop"
+                }
+              ],
+              "End": true
+            },
+            "Fail crop": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "county_office_control",
+          "States": {
+            "county_office_control": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--edv_table_name": "county_office_control",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail county_office_control"
+                }
+              ],
+              "End": true
+            },
+            "Fail county_office_control": {
+              "Type": "Fail"
+            }
+          }
+        }
+      ]
+    },
+    "Group 2": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "farm",
+          "States": {
+            "farm": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--edv_table_name": "farm",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail farm"
+                }
+              ]
+            },
+            "Fail farm": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "tract",
+          "States": {
+            "tract": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--edv_table_name": "tract",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail tract"
+                }
+              ]
+            },
+            "Fail tract": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "irrigation_county_crop",
+          "States": {
+            "irrigation_county_crop": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--edv_table_name": "irrigation_county_crop",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail irrigation_county_crop"
+                }
+              ]
+            },
+            "Fail irrigation_county_crop": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "reconstitution",
+          "States": {
+            "reconstitution": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--edv_table_name": "reconstitution",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail reconstitution"
+                }
+              ]
+            },
+            "Fail reconstitution": {
+              "Type": "Fail"
+            }
+          }
+        }
+      ],
+      "Next": "Group 3",
+      "ResultPath": "$.ParallelOut"
+    },
+    "Group 3": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "common_land_unit",
+          "States": {
+            "common_land_unit": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--edv_table_name": "common_land_unit",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail common_land_unit"
+                }
+              ]
+            },
+            "Fail common_land_unit": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "farm_reconstitution",
+          "States": {
+            "farm_reconstitution": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--edv_table_name": "farm_reconstitution",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail farm_reconstitution"
+                }
+              ]
+            },
+            "Fail farm_reconstitution": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "farm_year",
+          "States": {
+            "farm_year": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--edv_table_name": "farm_year",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail farm_year"
+                }
+              ]
+            },
+            "Fail farm_year": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "reconstitution_crop",
+          "States": {
+            "reconstitution_crop": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--edv_table_name": "reconstitution_crop",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail reconstitution_crop"
+                }
+              ]
+            },
+            "Fail reconstitution_crop": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "tract_reconstitution",
+          "States": {
+            "tract_reconstitution": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--edv_table_name": "tract_reconstitution",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail tract_reconstitution"
+                }
+              ]
+            },
+            "Fail tract_reconstitution": {
+              "Type": "Fail"
+            }
+          }
+        }
+      ],
+      "Next": "SNS Lambda",
+      "ResultPath": "$.ParallelOut"
+    },
+    "SNS Lambda": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "arn:aws:lambda:us-east-1:253490756794:function:FSA-PROD-FarmRecords-SAP-sns-publish-step-function-errors:$LATEST"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "data_ppl_job_update",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.TaskFailed"
+          ],
+          "Comment": "job failed",
+          "Next": "data_ppl_job_update",
+          "ResultPath": "$.Payload"
+        }
+      ],
+      "ResultPath": "$.Payload"
+    },
+    "data_ppl_job_update": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "arn:aws:lambda:us-east-1:253490756794:function:FSA-PROD-FarmRecords-SAP-etl-workflow-update-data-ppln-job:$LATEST"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "BackoffRate": 2,
+          "MaxAttempts": 3
+        }
+      ],
+      "End": true,
+      "ResultPath": "$.Update"
+    }
+  }
+}

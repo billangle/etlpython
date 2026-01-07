@@ -1,0 +1,113 @@
+{
+  "Comment": "FSA-PROD-FarmRecords-Step1-4",
+  "StartAt": "Get Job ID from S3",
+  "States": {
+    "Get Job ID from S3": {
+      "Type": "Task",
+      "Parameters": {
+        "Bucket": "c108-prod-fpacfsa-landing-zone",
+        "Key": "farm_records/etl-jobs/job_id.json"
+      },
+      "Resource": "arn:aws:states:::aws-sdk:s3:getObject",
+      "Next": "Parallel",
+      "ResultSelector": {
+        "JobId.$": "States.StringToJson($.Body)"
+      }
+    },
+    "Parallel": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "crop_farm_yr_dcp_ls",
+          "States": {
+            "crop_farm_yr_dcp_ls": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-STG-EDV",
+                "Arguments": {
+                  "--TableName": "crop_farm_yr_dcp_ls"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Pass"
+                }
+              ]
+            },
+            "Pass": {
+              "Type": "Pass",
+              "End": true,
+              "Result": "Error",
+              "ResultPath": "$.status"
+            }
+          }
+        },
+        {
+          "StartAt": "farm_prdr_yr_ls",
+          "States": {
+            "farm_prdr_yr_ls": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-STG-EDV",
+                "Arguments": {
+                  "--TableName": "farm_prdr_yr_ls"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Pass (1)"
+                }
+              ]
+            },
+            "Pass (1)": {
+              "Type": "Pass",
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "farm_yr_crop_irr_hist_ls",
+          "States": {
+            "farm_yr_crop_irr_hist_ls": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-STG-EDV",
+                "Arguments": {
+                  "--TableName": "farm_yr_crop_irr_hist_ls"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Pass (2)"
+                }
+              ]
+            },
+            "Pass (2)": {
+              "Type": "Pass",
+              "End": true,
+              "Result": "Error",
+              "ResultPath": "$.status"
+            }
+          }
+        }
+      ],
+      "ResultPath": "$.ParallelOut",
+      "End": true
+    }
+  }
+}

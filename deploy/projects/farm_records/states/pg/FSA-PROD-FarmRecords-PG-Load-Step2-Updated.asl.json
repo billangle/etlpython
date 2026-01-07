@@ -1,0 +1,530 @@
+{
+  "Comment": "FSA-PROD-FarmRecords-PG-Load-Step2",
+  "StartAt": "Get Job ID from S3",
+  "States": {
+    "Get Job ID from S3": {
+      "Type": "Task",
+      "Parameters": {
+        "Bucket": "c108-prod-fpacfsa-landing-zone",
+        "Key": "farm_records/IncrementalLoad/RAW_SAP_TEXT_FILES/job_id.json"
+      },
+      "Resource": "arn:aws:states:::aws-sdk:s3:getObject",
+      "Next": "Group 5",
+      "ResultSelector": {
+        "JobId.$": "States.StringToJson($.Body)"
+      }
+    },
+    "Group 5": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "farm_producer_year",
+          "States": {
+            "farm_producer_year": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "farm_producer_year",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail farm_producer_year"
+                }
+              ]
+            },
+            "Fail farm_producer_year": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "farm_year_crop_irrigation_history",
+          "States": {
+            "farm_year_crop_irrigation_history": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "farm_year_crop_irrigation_history",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail farm_year_crop_irrigation_history"
+                }
+              ]
+            },
+            "Fail farm_year_crop_irrigation_history": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "farm_year_dcp",
+          "States": {
+            "farm_year_dcp": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "farm_year_dcp",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail farm_year_dcp"
+                }
+              ]
+            },
+            "Fail farm_year_dcp": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "tract_year",
+          "States": {
+            "tract_year": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "tract_year",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail tract_year"
+                }
+              ]
+            },
+            "Fail tract_year": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "year_arc_plc_participation_election",
+          "States": {
+            "year_arc_plc_participation_election": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "year_arc_plc_participation_election",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail year_arc_plc_participation_election"
+                }
+              ]
+            },
+            "Fail year_arc_plc_participation_election": {
+              "Type": "Fail"
+            }
+          }
+        }
+      ],
+      "Next": "Group 6",
+      "ResultPath": "$.ParallelOut"
+    },
+    "Group 6": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "clu_year",
+          "States": {
+            "clu_year": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "clu_year",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail clu_year"
+                }
+              ]
+            },
+            "Fail clu_year": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "crop_farm_year_dcp",
+          "States": {
+            "crop_farm_year_dcp": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "crop_farm_year_dcp",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail crop_farm_year_dcp"
+                }
+              ]
+            },
+            "Fail crop_farm_year_dcp": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "crop_tract_contract",
+          "States": {
+            "crop_tract_contract": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "crop_tract_contract",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail crop_tract_contract"
+                }
+              ]
+            },
+            "Fail crop_tract_contract": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "tract_producer_year",
+          "States": {
+            "tract_producer_year": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "tract_producer_year",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail tract_producer_year"
+                }
+              ]
+            },
+            "Fail tract_producer_year": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "tract_year_dcp",
+          "States": {
+            "tract_year_dcp": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "tract_year_dcp",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail tract_year_dcp"
+                }
+              ]
+            },
+            "Fail tract_year_dcp": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "tract_year_wetland_violation",
+          "States": {
+            "tract_year_wetland_violation": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "tract_year_wetland_violation",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail tract_year_wetland_violation"
+                }
+              ]
+            },
+            "Fail tract_year_wetland_violation": {
+              "Type": "Fail"
+            }
+          }
+        }
+      ],
+      "Next": "Group 7",
+      "ResultPath": "$.ParallelOut"
+    },
+    "Group 7": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "clu_producer_year",
+          "States": {
+            "clu_producer_year": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "clu_producer_year",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail clu_producer_year"
+                }
+              ]
+            },
+            "Fail clu_producer_year": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "clu_year_adjustment",
+          "States": {
+            "clu_year_adjustment": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "clu_year_adjustment",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail clu_year_adjustment"
+                }
+              ]
+            },
+            "Fail clu_year_adjustment": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "crop_tract_year_dcp",
+          "States": {
+            "crop_tract_year_dcp": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "crop_tract_year_dcp",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail crop_tract_year_dcp"
+                }
+              ]
+            },
+            "Fail crop_tract_year_dcp": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "tract_year_adjustment",
+          "States": {
+            "tract_year_adjustment": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-Athena-to-PG-FRR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "tract_year_adjustment",
+                  "--run_type": "UPDATE"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Fail tract_year_adjustment"
+                }
+              ]
+            },
+            "Fail tract_year_adjustment": {
+              "Type": "Fail"
+            }
+          }
+        }
+      ],
+      "Next": "SNS Lambda",
+      "ResultPath": "$.ParallelOut"
+    },
+    "SNS Lambda": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "arn:aws:lambda:us-east-1:253490756794:function:FSA-PROD-FarmRecords-SAP-sns-publish-step-function-errors:$LATEST"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "data_ppl_job_update",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.TaskFailed"
+          ],
+          "Comment": "job failed",
+          "Next": "data_ppl_job_update",
+          "ResultPath": "$.Payload"
+        }
+      ],
+      "ResultPath": "$.Payload"
+    },
+    "data_ppl_job_update": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "arn:aws:lambda:us-east-1:253490756794:function:FSA-PROD-FarmRecords-SAP-etl-workflow-update-data-ppln-job:$LATEST"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "BackoffRate": 2,
+          "MaxAttempts": 3
+        }
+      ],
+      "End": true,
+      "ResultPath": "$.Update"
+    }
+  }
+}

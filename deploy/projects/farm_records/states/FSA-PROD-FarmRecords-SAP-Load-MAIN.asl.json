@@ -1,0 +1,63 @@
+{
+  "StartAt": "Step 1",
+  "States": {
+    "Step 1": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FarmRecords-SAP-Load-Step1",
+        "Input": {
+          "Bucket": "c108-prod-fpacfsa-landing-zone",
+          "Key": "farm_records/etl-jobs/job_id.json"
+        }
+      },
+      "Next": "Step 2",
+      "ResultPath": "$.Step1Result"
+    },
+    "Step 2": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FarmRecords-SAP-Load-Step2",
+        "Input": {
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+          "JobId.$": "$.Step1Result.Output.JobId",
+          "step_seq_nbr": "2",
+          "SfName": "FSA-PROD-FarmRecords-SAP-Load-Step2"
+        }
+      },
+      "Next": "Step 3",
+      "ResultPath": "$.Step2Result"
+    },
+    "Step 3": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FarmRecords-SAP-Load-Step3",
+        "Input": {
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+          "JobId.$": "$.Step2Result.Input.JobId",
+          "step_seq_nbr": "3",
+          "SfName": "FSA-PROD-FarmRecords-SAP-Load-Step3"
+        }
+      },
+      "Next": "Step 4",
+      "ResultPath": "$.Step3Result"
+    },
+    "Step 4": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FarmRecords-SAP-Load-Step4",
+        "Input": {
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+          "JobId.$": "$.Step3Result.Input.JobId",
+          "step_seq_nbr": "4",
+          "SfName": "FSA-PROD-FarmRecords-SAP-Load-Step4"
+        }
+      },
+      "End": true
+    }
+  },
+  "Comment": "FarmRecords-SAP Main Step Function"
+}

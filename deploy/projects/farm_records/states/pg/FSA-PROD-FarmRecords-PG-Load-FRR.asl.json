@@ -1,0 +1,55 @@
+{
+  "Comment": "A description of my state machine",
+  "StartAt": "SAP-FR-TO-PG-FRR-STEP-1-INSERT",
+  "States": {
+    "SAP-FR-TO-PG-FRR-STEP-1-INSERT": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Arguments": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FarmRecords-PG-Load-Step1-Inserts",
+        "Input": {
+          "StatePayload": "Hello from Step Functions!",
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID": "{% $states.context.Execution.Id %}"
+        }
+      },
+      "Next": "SAP-FR-TO-PG-FRR-STEP-2-INSERT"
+    },
+    "SAP-FR-TO-PG-FRR-STEP-2-INSERT": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Arguments": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FarmRecords-PG-Load-Step2-Inserts",
+        "Input": {
+          "StatePayload": "Hello from Step Functions!",
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID": "{% $states.context.Execution.Id %}"
+        }
+      },
+      "Next": "SAP-FR-TO-PG-FRR-STEP-1-UPDATE"
+    },
+    "SAP-FR-TO-PG-FRR-STEP-1-UPDATE": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Arguments": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FarmRecords-PG-Load-Step1-Updated",
+        "Input": {
+          "StatePayload": "Hello from Step Functions!",
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID": "{% $states.context.Execution.Id %}"
+        }
+      },
+      "Next": "SAP-FR-TO-PG-FRR-STEP-2-UPDATE"
+    },
+    "SAP-FR-TO-PG-FRR-STEP-2-UPDATE": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Arguments": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FarmRecords-PG-Load-Step2-Updated",
+        "Input": {
+          "StatePayload": "Hello from Step Functions!",
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID": "{% $states.context.Execution.Id %}"
+        }
+      },
+      "End": true
+    }
+  },
+  "QueryLanguage": "JSONata"
+}

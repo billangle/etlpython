@@ -1,0 +1,94 @@
+{
+  "StartAt": "FSA-PROD-FarmRecords-Step1",
+  "States": {
+    "FSA-PROD-FarmRecords-Step1": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FarmRecords-Step1",
+        "Input": {
+          "Bucket": "c108-prod-fpacfsa-landing-zone",
+          "Key": "farm_records/etl-jobs/job_id.json"
+        }
+      },
+      "Next": "FSA-PROD-FarmRecords-Step2",
+      "ResultPath": "$.Step1Result"
+    },
+    "FSA-PROD-FarmRecords-Step2": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FarmRecords-Step2-1",
+        "Input": {
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+          "JobId.$": "$.Step1Result.Output.JobId",
+          "step_seq_nbr": "2",
+          "SfName": "FSA-PROD-FarmRecords-Step2"
+        }
+      },
+      "Next": "FSA-PROD-FarmRecords-Step3",
+      "ResultPath": "$.Step2Result"
+    },
+    "FSA-PROD-FarmRecords-Step3": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FarmRecords-Step2",
+        "Input": {
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+          "JobId.$": "$.Step2Result.Output.JobId",
+          "step_seq_nbr": "3",
+          "SfName": "FSA-PROD-FarmRecords-Step3"
+        }
+      },
+      "Next": "FSA-PROD-FarmRecords-Step4",
+      "ResultPath": "$.Step2Result"
+    },
+    "FSA-PROD-FarmRecords-Step4": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FarmRecords-Step3",
+        "Input": {
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+          "JobId.$": "$.Step3Result.Input.JobId",
+          "step_seq_nbr": "4",
+          "SfName": "FSA-PROD-FarmRecords-Step4"
+        }
+      },
+      "Next": "FSA-PROD-FarmRecords-Step5",
+      "ResultPath": "$.Step3Result"
+    },
+    "FSA-PROD-FarmRecords-Step5": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FarmRecords-Step4",
+        "Input": {
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+          "JobId.$": "$.Step4Result.Input.JobId",
+          "step_seq_nbr": "5",
+          "SfName": "FSA-PROD-FarmRecords-Step5"
+        }
+      },
+      "Next": "FSA-PROD-FarmRecords-Step6",
+      "ResultPath": "$.Step4Result"
+    },
+    "FSA-PROD-FarmRecords-Step6": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FarmRecords-Step5",
+        "Input": {
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+          "JobId.$": "$.Step5Result.Input.JobId",
+          "step_seq_nbr": "6",
+          "SfName": "FSA-PROD-FarmRecords-Step6"
+        }
+      },
+      "ResultPath": "$.Step5Result",
+      "End": true
+    }
+  },
+  "Comment": "Farm Records Main Step Function"
+}

@@ -1,0 +1,216 @@
+{
+  "Comment": "FSA-PROD-FarmRecords-PG-Load-Step4",
+  "StartAt": "Get Job ID from S3",
+  "States": {
+    "Get Job ID from S3": {
+      "Type": "Task",
+      "Parameters": {
+        "Bucket": "c108-prod-fpacfsa-landing-zone",
+        "Key": "farm_records/etl-jobs/job_id.json"
+      },
+      "Resource": "arn:aws:states:::aws-sdk:s3:getObject",
+      "Next": "Group 1",
+      "ResultSelector": {
+        "JobId.$": "States.StringToJson($.Body)"
+      }
+    },
+    "Group 1": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "FARM_DIM",
+          "States": {
+            "FARM_DIM": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-EDV-s3Parquet-INCR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "FARM_DIM"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Pass"
+                }
+              ]
+            },
+            "Pass": {
+              "Type": "Pass",
+              "End": true,
+              "Result": "Error",
+              "ResultPath": "$.status"
+            }
+          }
+        },
+        {
+          "StartAt": "TR_DIM",
+          "States": {
+            "TR_DIM": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-EDV-s3Parquet-INCR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "TR_DIM"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Pass (1)"
+                }
+              ]
+            },
+            "Pass (1)": {
+              "Type": "Pass",
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "FLD_YR_DIM",
+          "States": {
+            "FLD_YR_DIM": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-EDV-s3Parquet-INCR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "FLD_YR_DIM"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Pass (2)"
+                }
+              ]
+            },
+            "Pass (2)": {
+              "Type": "Pass",
+              "End": true,
+              "Result": "Error",
+              "ResultPath": "$.status"
+            }
+          }
+        }
+      ],
+      "Next": "Parallel (1)",
+      "ResultPath": "$.ParallelOut"
+    },
+    "Parallel (1)": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "FARM_DIM_Job2",
+          "States": {
+            "FARM_DIM_Job2": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-s3Parquet-DM-INCR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "FARM_DIM"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Pass (3)"
+                }
+              ]
+            },
+            "Pass (3)": {
+              "Type": "Pass",
+              "End": true,
+              "Result": "Error",
+              "ResultPath": "$.status"
+            }
+          }
+        },
+        {
+          "StartAt": "TR_DIM_Job2",
+          "States": {
+            "TR_DIM_Job2": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-s3Parquet-DM-INCR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "TR_DIM"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Pass (4)"
+                }
+              ]
+            },
+            "Pass (4)": {
+              "Type": "Pass",
+              "End": true,
+              "Result": "Error",
+              "ResultPath": "$.status"
+            }
+          }
+        },
+        {
+          "StartAt": "FLD_YR_DIM_Job2",
+          "States": {
+            "FLD_YR_DIM_Job2": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-PROD-FarmRecords-s3Parquet-DM-INCR",
+                "Arguments": {
+                  "--JobId.$": "$.JobId",
+                  "--TableName": "FLD_YR_DIM"
+                }
+              },
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Pass (5)"
+                }
+              ]
+            },
+            "Pass (5)": {
+              "Type": "Pass",
+              "End": true,
+              "Result": "Error",
+              "ResultPath": "$.status"
+            }
+          }
+        }
+      ],
+      "ResultPath": "$.ParallelOut",
+      "End": true
+    }
+  }
+}

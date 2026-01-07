@@ -1,0 +1,49 @@
+{
+  "StartAt": "FSA-PROD-FarmRecords-SAP-Load-MAIN",
+  "States": {
+    "FSA-PROD-FarmRecords-SAP-Load-MAIN": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FarmRecords-SAP-Load-MAIN",
+        "Input": {
+          "Bucket": "c108-prod-fpacfsa-landing-zone",
+          "Key": "farm_records/etl-jobs/job_id.json"
+        }
+      },
+      "Next": "FSA-PROD-FarmRecords-Postgres-Main",
+      "ResultPath": "$.Step1Result"
+    },
+    "FSA-PROD-FarmRecords-Postgres-Main": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FarmRecords-Postgres-Main",
+        "Input": {
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+          "JobId.$": "$.Step1Result.Output.JobId",
+          "step_seq_nbr": "2",
+          "SfName": "FSA-PROD-FarmRecords-Postgres-Main"
+        }
+      },
+      "Next": "FSA-PROD-FarmRecords-DM-Main",
+      "ResultPath": "$.Step2Result"
+    },
+    "FSA-PROD-FarmRecords-DM-Main": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FarmRecords-DM-Main",
+        "Input": {
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+          "JobId.$": "$.Step1Result.Output.JobId",
+          "step_seq_nbr": "2",
+          "SfName": "FSA-PROD-FarmRecords-DM-Main"
+        }
+      },
+      "ResultPath": "$.Step3Result",
+      "End": true
+    }
+  },
+  "Comment": "Farm Records Main Step Function"
+}

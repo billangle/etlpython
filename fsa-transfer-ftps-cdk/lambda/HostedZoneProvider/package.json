@@ -1,0 +1,8 @@
+{
+  "name": "hosted-zone-provider",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-route-53": "^3.758.0"
+  }
+}

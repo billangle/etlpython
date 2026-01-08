@@ -1,0 +1,8 @@
+{
+  "name": "transfer-health-check",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-cloudwatch": "^3.758.0"
+  }
+}

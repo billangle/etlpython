@@ -4,13 +4,14 @@ import argparse
 from common.aws_common import read_json
 from projects.fpac_pipeline.deploy import deploy as fpac_deploy
 from projects.farm_records.deploy import deploy as farm_rec_deploy
+from projects.flpids.deploy import deploy as flpids_deploy
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
     ap.add_argument("--region", required=True)
-    ap.add_argument("--project-type", default="fpac", choices=["fpac","farmrec"])
+    ap.add_argument("--project-type", default="fpac", choices=["fpac","farmrec","flpids"])
     args = ap.parse_args()
 
     cfg = read_json(args.config)
@@ -19,6 +20,8 @@ def main() -> int:
         summary = fpac_deploy(cfg, args.region)
     elif args.project_type == "farmrec":
         summary = farm_rec_deploy(cfg, args.region)
+    elif args.project_type == "flpids":
+        summary = flpids_deploy(cfg, args.region)
     else:
         raise RuntimeError(f"Unknown project-type: {args.project_type}")
 

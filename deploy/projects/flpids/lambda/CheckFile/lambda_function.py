@@ -7,16 +7,19 @@ import boto3
 from ftps_client import iFTP_TLS
 
 
-def fetch_secret(secret_id: str, secret_key: str) -> dict:
-    """
-    Matches your current secret access approach:
-      secrets = client.get_secret_value(SecretId=secret_id)
-      return json.loads(secrets[secret_key])
-    Adjust only if your SecretsManager value shape differs.
-    """
+def fetch_secret(secret_id: str) -> dict:
     client = boto3.client("secretsmanager")
-    secrets = client.get_secret_value(SecretId=secret_id)
-    return json.loads(secrets[secret_key])
+    resp = client.get_secret_value(SecretId=secret_id)
+
+    if "SecretString" in resp and resp["SecretString"]:
+        return json.loads(resp["SecretString"])
+
+    # if stored as binary
+    if "SecretBinary" in resp and resp["SecretBinary"]:
+        import base64
+        return json.loads(base64.b64decode(resp["SecretBinary"]).decode("utf-8"))
+
+    raise RuntimeError(f"Secret {secret_id} had no SecretString/SecretBinary")
 
 
 def http_post_json(url: str, payload: dict, timeout_seconds: int = 10) -> dict:
@@ -76,17 +79,18 @@ def lambda_handler(event, context):
     timeout_seconds = int(event.get("jenkins_timeout_seconds", 10))
 
     # Secrets
-    secret_id = os.environ["SecretId"]
-    secret_key = os.environ["SecretKey"]
-    secret = fetch_secret(secret_id=secret_id, secret_key=secret_key)
+    secret_id = event.get("secret_id")
+    secret = fetch_secret(secret_id)   # using the corrected fetch_secret above
+
 
     echo_connection = {
         "host": secret["echo_ip"],
-        "port": 990,
+        "port": int(str(secret["echo_port"]).strip()),
         "username": secret["echo_dart_username"],
         "password": secret["echo_dart_password"],
         "log_level": 0,
     }
+
 
     echo_path = "/{root}/{folder}/in/{subfolder}".format(
         root=secret["echo_dart_path"],

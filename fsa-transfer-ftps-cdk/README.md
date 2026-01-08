@@ -25,8 +25,6 @@ Example:
 
 ```bash
 npx cdk deploy \
-  -c ftpsDomainName=ftps.yourdomain.com \
-  -c hostedZoneDomain=yourdomain.com
 ```
 
 ## Lambda dependencies
@@ -36,6 +34,8 @@ Install lambda deps before deploy:
 ```bash
 cd lambda/TransferIdp && npm install --omit=dev && cd ../..
 cd lambda/SftpHealthCheck && npm install --omit=dev && cd ../..
+cd lambda/HostedZoneProvider && npm install --omit=dev && cd ../..
+cd lambda/SecretsProvider && npm install --omit=dev && cd ../..
 ```
 
 `lambda/JenkinsWebHook` has no deps.
@@ -45,7 +45,7 @@ cd lambda/SftpHealthCheck && npm install --omit=dev && cd ../..
 ```bash
 npm install
 npx cdk bootstrap
-npx cdk deploy -c ftpsDomainName=ftps.yourdomain.com -c hostedZoneDomain=yourdomain.com
+npx cdk deploy
 ```
 
 ## Outputs
@@ -64,3 +64,12 @@ npx cdk deploy -c ftpsDomainName=ftps.yourdomain.com -c hostedZoneDomain=yourdom
 - Host: `FtpsHostname` (recommended) or `FtpsPublicIp`
 - Port: `21`
 - Mode: Passive
+
+## DNS delegation (required for public reachability)
+
+
+This stack **creates** the Route53 public hosted zone for `hostedZoneDomain` and outputs the zone name servers.
+For `ftpsDomainName` to resolve publicly and for ACM validation to complete, you must delegate the domain at its registrar
+to these Route53 name servers.
+
+If your domain is already hosted in Route53 in a different account, either deploy in that account or delegate appropriately.

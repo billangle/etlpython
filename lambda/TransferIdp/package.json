@@ -1,0 +1,8 @@
+{
+  "name": "transfer-idp",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.758.0"
+  }
+}

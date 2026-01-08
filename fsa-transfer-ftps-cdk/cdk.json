@@ -1,0 +1,12 @@
+{
+  "app": "npx ts-node --prefer-ts-exts bin/app.ts",
+  "context": {
+    "deployEnv": "CERT",
+    "projectName": "DART-ECHO-FETCH",
+    "homePrefix": "s_dart_cert",
+    "transferUserName": "S_DART-CERT",
+    "transferUserPassword": "MyDartTest",
+    "passivePortStart": 8192,
+    "passivePortEnd": 8200,    "hostedZoneDomain": "example.com"
+  }
+}

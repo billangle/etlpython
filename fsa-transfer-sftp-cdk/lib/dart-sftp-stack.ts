@@ -238,10 +238,40 @@ const fsaSecretJson =
       alarmDescription: "SFTP health check failed (TCP connect to port 22) for 2 consecutive periods."
     });
 
+
+    //************** NWE API Gateway for JenkinsWebHook */
+
+    const jenkinsWebHookFn = new lambda.Function(this, "JenkinsWebHook", {
+      functionName: "JenkinsWebHook",
+      runtime: lambda.Runtime.NODEJS_22_X,
+      handler: "index.handler",
+      code: lambda.Code.fromAsset(path.join(__dirname, "..", "lambda", "JenkinsWebHook")),
+      timeout: cdk.Duration.seconds(10),
+    });
+
+    const webhookApi = new apigw.RestApi(this, "JenkinsWebHookApi", {
+      restApiName: "JenkinsWebHookApi",
+      deployOptions: { stageName: "prod" },
+    });
+
+    const jenkins = webhookApi.root.addResource("jenkins-webhook");
+    jenkins.addMethod("POST", new apigw.LambdaIntegration(jenkinsWebHookFn), {
+      authorizationType: apigw.AuthorizationType.NONE,
+      apiKeyRequired: false,
+    });
+
+
+
+
     // ---- Outputs ----
     new cdk.CfnOutput(this, "SftpEndpoint", { value: sftpDnsName });
     new cdk.CfnOutput(this, "SftpPort", { value: "22" });
     new cdk.CfnOutput(this, "SftpBucket", { value: sftpBucket.bucketName });
     new cdk.CfnOutput(this, "SftpHomePrefix", { value: HOME_PREFIX });
+
+    new cdk.CfnOutput(this, "JenkinsWebHookUrl", {
+        value: `${webhookApi.url}jenkins-webhook`,
+    });
+
   }
 }

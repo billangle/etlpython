@@ -20,6 +20,7 @@ from dataclasses import dataclass
 class FpacNames:
     project_name: str
     checkfile_fn: str
+    filechecker2_fn: str
 
 
 
@@ -33,6 +34,7 @@ def build_names(deploy_env: str, project: str) -> FpacNames:
     return FpacNames(
         project_name=project_name,
         checkfile_fn=f"{base}-CheckFile",
+        filechecker2_fn=f"{base}-FileChecker2",
 
     )
 
@@ -97,7 +99,19 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         ),
     )
 
-   
+    validate_arn = ensure_lambda(
+        lam,
+        LambdaSpec(
+            name=names.filechecker2_fn,
+            role_arn=etl_lambda_role_arn,
+            handler="lambda_function.lambda_handler",
+            runtime="python3.12",
+            source_dir=str(lambda_root / "FileChecker2"),
+            env=env_vars,
+            layers=layers,
+        ),
+    )
+
 
     return {
         "validate_lambda_arn": validate_arn,

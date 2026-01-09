@@ -198,8 +198,21 @@ def lambda_handler(event, context):
     jenkins_timeout_seconds = int(event.get("jenkins_timeout_seconds", 10))
     curl_timeout_seconds = int(event.get("curl_timeout_seconds", 30))
 
-    ftps_mode = (event.get("ftps_mode") or "explicit").lower().strip()
-    ftps_port = int(event.get("ftps_port") or (990 if ftps_mode == "implicit" else 21))
+    ftps_port = event.get("ftps_port")
+
+    if ftps_port is None:
+        raise ValueError("Missing required 'ftps_port' (must be 21 or 990)")
+
+    ftps_port = int(ftps_port)
+
+    if ftps_port == 21:
+        ftps_mode = "explicit"
+    elif ftps_port == 990:
+        ftps_mode = "implicit"
+    else:
+        raise ValueError(f"Unsupported ftps_port {ftps_port}. Only 21 or 990 are allowed.")
+
+    print(f"FTPS configuration resolved from port: port={ftps_port}, mode={ftps_mode}")
 
     # Secrets
     secret = fetch_secret(secret_id)

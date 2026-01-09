@@ -1,6 +1,6 @@
 {
   "deployEnv": "dev",
-  "project": "flpidschkr",
+  "project": "flpidschk",
   "region": "us-east-1",
   "bucketRegion": "us-east-1",
 
@@ -24,8 +24,8 @@
     "finalBucketNameParam": "c108-dev-fpacfsa-final-zone",
     "glueJobRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-servicerole-glue",
     "etlRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-lambda",
-    "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-2:241533156429:layer:fpacfsa-thirdparty:1",
-    "customLayerArnParam": "arn:aws:lambda:us-east-2:241533156429:layer:fpacfsa-custom:1"
+    "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:FSA-DEV-MDART-layer:5",
+    "customLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:FSA-polars:2"
   },
   "paths": {
     "glueRootPath": "../src/glue/",
@@ -34,7 +34,7 @@
 
   "artifacts": {
     "artifactBucket": "fsa-dev-ops",
-    "prefix": "flpidschkr/"
+    "prefix": "flpidschk/"
   },
 
   "stepFunctions": {

@@ -1,10 +1,9 @@
-import os
 import json
+import re
+import subprocess
 import urllib.request
 import urllib.error
 import boto3
-
-from ftps_client import iFTP_TLS
 
 
 def fetch_secret(secret_id: str) -> dict:
@@ -14,7 +13,6 @@ def fetch_secret(secret_id: str) -> dict:
     if "SecretString" in resp and resp["SecretString"]:
         return json.loads(resp["SecretString"])
 
-    # if stored as binary
     if "SecretBinary" in resp and resp["SecretBinary"]:
         import base64
         return json.loads(base64.b64decode(resp["SecretBinary"]).decode("utf-8"))
@@ -45,26 +43,145 @@ def http_post_json(url: str, payload: dict, timeout_seconds: int = 10) -> dict:
         return {"ok": False, "status": None, "error": str(e), "response_body": ""}
 
 
+def _run(cmd: list[str], timeout: int = 30) -> tuple[int, str, str]:
+    p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    return p.returncode, p.stdout, p.stderr
+
+
+def _curl_url(host: str, port: int, mode: str, path: str) -> str:
+    """
+    Build a URL that works with curl builds that do NOT support ftpes://.
+      - explicit FTPS (AUTH TLS): use ftp:// + --ssl-reqd
+      - implicit FTPS (TLS on connect): use ftps://
+    """
+    if not path.startswith("/"):
+        path = "/" + path
+
+    mode = (mode or "explicit").lower().strip()
+    scheme = "ftps" if mode == "implicit" else "ftp"
+    return f"{scheme}://{host}:{port}{path}"
+
+
+def curl_list_files(
+    host: str,
+    port: int,
+    username: str,
+    password: str,
+    mode: str,
+    remote_dir: str,
+    timeout: int = 30,
+) -> list[str]:
+    """
+    Directory listing using curl.
+    - Explicit FTPS: ftp://... with --ssl-reqd
+    - Implicit FTPS: ftps://...
+    """
+    if not remote_dir.endswith("/"):
+        remote_dir = remote_dir + "/"
+
+    url = _curl_url(host, port, mode, remote_dir)
+
+    cmd = [
+        "curl",
+        "--silent",
+        "--show-error",
+        "--fail",
+        "--list-only",
+        "--user", f"{username}:{password}",
+        "--ssl-reqd",
+        "--ftp-pasv",
+        "--tlsv1.2",
+        url,
+    ]
+
+    rc, out, err = _run(cmd, timeout=timeout)
+    if rc != 0:
+        raise RuntimeError(f"curl list failed rc={rc}: {err.strip() or out.strip()}")
+
+    return [line.strip() for line in out.splitlines() if line.strip()]
+
+
+def curl_file_size(
+    host: str,
+    port: int,
+    username: str,
+    password: str,
+    mode: str,
+    remote_path: str,
+    timeout: int = 30,
+) -> int:
+    """
+    Best-effort file size check using curl.
+      1) Try --head and parse Content-Length
+      2) Fallback: request first byte (range 0-0); if succeeds, size >= 1
+    """
+    url = _curl_url(host, port, mode, remote_path)
+
+    cmd_head = [
+        "curl",
+        "--silent",
+        "--show-error",
+        "--fail",
+        "--head",
+        "--user", f"{username}:{password}",
+        "--ssl-reqd",
+        "--ftp-pasv",
+        "--tlsv1.2",
+        url,
+    ]
+
+    rc, out, err = _run(cmd_head, timeout=timeout)
+    if rc == 0:
+        m = re.search(r"(?im)^Content-Length:\s*(\d+)\s*$", out)
+        if m:
+            return int(m.group(1))
+
+    cmd_range = [
+        "curl",
+        "--silent",
+        "--show-error",
+        "--fail",
+        "--user", f"{username}:{password}",
+        "--ssl-reqd",
+        "--ftp-pasv",
+        "--tlsv1.2",
+        "--range", "0-0",
+        url,
+    ]
+
+    rc, out, err = _run(cmd_range, timeout=timeout)
+    if rc != 0:
+        raise RuntimeError(f"curl size check failed rc={rc}: {err.strip() or out.strip()}")
+
+    return 1
+
+
 def lambda_handler(event, context):
     """
     Required event fields:
       - file_pattern: regex with >=1 capture group (group1=target, group2 optional date)
       - echo_folder: e.g. "plas", "gls", "nats"
-      - pipeline, step: passed through to webhook payload (for traceability)
       - jenkins_url: webhook URL to call when a matching non-empty file is found
+      - secret_id: Secrets Manager secret id/name that contains echo_* keys
+
+    FTPS selection:
+      - ftps_mode: "implicit" or "explicit" (default: "explicit")
+      - ftps_port: default 990 for implicit, 21 for explicit (override if needed)
 
     Optional:
       - echo_subfolder: default ""
-      - targets: [] filter by target group values
+      - targets: [] filter by group(1) values (case-insensitive)
       - min_size_bytes: default 1 (means >0)
       - jenkins_timeout_seconds: default 10
-      - header, to_queue: accepted and passed through (not used in check logic)
+      - curl_timeout_seconds: default 30
+      - header, to_queue, pipeline, step: passed through for traceability
     """
     print("Input event:", json.dumps(event))
 
     file_pattern = event.get("file_pattern")
     echo_folder = event.get("echo_folder")
     jenkins_url = event.get("jenkins_url")
+    secret_id = event.get("secret_id")
 
     if not file_pattern:
         return {"statusCode": 400, "body": json.dumps({"error": "Missing required 'file_pattern'."})}
@@ -72,25 +189,24 @@ def lambda_handler(event, context):
         return {"statusCode": 400, "body": json.dumps({"error": "Missing required 'echo_folder'."})}
     if not jenkins_url:
         return {"statusCode": 400, "body": json.dumps({"error": "Missing required 'jenkins_url'."})}
+    if not secret_id:
+        return {"statusCode": 400, "body": json.dumps({"error": "Missing required 'secret_id'."})}
 
     echo_subfolder = event.get("echo_subfolder", "") or ""
     targets = event.get("targets", []) or []
     min_size_bytes = int(event.get("min_size_bytes", 1))
-    timeout_seconds = int(event.get("jenkins_timeout_seconds", 10))
+    jenkins_timeout_seconds = int(event.get("jenkins_timeout_seconds", 10))
+    curl_timeout_seconds = int(event.get("curl_timeout_seconds", 30))
+
+    ftps_mode = (event.get("ftps_mode") or "explicit").lower().strip()
+    ftps_port = int(event.get("ftps_port") or (990 if ftps_mode == "implicit" else 21))
 
     # Secrets
-    secret_id = event.get("secret_id")
-    secret = fetch_secret(secret_id)   # using the corrected fetch_secret above
+    secret = fetch_secret(secret_id)
 
-
-    echo_connection = {
-        "host": secret["echo_ip"],
-        "port": int(str(secret["echo_port"]).strip()),
-        "username": secret["echo_dart_username"],
-        "password": secret["echo_dart_password"],
-        "log_level": 0,
-    }
-
+    host = secret["echo_ip"]
+    username = secret["echo_dart_username"]
+    password = secret["echo_dart_password"]
 
     echo_path = "/{root}/{folder}/in/{subfolder}".format(
         root=secret["echo_dart_path"],
@@ -98,38 +214,71 @@ def lambda_handler(event, context):
         subfolder=echo_subfolder,
     ).rstrip("/")
 
-    print({"echo_path": echo_path, "targets": targets, "min_size_bytes": min_size_bytes})
+    print(
+        json.dumps(
+            {
+                "host": host,
+                "ftps_mode": ftps_mode,
+                "ftps_port": ftps_port,
+                "echo_path": echo_path,
+                "targets": targets,
+                "min_size_bytes": min_size_bytes,
+                "file_pattern": file_pattern,
+            }
+        )
+    )
 
-    # List / filter / match
-    with iFTP_TLS(timeout=10) as ftps:
-        ftps.make_connection(**echo_connection)
-        ftps.cwd(echo_path)
+    # 1) list directory
+    filenames = curl_list_files(
+        host=host,
+        port=ftps_port,
+        username=username,
+        password=password,
+        mode=ftps_mode,
+        remote_dir=echo_path,
+        timeout=curl_timeout_seconds,
+    )
 
-        # filter_entries supports your patterns:
-        # - group(1)=target
-        # - group(2) optional: YYYYMMDD or YYYYMMDDHHMMSS
-        files_df = ftps.filter_entries(file_pattern=file_pattern, path="", targets=targets)
-        files = files_df.rows(named=True) if files_df.height > 0 else []
+    # 2) regex match + target filter
+    compiled = re.compile(file_pattern, re.I)
+    targets_lc = [t.lower() for t in targets] if targets else None
 
-    found_files = [f for f in files if int(f.get("content_length", 0)) >= min_size_bytes]
+    matched = []
+    for name in filenames:
+        m = compiled.search(name)
+        if not m or not m.lastindex or m.lastindex < 1:
+            continue
+
+        target = m.group(1).lower()
+        if targets_lc and target not in targets_lc:
+            continue
+
+        matched.append({"name": name, "target": target})
+
+    # 3) size check
+    found = []
+    for f in matched:
+        remote_file_path = f"{echo_path}/{f['name']}"
+        size = curl_file_size(
+            host=host,
+            port=ftps_port,
+            username=username,
+            password=password,
+            mode=ftps_mode,
+            remote_path=remote_file_path,
+            timeout=curl_timeout_seconds,
+        )
+
+        if size >= min_size_bytes:
+            found.append({**f, "content_length": int(size), "remote_path": remote_file_path})
 
     result = {
-        "found": bool(found_files),
+        "found": bool(found),
         "checked_path": echo_path,
         "file_pattern": file_pattern,
         "targets": targets,
         "min_size_bytes": min_size_bytes,
-        "matches": [
-            {
-                "name": f.get("name"),
-                "content_length": int(f.get("content_length", 0)),
-                "last_modified": str(f.get("last_modified")),
-                "target": f.get("target"),
-                "system_date": str(f.get("system_date")),
-            }
-            for f in found_files
-        ],
-        # passthrough fields (handy for traceability / routing)
+        "matches": found,
         "pipeline": event.get("pipeline"),
         "step": event.get("step"),
         "echo_folder": echo_folder,
@@ -140,10 +289,10 @@ def lambda_handler(event, context):
 
     print("Check result:", json.dumps(result))
 
-    if not found_files:
+    if not found:
         return {"statusCode": 200, "body": json.dumps(result)}
 
-    # Trigger Jenkins webhook
+    # 4) Trigger Jenkins webhook
     jenkins_payload = {
         "source": "ftps_file_check_lambda",
         "aws_request_id": getattr(context, "aws_request_id", None),
@@ -152,7 +301,7 @@ def lambda_handler(event, context):
         **result,
     }
 
-    jenkins_resp = http_post_json(jenkins_url, jenkins_payload, timeout_seconds=timeout_seconds)
+    jenkins_resp = http_post_json(jenkins_url, jenkins_payload, timeout_seconds=jenkins_timeout_seconds)
     result["jenkins_call"] = {
         "url": jenkins_url,
         "ok": jenkins_resp["ok"],

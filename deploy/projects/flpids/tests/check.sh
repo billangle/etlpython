@@ -12,6 +12,8 @@ aws lambda invoke \
     "step": "FLPIDS_ODS Landing Zone",
     "header": false,
     "jenkins_url": "https://u9b0bk5pxi.execute-api.us-east-1.amazonaws.com/prod/jenkins-webhook",
-    "secret_id": "FSA-CERT-Secrets"
+    "secret_id": "FSA-CERT-Secrets",
+    "ftps_mode": "explicit",
+    "ftps_port": 21
   }' \
   response.json

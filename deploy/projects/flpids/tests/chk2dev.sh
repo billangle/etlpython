@@ -13,7 +13,7 @@ aws lambda invoke \
     "header": false,
     "jenkins_url": "https://u9b0bk5pxi.execute-api.us-east-1.amazonaws.com/prod/jenkins-webhook",
     "secret_id": "FSA-CERT-Secrets",
-    "ftps_mode": "explicit",
+    "ftps_mode": "implicit",
     "ftps_port": 990
   }' \
   response.json

@@ -5,9 +5,12 @@ import urllib.request
 import urllib.error
 import boto3
 
-# Only needed for implicit mode:
 from ftps_client import iFTP_TLS
 
+
+# -------------------------
+# Helpers
+# -------------------------
 
 def fetch_secret(secret_id: str) -> dict:
     client = boto3.client("secretsmanager")
@@ -48,30 +51,30 @@ def _run(cmd: list[str], timeout: int = 30) -> tuple[int, str, str]:
     return p.returncode, p.stdout, p.stderr
 
 
-def _curl_url_explicit(host: str, port: int, path: str) -> str:
-    """
-    Explicit FTPS in your Lambda curl build:
-      - use ftp:// + --ssl-reqd
-      - DO NOT use ftpes:// (not supported)
-    """
+def compute_echo_path(secret: dict, echo_folder: str, echo_subfolder: str) -> str:
+    return "/{root}/{folder}/in/{subfolder}".format(
+        root=secret["echo_dart_path"],
+        folder=echo_folder,
+        subfolder=echo_subfolder or "",
+    ).rstrip("/")
+
+
+# -------------------------
+# Transport: Port 21 (explicit via curl)
+# -------------------------
+
+def _curl_url_port21(host: str, port: int, path: str) -> str:
+    # Explicit FTPS uses ftp:// + --ssl-reqd
     if not path.startswith("/"):
         path = "/" + path
     return f"ftp://{host}:{port}{path}"
 
 
-def curl_list_files_explicit(
-    host: str,
-    port: int,
-    username: str,
-    password: str,
-    remote_dir: str,
-    timeout: int = 30,
-) -> list[str]:
+def curl_list_files_port21(host: str, port: int, username: str, password: str, remote_dir: str, timeout: int = 30) -> list[str]:
     if not remote_dir.endswith("/"):
-        remote_dir = remote_dir + "/"
+        remote_dir += "/"
 
-    url = _curl_url_explicit(host, port, remote_dir)
-
+    url = _curl_url_port21(host, port, remote_dir)
     cmd = [
         "curl",
         "--silent",
@@ -79,33 +82,24 @@ def curl_list_files_explicit(
         "--fail",
         "--list-only",
         "--user", f"{username}:{password}",
-        "--ssl-reqd",
+        "--ssl-reqd",     # require TLS (explicit AUTH TLS)
         "--ftp-pasv",
         "--tlsv1.2",
         url,
     ]
-
     rc, out, err = _run(cmd, timeout=timeout)
     if rc != 0:
-        raise RuntimeError(f"curl(explicit) list failed rc={rc}: {err.strip() or out.strip()}")
-
+        raise RuntimeError(f"curl(list) failed rc={rc}: {err.strip() or out.strip()}")
     return [line.strip() for line in out.splitlines() if line.strip()]
 
 
-def curl_file_size_explicit(
-    host: str,
-    port: int,
-    username: str,
-    password: str,
-    remote_path: str,
-    timeout: int = 30,
-) -> int:
+def curl_file_size_port21(host: str, port: int, username: str, password: str, remote_path: str, timeout: int = 30) -> int:
     """
-    Best-effort file size for explicit FTPS using curl:
-      1) Try HEAD and parse Content-Length
-      2) Fallback: range 0-0 (if succeeds => size >= 1)
+    Best effort:
+      1) HEAD -> Content-Length
+      2) fallback range 0-0 -> if success, size >= 1
     """
-    url = _curl_url_explicit(host, port, remote_path)
+    url = _curl_url_port21(host, port, remote_path)
 
     cmd_head = [
         "curl",
@@ -139,20 +133,11 @@ def curl_file_size_explicit(
     ]
     rc, out, err = _run(cmd_range, timeout=timeout)
     if rc != 0:
-        raise RuntimeError(f"curl(explicit) size check failed rc={rc}: {err.strip() or out.strip()}")
-
+        raise RuntimeError(f"curl(size) failed rc={rc}: {err.strip() or out.strip()}")
     return 1
 
 
-def compute_echo_path(secret: dict, echo_folder: str, echo_subfolder: str) -> str:
-    return "/{root}/{folder}/in/{subfolder}".format(
-        root=secret["echo_dart_path"],
-        folder=echo_folder,
-        subfolder=echo_subfolder or "",
-    ).rstrip("/")
-
-
-def list_and_size_explicit(
+def list_and_size_port21(
     host: str,
     port: int,
     username: str,
@@ -163,13 +148,8 @@ def list_and_size_explicit(
     min_size_bytes: int,
     curl_timeout_seconds: int,
 ) -> list[dict]:
-    filenames = curl_list_files_explicit(
-        host=host,
-        port=port,
-        username=username,
-        password=password,
-        remote_dir=echo_path,
-        timeout=curl_timeout_seconds,
+    filenames = curl_list_files_port21(
+        host=host, port=port, username=username, password=password, remote_dir=echo_path, timeout=curl_timeout_seconds
     )
 
     compiled = re.compile(file_pattern, re.I)
@@ -180,23 +160,16 @@ def list_and_size_explicit(
         m = compiled.search(name)
         if not m or not m.lastindex or m.lastindex < 1:
             continue
-
         target = m.group(1).lower()
         if targets_lc and target not in targets_lc:
             continue
-
         matched.append({"name": name, "target": target})
 
     found = []
     for f in matched:
         remote_file_path = f"{echo_path}/{f['name']}"
-        size = curl_file_size_explicit(
-            host=host,
-            port=port,
-            username=username,
-            password=password,
-            remote_path=remote_file_path,
-            timeout=curl_timeout_seconds,
+        size = curl_file_size_port21(
+            host=host, port=port, username=username, password=password, remote_path=remote_file_path, timeout=curl_timeout_seconds
         )
         if int(size) >= min_size_bytes:
             found.append({**f, "content_length": int(size), "remote_path": remote_file_path})
@@ -204,7 +177,11 @@ def list_and_size_explicit(
     return found
 
 
-def list_and_size_implicit(
+# -------------------------
+# Transport: Port 990 (implicit via ftps_client.py)
+# -------------------------
+
+def list_and_size_port990(
     host: str,
     port: int,
     username: str,
@@ -215,12 +192,7 @@ def list_and_size_implicit(
     min_size_bytes: int,
     list_retries: int = 0,
 ) -> list[dict]:
-    """
-    Implicit FTPS via Python (ftps_client.py).
-    IMPORTANT: your FTPS server behavior may require specific parsing of LIST output;
-    the ftps_client.py below is built to handle common Windows/IIS-ish formats.
-    """
-    files = []
+    found = []
     ftps = iFTP_TLS(timeout=30)
     try:
         ftps.make_connection(
@@ -234,15 +206,13 @@ def list_and_size_implicit(
         )
         ftps.cwd(echo_path)
 
-        # filter_entries returns a Polars DF with: name, content_length, last_modified, target, system_date
         df = ftps.filter_entries(file_pattern=file_pattern, path="", targets=targets, list_retries=list_retries)
         rows = df.rows(named=True) if df.height > 0 else []
 
-        # Require size > 0 (or min_size_bytes)
         for r in rows:
             size = int(r.get("content_length", 0) or 0)
             if size >= min_size_bytes:
-                files.append(
+                found.append(
                     {
                         "name": r.get("name"),
                         "target": r.get("target"),
@@ -261,17 +231,21 @@ def list_and_size_implicit(
             except Exception:
                 pass
 
-    return files
+    return found
 
+
+# -------------------------
+# Lambda Handler (ports-only)
+# -------------------------
 
 def lambda_handler(event, context):
     """
-    Hybrid behavior:
-      - ftps_mode == "explicit": use curl (known-good in your Lambda runtime)
-      - ftps_mode == "implicit": use Python ftps_client.py (curl implicit fails for you)
+    Ports-only configuration (no mode words):
+      - ftps_port == 21  => curl explicit FTPS (ftp:// + --ssl-reqd)
+      - ftps_port == 990 => python ftps_client implicit FTPS (TLS-on-connect)
 
     Required:
-      - secret_id, jenkins_url, echo_folder, file_pattern
+      - secret_id, jenkins_url, echo_folder, file_pattern, ftps_port
     """
     print("Input event:", json.dumps(event))
 
@@ -280,6 +254,7 @@ def lambda_handler(event, context):
     echo_subfolder = event.get("echo_subfolder", "") or ""
     jenkins_url = event.get("jenkins_url")
     secret_id = event.get("secret_id")
+    ftps_port = event.get("ftps_port")
 
     if not file_pattern:
         return {"statusCode": 400, "body": json.dumps({"error": "Missing required 'file_pattern'."})}
@@ -289,15 +264,18 @@ def lambda_handler(event, context):
         return {"statusCode": 400, "body": json.dumps({"error": "Missing required 'jenkins_url'."})}
     if not secret_id:
         return {"statusCode": 400, "body": json.dumps({"error": "Missing required 'secret_id'."})}
+    if ftps_port is None:
+        return {"statusCode": 400, "body": json.dumps({"error": "Missing required 'ftps_port' (21 or 990)."} )}
+
+    ftps_port = int(ftps_port)
+    if ftps_port not in (21, 990):
+        return {"statusCode": 400, "body": json.dumps({"error": "Unsupported ftps_port. Use 21 or 990 only.", "ftps_port": ftps_port})}
 
     targets = event.get("targets", []) or []
     min_size_bytes = int(event.get("min_size_bytes", 1))
     jenkins_timeout_seconds = int(event.get("jenkins_timeout_seconds", 10))
     curl_timeout_seconds = int(event.get("curl_timeout_seconds", 30))
     list_retries = int(event.get("list_retries", 0))
-
-    ftps_mode = (event.get("ftps_mode") or "explicit").lower().strip()
-    ftps_port = int(event.get("ftps_port") or (990 if ftps_mode == "implicit" else 21))
 
     secret = fetch_secret(secret_id)
 
@@ -311,7 +289,6 @@ def lambda_handler(event, context):
         json.dumps(
             {
                 "host": host,
-                "ftps_mode": ftps_mode,
                 "ftps_port": ftps_port,
                 "echo_path": echo_path,
                 "file_pattern": file_pattern,
@@ -321,9 +298,10 @@ def lambda_handler(event, context):
         )
     )
 
-    # --- hybrid transport ---
-    if ftps_mode == "implicit":
-        found = list_and_size_implicit(
+    # Transport selection by port ONLY
+    if ftps_port == 990:
+        transport = "python_ftplib_port990"
+        found = list_and_size_port990(
             host=host,
             port=ftps_port,
             username=username,
@@ -334,9 +312,9 @@ def lambda_handler(event, context):
             min_size_bytes=min_size_bytes,
             list_retries=list_retries,
         )
-        transport = "python_ftplib_implicit"
-    else:
-        found = list_and_size_explicit(
+    else:  # 21
+        transport = "curl_port21"
+        found = list_and_size_port21(
             host=host,
             port=ftps_port,
             username=username,
@@ -347,8 +325,6 @@ def lambda_handler(event, context):
             min_size_bytes=min_size_bytes,
             curl_timeout_seconds=curl_timeout_seconds,
         )
-        transport = "curl_explicit"
-    # -----------------------
 
     result = {
         "found": bool(found),
@@ -364,6 +340,7 @@ def lambda_handler(event, context):
         "echo_subfolder": echo_subfolder,
         "header": event.get("header"),
         "to_queue": event.get("to_queue"),
+        "ftps_port": ftps_port,
     }
 
     print("Check result:", json.dumps(result))

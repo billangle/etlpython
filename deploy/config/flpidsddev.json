@@ -1,0 +1,45 @@
+{
+  "deployEnv": "dev",
+  "project": "flpidschkr",
+  "region": "us-east-1",
+  "bucketRegion": "us-east-1",
+
+  "configData": {
+    "databaseName": "fsa-fpac-db",
+    "dynamoTableName": "FsaFpacMetadata"
+  },
+
+  "ssm": {
+    "landingBucketNameParam": "fpacFsaLandingBucketSSMName",
+    "cleanBucketNameParam": "fpacFsaCleanBucketSSMName",
+    "finalBucketNameParam": "fpacFsaFinalBucketSSMName",
+    "glueJobRoleArnParam": "fpacFsaGlueJobRoleSSMArn",
+    "etlRoleArnParam": "fpacFsaLambdaExecuteRoleARN",
+    "thirdPartyLayerArnParam": "fpacfsaThirdPartyLayerArn",
+    "customLayerArnParam": "fpacfsaCustomLayerArn"
+  },
+  "strparams": {
+    "landingBucketNameParam": "c108-dev-fpacfsa-landing-zone",
+    "cleanBucketNameParam": "c108-dev-fpacfsa-cleansed-zone",
+    "finalBucketNameParam": "c108-dev-fpacfsa-final-zone",
+    "glueJobRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-servicerole-glue",
+    "etlRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-lambda",
+    "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-2:241533156429:layer:fpacfsa-thirdparty:1",
+    "customLayerArnParam": "arn:aws:lambda:us-east-2:241533156429:layer:fpacfsa-custom:1"
+  },
+  "paths": {
+    "glueRootPath": "../src/glue/",
+    "lambdaRootPath": "../src/lambda/"
+  },
+
+  "artifacts": {
+    "artifactBucket": "fsa-dev-ops",
+    "prefix": "flpidschkr/"
+  },
+
+  "stepFunctions": {
+    "createRoleIfMissing": false,
+    "roleName": "disc-fsa-dev-stepfunction",
+    "roleArn": "arn:aws:iam::241533156429:role/disc-fsa-dev-stepfunction"
+  }
+}

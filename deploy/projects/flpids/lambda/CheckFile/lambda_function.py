@@ -422,7 +422,7 @@ def lambda_handler(event, context):
             "debug": debug,
         }
 
-        print(f"Result summary: found={result['found']} matches={len(found)}")
+        print(f"Result summary: host: {host} path={result['checked_path']} folder={result['echo_folder']}  found={result['found']} matches={len(found)}")
 
         if not found:
             # Expected outcome: nothing met criteria

@@ -113,6 +113,19 @@ def _curl_url(host: str, port: int, mode: str, path: str, debug: bool = False) -
     return url
 
 
+def _looks_like_missing_file(err_text: str) -> bool:
+    """
+    Heuristics for "file missing" responses from curl for FTP/FTPS.
+    """
+    t = (err_text or "").lower()
+    return (
+        "the file does not exist" in t
+        or "no such file" in t
+        or "not found" in t
+        or "550" in t
+    )
+
+
 # ----------------------------
 # Curl FTPS
 # ----------------------------
@@ -176,7 +189,16 @@ def curl_file_size(
     timeout: int = 30,
     verify_tls: bool = False,
     debug: bool = False,
-) -> int:
+) -> int | None:
+    """
+    Returns:
+      - int size if determinable
+      - 1 if range request succeeded but size unknown
+      - None if the file does not exist (expected condition)
+
+    Raises:
+      - RuntimeError for unexpected curl failures (network, auth, etc.)
+    """
     if debug:
         print(f"[DEBUG] Checking file size: {remote_path}")
 
@@ -209,6 +231,11 @@ def curl_file_size(
                 print(f"[DEBUG] Size via HEAD Content-Length: {size}")
             return size
 
+    if rc != 0 and _looks_like_missing_file(err_out or out):
+        if debug:
+            print("[DEBUG] File does not exist (from HEAD); returning None")
+        return None
+
     if debug:
         print("[DEBUG] HEAD size not available, falling back to range request")
 
@@ -232,6 +259,10 @@ def curl_file_size(
 
     rc, out, err_out = _run(cmd_range, timeout=timeout, debug=debug)
     if rc != 0:
+        if _looks_like_missing_file(err_out or out):
+            if debug:
+                print("[DEBUG] File does not exist (from RANGE); returning None")
+            return None
         raise RuntimeError(f"curl size check failed rc={rc}: {err_out.strip() or out.strip()}")
 
     if debug:
@@ -245,21 +276,21 @@ def curl_file_size(
 
 def lambda_handler(event, context):
     """
+    Expected behavior change:
+      - Missing files during size check are EXPECTED and do NOT throw.
+      - If no file meets the criteria, return a 200 with a simple "not found" outcome.
+
     Required event fields:
-      - file_pattern: regex with >=1 capture group (group1=target, group2 optional date)
-      - echo_folder: e.g. "plas", "gls", "nats"
-      - jenkins_url: webhook URL to call when a matching non-empty file is found
-      - secret_id: Secrets Manager secret id/name that contains echo_* keys
-      - ftps_port: 990 (implicit) or 21 (explicit)
+      - file_pattern
+      - echo_folder
+      - jenkins_url
+      - secret_id
+      - ftps_port (21 or 990)
 
     Optional:
-      - debug: bool (default False). Enables/disables print-based debug output.
-      - verify_tls: bool (default False). When False, curl uses --insecure (accept invalid certs).
-      - echo_subfolder: default ""
-      - targets: [] filter by group(1) values (case-insensitive)
-      - min_size_bytes: default 1 (means >0)
-      - jenkins_timeout_seconds: default 10
-      - curl_timeout_seconds: default 30
+      - debug: bool (default False)
+      - verify_tls: bool (default False) => uses --insecure
+      - echo_subfolder, targets, min_size_bytes, timeouts...
     """
     debug = bool(event.get("debug", False))
 
@@ -293,8 +324,6 @@ def lambda_handler(event, context):
         min_size_bytes = int(event.get("min_size_bytes", 1))
         jenkins_timeout_seconds = int(event.get("jenkins_timeout_seconds", 10))
         curl_timeout_seconds = int(event.get("curl_timeout_seconds", 30))
-
-        # TLS verification: False => --insecure => do not fail on bad/mismatched certs
         verify_tls = bool(event.get("verify_tls", False))
 
         ftps_port = event.get("ftps_port")
@@ -318,7 +347,6 @@ def lambda_handler(event, context):
 
         echo_path = f"/{secret['echo_dart_path']}/{echo_folder}/in/{echo_subfolder}".rstrip("/")
         dbg(f"Resolved echo_path={echo_path}")
-        dbg(f"Targets count={len(targets)} min_size_bytes={min_size_bytes}")
 
         # 1) list directory
         filenames = curl_list_files(
@@ -349,10 +377,11 @@ def lambda_handler(event, context):
 
         dbg(f"Matched files after regex/target filtering: {len(matched)}")
 
-        # 3) size check
+        # 3) size check (missing file is expected => skip, do not fail)
         found = []
         for f in matched:
             remote_file_path = f"{echo_path}/{f['name']}"
+
             size = curl_file_size(
                 host=host,
                 port=ftps_port,
@@ -365,10 +394,18 @@ def lambda_handler(event, context):
                 debug=debug,
             )
 
-            if size >= min_size_bytes:
+            # Missing file => expected => continue
+            if size is None:
+                if debug:
+                    print(f"[DEBUG] Skipping missing file: {remote_file_path}")
+                continue
+
+            if int(size) >= min_size_bytes:
                 found.append({**f, "content_length": int(size), "remote_path": remote_file_path})
 
-        dbg(f"Files meeting size threshold: {len(found)}")
+        # ----------------------------
+        # APPLY YOUR RESULT/RETURN/JENKINS CHANGES
+        # ----------------------------
 
         result = {
             "found": bool(found),
@@ -388,6 +425,8 @@ def lambda_handler(event, context):
         print(f"Result summary: found={result['found']} matches={len(found)}")
 
         if not found:
+            # Expected outcome: nothing met criteria
+            result["error"] = "file meeting the expected criteria was not found"
             print("No qualifying files found — exiting without Jenkins call")
             return {"statusCode": 200, "body": json.dumps(result)}
 
@@ -415,7 +454,13 @@ def lambda_handler(event, context):
             "response_body": jenkins_resp.get("response_body"),
         }
 
-        print(f"Jenkins call complete: URL={result['jenkins_call']['url']} ok={result['jenkins_call']['ok']} status={result['jenkins_call']['status']} body={result['jenkins_call']['response_body']}")
+        print(
+            "Jenkins call complete: "
+            f"URL={result['jenkins_call']['url']} "
+            f"ok={result['jenkins_call']['ok']} "
+            f"status={result['jenkins_call']['status']} "
+            f"body={result['jenkins_call']['response_body']}"
+        )
         return {"statusCode": 200, "body": json.dumps(result)}
 
     except Exception as e:

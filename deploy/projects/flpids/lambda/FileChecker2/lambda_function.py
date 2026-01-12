@@ -181,6 +181,10 @@ def list_and_size_port21(
 # Transport: Port 990 (implicit via ftps_client.py)
 # -------------------------
 
+from datetime import datetime, timezone
+import traceback
+
+
 def list_and_size_port990(
     host: str,
     port: int,
@@ -192,22 +196,61 @@ def list_and_size_port990(
     min_size_bytes: int,
     list_retries: int = 0,
 ) -> list[dict]:
-    found = []
+    found: list[dict] = []
+
+    debug_ctx = {
+        "fn": "list_and_size_port990",
+        "ts_utc": datetime.now(timezone.utc).isoformat(),
+        "host": host,
+        "port": port,
+        "echo_path": echo_path,
+        "file_pattern": file_pattern,
+        "targets_count": len(targets) if targets else 0,
+        "targets_sample": (targets[:10] if targets else []),
+        "min_size_bytes": min_size_bytes,
+        "list_retries": list_retries,
+        "disable_epsv": True,
+        "mode": "implicit",
+        "timeout": 30,
+    }
+
+    def dbg(msg: str):
+        print(f"[DEBUG] {msg}")
+
+    def err(msg: str):
+        print(f"[ERROR] {msg}")
+
     ftps = iFTP_TLS(timeout=30)
+
     try:
+        dbg(f"Starting FTPS operation: {debug_ctx}")
+
         ftps.make_connection(
             host=host,
             port=port,
             username=username,
-            password=password,
+            password=password,  # intentionally not logged
             log_level=0,
             mode="implicit",
             disable_epsv=True,
         )
-        ftps.cwd(echo_path)
+        dbg(f"Connected to FTPS host={host} port={port}")
 
-        df = ftps.filter_entries(file_pattern=file_pattern, path="", targets=targets, list_retries=list_retries)
-        rows = df.rows(named=True) if df.height > 0 else []
+        ftps.cwd(echo_path)
+        dbg(f"Changed directory to: {echo_path}")
+
+        df = ftps.filter_entries(
+            file_pattern=file_pattern,
+            path="",
+            targets=targets,
+            list_retries=list_retries,
+        )
+
+        df_height = getattr(df, "height", None)
+        dbg(f"filter_entries completed: df.height={df_height}")
+
+        rows = df.rows(named=True) if getattr(df, "height", 0) > 0 else []
+        dbg(f"Rows extracted: count={len(rows)}")
 
         for r in rows:
             size = int(r.get("content_length", 0) or 0)
@@ -222,16 +265,30 @@ def list_and_size_port990(
                         "remote_path": f"{echo_path}/{r.get('name')}",
                     }
                 )
+
+        dbg(f"Files meeting size threshold: count={len(found)}")
+        return found
+
+    except Exception as e:
+        err("Exception during FTPS processing")
+        err(f"Exception: {repr(e)}")
+        err(f"Debug context: {debug_ctx}")
+        err("Traceback:")
+        print(traceback.format_exc())
+        raise
+
     finally:
         try:
             ftps.quit()
-        except Exception:
+            dbg("FTPS quit successful")
+        except Exception as e_quit:
+            dbg(f"FTPS quit failed: {repr(e_quit)}")
             try:
                 ftps.close()
-            except Exception:
-                pass
+                dbg("FTPS close successful")
+            except Exception as e_close:
+                dbg(f"FTPS close failed: {repr(e_close)}")
 
-    return found
 
 
 # -------------------------

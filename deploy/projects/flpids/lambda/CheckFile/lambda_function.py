@@ -70,11 +70,16 @@ def curl_list_files(
     mode: str,
     remote_dir: str,
     timeout: int = 30,
+    verify_tls: bool = False,  # ✅ NEW: default skip cert validation (fixes curl 60)
 ) -> list[str]:
     """
     Directory listing using curl.
     - Explicit FTPS: ftp://... with --ssl-reqd
     - Implicit FTPS: ftps://...
+
+    TLS verification:
+      - verify_tls=False => adds --insecure (accept invalid/untrusted/mismatched certs)
+      - verify_tls=True  => normal curl certificate verification
     """
     if not remote_dir.endswith("/"):
         remote_dir = remote_dir + "/"
@@ -91,8 +96,13 @@ def curl_list_files(
         "--ssl-reqd",
         "--ftp-pasv",
         "--tlsv1.2",
-        url,
     ]
+
+    # ✅ Do not fail when cert is invalid / SAN mismatch (curl rc=60)
+    if not verify_tls:
+        cmd.append("--insecure")
+
+    cmd.append(url)
 
     rc, out, err = _run(cmd, timeout=timeout)
     if rc != 0:
@@ -109,11 +119,16 @@ def curl_file_size(
     mode: str,
     remote_path: str,
     timeout: int = 30,
+    verify_tls: bool = False,  # ✅ NEW: default skip cert validation (fixes curl 60)
 ) -> int:
     """
     Best-effort file size check using curl.
       1) Try --head and parse Content-Length
       2) Fallback: request first byte (range 0-0); if succeeds, size >= 1
+
+    TLS verification:
+      - verify_tls=False => adds --insecure (accept invalid/untrusted/mismatched certs)
+      - verify_tls=True  => normal curl certificate verification
     """
     url = _curl_url(host, port, mode, remote_path)
 
@@ -127,8 +142,12 @@ def curl_file_size(
         "--ssl-reqd",
         "--ftp-pasv",
         "--tlsv1.2",
-        url,
     ]
+
+    if not verify_tls:
+        cmd_head.append("--insecure")
+
+    cmd_head.append(url)
 
     rc, out, err = _run(cmd_head, timeout=timeout)
     if rc == 0:
@@ -146,8 +165,12 @@ def curl_file_size(
         "--ftp-pasv",
         "--tlsv1.2",
         "--range", "0-0",
-        url,
     ]
+
+    if not verify_tls:
+        cmd_range.append("--insecure")
+
+    cmd_range.append(url)
 
     rc, out, err = _run(cmd_range, timeout=timeout)
     if rc != 0:
@@ -165,10 +188,10 @@ def lambda_handler(event, context):
       - secret_id: Secrets Manager secret id/name that contains echo_* keys
 
     FTPS selection:
-      - ftps_mode: "implicit" or "explicit" (default: "explicit")
-      - ftps_port: default 990 for implicit, 21 for explicit (override if needed)
+      - ftps_port: 990 => implicit, 21 => explicit (required)
 
     Optional:
+      - verify_tls: bool (default False). When False, curl uses --insecure to ignore invalid certs.
       - echo_subfolder: default ""
       - targets: [] filter by group(1) values (case-insensitive)
       - min_size_bytes: default 1 (means >0)
@@ -198,11 +221,12 @@ def lambda_handler(event, context):
     jenkins_timeout_seconds = int(event.get("jenkins_timeout_seconds", 10))
     curl_timeout_seconds = int(event.get("curl_timeout_seconds", 30))
 
-    ftps_port = event.get("ftps_port")
+    # ✅ NEW: default False => ignore invalid cert (fixes curl rc=60 SAN mismatch)
+    verify_tls = bool(event.get("verify_tls", False))
 
+    ftps_port = event.get("ftps_port")
     if ftps_port is None:
         raise ValueError("Missing required 'ftps_port' (must be 21 or 990)")
-
     ftps_port = int(ftps_port)
 
     if ftps_port == 21:
@@ -213,6 +237,7 @@ def lambda_handler(event, context):
         raise ValueError(f"Unsupported ftps_port {ftps_port}. Only 21 or 990 are allowed.")
 
     print(f"FTPS configuration resolved from port: port={ftps_port}, mode={ftps_mode}")
+    print(f"TLS verification enabled: {verify_tls}")
 
     # Secrets
     secret = fetch_secret(secret_id)
@@ -237,6 +262,7 @@ def lambda_handler(event, context):
                 "targets": targets,
                 "min_size_bytes": min_size_bytes,
                 "file_pattern": file_pattern,
+                "verify_tls": verify_tls,
             }
         )
     )
@@ -250,6 +276,7 @@ def lambda_handler(event, context):
         mode=ftps_mode,
         remote_dir=echo_path,
         timeout=curl_timeout_seconds,
+        verify_tls=verify_tls,
     )
 
     # 2) regex match + target filter
@@ -280,6 +307,7 @@ def lambda_handler(event, context):
             mode=ftps_mode,
             remote_path=remote_file_path,
             timeout=curl_timeout_seconds,
+            verify_tls=verify_tls,
         )
 
         if size >= min_size_bytes:
@@ -298,6 +326,7 @@ def lambda_handler(event, context):
         "echo_subfolder": echo_subfolder,
         "header": event.get("header"),
         "to_queue": event.get("to_queue"),
+        "verify_tls": verify_tls,
     }
 
     print("Check result:", json.dumps(result))

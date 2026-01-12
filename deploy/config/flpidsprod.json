@@ -43,16 +43,12 @@
     "roleArn": "arn:aws:iam::241533156429:role/disc-fsa-dev-stepfunction"
   },
   "networking": {
-      "vpcId": "vpc-05f9625eecaabbfd4",
+      "vpcId": "vpc-092b2aee3fba9e5e6",
       "subnetIds": [
-        "subnet-0747a380ae7e7a755"
+        "subnet-0d4691e36b391b17f"
       ],
       "securityGroupIds": [
-        "sg-08c08369c066b61ec",
-        "sg-095cc861f7770b31a",
-        "sg-0168b401de58ea57f",
-        "sg-06e3bf9b59cf6be6a",
-        "sg-0906c3d7352c5889e"
+        "sg-05e3e3fd000913769"
       ]
     }
 

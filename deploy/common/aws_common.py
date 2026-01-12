@@ -169,13 +169,51 @@ class LambdaSpec:
     architecture: str = "x86_64"
     publish: bool = True
 
+    # ✅ NEW: optional-ish VPC config
+    # For safe deterministic behavior:
+    #   - pass real lists to attach
+    #   - pass [] / [] to detach
+    subnet_ids: Optional[List[str]] = None
+    security_group_ids: Optional[List[str]] = None
+
+
+def _normalize_str_list(vals: Optional[List[str]]) -> List[str]:
+    if vals is None:
+        return []
+    if not isinstance(vals, list):
+        return []
+    return [v.strip() for v in vals if isinstance(v, str) and v.strip()]
+
+
+def _vpc_config_for_spec(spec: LambdaSpec) -> Dict[str, Any]:
+    """
+    Returns a VpcConfig dict ALWAYS, to ensure deterministic behavior.
+
+    - If both lists have values -> attach to VPC
+    - Otherwise -> detach from VPC (empty lists)
+    """
+    subnet_ids = _normalize_str_list(spec.subnet_ids)
+    sg_ids = _normalize_str_list(spec.security_group_ids)
+
+    if subnet_ids and sg_ids:
+        return {"SubnetIds": subnet_ids, "SecurityGroupIds": sg_ids}
+
+    # Force detach
+    return {"SubnetIds": [], "SecurityGroupIds": []}
+
 
 def ensure_lambda(lambda_client, spec: LambdaSpec) -> str:
     """
     Creates or updates a Lambda function in-place (idempotent).
+
+    Deterministic networking:
+      - If subnet_ids & security_group_ids are both non-empty -> VPC-attached
+      - Else -> forced OUT of VPC by setting VpcConfig to empty lists
     """
     build_zip = zip_dir(spec.source_dir, f"build/lambda/{spec.name}.zip")
     code_bytes = Path(build_zip).read_bytes()
+
+    vpc_cfg = _vpc_config_for_spec(spec)
 
     try:
         resp = lambda_client.get_function(FunctionName=spec.name)
@@ -190,6 +228,7 @@ def ensure_lambda(lambda_client, spec: LambdaSpec) -> str:
             Publish=spec.publish,
         )
 
+        # Always send VpcConfig (either attach or detach) for deterministic behavior
         call_with_conflict_retry(
             lambda_client.update_function_configuration,
             fn_name=spec.name,
@@ -201,7 +240,8 @@ def ensure_lambda(lambda_client, spec: LambdaSpec) -> str:
             Timeout=spec.timeout,
             MemorySize=spec.memory,
             Environment={"Variables": spec.env or {}},
-            Layers=spec.layers or []
+            Layers=spec.layers or [],
+            VpcConfig=vpc_cfg,
         )
 
         wait_for_lambda_update(lambda_client, spec.name)
@@ -212,7 +252,8 @@ def ensure_lambda(lambda_client, spec: LambdaSpec) -> str:
         if e.response["Error"]["Code"] != "ResourceNotFoundException":
             raise
 
-        resp = lambda_client.create_function(
+        # For create, sending empty VpcConfig is unnecessary; omit it when detaching.
+        create_kwargs: Dict[str, Any] = dict(
             FunctionName=spec.name,
             Role=spec.role_arn,
             Runtime=spec.runtime,
@@ -225,6 +266,11 @@ def ensure_lambda(lambda_client, spec: LambdaSpec) -> str:
             Layers=spec.layers or [],
             Architectures=[spec.architecture],
         )
+
+        if vpc_cfg["SubnetIds"] and vpc_cfg["SecurityGroupIds"]:
+            create_kwargs["VpcConfig"] = vpc_cfg
+
+        resp = lambda_client.create_function(**create_kwargs)
         arn = resp["FunctionArn"]
         wait_for_lambda_update(lambda_client, spec.name)
         print(f"[lambda] created {spec.name} -> {arn} (runtime={spec.runtime}, handler={spec.handler})")
@@ -351,4 +397,3 @@ def ensure_state_machine(sfn, spec: StateMachineSpec) -> str:
     arn = resp["stateMachineArn"]
     print(f"[sfn] created {spec.name} -> {arn}")
     return arn
-

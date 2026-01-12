@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict
-
-
+from typing import Any, Dict, List, Optional, Tuple
 
 import boto3
 
@@ -14,14 +12,12 @@ from common.aws_common import (
     LambdaSpec,
 )
 
-from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class FpacNames:
     project_name: str
     checkfile_fn: str
     filechecker2_fn: str
-
 
 
 def build_names(deploy_env: str, project: str) -> FpacNames:
@@ -35,13 +31,37 @@ def build_names(deploy_env: str, project: str) -> FpacNames:
         project_name=project_name,
         checkfile_fn=f"{base}-CheckFile",
         filechecker2_fn=f"{base}-FileChecker2",
-
     )
 
 
+def parse_networking(cfg: Dict[str, Any]) -> Tuple[List[str], List[str]]:
+    """
+    Returns (subnet_ids, security_group_ids).
 
-from typing import Any, Dict
+    - If networking is missing/empty/invalid/incomplete -> returns ([], [])
+      which means "force detach from VPC".
+    - If both subnetIds and securityGroupIds are present -> returns populated lists.
+    """
+    net = cfg.get("networking") or {}
+    if not isinstance(net, dict) or not net:
+        return ([], [])
 
+    subnet_ids = net.get("subnetIds") or []
+    sg_ids = net.get("securityGroupIds") or []
+
+    if not isinstance(subnet_ids, list):
+        subnet_ids = []
+    if not isinstance(sg_ids, list):
+        sg_ids = []
+
+    subnet_ids = [s.strip() for s in subnet_ids if isinstance(s, str) and s.strip()]
+    sg_ids = [s.strip() for s in sg_ids if isinstance(s, str) and s.strip()]
+
+    # If one is missing, treat as "detach" to be safe and deterministic
+    if not (subnet_ids and sg_ids):
+        return ([], [])
+
+    return (subnet_ids, sg_ids)
 
 
 def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
@@ -51,10 +71,11 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     bucket_region = cfg.get("bucketRegion", region)
 
     landing_bucket_name = cfg["strparams"]["landingBucketNameParam"]
-    clean_bucket_name = cfg["strparams"]["cleanBucketNameParam"]
-    final_bucket_name = cfg["strparams"]["finalBucketNameParam"]
+    # kept for parity / future use
+    _clean_bucket_name = cfg["strparams"]["cleanBucketNameParam"]
+    _final_bucket_name = cfg["strparams"]["finalBucketNameParam"]
 
-    glue_job_role_arn = cfg["strparams"]["glueJobRoleArnParam"]
+    _glue_job_role_arn = cfg["strparams"]["glueJobRoleArnParam"]
     etl_lambda_role_arn = cfg["strparams"]["etlRoleArnParam"]
 
     layers = [
@@ -63,18 +84,19 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     ]
 
     artifact_bucket = cfg["artifacts"]["artifactBucket"]
-    prefix = cfg["artifacts"]["prefix"].rstrip("/") + "/"
+    _prefix = cfg["artifacts"]["prefix"].rstrip("/") + "/"
 
     names = build_names(deploy_env, project)
 
-    # ✅ NEW: assets are located under this project directory
-    project_dir = Path(__file__).resolve().parent          # .../projects/fpac_pipeline
+    project_dir = Path(__file__).resolve().parent  # .../projects/fpac_pipeline
     lambda_root = project_dir / "lambda"
-   
+
+    # ✅ Deterministic networking: either in-VPC with both lists, or detach with []
+    subnet_ids, security_group_ids = parse_networking(cfg)
+
     session = boto3.Session(region_name=region)
     s3 = session.client("s3")
     lam = session.client("lambda")
-  
 
     ensure_bucket_exists(s3, artifact_bucket, region)
 
@@ -85,8 +107,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         "BUCKET_REGION": bucket_region,
     }
 
-    # ---- Lambdas (paths now under projects/fpac_pipeline/lambda/...) ----
-    validate_arn = ensure_lambda(
+    checkfile_arn = ensure_lambda(
         lam,
         LambdaSpec(
             name=names.checkfile_fn,
@@ -96,10 +117,12 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
             source_dir=str(lambda_root / "CheckFile"),
             env=env_vars,
             layers=layers,
+            subnet_ids=subnet_ids,
+            security_group_ids=security_group_ids,
         ),
     )
 
-    validate_arn = ensure_lambda(
+    filechecker2_arn = ensure_lambda(
         lam,
         LambdaSpec(
             name=names.filechecker2_fn,
@@ -109,12 +132,12 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
             source_dir=str(lambda_root / "FileChecker2"),
             env=env_vars,
             layers=layers,
+            subnet_ids=subnet_ids,
+            security_group_ids=security_group_ids,
         ),
     )
 
-
     return {
-        "validate_lambda_arn": validate_arn,
-     
+        "checkfile_lambda_arn": checkfile_arn,
+        "filechecker2_lambda_arn": filechecker2_arn,
     }
-

@@ -1,0 +1,45 @@
+{
+  "debug": true,
+  "operation": "delete",
+  "secret_id": "FSA-CERT-Secrets",
+  "ftps_port": 21,
+  "verify_tls": false,
+  "region": "us-east-1",
+  "documents": [
+    {
+      "s3_bucket": "dev-cars-artifacts",
+      "s3_key": "testdata/data/plas-in/mo.moyr540.data",
+      "remote_path": "plas/in/mo.moyr540.data"
+    },
+    {
+      "s3_bucket": "dev-cars-artifacts",
+      "s3_key": "testdata/data/plas-in/wk.moyr540.data",
+      "remote_path": "plas/in/wk.moyr540.data"
+    },
+    {
+      "s3_bucket": "dev-cars-artifacts",
+      "s3_key": "testdata/data/plas-in/MOYWRSC_ABCD.txt",
+      "remote_path": "plas/in/MOYWRSC_ABCD.txt"
+    },
+     {
+      "s3_bucket": "dev-cars-artifacts",
+      "s3_key": "testdata/data/plas-in/MFO900.MOYRPT.FLPNAME.DATA.20250107153045",
+      "remote_path": "plas/in/MFO900.MOYRPT.FLPNAME.DATA.20250107153045"
+    },
+    {
+      "s3_bucket": "dev-cars-artifacts",
+      "s3_key": "testdata/data/nats-in/FILE_NATS_LOANS.20250107.csv",
+      "remote_path": "nats/in/FILE_NATS_LOANS.20250107.csv"
+    },
+     {
+      "s3_bucket": "dev-cars-artifacts",
+      "s3_key": "testdata/data/gls-in/BATCH001",
+      "remote_path": "gls/in/BATCH001"
+    },
+    {
+      "s3_bucket": "dev-cars-artifacts",
+      "s3_key": "testdata/data/plas-in/wk.moyr540.data",
+      "remote_path": "plas/in/weekly/wk.moyr540.data"
+    }
+  ]
+}

@@ -1,428 +1,385 @@
-import json
-import re
-import subprocess
-import urllib.request
-import urllib.error
+import base64
 import boto3
+import json
+import subprocess
+import traceback
+from typing import Any, Dict, List
 
-from ftps_client import iFTP_TLS
+
+# ----------------------------
+# Small print-based logging
+# ----------------------------
+
+def _dbg(enabled: bool, msg: str) -> None:
+    if enabled:
+        print(f"[DEBUG] {msg}")
 
 
-# -------------------------
-# Helpers
-# -------------------------
+def _err(msg: str) -> None:
+    print(f"[ERROR] {msg}")
 
-def fetch_secret(secret_id: str) -> dict:
+
+# ----------------------------
+# AWS helpers
+# ----------------------------
+
+def fetch_secret(secret_id: str, debug: bool = False) -> Dict[str, Any]:
+    _dbg(debug, f"Fetching secret: {secret_id}")
     client = boto3.client("secretsmanager")
     resp = client.get_secret_value(SecretId=secret_id)
 
-    if "SecretString" in resp and resp["SecretString"]:
+    if resp.get("SecretString"):
+        _dbg(debug, "Secret fetched from SecretString")
         return json.loads(resp["SecretString"])
 
-    if "SecretBinary" in resp and resp["SecretBinary"]:
-        import base64
-        return json.loads(base64.b64decode(resp["SecretBinary"]).decode("utf-8"))
+    if resp.get("SecretBinary"):
+        _dbg(debug, "Secret fetched from SecretBinary")
+        raw = base64.b64decode(resp["SecretBinary"]).decode("utf-8")
+        return json.loads(raw)
 
     raise RuntimeError(f"Secret {secret_id} had no SecretString/SecretBinary")
 
 
-def http_post_json(url: str, payload: dict, timeout_seconds: int = 10) -> dict:
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        url=url,
-        data=data,
-        headers={"Content-Type": "application/json", "User-Agent": "aws-lambda/ftps-file-check"},
-        method="POST",
-    )
+def read_config_from_s3(s3_uri: str, debug: bool = False) -> Dict[str, Any]:
+    """
+    s3_uri: s3://bucket/key.json
+    """
+    if not s3_uri.startswith("s3://"):
+        raise ValueError(f"config_s3_uri must start with s3://, got: {s3_uri}")
 
-    try:
-        with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
-            body = resp.read().decode("utf-8", errors="replace")
-            return {"ok": True, "status": resp.status, "response_body": body[:4000]}
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace") if e.fp else ""
-        return {"ok": False, "status": e.code, "error": str(e), "response_body": body[:4000]}
-    except Exception as e:
-        return {"ok": False, "status": None, "error": str(e), "response_body": ""}
+    _, _, rest = s3_uri.partition("s3://")
+    bucket, _, key = rest.partition("/")
+    if not bucket or not key:
+        raise ValueError(f"Invalid s3 uri: {s3_uri}")
+
+    _dbg(debug, f"Loading config from S3: bucket={bucket}, key={key}")
+    s3 = boto3.client("s3")
+    obj = s3.get_object(Bucket=bucket, Key=key)
+    text = obj["Body"].read().decode("utf-8")
+    return json.loads(text)
 
 
-def _run(cmd: list[str], timeout: int = 30) -> tuple[int, str, str]:
+def read_s3_object(bucket: str, key: str, debug: bool = False) -> bytes:
+    _dbg(debug, f"Reading S3 object: s3://{bucket}/{key}")
+    s3 = boto3.client("s3")
+    obj = s3.get_object(Bucket=bucket, Key=key)
+    return obj["Body"].read()
+
+
+# ----------------------------
+# curl helpers
+# ----------------------------
+
+def _sanitize_cmd(cmd: List[str]) -> List[str]:
+    """Redact credentials in '--user user:pass'."""
+    safe = []
+    i = 0
+    while i < len(cmd):
+        if cmd[i] == "--user" and i + 1 < len(cmd):
+            safe.append("--user")
+            safe.append("<redacted>")
+            i += 2
+        else:
+            safe.append(cmd[i])
+            i += 1
+    return safe
+
+
+def _run(cmd: List[str], timeout: int, debug: bool) -> Dict[str, Any]:
+    _dbg(debug, f"Running: {' '.join(_sanitize_cmd(cmd))} (timeout={timeout}s)")
     p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-    return p.returncode, p.stdout, p.stderr
+    _dbg(debug, f"rc={p.returncode}")
+    if p.stdout:
+        _dbg(debug, f"stdout: {p.stdout[:2000]}")
+    if p.stderr:
+        _dbg(debug, f"stderr: {p.stderr[:2000]}")
+    return {"rc": p.returncode, "stdout": p.stdout, "stderr": p.stderr}
 
 
-def compute_echo_path(secret: dict, echo_folder: str, echo_subfolder: str) -> str:
-    return "/{root}/{folder}/in/{subfolder}".format(
-        root=secret["echo_dart_path"],
-        folder=echo_folder,
-        subfolder=echo_subfolder or "",
-    ).rstrip("/")
+def _curl_url(host: str, port: int, mode: str, remote_path: str) -> str:
+    if not remote_path.startswith("/"):
+        remote_path = "/" + remote_path
+    scheme = "ftps" if mode == "implicit" else "ftp"
+    return f"{scheme}://{host}:{port}{remote_path}"
 
 
-# -------------------------
-# Transport: Port 21 (explicit via curl)
-# -------------------------
-
-def _curl_url_port21(host: str, port: int, path: str) -> str:
-    # Explicit FTPS uses ftp:// + --ssl-reqd
-    if not path.startswith("/"):
-        path = "/" + path
-    return f"ftp://{host}:{port}{path}"
+def _join_posix(base: str, rel: str) -> str:
+    base = (base or "").rstrip("/")
+    rel = (rel or "").lstrip("/")
+    if not base:
+        return "/" + rel
+    return f"{base}/{rel}"
 
 
-def curl_list_files_port21(host: str, port: int, username: str, password: str, remote_dir: str, timeout: int = 30) -> list[str]:
-    if not remote_dir.endswith("/"):
-        remote_dir += "/"
+def curl_upload_file(
+    *,
+    host: str,
+    port: int,
+    mode: str,
+    username: str,
+    password: str,
+    local_path: str,
+    remote_path: str,
+    verify_tls: bool,
+    timeout: int,
+    debug: bool,
+) -> Dict[str, Any]:
+    """
+    Upload local file to remote_path using curl.
+    - Uses --upload-file
+    - Uses --ftp-create-dirs so nested dirs are created
+    - Uses --insecure when verify_tls=False (avoid cert mismatch failure)
+    """
+    url = _curl_url(host, port, mode, remote_path)
 
-    url = _curl_url_port21(host, port, remote_dir)
     cmd = [
         "curl",
         "--silent",
         "--show-error",
         "--fail",
-        "--list-only",
-        "--user", f"{username}:{password}",
-        "--ssl-reqd",     # require TLS (explicit AUTH TLS)
-        "--ftp-pasv",
-        "--tlsv1.2",
-        url,
-    ]
-    rc, out, err = _run(cmd, timeout=timeout)
-    if rc != 0:
-        raise RuntimeError(f"curl(list) failed rc={rc}: {err.strip() or out.strip()}")
-    return [line.strip() for line in out.splitlines() if line.strip()]
-
-
-def curl_file_size_port21(host: str, port: int, username: str, password: str, remote_path: str, timeout: int = 30) -> int:
-    """
-    Best effort:
-      1) HEAD -> Content-Length
-      2) fallback range 0-0 -> if success, size >= 1
-    """
-    url = _curl_url_port21(host, port, remote_path)
-
-    cmd_head = [
-        "curl",
-        "--silent",
-        "--show-error",
-        "--fail",
-        "--head",
         "--user", f"{username}:{password}",
         "--ssl-reqd",
         "--ftp-pasv",
         "--tlsv1.2",
-        url,
+        "--ftp-create-dirs",
+        "--upload-file", local_path,
     ]
-    rc, out, err = _run(cmd_head, timeout=timeout)
-    if rc == 0:
-        m = re.search(r"(?im)^Content-Length:\s*(\d+)\s*$", out)
-        if m:
-            return int(m.group(1))
 
-    cmd_range = [
-        "curl",
-        "--silent",
-        "--show-error",
-        "--fail",
-        "--user", f"{username}:{password}",
-        "--ssl-reqd",
-        "--ftp-pasv",
-        "--tlsv1.2",
-        "--range", "0-0",
-        url,
-    ]
-    rc, out, err = _run(cmd_range, timeout=timeout)
-    if rc != 0:
-        raise RuntimeError(f"curl(size) failed rc={rc}: {err.strip() or out.strip()}")
-    return 1
+    if not verify_tls:
+        _dbg(debug, "TLS verification disabled (--insecure)")
+        cmd.append("--insecure")
 
+    cmd.append(url)
 
-def list_and_size_port21(
-    host: str,
-    port: int,
-    username: str,
-    password: str,
-    echo_path: str,
-    file_pattern: str,
-    targets: list[str],
-    min_size_bytes: int,
-    curl_timeout_seconds: int,
-) -> list[dict]:
-    filenames = curl_list_files_port21(
-        host=host, port=port, username=username, password=password, remote_dir=echo_path, timeout=curl_timeout_seconds
-    )
+    res = _run(cmd, timeout=timeout, debug=debug)
+    ok = (res["rc"] == 0)
 
-    compiled = re.compile(file_pattern, re.I)
-    targets_lc = [t.lower() for t in targets] if targets else None
-
-    matched = []
-    for name in filenames:
-        m = compiled.search(name)
-        if not m or not m.lastindex or m.lastindex < 1:
-            continue
-        target = m.group(1).lower()
-        if targets_lc and target not in targets_lc:
-            continue
-        matched.append({"name": name, "target": target})
-
-    found = []
-    for f in matched:
-        remote_file_path = f"{echo_path}/{f['name']}"
-        size = curl_file_size_port21(
-            host=host, port=port, username=username, password=password, remote_path=remote_file_path, timeout=curl_timeout_seconds
-        )
-        if int(size) >= min_size_bytes:
-            found.append({**f, "content_length": int(size), "remote_path": remote_file_path})
-
-    return found
-
-
-# -------------------------
-# Transport: Port 990 (implicit via ftps_client.py)
-# -------------------------
-
-from datetime import datetime, timezone
-import traceback
-
-
-def list_and_size_port990(
-    host: str,
-    port: int,
-    username: str,
-    password: str,
-    echo_path: str,
-    file_pattern: str,
-    targets: list[str],
-    min_size_bytes: int,
-    list_retries: int = 0,
-) -> list[dict]:
-    found: list[dict] = []
-
-    debug_ctx = {
-        "fn": "list_and_size_port990",
-        "ts_utc": datetime.now(timezone.utc).isoformat(),
-        "host": host,
-        "port": port,
-        "echo_path": echo_path,
-        "file_pattern": file_pattern,
-        "targets_count": len(targets) if targets else 0,
-        "targets_sample": (targets[:10] if targets else []),
-        "min_size_bytes": min_size_bytes,
-        "list_retries": list_retries,
-        "disable_epsv": True,
-        "mode": "implicit",
-        "timeout": 30,
+    return {
+        "ok": ok,
+        "rc": res["rc"],
+        "remote_path": remote_path,
+        "url": url,
+        "stderr": (res["stderr"] or "")[:2000],
+        "stdout": (res["stdout"] or "")[:2000],
     }
 
-    def dbg(msg: str):
-        print(f"[DEBUG] {msg}")
 
-    def err(msg: str):
-        print(f"[ERROR] {msg}")
+# ----------------------------
+# Document materialization
+# ----------------------------
 
-    ftps = iFTP_TLS(timeout=30)
+def materialize_document(doc: Dict[str, Any], debug: bool) -> str:
+    """
+    Creates a local file in /tmp from one of:
+      - inline_text
+      - inline_base64
+      - s3_object {bucket,key}
 
-    try:
-        dbg(f"Starting FTPS operation: {debug_ctx}")
+    Returns local path.
+    """
+    name = doc.get("name")
+    if not name:
+        raise ValueError("Each document must have a 'name'")
 
-        ftps.make_connection(
-            host=host,
-            port=port,
-            username=username,
-            password=password,  # intentionally not logged
-            log_level=0,
-            mode="implicit",
-            disable_epsv=True,
-        )
-        dbg(f"Connected to FTPS host={host} port={port}")
+    local_path = f"/tmp/{name}"
+    source = (doc.get("source") or "").strip()
 
-        ftps.cwd(echo_path)
-        dbg(f"Changed directory to: {echo_path}")
+    _dbg(debug, f"Materializing document: name={name}, source={source}")
 
-        df = ftps.filter_entries(
-            file_pattern=file_pattern,
-            path="",
-            targets=targets,
-            list_retries=list_retries,
-        )
+    if source == "inline_text":
+        text = doc.get("content", "")
+        if not isinstance(text, str):
+            raise ValueError(f"inline_text content must be a string for doc={name}")
+        data = text.encode("utf-8")
 
-        df_height = getattr(df, "height", None)
-        dbg(f"filter_entries completed: df.height={df_height}")
+    elif source == "inline_base64":
+        b64 = doc.get("content", "")
+        if not isinstance(b64, str):
+            raise ValueError(f"inline_base64 content must be a string for doc={name}")
+        data = base64.b64decode(b64)
 
-        rows = df.rows(named=True) if getattr(df, "height", 0) > 0 else []
-        dbg(f"Rows extracted: count={len(rows)}")
+    elif source == "s3_object":
+        s3o = doc.get("s3_object") or {}
+        bucket = s3o.get("bucket")
+        key = s3o.get("key")
+        if not bucket or not key:
+            raise ValueError(f"s3_object requires s3_object.bucket and s3_object.key for doc={name}")
+        data = read_s3_object(bucket, key, debug=debug)
 
-        for r in rows:
-            size = int(r.get("content_length", 0) or 0)
-            if size >= min_size_bytes:
-                found.append(
-                    {
-                        "name": r.get("name"),
-                        "target": r.get("target"),
-                        "content_length": size,
-                        "last_modified": str(r.get("last_modified")),
-                        "system_date": str(r.get("system_date")),
-                        "remote_path": f"{echo_path}/{r.get('name')}",
-                    }
-                )
+    else:
+        raise ValueError(f"Unsupported document source '{source}' for doc={name}")
 
-        dbg(f"Files meeting size threshold: count={len(found)}")
-        return found
+    with open(local_path, "wb") as f:
+        f.write(data)
 
-    except Exception as e:
-        err("Exception during FTPS processing")
-        err(f"Exception: {repr(e)}")
-        err(f"Debug context: {debug_ctx}")
-        err("Traceback:")
-        print(traceback.format_exc())
-        raise
-
-    finally:
-        try:
-            ftps.quit()
-            dbg("FTPS quit successful")
-        except Exception as e_quit:
-            dbg(f"FTPS quit failed: {repr(e_quit)}")
-            try:
-                ftps.close()
-                dbg("FTPS close successful")
-            except Exception as e_close:
-                dbg(f"FTPS close failed: {repr(e_close)}")
+    _dbg(debug, f"Wrote local file: {local_path} bytes={len(data)}")
+    return local_path
 
 
-
-# -------------------------
-# Lambda Handler (ports-only)
-# -------------------------
+# ----------------------------
+# Lambda handler
+# ----------------------------
 
 def lambda_handler(event, context):
     """
-    Ports-only configuration (no mode words):
-      - ftps_port == 21  => curl explicit FTPS (ftp:// + --ssl-reqd)
-      - ftps_port == 990 => python ftps_client implicit FTPS (TLS-on-connect)
+    Event supports either:
+      - config_s3_uri: "s3://bucket/path/config.json"   (recommended)
+        OR
+      - config: {...}  inline config JSON object
 
-    Required:
-      - secret_id, jenkins_url, echo_folder, file_pattern, ftps_port
+    Config must contain:
+      - secret_id
+      - documents: [...]
+
+    Secret must contain (minimum):
+      - echo_ip or echo_host
+      - echo_dart_username (or username)
+      - echo_dart_password (or password)
+      - echo_path   <-- this is used as the remote base path
+
+    Optional config:
+      - ftps_port: 990 (implicit) or 21 (explicit) [default 990]
+      - verify_tls: bool [default False => adds --insecure]
+      - curl_timeout_seconds: int [default 30]
+
+    Documents:
+      - name
+      - source: inline_text | inline_base64 | s3_object
+      - remote_path: relative path under echo_path OR absolute (/...) to override base
     """
-    print("Input event:", json.dumps(event))
+    debug = bool(event.get("debug", False))
 
-    file_pattern = event.get("file_pattern")
-    echo_folder = event.get("echo_folder")
-    echo_subfolder = event.get("echo_subfolder", "") or ""
-    jenkins_url = event.get("jenkins_url")
-    secret_id = event.get("secret_id")
-    ftps_port = event.get("ftps_port")
+    try:
+        _dbg(debug, f"Input event: {json.dumps(event)}")
 
-    if not file_pattern:
-        return {"statusCode": 400, "body": json.dumps({"error": "Missing required 'file_pattern'."})}
-    if not echo_folder:
-        return {"statusCode": 400, "body": json.dumps({"error": "Missing required 'echo_folder'."})}
-    if not jenkins_url:
-        return {"statusCode": 400, "body": json.dumps({"error": "Missing required 'jenkins_url'."})}
-    if not secret_id:
-        return {"statusCode": 400, "body": json.dumps({"error": "Missing required 'secret_id'."})}
-    if ftps_port is None:
-        return {"statusCode": 400, "body": json.dumps({"error": "Missing required 'ftps_port' (21 or 990)."} )}
+        # Load config
+        if event.get("config_s3_uri"):
+            cfg = read_config_from_s3(event["config_s3_uri"], debug=debug)
+        elif event.get("config"):
+            cfg = event["config"]
+        else:
+            raise ValueError("Must provide either 'config_s3_uri' or inline 'config'")
 
-    ftps_port = int(ftps_port)
-    if ftps_port not in (21, 990):
-        return {"statusCode": 400, "body": json.dumps({"error": "Unsupported ftps_port. Use 21 or 990 only.", "ftps_port": ftps_port})}
+        if not isinstance(cfg, dict):
+            raise ValueError("Config must be a JSON object")
 
-    targets = event.get("targets", []) or []
-    min_size_bytes = int(event.get("min_size_bytes", 1))
-    jenkins_timeout_seconds = int(event.get("jenkins_timeout_seconds", 10))
-    curl_timeout_seconds = int(event.get("curl_timeout_seconds", 30))
-    list_retries = int(event.get("list_retries", 0))
+        secret_id = cfg.get("secret_id")
+        if not secret_id:
+            raise ValueError("Config missing 'secret_id'")
 
-    secret = fetch_secret(secret_id)
+        documents = cfg.get("documents") or []
+        if not isinstance(documents, list) or not documents:
+            raise ValueError("Config must include non-empty 'documents' list")
 
-    host = secret["echo_ip"]
-    username = secret["echo_dart_username"]
-    password = secret["echo_dart_password"]
+        ftps_port = int(cfg.get("ftps_port", 990))
+        if ftps_port == 990:
+            ftps_mode = "implicit"
+        elif ftps_port == 21:
+            ftps_mode = "explicit"
+        else:
+            raise ValueError("ftps_port must be 21 or 990")
 
-    echo_path = compute_echo_path(secret, echo_folder, echo_subfolder)
+        verify_tls = bool(cfg.get("verify_tls", False))
+        timeout = int(cfg.get("curl_timeout_seconds", 30))
 
-    print(
-        json.dumps(
-            {
-                "host": host,
-                "ftps_port": ftps_port,
-                "echo_path": echo_path,
-                "file_pattern": file_pattern,
-                "targets": targets,
-                "min_size_bytes": min_size_bytes,
-            }
-        )
-    )
+        # Fetch creds and remote base path from secret
+        secret = fetch_secret(secret_id, debug=debug)
 
-    # Transport selection by port ONLY
-    if ftps_port == 990:
-        transport = "python_ftplib_port990"
-        found = list_and_size_port990(
-            host=host,
-            port=ftps_port,
-            username=username,
-            password=password,
-            echo_path=echo_path,
-            file_pattern=file_pattern,
-            targets=targets,
-            min_size_bytes=min_size_bytes,
-            list_retries=list_retries,
-        )
-    else:  # 21
-        transport = "curl_port21"
-        found = list_and_size_port21(
-            host=host,
-            port=ftps_port,
-            username=username,
-            password=password,
-            echo_path=echo_path,
-            file_pattern=file_pattern,
-            targets=targets,
-            min_size_bytes=min_size_bytes,
-            curl_timeout_seconds=curl_timeout_seconds,
-        )
+        host = secret.get("echo_ip") or secret.get("echo_host")
+        if not host:
+            raise ValueError("Secret must include 'echo_ip' or 'echo_host'")
 
-    result = {
-        "found": bool(found),
-        "transport": transport,
-        "checked_path": echo_path,
-        "file_pattern": file_pattern,
-        "targets": targets,
-        "min_size_bytes": min_size_bytes,
-        "matches": found,
-        "pipeline": event.get("pipeline"),
-        "step": event.get("step"),
-        "echo_folder": echo_folder,
-        "echo_subfolder": echo_subfolder,
-        "header": event.get("header"),
-        "to_queue": event.get("to_queue"),
-        "ftps_port": ftps_port,
-    }
+        username = secret.get("echo_dart_username") or secret.get("username")
+        password = secret.get("echo_dart_password") or secret.get("password")
+        if not username or not password:
+            raise ValueError("Secret must include username/password (echo_dart_username/echo_dart_password)")
 
-    print("Check result:", json.dumps(result))
+        echo_path = secret.get("echo_path")
+        if not echo_path or not isinstance(echo_path, str):
+            raise ValueError("Secret must include a string 'echo_path' (remote base path)")
 
-    if not found:
-        return {"statusCode": 200, "body": json.dumps(result)}
+        echo_path = echo_path.rstrip("/")  # remote base path
+        _dbg(debug, f"Remote base path from secret echo_path={echo_path}")
 
-    # Trigger Jenkins webhook
-    jenkins_payload = {
-        "source": "ftps_file_check_lambda",
-        "aws_request_id": getattr(context, "aws_request_id", None),
-        "function_name": getattr(context, "function_name", None),
-        "log_stream_name": getattr(context, "log_stream_name", None),
-        **result,
-    }
+        connection_info = {
+            "host": host,
+            "ftps_port": ftps_port,
+            "ftps_mode": ftps_mode,
+            "verify_tls": verify_tls,
+            "curl_timeout_seconds": timeout,
+            "echo_path": echo_path,
+            "secret_id": secret_id,
+            "debug": debug,
+        }
+        _dbg(debug, f"Connection resolved: {json.dumps(connection_info)}")
 
-    jenkins_resp = http_post_json(jenkins_url, jenkins_payload, timeout_seconds=jenkins_timeout_seconds)
-    result["jenkins_call"] = {
-        "url": jenkins_url,
-        "ok": jenkins_resp["ok"],
-        "status": jenkins_resp["status"],
-        "error": jenkins_resp.get("error"),
-        "response_body": jenkins_resp.get("response_body"),
-    }
+        uploads = []
 
-    print("Jenkins response:", json.dumps(result["jenkins_call"]))
+        for doc in documents:
+            local_path = materialize_document(doc, debug=debug)
 
-    return {"statusCode": 200, "body": json.dumps(result)}
+            remote_path = doc.get("remote_path")
+            if not remote_path:
+                raise ValueError(f"Document '{doc.get('name')}' missing 'remote_path'")
+
+            remote_path = str(remote_path)
+
+            # If remote_path is absolute, use it as-is; otherwise join under echo_path
+            if remote_path.startswith("/"):
+                full_remote_path = remote_path
+            else:
+                full_remote_path = _join_posix(echo_path, remote_path)
+
+            _dbg(debug, f"Uploading doc '{doc.get('name')}' => {full_remote_path}")
+
+            up = curl_upload_file(
+                host=host,
+                port=ftps_port,
+                mode=ftps_mode,
+                username=username,
+                password=password,
+                local_path=local_path,
+                remote_path=full_remote_path,
+                verify_tls=verify_tls,
+                timeout=timeout,
+                debug=debug,
+            )
+
+            uploads.append({
+                "name": doc.get("name"),
+                "source": doc.get("source"),
+                "remote_path": full_remote_path,
+                "local_path": local_path,
+                "ok": up["ok"],
+                "rc": up["rc"],
+                "stderr": up["stderr"],
+                "stdout": up["stdout"],
+                "url": up["url"],
+            })
+
+        ok = all(u["ok"] for u in uploads)
+
+        result = {
+            "ok": ok,
+            "connection": connection_info,
+            "uploads": uploads,
+            "uploaded_count": len(uploads),
+            "success_count": sum(1 for u in uploads if u["ok"]),
+            "failure_count": sum(1 for u in uploads if not u["ok"]),
+        }
+
+        print(f"Upload summary: ok={result['ok']} success={result['success_count']} fail={result['failure_count']}")
+        return {"statusCode": 200 if ok else 207, "body": json.dumps(result)}
+
+    except Exception as e:
+        _err("Unhandled exception in upload lambda")
+        _err(repr(e))
+        print(traceback.format_exc())
+        return {
+            "statusCode": 500,
+            "body": json.dumps({
+                "ok": False,
+                "error": repr(e),
+                "debug": debug,
+            })
+        }

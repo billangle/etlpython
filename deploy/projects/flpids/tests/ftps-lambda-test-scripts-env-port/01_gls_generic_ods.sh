@@ -1,19 +1,12 @@
-#! /bin/sh
+#!/usr/bin/env bash
 set -euo pipefail
 
-# GLS generic ODS pattern (matches filenames with only word characters).
-
-# Required environment variables:
-#   FUNCTION   - Lambda function name
-#   FTPS_PORT  - FTPS port (21 or 990)
 : "${FUNCTION:?FUNCTION environment variable not set}"
 : "${FTPS_PORT:?FTPS_PORT environment variable not set (use 21 or 990)}"
 
-
-PAYLOAD_FILE="$(mktemp /tmp/lambda-payload.XXXXXX.json)"
+PAYLOAD_FILE="$(mktemp -t lambda-payload.XXXXXX.json)"
 trap 'rm -f "$PAYLOAD_FILE"' EXIT
 
-# Use a *quoted* heredoc delimiter to prevent backslash processing (keeps regex JSON valid)
 cat > "$PAYLOAD_FILE" <<'EOF'
 {
   "file_pattern": "^(\\w+)$",
@@ -27,11 +20,19 @@ cat > "$PAYLOAD_FILE" <<'EOF'
 }
 EOF
 
-# Substitute port placeholder (portable on macOS/BSD sed)
-sed -i '' "s/__FTPS_PORT__/${FTPS_PORT}/g" "$PAYLOAD_FILE"
+sed_inplace() {
+  # macOS (BSD sed) needs: -i ''
+  # Linux (GNU sed) needs: -i
+  if sed --version >/dev/null 2>&1; then
+    sed -i "$@"
+  else
+    sed -i '' "$@"
+  fi
+}
+
+sed_inplace "s/__FTPS_PORT__/${FTPS_PORT}/g" "$PAYLOAD_FILE"
 
 aws lambda invoke \
-  --no-verify-ssl \
   --function-name "${FUNCTION}" \
   --cli-binary-format raw-in-base64-out \
   --payload "file://${PAYLOAD_FILE}" \
@@ -39,4 +40,4 @@ aws lambda invoke \
 
 echo "Wrote response.json"
 cat response.json
-echo ""
+echo

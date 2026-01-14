@@ -3,6 +3,7 @@ import re
 import subprocess
 import urllib.request
 import urllib.error
+import urllib.parse
 import boto3
 import traceback
 
@@ -33,6 +34,12 @@ def fetch_secret(secret_id: str, debug: bool = False) -> dict:
 
 
 def http_post_json(url: str, payload: dict, timeout_seconds: int = 10, debug: bool = False) -> dict:
+    """
+    POST JSON payload to url.
+
+    Returns dict:
+      { ok: bool, status: int|None, error: str|None, response_body: str }
+    """
     if debug:
         print(f"[DEBUG] Posting JSON to Jenkins: url={url}, timeout={timeout_seconds}s")
 
@@ -276,9 +283,11 @@ def curl_file_size(
 
 def lambda_handler(event, context):
     """
-    Expected behavior change:
-      - Missing files during size check are EXPECTED and do NOT throw.
-      - If no file meets the criteria, return a 200 with a simple "not found" outcome.
+    Behavior:
+      - List directory
+      - Regex match + (optional) target filter
+      - Find FIRST file that matches and has size > 0
+      - Call Jenkins URL once (if found)
 
     Required event fields:
       - file_pattern
@@ -289,8 +298,13 @@ def lambda_handler(event, context):
 
     Optional:
       - debug: bool (default False)
-      - verify_tls: bool (default False) => uses --insecure
-      - echo_subfolder, targets, min_size_bytes, timeouts...
+      - verify_tls: bool (default False) => uses --insecure if False
+      - echo_subfolder: str
+      - targets: list[str]
+      - min_size_bytes: int (default 1)
+      - jenkins_timeout_seconds: int (default 10)
+      - curl_timeout_seconds: int (default 30)
+      - jenkins_file_count_param: str (default "file_count") -> query param added to Jenkins URL
     """
     debug = bool(event.get("debug", False))
 
@@ -299,7 +313,6 @@ def lambda_handler(event, context):
             print(f"[DEBUG] {msg}")
 
     def err(msg: str):
-        # Errors should always print
         print(f"[ERROR] {msg}")
 
     try:
@@ -326,6 +339,9 @@ def lambda_handler(event, context):
         curl_timeout_seconds = int(event.get("curl_timeout_seconds", 30))
         verify_tls = bool(event.get("verify_tls", False))
 
+        # New: URL query param name for file count
+        jenkins_file_count_param = (event.get("jenkins_file_count_param") or "file_count").strip() or "file_count"
+
         ftps_port = event.get("ftps_port")
         if ftps_port is None:
             raise ValueError("Missing required 'ftps_port' (must be 21 or 990)")
@@ -348,7 +364,7 @@ def lambda_handler(event, context):
         echo_path = f"/{secret['echo_dart_path']}/{echo_folder}/in/{echo_subfolder}".rstrip("/")
         dbg(f"Resolved echo_path={echo_path}")
 
-        # 1) list directory
+        # 1) List directory
         filenames = curl_list_files(
             host=host,
             port=ftps_port,
@@ -361,7 +377,9 @@ def lambda_handler(event, context):
             debug=debug,
         )
 
-        # 2) regex match + target filter
+        total_file_count = len(filenames)
+
+        # 2) Regex match + (optional) target filter
         compiled = re.compile(file_pattern, re.I)
         targets_lc = [t.lower() for t in targets] if targets else None
 
@@ -377,8 +395,8 @@ def lambda_handler(event, context):
 
         dbg(f"Matched files after regex/target filtering: {len(matched)}")
 
-        # 3) size check (missing file is expected => skip, do not fail)
-        found = []
+        # 3) Find FIRST qualifying file (size >= min_size_bytes; and > 0 implied)
+        first_found = None
         for f in matched:
             remote_file_path = f"{echo_path}/{f['name']}"
 
@@ -394,43 +412,63 @@ def lambda_handler(event, context):
                 debug=debug,
             )
 
-            # Missing file => expected => continue
+            # Missing file => expected => skip
             if size is None:
-                if debug:
-                    print(f"[DEBUG] Skipping missing file: {remote_file_path}")
+                dbg(f"Skipping missing file: {remote_file_path}")
                 continue
 
-            if int(size) >= min_size_bytes:
-                found.append({**f, "content_length": int(size), "remote_path": remote_file_path})
+            # Require size > 0 and >= min_size_bytes
+            if int(size) > 0 and int(size) >= min_size_bytes:
+                first_found = {**f, "content_length": int(size), "remote_path": remote_file_path}
+                dbg(f"First qualifying file found: {first_found}")
+                break
 
-        # ----------------------------
-        # APPLY YOUR RESULT/RETURN/JENKINS CHANGES
-        # ----------------------------
-
+        # Build result
         result = {
-            "found": bool(found),
+            "found": bool(first_found),
             "checked_path": echo_path,
             "file_pattern": file_pattern,
             "targets": targets,
             "min_size_bytes": min_size_bytes,
-            "matches": found,
+            "match": first_found,
+            "matches": [first_found] if first_found else [],
             "echo_folder": echo_folder,
             "echo_subfolder": echo_subfolder,
             "ftps_port": ftps_port,
             "ftps_mode": ftps_mode,
             "verify_tls": verify_tls,
             "debug": debug,
+            "total_file_count": total_file_count,  # total files listed in the directory
+            "matched_file_count": len(matched),     # matched after regex/targets
         }
 
-        print(f"Result summary: host: {host} path={result['checked_path']} folder={result['echo_folder']}  found={result['found']} matches={len(found)}")
+        print(
+            "Result summary: "
+            f"host={host} path={result['checked_path']} folder={result['echo_folder']} "
+            f"found={result['found']} total_file_count={total_file_count} matched_file_count={len(matched)}"
+        )
 
-        if not found:
-            # Expected outcome: nothing met criteria
+        if not first_found:
             result["error"] = "file meeting the expected criteria was not found"
             print("No qualifying files found — exiting without Jenkins call")
             return {"statusCode": 200, "body": json.dumps(result)}
 
-        # 4) Trigger Jenkins webhook
+        # 4) Add total_file_count as a query param to Jenkins URL
+        parsed = urllib.parse.urlsplit(jenkins_url)
+        q = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+
+        # Replace existing param if present; otherwise add it
+        q = [(k, v) for (k, v) in q if k != jenkins_file_count_param]
+        q.append((jenkins_file_count_param, str(total_file_count)))
+
+        new_query = urllib.parse.urlencode(q, doseq=True)
+        jenkins_url_with_count = urllib.parse.urlunsplit(
+            (parsed.scheme, parsed.netloc, parsed.path, new_query, parsed.fragment)
+        )
+
+        dbg(f"Jenkins URL (with file count): {jenkins_url_with_count}")
+
+        # 5) Trigger Jenkins webhook with JSON payload (also contains counts)
         jenkins_payload = {
             "source": "ftps_file_check_lambda",
             "aws_request_id": getattr(context, "aws_request_id", None),
@@ -440,18 +478,20 @@ def lambda_handler(event, context):
         }
 
         jenkins_resp = http_post_json(
-            jenkins_url,
+            jenkins_url_with_count,
             jenkins_payload,
             timeout_seconds=jenkins_timeout_seconds,
             debug=debug,
         )
 
         result["jenkins_call"] = {
-            "url": jenkins_url,
+            "url": jenkins_url_with_count,
             "ok": jenkins_resp["ok"],
             "status": jenkins_resp["status"],
             "error": jenkins_resp.get("error"),
             "response_body": jenkins_resp.get("response_body"),
+            "file_count_param": jenkins_file_count_param,
+            "file_count_value": total_file_count,
         }
 
         print(
@@ -464,7 +504,6 @@ def lambda_handler(event, context):
         return {"statusCode": 200, "body": json.dumps(result)}
 
     except Exception as e:
-        # Errors should always be printed, even if debug=False
         print("Unhandled exception in lambda_handler")
         err(repr(e))
         print(traceback.format_exc())

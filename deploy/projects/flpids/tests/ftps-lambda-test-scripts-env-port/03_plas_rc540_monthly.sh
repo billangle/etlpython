@@ -1,4 +1,4 @@
-#! /bin/sh
+#!/usr/bin/env bash
 set -euo pipefail
 
 # PLAS RC540 monthly file: mo.moyr540.data
@@ -27,8 +27,17 @@ cat > "$PAYLOAD_FILE" <<'EOF'
 }
 EOF
 
-# Substitute port placeholder (portable on macOS/BSD sed)
-sed -i '' "s/__FTPS_PORT__/${FTPS_PORT}/g" "$PAYLOAD_FILE"
+sed_inplace() {
+  # macOS (BSD sed) needs: -i ''
+  # Linux (GNU sed) needs: -i
+  if sed --version >/dev/null 2>&1; then
+    sed -i "$@"
+  else
+    sed -i '' "$@"
+  fi
+}
+
+sed_inplace "s/__FTPS_PORT__/${FTPS_PORT}/g" "$PAYLOAD_FILE"
 
 aws lambda invoke \
   --no-verify-ssl \

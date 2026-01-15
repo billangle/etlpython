@@ -4,49 +4,10 @@ arn:aws:iam::241533156429:user/svcdev_jenkins_iam
 
 
 Prod:
-AKIATQPD7PRGTUVZIKHX (FPAC Jenkins credentials)
-System
--
-Global
--
-fsafpac
--
-FPAC Jenkins credentials
+
+AKIATWBJZ7S5E7U7MAG3 (Creds to access prod secrets)
+fsafpac-prod
+arn:aws:iam::253490756794:user/svcprd_jenkins_iam
 
 
-PROD ACCOUNT: 253490756794
-
-
-
-error:
-
- + python deploy.py --config config/flpidsprod.json --region us-east-1 --project-type flpids
-13:52:29  Traceback (most recent call last):
-13:52:29    File "/app/jenkins/workspace/BuildProcess/DeployFlpids/deploy/common/aws_common.py", line 219, in ensure_lambda
-13:52:29      resp = lambda_client.get_function(FunctionName=spec.name)
-13:52:29    File "/app/jenkins/workspace/BuildProcess/DeployFlpids/deploy/.venv/lib64/python3.9/site-packages/botocore/client.py", line 602, in _api_call
-13:52:29      return self._make_api_call(operation_name, kwargs)
-13:52:29    File "/app/jenkins/workspace/BuildProcess/DeployFlpids/deploy/.venv/lib64/python3.9/site-packages/botocore/context.py", line 123, in wrapper
-13:52:29      return func(*args, **kwargs)
-13:52:29    File "/app/jenkins/workspace/BuildProcess/DeployFlpids/deploy/.venv/lib64/python3.9/site-packages/botocore/client.py", line 1078, in _make_api_call
-13:52:29      raise error_class(parsed_response, operation_name)
-13:52:29  botocore.errorfactory.ResourceNotFoundException: An error occurred (ResourceNotFoundException) when calling the GetFunction operation: Function not found: arn:aws:lambda:us-east-1:241533156429:function:FSA-prod-FpacFLPIDSCHK-CheckFile
-13:52:29  
-13:52:29  During handling of the above exception, another exception occurred:
-13:52:29  
-13:52:29  Traceback (most recent call last):
-13:52:29    File "/app/jenkins/workspace/BuildProcess/DeployFlpids/deploy/deploy.py", line 36, in <module>
-13:52:29      raise SystemExit(main())
-13:52:29    File "/app/jenkins/workspace/BuildProcess/DeployFlpids/deploy/deploy.py", line 24, in main
-13:52:29      summary = flpids_deploy(cfg, args.region)
-13:52:29    File "/app/jenkins/workspace/BuildProcess/DeployFlpids/deploy/projects/flpids/deploy.py", line 112, in deploy
-13:52:29      checkfile_arn = ensure_lambda(
-13:52:29    File "/app/jenkins/workspace/BuildProcess/DeployFlpids/deploy/common/aws_common.py", line 273, in ensure_lambda
-13:52:29      resp = lambda_client.create_function(**create_kwargs)
-13:52:29    File "/app/jenkins/workspace/BuildProcess/DeployFlpids/deploy/.venv/lib64/python3.9/site-packages/botocore/client.py", line 602, in _api_call
-13:52:29      return self._make_api_call(operation_name, kwargs)
-13:52:29    File "/app/jenkins/workspace/BuildProcess/DeployFlpids/deploy/.venv/lib64/python3.9/site-packages/botocore/context.py", line 123, in wrapper
-13:52:29      return func(*args, **kwargs)
-13:52:29    File "/app/jenkins/workspace/BuildProcess/DeployFlpids/deploy/.venv/lib64/python3.9/site-packages/botocore/client.py", line 1078, in _make_api_call
-13:52:29      raise error_class(parsed_response, operation_name)
-13:52:29  botocore.exceptions.ClientError: An error occurred (AccessDeniedException) when calling the CreateFunction operation: Cross-account pass role is not allowed.
+Prod secrets is:  "secret_id": "FSA-PROD-secrets",

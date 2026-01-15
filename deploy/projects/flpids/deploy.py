@@ -100,7 +100,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     s3 = session.client("s3")
     lam = session.client("lambda")
 
-    ensure_bucket_exists(s3, artifact_bucket, region)
+  #  ensure_bucket_exists(s3, artifact_bucket, region)
 
     env_vars = {
         "PROJECT": project,

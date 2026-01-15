@@ -18,6 +18,7 @@ cat > "$PAYLOAD_FILE" <<'EOF'
   "jenkins_login": "28722025092407116016427",
   "jenkins_password": "11895b798e52daaad50bc841a07484faea",
   "secret_id": "FSA-CERT-Secrets",
+  "debug": true,
   "ftps_port": __FTPS_PORT__
 }
 EOF

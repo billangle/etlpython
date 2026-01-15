@@ -1,0 +1,14 @@
+Jenkins: disc_fsafpac
+AKIATQPD7PRGTUVZIKHX (FPAC Jenkins credentials in DISC)
+arn:aws:iam::241533156429:user/svcdev_jenkins_iam
+
+
+Prod:
+AKIATQPD7PRGTUVZIKHX (FPAC Jenkins credentials)
+System
+-
+Global
+-
+fsafpac
+-
+FPAC Jenkins credentials

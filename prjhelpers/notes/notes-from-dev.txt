@@ -1,11 +1,10 @@
 Jenkins: disc_fsafpac
-AKIATQPD7PRGTUVZIKHX (FPAC Jenkins credentials in DISC)
+(FPAC Jenkins credentials in DISC)
 arn:aws:iam::241533156429:user/svcdev_jenkins_iam
 
 
 Prod:
-
-AKIATWBJZ7S5E7U7MAG3 (Creds to access prod secrets)
+(Creds to access prod secrets)
 fsafpac-prod
 arn:aws:iam::253490756794:user/svcprd_jenkins_iam
 

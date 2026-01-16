@@ -45,7 +45,8 @@
   "networking": {
     "vpcId": "vpc-05f9625eecaabbfd4",
     "subnetIds": [
-      "subnet-0efad3e6d7fc2489f"
+      "subnet-0efad3e6d7fc2489f",
+      "subnet-04e2ec27e304d393d"
     ],
     "securityGroupIds": [
       "sg-0aa095e84a1382ac2"

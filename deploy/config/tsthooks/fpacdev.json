@@ -48,6 +48,7 @@
       "subnet-0efad3e6d7fc2489f"
     ],
     "securityGroupIds": [
+      "sg-0aa095e84a1382ac2"
   ]
   }
 }

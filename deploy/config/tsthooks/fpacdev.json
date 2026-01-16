@@ -41,5 +41,13 @@
     "createRoleIfMissing": false,
     "roleName": "disc-fsa-dev-stepfunction",
     "roleArn": "arn:aws:iam::241533156429:role/disc-fsa-dev-stepfunction"
+  },
+  "networking": {
+    "vpcId": "vpc-05f9625eecaabbfd4",
+    "subnetIds": [
+      "subnet-0efad3e6d7fc2489f"
+    ],
+    "securityGroupIds": [
+  ]
   }
 }

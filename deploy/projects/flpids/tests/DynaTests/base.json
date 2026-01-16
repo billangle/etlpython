@@ -1,0 +1,14 @@
+{
+  "file_pattern": "^(\\w+)$",
+  "echo_folder": "gls",
+  "pipeline": "FLPIDS_ODS",
+  "secret_id": "FSA-CERT-Secrets",
+  "ftps_port": 990,
+  "dynamodb": {
+    "table_name": "FSA-FileChecks",
+    "partition_key": "jobId",
+    "sort_key": "project",
+    "project_gsi_name": "ProjectIndex"
+  },
+  "debug": true
+}

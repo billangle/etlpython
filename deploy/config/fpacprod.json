@@ -24,8 +24,8 @@
     "finalBucketNameParam": "c108-prod-fpacfsa-final-zone",
     "glueJobRoleArnParam": "arn:aws:iam::253490756794:role/disc-fsa-prod-glue-servicerole",
     "etlRoleArnParam": "arn:aws:iam::253490756794:role/disc-fsa-prod-lambda-servicerole",
-    "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-2:253490756794:layer:FSA-MDART-layer:1",
-    "customLayerArnParam": "arn:aws:lambda:us-east-2:253490756794:layer:FSA-polars:1"
+    "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-2:253490756794:layer:fpacfsa-thirdparty:1",
+    "customLayerArnParam": "arn:aws:lambda:us-east-2:253490756794:layer:fpacfsa-custom:1"
   },
   "paths": {
     "glueRootPath": "../src/glue/",

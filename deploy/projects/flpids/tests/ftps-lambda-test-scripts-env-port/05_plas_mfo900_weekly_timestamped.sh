@@ -21,7 +21,7 @@ cat > "$PAYLOAD_FILE" <<'EOF'
   "pipeline": "FLPIDS_RPT",
   "step": "flpids_rpt Landing Zone (Weekly)",
   "header": false,
-  "jenkins_url": "https://u9b0bk5pxi.execute-api.us-east-1.amazonaws.com/prod/jenkins-webhook",
+  "jenkins_url": "https://b6gjf5cx60.execute-api.us-east-1.amazonaws.com/prod/jenkins-webhook",
   "secret_id": "FSA-CERT-Secrets",
   "ftps_port": __FTPS_PORT__
 }

@@ -31,6 +31,33 @@ export class FtpsTransferStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+      // ---- Requested constants ----
+    const USERNAME = "S_DART-CERT";
+    const PASSWORD = "MyDartTest";
+    const HOME_PREFIX = "s_dart_cert";
+    const MAIN_SECRET_NAME = "FSA-CERT-Secrets";
+
+
+
+    // ============================================================
+    // Main secrets JSON: FSA-CERT-Secrets
+    // echo_ip is the SFTP DNS name, port is 22
+    // ============================================================
+    const fsaSecretJson =
+      `{
+      "echo_ip": "ftps.steamfpac.com",
+      "echo_port": "21",
+      "echo_dart_path": "${HOME_PREFIX}",
+      "echo_dart_password": "${PASSWORD}",
+      "echo_dart_username": "${USERNAME}"
+    }`;
+
+    new secretsmanager.Secret(this, "FsaCertSecrets", {
+      secretName: MAIN_SECRET_NAME,
+      secretStringValue: cdk.SecretValue.unsafePlainText(fsaSecretJson)
+    });
+
+
     const get = (k: string) => this.node.tryGetContext(k);
 
     const cfg: Ctx = {

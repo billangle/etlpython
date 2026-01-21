@@ -1,4 +1,3 @@
-import * as path from "path";
 import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
@@ -11,385 +10,346 @@ import * as transfer from "aws-cdk-lib/aws-transfer";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
-import * as cr from "aws-cdk-lib/custom-resources";
-import * as events from "aws-cdk-lib/aws-events";
-import * as eventTargets from "aws-cdk-lib/aws-events-targets";
-
-type Ctx = {
-  deployEnv: string;
-  projectName: string;
-  homePrefix: string;
-  transferUserName: string;
-  transferUserPassword: string;
-  passivePortStart: number;
-  passivePortEnd: number;
-  ftpsDomainName: string;
-  hostedZoneDomain: string;
-};
+import * as logs from "aws-cdk-lib/aws-logs";
 
 export class FtpsTransferStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-      // ---- Requested constants ----
-    const USERNAME = "S_DART-CERT";
-    const PASSWORD = "MyDartTest";
+    // ============================================================
+    // HARD-CODED CONFIG
+    // ============================================================
+    const HOSTED_ZONE_DOMAIN = "steamfpac.com";
+    const FTPS_FQDN = "ftps.steamfpac.com";
+
+    // ✅ requested allow list
+    const ALLOWED_CIDRS: string[] = ["216.234.197.6/32"];
+
+    const PASSIVE_START = 8192;
+    const PASSIVE_END = 8200;
+
     const HOME_PREFIX = "s_dart_cert";
-    const MAIN_SECRET_NAME = "FSA-CERT-Secrets";
-
-
+    const TRANSFER_USERNAME = "S_DART-CERT";
+    const TRANSFER_PASSWORD = "MyDartTest";
 
     // ============================================================
-    // Main secrets JSON: FSA-CERT-Secrets
-    // echo_ip is the SFTP DNS name, port is 22
+    // 0) Import EXISTING public hosted zone from Route53
     // ============================================================
-    const fsaSecretJson =
-      `{
-      "echo_ip": "ftps.steamfpac.com",
-      "echo_port": "21",
-      "echo_dart_path": "${HOME_PREFIX}",
-      "echo_dart_password": "${PASSWORD}",
-      "echo_dart_username": "${USERNAME}"
-    }`;
-
-    new secretsmanager.Secret(this, "FsaCertSecrets", {
-      secretName: MAIN_SECRET_NAME,
-      secretStringValue: cdk.SecretValue.unsafePlainText(fsaSecretJson)
+    const hostedZone = route53.HostedZone.fromLookup(this, "SteamFpacHostedZone", {
+      domainName: HOSTED_ZONE_DOMAIN,
     });
 
+    // ============================================================
+    // 1) VPC + FIXED NAT EIP (Lambda egress)
+    // ============================================================
+    const lambdaNatEip = new ec2.CfnEIP(this, "LambdaNatEip", { domain: "vpc" });
 
-    const get = (k: string) => this.node.tryGetContext(k);
+    const natProvider = ec2.NatProvider.gateway({
+      eipAllocationIds: [lambdaNatEip.attrAllocationId],
+    });
 
-    const cfg: Ctx = {
-      deployEnv: String(get("deployEnv") ?? "CERT"),
-      projectName: String(get("projectName") ?? "DART-ECHO-FETCH"),
-      homePrefix: String(get("homePrefix") ?? "s_dart_cert"),
-      transferUserName: String(get("transferUserName") ?? "S_DART-CERT"),
-      transferUserPassword: String(get("transferUserPassword") ?? "MyDartTest"),
-      passivePortStart: Number(get("passivePortStart") ?? 8192),
-      passivePortEnd: Number(get("passivePortEnd") ?? 8200),
-      ftpsDomainName: "ftps.steamfpac.com", // HARDCODED
-      hostedZoneDomain: "steamfpac.com" // HARDCODED
-    };
-    // 1) S3 bucket used by Transfer
+    const vpc = new ec2.Vpc(this, "TransferVpc", {
+      natGateways: 1,
+      natGatewayProvider: natProvider,
+    });
+
+    const lambdaSubnets = vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS });
+
+    const lambdaClientSg = new ec2.SecurityGroup(this, "LambdaFtpsClientSg", {
+      vpc,
+      allowAllOutbound: true,
+      description: "Attach to Lambdas that must reach ftps.steamfpac.com",
+    });
+
+    // ============================================================
+    // 2) FTPS Server SG: allow humans + Lambda NAT only
+    // ============================================================
+    const ftpsSg = new ec2.SecurityGroup(this, "FtpsServerSg", {
+      vpc,
+      allowAllOutbound: true,
+      description: "FTPS allow-list + Lambda NAT allow-list",
+    });
+
+    for (const cidr of ALLOWED_CIDRS) {
+      ftpsSg.addIngressRule(ec2.Peer.ipv4(cidr), ec2.Port.tcp(21), `FTPS control (${cidr})`);
+      ftpsSg.addIngressRule(
+        ec2.Peer.ipv4(cidr),
+        ec2.Port.tcpRange(PASSIVE_START, PASSIVE_END),
+        `FTPS passive (${cidr})`
+      );
+    }
+
+    // Lambda egress appears as NAT EIP public IP
+    const natCidr = cdk.Fn.join("", [lambdaNatEip.ref, "/32"]);
+    ftpsSg.addIngressRule(ec2.Peer.ipv4(natCidr), ec2.Port.tcp(21), "FTPS control (Lambda via NAT)");
+    ftpsSg.addIngressRule(
+      ec2.Peer.ipv4(natCidr),
+      ec2.Port.tcpRange(PASSIVE_START, PASSIVE_END),
+      "FTPS passive (Lambda via NAT)"
+    );
+
+    // ============================================================
+    // 3) FTPS EIP + Route53 A record
+    // ============================================================
+    const ftpsEip = new ec2.CfnEIP(this, "FtpsEip", { domain: "vpc" });
+
+    new route53.ARecord(this, "FtpsARecord", {
+      zone: hostedZone,
+      recordName: "ftps",
+      target: route53.RecordTarget.fromIpAddresses(ftpsEip.ref),
+      ttl: cdk.Duration.minutes(5),
+    });
+
+    // ============================================================
+    // 4) ACM certificate (DNS validation via hosted zone)
+    // ============================================================
+    const cert = new acm.Certificate(this, "FtpsCertificate", {
+      domainName: FTPS_FQDN,
+      validation: acm.CertificateValidation.fromDns(hostedZone),
+    });
+
+    // ============================================================
+    // 5) S3 bucket for Transfer
+    // ============================================================
     const transferBucket = new s3.Bucket(this, "TransferBucket", {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
-      autoDeleteObjects: true
+      autoDeleteObjects: true,
     });
 
-    // Create a marker object so GUI clients can list the prefix
     new s3deploy.BucketDeployment(this, "CreateHomePrefixMarker", {
       destinationBucket: transferBucket,
-      destinationKeyPrefix: cfg.homePrefix,
+      destinationKeyPrefix: HOME_PREFIX,
       sources: [s3deploy.Source.data(".keep", "")],
-      retainOnDelete: false
+      retainOnDelete: false,
     });
 
-    // 2) IAM role for Transfer to access S3 within home prefix
+    // ============================================================
+    // 6) Transfer role for S3 access
+    // ============================================================
     const transferS3Role = new iam.Role(this, "TransferS3Role", {
       assumedBy: new iam.ServicePrincipal("transfer.amazonaws.com"),
-      description: "Role assumed by AWS Transfer Family users to access S3"
+      description: "Role assumed by AWS Transfer Family users to access S3",
     });
 
-    transferS3Role.addToPolicy(new iam.PolicyStatement({
-      actions: ["s3:GetBucketLocation"],
-      resources: [transferBucket.bucketArn]
-    }));
+    transferS3Role.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:GetBucketLocation"],
+        resources: [transferBucket.bucketArn],
+      })
+    );
 
-    transferS3Role.addToPolicy(new iam.PolicyStatement({
-      actions: ["s3:ListBucket"],
-      resources: [transferBucket.bucketArn],
-      conditions: {
-        StringLike: {
-          "s3:prefix": [
-            cfg.homePrefix,
-            `${cfg.homePrefix}/`,
-            `${cfg.homePrefix}/*`
-          ]
-        }
-      }
-    }));
+    transferS3Role.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:ListBucket"],
+        resources: [transferBucket.bucketArn],
+        conditions: {
+          StringLike: { "s3:prefix": [HOME_PREFIX, `${HOME_PREFIX}/`, `${HOME_PREFIX}/*`] },
+        },
+      })
+    );
 
-    transferS3Role.addToPolicy(new iam.PolicyStatement({
-      actions: [
-        "s3:GetObject",
-        "s3:PutObject",
-        "s3:DeleteObject",
-        "s3:GetObjectVersion",
-        "s3:DeleteObjectVersion"
-      ],
-      resources: [transferBucket.arnForObjects(`${cfg.homePrefix}/*`)]
-    }));
+    transferS3Role.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:GetObjectVersion", "s3:DeleteObjectVersion"],
+        resources: [transferBucket.arnForObjects(`${HOME_PREFIX}/*`)],
+      })
+    );
 
-    // 3) VPC + Security Group for FTPS internet-facing endpoint
-    const vpc = new ec2.Vpc(this, "TransferVpc", { natGateways: 1 });
-
-    const ftpsSg = new ec2.SecurityGroup(this, "TransferFtpsSg", {
-      vpc,
-      allowAllOutbound: true,
-      description: "SG for AWS Transfer Family FTPS"
-    });
-
-    // TODO: restrict to your CIDRs
-    ftpsSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(21), "FTPS control");
-    ftpsSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcpRange(cfg.passivePortStart, cfg.passivePortEnd), "FTPS passive ports");
-
-    const eip1 = new ec2.CfnEIP(this, "TransferEip1", { domain: "vpc" });
-
-    // ACM cert created in CDK via DNS validation in Route53
-    
-
-// DNS + ACM (fully in-CDK, no synth-time lookups):
-// Ensure a public hosted zone exists (create if missing) using a deploy-time custom resource.
-const hostedZoneProviderFn = new lambda.Function(this, "HostedZoneProvider", {
-  runtime: lambda.Runtime.NODEJS_22_X,
-  handler: "index.handler",
-  code: lambda.Code.fromAsset(path.join(__dirname, "..", "lambda", "HostedZoneProvider")),
-  timeout: cdk.Duration.seconds(30),
-  memorySize: 256
-});
-
-hostedZoneProviderFn.addToRolePolicy(new iam.PolicyStatement({
-  actions: [
-    "route53:ListHostedZonesByName",
-    "route53:CreateHostedZone",
-    "route53:GetHostedZone",
-    "route53:DeleteHostedZone"
-  ],
-  resources: ["*"]
-}));
-
-const zoneCr = new cr.Provider(this, "HostedZoneCrProvider", {
-  onEventHandler: hostedZoneProviderFn
-});
-
-const ensureZone = new cdk.CustomResource(this, "EnsurePublicHostedZone", {
-  serviceToken: zoneCr.serviceToken,
-  properties: {
-    ZoneName: cfg.hostedZoneDomain,
-    DeleteOnRemove: false
-  }
-});
-
-const hostedZoneId = ensureZone.getAttString("HostedZoneId");
-
-// Create DNS record ftpsDomainName -> EIP using L1 (hostedZoneId is a deploy-time token)
-const recordLabel = cfg.ftpsDomainName.endsWith(`.${cfg.hostedZoneDomain}`)
-  ? cfg.ftpsDomainName.slice(0, -(cfg.hostedZoneDomain.length + 1))
-  : cfg.ftpsDomainName;
-
-new route53.CfnRecordSet(this, "FtpsARecord", {
-  hostedZoneId,
-  name: `${recordLabel}.${cfg.hostedZoneDomain}.`,
-  type: "A",
-  ttl: "300",
-  resourceRecords: [eip1.ref]
-});
-
-// Create ACM cert (DNS validation) using L1 + hostedZoneId
-const cert = new acm.CfnCertificate(this, "FtpsCertificate", {
-  domainName: cfg.ftpsDomainName,
-  validationMethod: "DNS",
-  domainValidationOptions: [{
-    domainName: cfg.ftpsDomainName,
-    hostedZoneId
-  }]
-});
-
-// 4) Custom Identity Provider API (API Gateway + Lambda Node 22 index.mjs)
+    // ============================================================
+    // 7) Identity Provider Lambda (Python) + API Gateway
+    //    ✅ FIX: parse serverId/username from the PATH (your event proves that)
+    // ============================================================
     const idpFn = new lambda.Function(this, "TransferIdpLambda", {
-      runtime: lambda.Runtime.NODEJS_22_X,
+      runtime: lambda.Runtime.PYTHON_3_12,
       handler: "index.handler",
-      code: lambda.Code.fromAsset(path.join(__dirname, "..", "lambda", "TransferIdp")),
       timeout: cdk.Duration.seconds(10),
       memorySize: 256,
-      environment: { USER_SECRET_PREFIX: "transfer" }
+      logRetention: logs.RetentionDays.ONE_WEEK,
+      environment: { USER_SECRET_PREFIX: "transfer" },
+      code: lambda.Code.fromInline(`
+import json, os, re, base64, boto3
+sm = boto3.client("secretsmanager")
+
+# Expected Transfer path:
+# /servers/{serverId}/users/{username}/config
+PATH_RE = re.compile(r"/servers/(?P<serverId>[^/]+)/users/(?P<username>[^/]+)/config")
+
+def _json_loads_maybe(s):
+    if not s or not isinstance(s, str):
+        return {}
+    try:
+        return json.loads(s)
+    except Exception:
+        return {}
+
+def handler(event, context):
+    print("EVENT_KEYS:", sorted(list(event.keys())))
+    path = event.get("path") or ""
+    print("PATH:", path)
+
+    # 1) Try to get serverId/username from pathParameters, else parse path
+    pp = event.get("pathParameters") or {}
+    server_id = pp.get("serverId") or pp.get("ServerId") or pp.get("serverId")
+    username = pp.get("username") or pp.get("Username") or pp.get("userName")
+
+    m = PATH_RE.search(path)
+    if m:
+        server_id = server_id or m.group("serverId")
+        username = username or m.group("username")
+
+    # 2) Password may be in body JSON; sometimes body is empty (as you saw)
+    body = event.get("body")
+    if event.get("isBase64Encoded") and isinstance(body, str):
+        try:
+            body = base64.b64decode(body).decode("utf-8", errors="ignore")
+        except Exception:
+            body = ""
+
+    payload = _json_loads_maybe(body)
+    print("BODY_LEN:", 0 if body is None else len(body))
+    print("BODY_KEYS:", sorted(list(payload.keys())))
+
+    password = (
+        payload.get("Password") or payload.get("password") or
+        payload.get("UserPassword") or payload.get("userPassword")
+    )
+
+    print("USERNAME:", username)
+    print("SERVER_ID:", server_id)
+    print("PASSWORD_PRESENT:", bool(password))
+
+    prefix = os.environ.get("USER_SECRET_PREFIX", "transfer")
+
+    if not username or not server_id:
+        # Transfer treats non-200 as deny; keep it explicit
+        return {"statusCode": 403, "body": ""}
+
+    secret_id = f"{prefix}/{server_id}/{username}"
+
+    try:
+        resp = sm.get_secret_value(SecretId=secret_id)
+        secret = json.loads(resp.get("SecretString") or "{}")
+    except Exception as e:
+        print("SECRET_LOOKUP_FAILED:", str(e))
+        return {"statusCode": 403, "body": ""}
+
+    expected = secret.get("Password")
+
+    # Only reject if password WAS supplied and is wrong
+    if isinstance(expected, str) and password is not None and password != expected:
+        print("PASSWORD_MISMATCH")
+        return {"statusCode": 403, "body": ""}
+
+    role = secret.get("Role")
+    home = secret.get("HomeDirectoryDetails")
+    if not role or not home:
+        print("BAD_SECRET_CONTENTS")
+        return {"statusCode": 403, "body": ""}
+
+    out = {
+        "Role": role,
+        "HomeDirectoryType": "LOGICAL",
+        "HomeDirectoryDetails": home,
+    }
+    return {"statusCode": 200, "body": json.dumps(out)}
+      `),
     });
 
-    // Needs to read secrets (per-user secret + env secret)
-    idpFn.addToRolePolicy(new iam.PolicyStatement({
-      actions: ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"],
-      resources: ["*"]
-    }));
+    idpFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"],
+        resources: ["*"],
+      })
+    );
 
     const idpApi = new apigw.RestApi(this, "TransferIdpApi", {
       restApiName: "TransferIdpApi",
       deployOptions: { stageName: "prod" },
-      endpointTypes: [apigw.EndpointType.REGIONAL]
+      endpointTypes: [apigw.EndpointType.REGIONAL],
     });
 
+    // Proxy everything so /servers/{id}/users/{name}/config reaches the lambda
     idpApi.root.addProxy({
       defaultIntegration: new apigw.LambdaIntegration(idpFn, { proxy: true }),
-      anyMethod: true
+      anyMethod: true,
     });
 
-    // Invocation role that Transfer assumes to call API Gateway
-    
-// Secrets provider (create-or-update secrets with fixed names to avoid deployment failures when they already exist)
-const secretsProviderFn = new lambda.Function(this, "SecretsProviderFn", {
-  runtime: lambda.Runtime.NODEJS_22_X,
-  handler: "index.handler",
-  code: lambda.Code.fromAsset(path.join(__dirname, "..", "lambda", "SecretsProvider")),
-  timeout: cdk.Duration.seconds(30),
-  memorySize: 256
-});
-
-secretsProviderFn.addToRolePolicy(new iam.PolicyStatement({
-  actions: [
-    "secretsmanager:DescribeSecret",
-    "secretsmanager:CreateSecret",
-    "secretsmanager:PutSecretValue",
-    "secretsmanager:TagResource"
-  ],
-  resources: ["*"]
-}));
-
-const secretsCr = new cr.Provider(this, "SecretsCrProvider", {
-  onEventHandler: secretsProviderFn
-});
-
-const transferInvokeRole = new iam.Role(this, "TransferInvokeRole", {
-      assumedBy: new iam.ServicePrincipal("transfer.amazonaws.com")
+    const transferInvokeRole = new iam.Role(this, "TransferInvokeRole", {
+      assumedBy: new iam.ServicePrincipal("transfer.amazonaws.com"),
     });
 
-    transferInvokeRole.addToPolicy(new iam.PolicyStatement({
-      actions: ["execute-api:Invoke"],
-      resources: [idpApi.arnForExecuteApi("*", "/*", "prod")]
-    }));
+    transferInvokeRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["execute-api:Invoke"],
+        resources: [idpApi.arnForExecuteApi("*", "/*", "prod")],
+      })
+    );
 
-    // 5) Jenkins Webhook echo endpoint (UNSECURED POST) on same API
-    const jenkinsFn = new lambda.Function(this, "JenkinsWebHook", {
-            runtime: lambda.Runtime.NODEJS_22_X,
-      handler: "index.handler",
-      code: lambda.Code.fromAsset(path.join(__dirname, "..", "lambda", "JenkinsWebHook")),
-      timeout: cdk.Duration.seconds(10)
-    });
-
-    const jenkins = idpApi.root.addResource("jenkins-webhook");
-    jenkins.addMethod("POST", new apigw.LambdaIntegration(jenkinsFn, { proxy: true }), {
-      authorizationType: apigw.AuthorizationType.NONE,
-      apiKeyRequired: false
-    });
-
-    // FTPS server
+    // ============================================================
+    // 8) Transfer FTPS Server
+    // ============================================================
     const server = new transfer.CfnServer(this, "FtpsServer", {
       protocols: ["FTPS"],
       endpointType: "VPC",
-      certificate: cert.ref,
+      certificate: cert.certificateArn,
       domain: "S3",
       identityProviderType: "API_GATEWAY",
       identityProviderDetails: {
-        url: idpApi.url,
-        invocationRole: transferInvokeRole.roleArn
+        url: idpApi.url, // includes /prod/
+        invocationRole: transferInvokeRole.roleArn,
       },
       endpointDetails: {
         vpcId: vpc.vpcId,
-        subnetIds: [vpc.publicSubnets[0].subnetId], // single subnet to match single EIP
+        subnetIds: [vpc.publicSubnets[0].subnetId],
         securityGroupIds: [ftpsSg.securityGroupId],
-        addressAllocationIds: [eip1.attrAllocationId]
+        addressAllocationIds: [ftpsEip.attrAllocationId],
       },
-      protocolDetails: { tlsSessionResumptionMode: "ENFORCED" }
+      protocolDetails: { tlsSessionResumptionMode: "ENFORCED" },
     });
 
-    // Per-user secret used by the IdP lambda
-    const homeDetails = JSON.stringify([
-      { Entry: "/", Target: `/${transferBucket.bucketName}/${cfg.homePrefix}` }
-    ]);
+    // ============================================================
+    // 9) Per-user secret: transfer/<serverId>/<username>
+    // ============================================================
+    const homeDetails = JSON.stringify([{ Entry: "/", Target: `/${transferBucket.bucketName}/${HOME_PREFIX}` }]);
+    const transferUserSecretName = `transfer/${server.attrServerId}/${TRANSFER_USERNAME}`;
 
-
-const transferUserSecretName = `transfer/${server.attrServerId}/${cfg.transferUserName}`;
-
-const ensureTransferUserSecret = new cdk.CustomResource(this, "EnsureTransferUserSecret", {
-  serviceToken: secretsCr.serviceToken,
-  properties: {
-    Name: transferUserSecretName,
-    SecretString: JSON.stringify({
-      Password: cfg.transferUserPassword,
-      Role: transferS3Role.roleArn,
-      HomeDirectoryDetails: homeDetails
-    }),
-    Tags: [{ Key: "ManagedBy", Value: "CDK" }]
-  }
-});
-
-const fsaEnvSecretName = `FSA-${cfg.deployEnv}-Secrets`;
-
-const ensureFsaEnvSecrets = new cdk.CustomResource(this, "EnsureFsaEnvSecrets", {
-  serviceToken: secretsCr.serviceToken,
-  properties: {
-    Name: fsaEnvSecretName,
-    SecretString: JSON.stringify({
-      echo_ip: cfg.ftpsDomainName,
-      echo_port: "21",
-      echo_dart_path: cfg.homePrefix,
-      echo_dart_password: cfg.transferUserPassword,
-      echo_dart_username: cfg.transferUserName,
-      flpidsload_cert_lambda: `FSA-${cfg.deployEnv}-DART-ECHO-FETCH`,
-      flpidsrpt_cert_lambda: `FSA-${cfg.deployEnv}-DART-ECHO-FETCH`,
-      flpidscaorpt_cert_lambda: `FSA-${cfg.deployEnv}-DART-ECHO-FETCH`,
-      flpidscaorpt_congdist_cert_lambda: `FSA-${cfg.deployEnv}-DART-ECHO-FETCH`,
-      flpidscaorpt_organization_cert_lambda: `FSA-${cfg.deployEnv}-DART-ECHO-FETCH`,
-      flpidsgoalrpt_cert_lambda: `FSA-${cfg.deployEnv}-DART-ECHO-FETCH`,
-      flpidsofcrpt_cert_lambda: `FSA-${cfg.deployEnv}-DART-ECHO-FETCH`,
-      flpidsscims_cert_lambda: `FSA-${cfg.deployEnv}-DART-ECHO-FETCH`,
-      flpidsnats_cert_lambda: `FSA-${cfg.deployEnv}-DART-ECHO-FETCH`,
-      mssql_flpids_ip: "199.134.88.16"
-    }),
-    Tags: [{ Key: "ManagedBy", Value: "CDK" }]
-  }
-});
-
-
-
-        // Main app secret: FSA-CERT-Secrets JSON
-        // Health check lambda (runs every 5 minutes)
-    const healthFn = new lambda.Function(this, "FtpsHealthCheckFn", {
-      runtime: lambda.Runtime.NODEJS_22_X,
-      handler: "index.handler",
-      code: lambda.Code.fromAsset(path.join(__dirname, "..", "lambda", "SftpHealthCheck")),
-      timeout: cdk.Duration.seconds(10),
-      memorySize: 256,
-      environment: {
-        FTPS_HOST: cfg.ftpsDomainName,
-        FTPS_PORT: "21",
-        SERVER_ID: server.attrServerId,
-        METRIC_NAMESPACE: "FSA/TransferHealth",
-        METRIC_NAME: "FtpsControlPort"
-      }
+    const userSecret = new secretsmanager.Secret(this, "TransferUserSecret", {
+      secretName: transferUserSecretName,
+      secretStringValue: cdk.SecretValue.unsafePlainText(
+        JSON.stringify({
+          Password: TRANSFER_PASSWORD,
+          Role: transferS3Role.roleArn,
+          HomeDirectoryType: "LOGICAL",
+          HomeDirectoryDetails: homeDetails,
+        })
+      ),
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    healthFn.addToRolePolicy(new iam.PolicyStatement({
-      actions: ["cloudwatch:PutMetricData"],
-      resources: ["*"]
-    }));
+    userSecret.node.addDependency(server);
 
-    const rule = new events.Rule(this, "FtpsHealthSchedule", {
-      schedule: events.Schedule.rate(cdk.Duration.minutes(5))
+    // ============================================================
+    // OUTPUTS (including required networking JSON format)
+    // ============================================================
+    new cdk.CfnOutput(this, "NetworkingJsonOutput", {
+      value: cdk.Stack.of(this).toJsonString({
+        networking: {
+          vpcId: vpc.vpcId,
+          subnetIds: lambdaSubnets.subnetIds,
+          securityGroupIds: [lambdaClientSg.securityGroupId],
+        },
+      }),
     });
-    rule.addTarget(new eventTargets.LambdaFunction(healthFn));
 
-    
-
-
-// Hosted zone info (created/reused at deploy time)
-new cdk.CfnOutput(this, "HostedZoneIdOutput", { value: hostedZoneId });
-new cdk.CfnOutput(this, "HostedZoneNameServers", { value: ensureZone.getAttString("NameServers") });
-
-// Outputs
-    new cdk.CfnOutput(this, "TransferBucketName", { value: transferBucket.bucketName });
-    new cdk.CfnOutput(this, "TransferHomePrefixOutput", { value: cfg.homePrefix });
-    new cdk.CfnOutput(this, "TransferUserNameOutput", { value: cfg.transferUserName });
-    new cdk.CfnOutput(this, "FtpsPublicIpOutput", { value: eip1.ref });
-    new cdk.CfnOutput(this, "FtpsHostnameOutput", { value: cfg.ftpsDomainName });
-    new cdk.CfnOutput(this, "FtpsPortOutput", { value: "21" });
-
-    new cdk.CfnOutput(this, "TransferIdpApiUrlOutput", { value: idpApi.url });
-    new cdk.CfnOutput(this, "JenkinsWebHookUrlOutput", { value: `${idpApi.url}jenkins-webhook` });
-
-    new cdk.CfnOutput(this, "SecretNameOutput", { value: fsaEnvSecretName });
+    new cdk.CfnOutput(this, "FtpsPublicIpOutput", { value: ftpsEip.ref });
+    new cdk.CfnOutput(this, "FtpsHostnameOutput", { value: FTPS_FQDN });
+    new cdk.CfnOutput(this, "LambdaNatPublicIpOutput", { value: lambdaNatEip.ref });
+    new cdk.CfnOutput(this, "FtpsServerIdOutput", { value: server.attrServerId });
+    new cdk.CfnOutput(this, "FtpsServerSecurityGroupIdOutput", { value: ftpsSg.securityGroupId });
     new cdk.CfnOutput(this, "TransferUserSecretNameOutput", { value: transferUserSecretName });
+    new cdk.CfnOutput(this, "TransferIdpApiUrlOutput", { value: idpApi.url });
   }
 }

@@ -41,5 +41,6 @@
     "createRoleIfMissing": false,
     "roleName": "FSA-dev-FPACCARS-SfnExec",
     "roleArn": "arn:aws:iam::335965711887:role/FSA-dev-FPACCARS-SfnExec"
-  }
+  },
+ "networking":{"vpcId":"vpc-0afeda50de4d9040c","subnetIds":["subnet-0c44b6eaf0e552912","subnet-0233529f1aa251d5d","subnet-0dcef5120b8726742"],"securityGroupIds":["sg-0e4439633ab3fb2fa"]}
 }

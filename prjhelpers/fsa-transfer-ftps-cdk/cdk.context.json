@@ -1,4 +1,8 @@
 {
+  "hosted-zone:account=335965711887:domainName=steamfpac.com:region=us-east-1": {
+    "Id": "/hostedzone/Z05901663NXB32MLXQOSR",
+    "Name": "steamfpac.com."
+  },
   "availability-zones:account=335965711887:region=us-east-1": [
     "us-east-1a",
     "us-east-1b",

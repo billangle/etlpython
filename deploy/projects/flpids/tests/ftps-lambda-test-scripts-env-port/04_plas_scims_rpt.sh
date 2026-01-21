@@ -22,7 +22,7 @@ cat > "$PAYLOAD_FILE" <<'EOF'
   "step": "FLPIDS_RPT (SCIMS) Landing Zone",
   "header": false,
   "to_queue": true,
-  "jenkins_url": "https://b6gjf5cx60.execute-api.us-east-1.amazonaws.com/prod/jenkins-webhook",
+  "jenkins_url": "https://ka6kbk373a.execute-api.us-east-1.amazonaws.com/prod/jenkins-hook",
   "secret_id": "FSA-CERT-Secrets",
   "ftps_port": __FTPS_PORT__
 }

@@ -21,7 +21,7 @@ cat > "$PAYLOAD_FILE" <<'EOF'
   "pipeline": "FLPIDS_RC540 Monthly",
   "step": "FLPIDS_RC540 Monthly Landing Zone",
   "header": false,
-  "jenkins_url": "https://b6gjf5cx60.execute-api.us-east-1.amazonaws.com/prod/jenkins-webhook",
+  "jenkins_url": "https://ka6kbk373a.execute-api.us-east-1.amazonaws.com/prod/jenkins-hook",
   "secret_id": "FSA-CERT-Secrets",
   "ftps_port": __FTPS_PORT__
 }

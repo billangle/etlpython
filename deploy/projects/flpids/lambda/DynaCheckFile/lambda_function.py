@@ -7,7 +7,7 @@ import traceback
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-from boto3.dynamodb.conditions import Key, Attr
+from boto3.dynamodb.conditions import Key
 
 
 # ----------------------------
@@ -119,16 +119,6 @@ def _to_ddb_safe(obj):
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-def _make_checkfile_entry(project: str, file_pattern: str, file_name: str, file_size: int) -> dict:
-    return {
-        "project": project,
-        "file_pattern": file_pattern,
-        "file_name": file_name,
-        "file_size": int(file_size),
-        "date_time": _now_iso(),
-    }
 
 
 # ----------------------------
@@ -259,12 +249,11 @@ def _select_latest(items: list[dict]) -> dict | None:
 
 
 def _validate_table_config(cfg: dict):
-    required = ["table_name", "partition_key", "sort_key"]
+    required = ["table_name", "partition_key", "sort_key", "project_gsi_name"]
     missing = [k for k in required if not cfg.get(k)]
     if missing:
         raise ValueError(f"Missing required dynamodb config fields: {missing}")
 
-    # We still enforce your required schema for correctness.
     if cfg["partition_key"] != "jobId" or cfg["sort_key"] != "project":
         raise ValueError(
             "This Lambda requires DynamoDB keys: partition_key='jobId' and sort_key='project' "
@@ -272,41 +261,15 @@ def _validate_table_config(cfg: dict):
         )
 
 
-def find_latest_row_for_project(table, project: str, project_gsi_name: str | None, debug: bool = False) -> dict | None:
-    """
-    Must use GSI for correctness/performance; Scan is supported as fallback if gsi not provided.
-    """
-    if project_gsi_name:
-        if debug:
-            print(f"[DEBUG] Querying GSI={project_gsi_name} for project={project}")
-        resp = table.query(
-            IndexName=project_gsi_name,
-            KeyConditionExpression=Key("project").eq(project),
-        )
-        return _select_latest(resp.get("Items", []) or [])
-
-    # Fallback: Scan (works but may be expensive)
+def find_latest_row_for_project_gsi(table, project: str, project_gsi_name: str, debug: bool = False) -> dict | None:
     if debug:
-        print(f"[DEBUG] Scanning table for project={project} (NO GSI provided)")
-    items = []
-    scan_kwargs = {"FilterExpression": Attr("project").eq(project)}
-    while True:
-        resp = table.scan(**scan_kwargs)
-        items.extend(resp.get("Items", []) or [])
-        lek = resp.get("LastEvaluatedKey")
-        if not lek:
-            break
-        scan_kwargs["ExclusiveStartKey"] = lek
-    return _select_latest(items)
+        print(f"[DEBUG] Querying GSI={project_gsi_name} for project={project}")
 
-
-def has_active_row_for_project(table, project: str, project_gsi_name: str | None, debug: bool = False) -> dict | None:
-    latest = find_latest_row_for_project(table, project, project_gsi_name, debug=debug)
-    if not latest:
-        return None
-    if (latest.get("status") or "").upper() == "COMPLETED":
-        return None
-    return latest
+    resp = table.query(
+        IndexName=project_gsi_name,
+        KeyConditionExpression=Key("project").eq(project),
+    )
+    return _select_latest(resp.get("Items", []) or [])
 
 
 def create_new_row_triggered(
@@ -324,40 +287,26 @@ def create_new_row_triggered(
 ) -> dict:
     created_at = _now_iso()
 
-    entry = _make_checkfile_entry(
-        project=project,
-        file_pattern=str(event.get("file_pattern") or ""),
-        file_name=str(file_match.get("name") or ""),
-        file_size=int(file_match.get("content_length") or 0),
-    )
-
     item = {
         "jobId": job_id,
         "project": project,
-
         "createdAt": created_at,
         "status": "TRIGGERED",
+        "inspectedStatusDate": created_at,
 
         "event": _remove_nones(event),
-
         "file": {
             "fileName": file_match.get("name"),
             "fileSize": int(file_match.get("content_length", 0)),
             "remotePath": file_match.get("remote_path"),
             "target": file_match.get("target"),
         },
-
         "stats": {
             "totalFileCount": int(total_file_count),
             "matchedFileCount": int(matched_file_count),
             "checkedPath": checked_path,
             "ftpsServer": host,
             "ftpsPort": int(ftps_port),
-        },
-
-        # many entries under a single row
-        "checkfile": {
-            "entries": [entry],
         },
     }
 
@@ -368,46 +317,83 @@ def create_new_row_triggered(
 
     table.put_item(
         Item=item,
-        ConditionExpression="attribute_not_exists(jobId) AND attribute_not_exists(project)",
+        ConditionExpression="attribute_not_exists(#pk) AND attribute_not_exists(#sk)",
+        ExpressionAttributeNames={
+            "#pk": "jobId",
+            "#sk": "project",
+        },
     )
 
-    return {"action": "CREATED", "jobId": job_id, "project": project, "status": "TRIGGERED", "createdAt": created_at}
+    return {
+        "action": "CREATED",
+        "jobId": job_id,
+        "project": project,
+        "status": "TRIGGERED",
+        "createdAt": created_at,
+        "inspectedStatusDate": created_at,
+    }
 
 
-def append_checkfile_entry_existing(
+def update_inspected_status_date_only(
     table,
     job_id: str,
     project: str,
-    entry: dict,
+    inspected_date: str,
     debug: bool = False,
 ) -> dict:
-    entry = _to_ddb_safe(_remove_nones(entry))
-
     if debug:
-        print(f"[DEBUG] Updating EXISTING row: jobId={job_id} project={project} (append checkfile.entries)")
+        print(f"[DEBUG] Updating inspectedStatusDate ONLY: jobId={job_id} project={project}")
 
     table.update_item(
         Key={"jobId": job_id, "project": project},
-        UpdateExpression=(
-            "SET #s = :triggered, "
-            "#cf = if_not_exists(#cf, :cfinit), "
-            "#cf.#entries = list_append(if_not_exists(#cf.#entries, :empty), :new)"
-        ),
+        UpdateExpression="SET #isd = :d",
+        ExpressionAttributeNames={"#isd": "inspectedStatusDate"},
+        ExpressionAttributeValues={":d": inspected_date},
+        ReturnValues="ALL_NEW",
+    )
+
+    return {
+        "action": "UPDATED",
+        "jobId": job_id,
+        "project": project,
+        "inspectedStatusDate": inspected_date,
+    }
+
+
+def update_inspected_status_date_and_set_triggered(
+    table,
+    job_id: str,
+    project: str,
+    inspected_date: str,
+    debug: bool = False,
+) -> dict:
+    """
+    For non-PROCESSING existing rows, we update inspectedStatusDate and force status to TRIGGERED.
+    """
+    if debug:
+        print(f"[DEBUG] Updating inspectedStatusDate + setting status TRIGGERED: jobId={job_id} project={project}")
+
+    table.update_item(
+        Key={"jobId": job_id, "project": project},
+        UpdateExpression="SET #isd = :d, #s = :triggered",
         ExpressionAttributeNames={
+            "#isd": "inspectedStatusDate",
             "#s": "status",
-            "#cf": "checkfile",
-            "#entries": "entries",
         },
         ExpressionAttributeValues={
+            ":d": inspected_date,
             ":triggered": "TRIGGERED",
-            ":cfinit": {},
-            ":empty": [],
-            ":new": [entry],
         },
         ReturnValues="ALL_NEW",
     )
 
-    return {"action": "UPDATED", "jobId": job_id, "project": project, "status": "TRIGGERED"}
+    return {
+        "action": "UPDATED",
+        "jobId": job_id,
+        "project": project,
+        "status": "TRIGGERED",
+        "inspectedStatusDate": inspected_date,
+    }
 
 
 # ----------------------------
@@ -416,14 +402,26 @@ def append_checkfile_entry_existing(
 
 def lambda_handler(event, context):
     """
+    Behavior when a qualifying file is found:
+
+      1) If NO row exists for the project OR latest row has status COMPLETED:
+           -> CREATE a new row (new jobId) with status=TRIGGERED and inspectedStatusDate=now
+
+      2) Else if latest row has status PROCESSING:
+           -> ONLY update inspectedStatusDate=now
+              (DO NOT change status)
+
+      3) Else (any other status, including TRIGGERED):
+           -> update inspectedStatusDate=now AND set status=TRIGGERED
+              (this matches your earlier "TRIGGERED row should update inspectedStatusDate" intent)
+
     Event MUST include:
       - dynamodb: {
           table_name: str,
           partition_key: "jobId",
           sort_key: "project",
-          project_gsi_name: str | null   # recommended
+          project_gsi_name: str
         }
-    plus the existing FTPS inputs.
     """
     debug = bool(event.get("debug", False))
 
@@ -437,11 +435,10 @@ def lambda_handler(event, context):
     try:
         dbg(f"Lambda invoked with event: {json.dumps(event)}")
 
-        # Required FTPS event fields
         file_pattern = event.get("file_pattern")
         echo_folder = event.get("echo_folder")
         secret_id = event.get("secret_id")
-        pipeline = event.get("pipeline")  # project
+        pipeline = event.get("pipeline")
 
         if not file_pattern:
             raise ValueError("Missing required 'file_pattern'")
@@ -452,11 +449,10 @@ def lambda_handler(event, context):
         if not pipeline:
             raise ValueError("Missing required 'pipeline' (used as project)")
 
-        # Required DDB config in event
         ddb_cfg = event.get("dynamodb") or {}
         _validate_table_config(ddb_cfg)
         table_name = ddb_cfg["table_name"]
-        project_gsi_name = ddb_cfg.get("project_gsi_name")  # can be None -> scan fallback
+        project_gsi_name = ddb_cfg["project_gsi_name"]
 
         echo_subfolder = event.get("echo_subfolder", "") or ""
         targets = event.get("targets", []) or []
@@ -486,7 +482,6 @@ def lambda_handler(event, context):
         echo_path = f"/{secret['echo_dart_path']}/{echo_folder}/in/{echo_subfolder}".rstrip("/")
         dbg(f"Resolved echo_path={echo_path}")
 
-        # 1) List directory
         filenames = curl_list_files(
             host=host,
             port=ftps_port,
@@ -501,7 +496,6 @@ def lambda_handler(event, context):
 
         total_file_count = len(filenames)
 
-        # 2) Regex match + (optional) target filter
         compiled = re.compile(file_pattern, re.I)
         targets_lc = [t.lower() for t in targets] if targets else None
 
@@ -518,7 +512,6 @@ def lambda_handler(event, context):
         matched_file_count = len(matched)
         dbg(f"Matched files after regex/target filtering: {matched_file_count}")
 
-        # 3) Find FIRST qualifying file
         first_found = None
         for f in matched:
             remote_file_path = f"{echo_path}/{f['name']}"
@@ -576,22 +569,17 @@ def lambda_handler(event, context):
             print("No qualifying files found — exiting without DynamoDB write/update")
             return {"statusCode": 200, "body": json.dumps(result)}
 
-        # 4) DDB write/update
         ddb = boto3.resource("dynamodb")
         table = ddb.Table(table_name)
 
         project = str(pipeline)
+        now_str = _now_iso()
 
-        active_row = has_active_row_for_project(table, project, project_gsi_name, debug=debug)
+        latest_row = find_latest_row_for_project_gsi(table, project, project_gsi_name, debug=debug)
+        latest_status = (latest_row.get("status") if latest_row else None) or ""
+        latest_status_u = latest_status.upper()
 
-        entry = _make_checkfile_entry(
-            project=project,
-            file_pattern=str(file_pattern),
-            file_name=str(first_found.get("name") or ""),
-            file_size=int(first_found.get("content_length") or 0),
-        )
-
-        if active_row is None:
+        if latest_row is None or latest_status_u == "COMPLETED":
             new_job_id = str(uuid.uuid4())
             write_info = create_new_row_triggered(
                 table=table,
@@ -609,20 +597,35 @@ def lambda_handler(event, context):
             print(
                 "DynamoDB write complete: "
                 f"action={write_info['action']} table={table_name} jobId={write_info['jobId']} "
-                f"project={write_info['project']} status={write_info['status']} createdAt={write_info['createdAt']}"
+                f"project={write_info['project']} status={write_info['status']} inspectedStatusDate={write_info['inspectedStatusDate']}"
             )
-        else:
-            write_info = append_checkfile_entry_existing(
+
+        elif latest_status_u == "PROCESSING":
+            write_info = update_inspected_status_date_only(
                 table=table,
-                job_id=str(active_row["jobId"]),
-                project=str(active_row["project"]),
-                entry=entry,
+                job_id=str(latest_row["jobId"]),
+                project=str(latest_row["project"]),
+                inspected_date=now_str,
                 debug=debug,
             )
             print(
                 "DynamoDB update complete: "
                 f"action={write_info['action']} table={table_name} jobId={write_info['jobId']} "
-                f"project={write_info['project']} status={write_info['status']}"
+                f"project={write_info['project']} (status preserved=PROCESSING) inspectedStatusDate={write_info['inspectedStatusDate']}"
+            )
+
+        else:
+            write_info = update_inspected_status_date_and_set_triggered(
+                table=table,
+                job_id=str(latest_row["jobId"]),
+                project=str(latest_row["project"]),
+                inspected_date=now_str,
+                debug=debug,
+            )
+            print(
+                "DynamoDB update complete: "
+                f"action={write_info['action']} table={table_name} jobId={write_info['jobId']} "
+                f"project={write_info['project']} status={write_info['status']} inspectedStatusDate={write_info['inspectedStatusDate']}"
             )
 
         result["dynamodb"] = {
@@ -630,8 +633,8 @@ def lambda_handler(event, context):
             "partition_key": ddb_cfg["partition_key"],
             "sort_key": ddb_cfg["sort_key"],
             "project_gsi_name": project_gsi_name,
+            "latest_row_status": latest_status_u if latest_row else None,
             **write_info,
-            "checkfile_entry_added": entry,
         }
 
         return {"statusCode": 200, "body": json.dumps(result)}
@@ -641,4 +644,3 @@ def lambda_handler(event, context):
         err(repr(e))
         print(traceback.format_exc())
         raise
-

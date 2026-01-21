@@ -19,6 +19,7 @@ class FpacNames:
     checkfile_fn: str
     filechecker2_fn: str
     testfileloader_fn: str 
+    dynacheckfile_fn: str
 
 
 def build_names(deploy_env: str, project: str) -> FpacNames:
@@ -33,6 +34,7 @@ def build_names(deploy_env: str, project: str) -> FpacNames:
         checkfile_fn=f"{base}-CheckFile",
         filechecker2_fn=f"{base}-FileChecker2",
         testfileloader_fn=f"{base}-TestFileLoader",
+        dynacheckfile_fn=f"{base}-DynaCheckFile",
     )
 
 
@@ -154,8 +156,24 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         ),
     )
 
+    dynacheckfile_arn = ensure_lambda(
+        lam,
+        LambdaSpec(
+            name=names.dynacheckfile_fn,
+            role_arn=etl_lambda_role_arn,
+            handler="lambda_function.lambda_handler",
+            runtime="python3.12",
+            source_dir=str(lambda_root / "DynaCheckFile"),
+            env=env_vars,
+            layers=layers,
+            subnet_ids=subnet_ids,
+            security_group_ids=security_group_ids,
+        ),
+    )
+
     return {
         "checkfile_lambda_arn": checkfile_arn,
         "filechecker2_lambda_arn": filechecker2_arn,
         "testfileloader_lambda_arn": testfileloader_arn,
+        "dynacheckfile_lambda_arn": dynacheckfile_arn,
     }

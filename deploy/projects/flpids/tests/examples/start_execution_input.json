@@ -1,0 +1,10 @@
+{
+  "jobId": "b3358cd2-e877-42f7-8c03-f27540be7db4",
+  "project": "FLPIDSLOAD",
+  "table_name": "FSA-FileChecks",
+  "bucket": "punkdev-fpacfsa-landing-zone",
+  "secret_id": "FSA-CERT-Secrets",
+  "verify_tls": false,
+  "timeout_seconds": 120,
+  "debug": true
+}

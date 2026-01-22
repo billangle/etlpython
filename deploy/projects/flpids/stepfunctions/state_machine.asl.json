@@ -1,0 +1,70 @@
+{
+  "Comment": "FSA FileChecks: set RUNNING -> transfer FTPS file to S3 -> finalize COMPLETED/ERROR",
+  "StartAt": "SetRunning",
+  "States": {
+    "SetRunning": {
+      "Type": "Task",
+      "Resource": "${SetRunningLambdaArn}",
+      "Parameters": {
+        "jobId.$": "$.jobId",
+        "project.$": "$.project",
+        "table_name.$": "$.table_name",
+        "debug.$": "$.debug"
+      },
+      "ResultPath": "$.setRunning",
+      "Next": "TransferFile"
+    },
+    "TransferFile": {
+      "Type": "Task",
+      "Resource": "${TransferFileLambdaArn}",
+      "Parameters": {
+        "jobId.$": "$.jobId",
+        "project.$": "$.project",
+        "table_name.$": "$.table_name",
+        "bucket.$": "$.bucket",
+        "secret_id.$": "$.secret_id",
+        "verify_tls.$": "$.verify_tls",
+        "timeout_seconds.$": "$.timeout_seconds",
+        "debug.$": "$.debug"
+      },
+      "ResultPath": "$.transfer",
+      "Next": "FinalizeJob",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.transferError",
+          "Next": "FinalizeJobOnCatch"
+        }
+      ]
+    },
+    "FinalizeJob": {
+      "Type": "Task",
+      "Resource": "${FinalizeJobLambdaArn}",
+      "Parameters": {
+        "jobId.$": "$.jobId",
+        "project.$": "$.project",
+        "table_name.$": "$.table_name",
+        "transfer.$": "$.transfer",
+        "debug.$": "$.debug"
+      },
+      "End": true
+    },
+    "FinalizeJobOnCatch": {
+      "Type": "Task",
+      "Resource": "${FinalizeJobLambdaArn}",
+      "Parameters": {
+        "jobId.$": "$.jobId",
+        "project.$": "$.project",
+        "table_name.$": "$.table_name",
+        "transfer": {
+          "transferStatus": "FAILURE",
+          "error.$": "$.transferError"
+        },
+        "debug.$": "$.debug"
+      },
+      "End": true
+    }
+  }
+}

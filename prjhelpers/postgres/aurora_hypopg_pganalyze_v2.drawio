@@ -1,0 +1,52 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36" version="29.3.4">
+  <diagram name="Aurora HypoPG + pganalyze Architecture" id="0">
+    <mxGraphModel dx="1135" dy="1076" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="app" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Application / Clients" vertex="1">
+          <mxGeometry height="60" width="180" x="30" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="aurora" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Aurora PostgreSQL Serverless&#xa;Writer + Readers" vertex="1">
+          <mxGeometry height="100" width="260" x="300" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="pgstat" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="pg_stat_statements" vertex="1">
+          <mxGeometry height="60" width="220" x="320" y="480" as="geometry" />
+        </mxCell>
+        <mxCell id="hypopg" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="HypoPG&#xa;Hypothetical Indexes" vertex="1">
+          <mxGeometry height="60" width="220" x="320" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="collector" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="pganalyze Collector&#xa;EC2 / ECS / Docker" vertex="1">
+          <mxGeometry height="80" width="240" x="830" y="470" as="geometry" />
+        </mxCell>
+        <mxCell id="saas" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="pganalyze SaaS&#xa;Index Advisor" vertex="1">
+          <mxGeometry height="80" width="220" x="840" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="dba" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="DBA / Operator&#xa;Validation &amp; Change Control" vertex="1">
+          <mxGeometry height="80" width="240" x="830" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="app" style="endArrow=block;" target="aurora">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="aurora" style="endArrow=block;" target="pgstat">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="aurora" style="endArrow=block;" target="hypopg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="pgstat" style="endArrow=block;" target="collector">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="collector" style="endArrow=block;" target="saas">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="saas" style="endArrow=block;" target="dba">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="dba" style="endArrow=block;" target="hypopg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

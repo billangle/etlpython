@@ -15,18 +15,26 @@ class FsaFileChecksStateMachineBuilder:
     """
     Pattern A (arn:aws:states:::lambda:invoke) state machine builder.
 
-    IMPORTANT:
-      - We use ResultPath to place results into the running context.
-      - We do NOT use OutputPath="$.Payload" because ResultPath happens first,
-        which moves Payload under the ResultPath node.
+    Fix included:
+      - DynamoDB Streams via EventBridge Pipes can deliver a batch (array) even with batchSize=1.
+      - We add an UnwrapRecord Pass state that converts [ {...} ] -> {...}
+        so downstream JSONPaths like $.jobId work reliably.
     """
 
     @staticmethod
     def filechecks_asl(inputs: FsaFileChecksStateMachineInputs) -> Dict[str, Any]:
         return {
             "Comment": "FSA FileChecks: set RUNNING -> transfer FTPS file to S3 -> finalize COMPLETED/ERROR",
-            "StartAt": "SetRunning",
+            "StartAt": "UnwrapRecord",
             "States": {
+                # Pipes can send: [ { jobId, project, ... } ]
+                # This makes the state machine input become: { jobId, project, ... }
+                "UnwrapRecord": {
+                    "Type": "Pass",
+                    "InputPath": "$[0]",
+                    "ResultPath": "$",
+                    "Next": "SetRunning",
+                },
                 "SetRunning": {
                     "Type": "Task",
                     "Resource": "arn:aws:states:::lambda:invoke",
@@ -39,7 +47,7 @@ class FsaFileChecksStateMachineBuilder:
                             "debug.$": "$.debug",
                         },
                     },
-                    "ResultPath": "$.setRunning",  # => setRunning.Payload contains lambda return
+                    "ResultPath": "$.setRunning",
                     "OutputPath": "$",
                     "Next": "TransferFile",
                 },
@@ -59,7 +67,7 @@ class FsaFileChecksStateMachineBuilder:
                             "debug.$": "$.debug",
                         },
                     },
-                    "ResultPath": "$.transfer",  # => transfer.Payload contains lambda return
+                    "ResultPath": "$.transfer",
                     "OutputPath": "$",
                     "Next": "FinalizeJob",
                     "Catch": [
@@ -79,7 +87,6 @@ class FsaFileChecksStateMachineBuilder:
                             "jobId.$": "$.jobId",
                             "project.$": "$.project",
                             "table_name.$": "$.table_name",
-                            # NOTE: Transfer lambda return is at $.transfer.Payload
                             "transfer.$": "$.transfer.Payload",
                             "debug.$": "$.debug",
                         },

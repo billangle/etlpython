@@ -1,0 +1,64 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36" version="29.3.4">
+  <diagram name="FLPIDS FTPS File Check – Full Flow" id="0">
+    <mxGraphModel dx="1135" dy="1076" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="lambda" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;fontStyle=1" value="AWS Lambda&#xa;FLPIDS CheckFile" vertex="1">
+          <mxGeometry height="60" width="280" x="60" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="secrets" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#FF8F00" value="AWS Secrets Manager&#xa;Resolve FTPS Credentials" vertex="1">
+          <mxGeometry height="60" width="300" x="440" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="ftps" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32" value="Remote FTPS Server&#xa;curl LIST / NLST" vertex="1">
+          <mxGeometry height="60" width="280" x="440" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="matchDecision" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#6A1B9A" value="Files Match?&#xa;Regex + Min Size" vertex="1">
+          <mxGeometry height="80" width="280" x="440" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="noMatch" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEBEE;strokeColor=#C62828" value="No Match&#xa;Log + Exit" vertex="1">
+          <mxGeometry height="60" width="260" x="830" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="ddbQuery" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1F5FE;strokeColor=#0277BD" value="DynamoDB&#xa;Query latest jobId&#xa;by project" vertex="1">
+          <mxGeometry height="80" width="300" x="50" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="jobDecision" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#F9A825" value="Job Status = COMPLETED?&#xa;or No Existing Job" vertex="1">
+          <mxGeometry height="80" width="300" x="50" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="ddbUpdate" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1F5FE;strokeColor=#0277BD;fontStyle=1" value="DynamoDB&#xa;Create or Update Row&#xa;jobId + project" vertex="1">
+          <mxGeometry height="80" width="360" x="400" y="680" as="geometry" />
+        </mxCell>
+        <mxCell id="jenkins" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#37474F;fontStyle=1" value="Trigger Downstream Job" vertex="1">
+          <mxGeometry height="70" width="250" x="830" y="685" as="geometry" />
+        </mxCell>
+        <mxCell id="eW0T03uDfSCx2PUAlJYA-1" edge="1" parent="1" source="lambda" style="endArrow=block;html=1" target="secrets">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eW0T03uDfSCx2PUAlJYA-2" edge="1" parent="1" source="lambda" style="endArrow=block;html=1" target="ftps">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eW0T03uDfSCx2PUAlJYA-3" edge="1" parent="1" source="ftps" style="endArrow=block;html=1" target="matchDecision">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eW0T03uDfSCx2PUAlJYA-4" edge="1" parent="1" source="matchDecision" style="endArrow=block;html=1" target="noMatch">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eW0T03uDfSCx2PUAlJYA-5" edge="1" parent="1" source="lambda" style="endArrow=block;html=1" target="ddbQuery">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eW0T03uDfSCx2PUAlJYA-6" edge="1" parent="1" source="ddbQuery" style="endArrow=block;html=1" target="jobDecision">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eW0T03uDfSCx2PUAlJYA-7" edge="1" parent="1" source="jobDecision" style="endArrow=block;html=1" target="ddbUpdate">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eW0T03uDfSCx2PUAlJYA-8" edge="1" parent="1" source="matchDecision" style="endArrow=block;html=1" target="ddbUpdate">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eW0T03uDfSCx2PUAlJYA-9" edge="1" parent="1" source="ddbUpdate" style="endArrow=block;html=1" target="jenkins">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,70 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36" version="29.3.1">
+  <diagram name="FSA FileChecks Architecture" id="0">
+    <mxGraphModel dx="1135" dy="1076" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="ddb" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="DynamoDB&#xa;FSA-FileChecks" vertex="1">
+          <mxGeometry height="70" width="220" x="50" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="stream" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="DynamoDB Stream" vertex="1">
+          <mxGeometry height="70" width="220" x="50" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="pipe" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" value="Lambda&#xa;StreamStartFileChecks" vertex="1">
+          <mxGeometry height="70" width="220" x="50" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="sfn" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="Step Functions&#xa;FileChecks State Machine" vertex="1">
+          <mxGeometry height="70" width="260" x="360" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="lambda1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" value="Lambda&#xa;SetRunning" vertex="1">
+          <mxGeometry height="70" width="220" x="380" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="lambda2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Existing FLPIDS Lambda" vertex="1">
+          <mxGeometry height="70" width="220" x="730" y="330" as="geometry" />
+        </mxCell>
+        <mxCell id="lambda3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" value="Lambda&#xa;FinalizeJob" vertex="1">
+          <mxGeometry height="70" width="220" x="730" y="540" as="geometry" />
+        </mxCell>
+        <mxCell id="ftps" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="FTPS ECHO Server" vertex="1">
+          <mxGeometry height="70" width="220" x="730" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="S3/Processing" vertex="1">
+          <mxGeometry height="70" width="140" x="980" y="330" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="ddb" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" target="stream">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="stream" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" target="pipe">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="pipe" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" target="sfn">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="sfn" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" target="lambda1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="sfn" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" target="lambda2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="sfn" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" target="lambda3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="lambda2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" target="ftps">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="lambda2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" target="s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="PdlmMIhAmjQ2tnHFfqzd-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="CheckFIle Lambda&lt;div&gt;Jenkins Job&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="220" x="50" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="PdlmMIhAmjQ2tnHFfqzd-3" edge="1" parent="1" source="PdlmMIhAmjQ2tnHFfqzd-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" target="ddb">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="330" y="-10" as="sourcePoint" />
+            <mxPoint x="400" y="220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

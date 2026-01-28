@@ -1,0 +1,4 @@
+{
+  "jenkins_url": "https://10.1.2.3/job/whatever/build?token=XYZ",
+  "jenkins_tls_mode": "insecure"
+}

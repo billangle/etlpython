@@ -3,7 +3,7 @@
 
 aws lambda invoke \
   --no-verify-ssl \
-  --function-name FSA-dev-FpacFLPIDSCHK-CheckFileNotSecure \
+  --function-name FSA-steam-dev-FpacFLPIDS-CheckFileNotSecure \
   --cli-binary-format raw-in-base64-out \
   --payload '{
     "file_pattern": "^(\\w+)$",
@@ -11,10 +11,10 @@ aws lambda invoke \
     "pipeline": "FLPIDS_ODS",
     "step": "FLPIDS_ODS Landing Zone",
     "header": false,
-    "jenkins_url": "https://10.219.30.23/job/BuildProcess/job/TestFlpidsHook/build?token=72305AD4-A19D-462C-9CEB-275E01BDFAFD",
+    "jenkins_url": "https://b6gjf5cx60.execute-api.us-east-1.amazonaws.com/prod/jenkins-webhook",
     "jenkins_tls_mode": "insecure",
     "secret_id": "FSA-CERT-Secrets",
     "ftps_mode": "explicit",
-    "ftps_port": 990
+    "ftps_port": 21
   }' \
   response.json

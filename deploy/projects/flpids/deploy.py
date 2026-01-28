@@ -28,6 +28,7 @@ class FpacNames:
     filechecker2_fn: str
     testfileloader_fn: str
     dynacheckfile_fn: str
+    streamstartfilechecks_fn: str
 
     # new lambdas
     setrunning_fn: str
@@ -36,6 +37,7 @@ class FpacNames:
 
     # new state machine
     sm_filechecks: str
+    checkfilenotsecure_fn: str
 
 
 def build_names(deploy_env: str, project: str) -> FpacNames:
@@ -49,12 +51,12 @@ def build_names(deploy_env: str, project: str) -> FpacNames:
         filechecker2_fn=f"{base}-FileChecker2",
         testfileloader_fn=f"{base}-TestFileLoader",
         dynacheckfile_fn=f"{base}-DynaCheckFile",
-
+        streamstartfilechecks_fn=f"{base}-StreamStartFileChecks",
         setrunning_fn=f"{base}-SetRunning",
         transferfile_fn=f"{base}-TransferFile",
         finalizejob_fn=f"{base}-FinalizeJob",
-
         sm_filechecks=f"{base}-FileChecks",
+        checkfilenotsecure_fn=f"{base}-CheckFileNotSecure",
     )
 
 
@@ -219,6 +221,37 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         ),
     )
 
+    streamstartfilechecks_arn = ensure_lambda(  
+        lam,
+        LambdaSpec(
+            name=names.streamstartfilechecks_fn,
+            role_arn=etl_lambda_role_arn,
+            handler="lambda_function.lambda_handler",
+            runtime="python3.12",
+            source_dir=str(lambda_root / "StreamStartFileChecks"),
+            env=env_vars,
+            layers=layers,
+            subnet_ids=subnet_ids,
+            security_group_ids=security_group_ids,
+        ),
+    )
+
+    checkfilenotsecure_arn = ensure_lambda(  
+        lam,
+        LambdaSpec(
+            name=names.checkfilenotsecure_fn,
+            role_arn=etl_lambda_role_arn,
+            handler="lambda_function.lambda_handler",
+            runtime="python3.12",
+            source_dir=str(lambda_root / "CheckFileNotSecure"),
+            env=env_vars,
+            layers=layers,
+            subnet_ids=subnet_ids,
+            security_group_ids=security_group_ids,
+        ),
+    )
+
+
     # ---- Step Functions (Pattern A) ----
     sfn_role_arn = (cfg.get("stepFunctions", {}) or {}).get("roleArn") or ""
     if not sfn_role_arn:
@@ -251,4 +284,6 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         "finalizejob_lambda_arn": finalizejob_arn,
 
         "filechecks_state_machine_arn": filechecks_sm_arn,
+        "streamstartfilechecks_lambda_arn": streamstartfilechecks_arn,
+        "checkfilenotsecure_lambda_arn": checkfilenotsecure_arn,
     }

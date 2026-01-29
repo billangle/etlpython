@@ -43,7 +43,7 @@ SECRET_NAME = os.environ.get("SECRET_NAME", "FSA-CERT-Secrets")
 SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN", "")
 
 
-def lambda_handler(event, context):
+def handler(event, context):
     logger.info(f"Handle failure input: {json.dumps(event)}")
 
     error_info = event.get("error", {})

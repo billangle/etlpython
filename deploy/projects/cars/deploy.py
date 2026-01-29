@@ -1,11 +1,11 @@
+# deploy/projects/cars/deploy.py
 from __future__ import annotations
 
+import importlib.util
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict
-
-from .farm_rec_stepfunctions import FpacStateMachineBuilder, FpacStateMachineInputs
-
+from typing import Any, Dict, List
+import sys
 
 import boto3
 
@@ -13,112 +13,148 @@ from common.aws_common import (
     ensure_bucket_exists,
     ensure_lambda,
     ensure_glue_job,
-    ensure_glue_crawler,
     ensure_state_machine,
     LambdaSpec,
     GlueJobSpec,
-    GlueCrawlerSpec,
     StateMachineSpec,
 )
 
-from dataclasses import dataclass
+
+
+def _load_stepfunction_module():
+    """
+    Load ./states/cars_stepfunction.py by file path.
+    IMPORTANT: register in sys.modules BEFORE exec_module so @dataclass works on Python 3.14.
+    """
+    project_dir = Path(__file__).resolve().parent  # .../deploy/projects/cars
+    step_fn_file = project_dir / "states" / "cars_stepfunction.py"
+
+    if not step_fn_file.exists():
+        raise FileNotFoundError(f"Missing step function file: {step_fn_file}")
+
+    module_name = "projects.cars.states.cars_stepfunction"
+    spec = importlib.util.spec_from_file_location(module_name, str(step_fn_file))
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not create module spec for: {step_fn_file}")
+
+    mod = importlib.util.module_from_spec(spec)
+
+    # ✅ Critical for Python 3.14 dataclasses: module must exist in sys.modules during execution
+    sys.modules[module_name] = mod
+
+    spec.loader.exec_module(mod)
+    return mod
+
+
 
 @dataclass(frozen=True)
-class FpacNames:
-    project_name: str
-    validate_fn: str
-    create_id_fn: str
-    log_results_fn: str
-    glue_step1: str
-    glue_step2: str
-    glue_step3: str
-    crawler: str
-    sm_step1: str
-    sm_step2: str
-    sm_parent: str
+class CarsEdvNames:
+    build_processing_plan_fn: str
+    check_results_fn: str
+    finalize_pipeline_fn: str
+    handle_failure_fn: str
+    exec_sql_glue_job: str
+    edv_state_machine: str
+    download_zip_fn: str
 
 
-def build_names(deploy_env: str, project: str) -> FpacNames:
+def build_names(deploy_env: str) -> CarsEdvNames:
     """
-    Centralized FPAC naming to match CDK exactly
+    Naming matches your convention:
+      - FSA-<ENV>-edv-*
+      - FSA-<ENV>-DATAMART-EXEC-DB-SQL
+      - FSA-<ENV>-DownloadZip
     """
-    project_name = f"Fpac{project.upper()}"
-    base = f"FSA-{deploy_env}-{project_name}"
-
-    return FpacNames(
-        project_name=project_name,
-        validate_fn=f"{base}-ValidateInput",
-        create_id_fn=f"{base}-CreateNewId",
-        log_results_fn=f"{base}-LogResults",
-        glue_step1=f"{base}-Step1-LandingFiles",
-        glue_step2=f"{base}-Step2-CleansedFiles",
-        glue_step3=f"{base}-Step3-FinalFiles",
-        crawler=f"{base}-CRAWLER",
-        sm_step1=f"{base}-PipelineStep1",
-        sm_step2=f"{base}-PipelineStep2",
-        sm_parent=f"{base}-Pipeline",
+    prefix = f"FSA-{deploy_env}"
+    return CarsEdvNames(
+        build_processing_plan_fn=f"{prefix}-edv-build-processing-plan",
+        check_results_fn=f"{prefix}-edv-check-results",
+        finalize_pipeline_fn=f"{prefix}-edv-finalize-pipeline",
+        handle_failure_fn=f"{prefix}-edv-handle-failure",
+        exec_sql_glue_job=f"{prefix}-DATAMART-EXEC-DB-SQL",
+        edv_state_machine=f"{prefix}-CARS-EDV-Pipeline",
+        download_zip_fn=f"{prefix}-DownloadZip",
     )
 
-def build_glue_args(
-    *,
-    deploy_env: str,
-    project: str,
-    landing_bucket: str,
-    clean_bucket: str,
-    final_bucket: str,
-    bucket_region: str,
-    step: str,
-) -> dict[str, str]:
+
+def _layers(cfg: Dict[str, Any]) -> List[str]:
     """
-    Standard Glue job arguments shared across FPAC pipelines.
-    Mirrors CDK defaults.
+    Keep existing deploy.py behavior (optional two layers).
     """
-    return {
-        "--env": deploy_env,
-        "--project": project,
-        "--landing_bucket": landing_bucket,
-        "--clean_bucket": clean_bucket,
-        "--final_bucket": final_bucket,
-        "--bucket_region": bucket_region,
-        "--step": step,
-
-        # Glue logging / metrics
-        "--enable-metrics": "true",
-        "--enable-continuous-cloudwatch-log": "true",
-    }
-
-from typing import Any, Dict
-
+    sp = cfg.get("strparams") or {}
+    layers: List[str] = []
+    for k in ("thirdPartyLayerArnParam", "customLayerArnParam"):
+        v = sp.get(k)
+        if v:
+            layers.append(v)
+    return layers
 
 
 def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
+    """
+    Deploys:
+      - 5 Lambdas:
+          cars/lambda/edv-build-processing-plan/lambda_function.py  (handler: lambda_function.handler)
+          cars/lambda/edv-check-results/lambda_function.py          (handler: lambda_function.handler)
+          cars/lambda/edv-finalize-pipeline/lambda_function.py      (handler: lambda_function.handler)
+          cars/lambda/edv-handle-failure/lambda_function.py         (handler: lambda_function.handler)
+          cars/lambda/DownloadZip/<your file>.py                    (handler: lambda_function.lambda_handler by default)
+      - 1 Glue Job:
+          cars/glue/FSA-CERT-DATAMART-EXEC-DB-SQL.py (uploaded to artifacts bucket)
+      - 1 Step Function:
+          definition generated by cars/states/cars_stepfunction.py (python builder)
+
+    Required cfg keys (matches your existing deploy runner):
+      cfg["deployEnv"]
+      cfg["artifacts"]["artifactBucket"]
+      cfg["artifacts"]["prefix"]
+      cfg["strparams"]["etlRoleArnParam"]
+      cfg["strparams"]["glueJobRoleArnParam"]
+      cfg["stepFunctions"]["roleArn"]
+
+    Optional:
+      cfg["lambdaEnv"] (dict)
+      cfg["glueDefaultArgs"] (dict)
+      cfg["strparams"]["lambdaRuntime"] (defaults to python3.11)
+      cfg["strparams"]["thirdPartyLayerArnParam"], cfg["strparams"]["customLayerArnParam"]
+      cfg["downloadZip"]["handler"] (override handler string)
+      cfg["downloadZip"]["sourceDirName"] (override folder name under cars/lambda/, default "DownloadZip")
+    """
     deploy_env = cfg["deployEnv"]
-    project = cfg["project"]
-    config_data = cfg["configData"]
-    bucket_region = cfg.get("bucketRegion", region)
-
-    landing_bucket_name = cfg["strparams"]["landingBucketNameParam"]
-    clean_bucket_name = cfg["strparams"]["cleanBucketNameParam"]
-    final_bucket_name = cfg["strparams"]["finalBucketNameParam"]
-
-    glue_job_role_arn = cfg["strparams"]["glueJobRoleArnParam"]
-    etl_lambda_role_arn = cfg["strparams"]["etlRoleArnParam"]
-
-    layers = [
-        cfg["strparams"]["thirdPartyLayerArnParam"],
-        cfg["strparams"]["customLayerArnParam"],
-    ]
+    names = build_names(deploy_env)
 
     artifact_bucket = cfg["artifacts"]["artifactBucket"]
     prefix = cfg["artifacts"]["prefix"].rstrip("/") + "/"
 
-    names = build_names(deploy_env, project)
+    strparams = cfg.get("strparams") or {}
+    etl_lambda_role_arn = strparams["etlRoleArnParam"]
+    glue_job_role_arn = strparams["glueJobRoleArnParam"]
 
-    # ✅ NEW: assets are located under this project directory
-    project_dir = Path(__file__).resolve().parent          # .../projects/fpac_pipeline
+    sfn_role_arn = (cfg.get("stepFunctions") or {}).get("roleArn") or ""
+    if not sfn_role_arn:
+        raise RuntimeError("Missing required cfg.stepFunctions.roleArn")
+
+    # Project assets (matches your folder layout)
+    project_dir = Path(__file__).resolve().parent  # .../deploy/projects/cars
     lambda_root = project_dir / "lambda"
     glue_root = project_dir / "glue"
 
+    # Lambda folders
+    build_plan_dir = lambda_root / "edv-build-processing-plan"
+    check_results_dir = lambda_root / "edv-check-results"
+    finalize_dir = lambda_root / "edv-finalize-pipeline"
+    handle_failure_dir = lambda_root / "edv-handle-failure"
+
+    # DownloadZip folder + handler override (optional)
+    dz_cfg = cfg.get("downloadZip") or {}
+    download_zip_dirname = dz_cfg.get("sourceDirName", "DownloadZip")
+    download_zip_dir = lambda_root / download_zip_dirname
+    download_zip_handler = dz_cfg.get("handler", "lambda_function.lambda_handler")
+
+    # Glue script (local)
+    glue_script_local = glue_root / "FSA-CERT-DATAMART-EXEC-DB-SQL.py"
+
+    # Clients
     session = boto3.Session(region_name=region)
     s3 = session.client("s3")
     lam = session.client("lambda")
@@ -127,178 +163,123 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
 
     ensure_bucket_exists(s3, artifact_bucket, region)
 
-    env_vars = {
-        "PROJECT": project,
-        "LANDING_BUCKET": landing_bucket_name,
-        "TABLE_NAME": config_data["dynamoTableName"],
-        "BUCKET_REGION": bucket_region,
-    }
+    # Optional env vars passed to all lambdas
+    env_vars: Dict[str, str] = {}
+    env_vars.update(cfg.get("lambdaEnv") or {})
 
-    # ---- Lambdas (paths now under projects/fpac_pipeline/lambda/...) ----
-    validate_arn = ensure_lambda(
+    runtime = strparams.get("lambdaRuntime", "python3.11")
+    layers = _layers(cfg)
+
+    # --- Lambdas ---
+    build_plan_arn = ensure_lambda(
         lam,
         LambdaSpec(
-            name=names.validate_fn,
+            name=names.build_processing_plan_fn,
             role_arn=etl_lambda_role_arn,
-            handler="index.handler",
-            runtime="nodejs20.x",
-            source_dir=str(lambda_root / "Validate"),
+            handler="lambda_function.handler",
+            runtime=runtime,
+            source_dir=str(build_plan_dir),
             env=env_vars,
             layers=layers,
         ),
     )
 
-    create_id_arn = ensure_lambda(
+    check_results_arn = ensure_lambda(
         lam,
         LambdaSpec(
-            name=names.create_id_fn,
+            name=names.check_results_fn,
             role_arn=etl_lambda_role_arn,
-            handler="index.handler",
-            runtime="nodejs20.x",
-            source_dir=str(lambda_root / "CreateNewId"),
+            handler="lambda_function.handler",
+            runtime=runtime,
+            source_dir=str(check_results_dir),
             env=env_vars,
             layers=layers,
         ),
     )
 
-    log_results_arn = ensure_lambda(
+    finalize_arn = ensure_lambda(
         lam,
         LambdaSpec(
-            name=names.log_results_fn,
+            name=names.finalize_pipeline_fn,
             role_arn=etl_lambda_role_arn,
-            handler="index.handler",
-            runtime="nodejs20.x",
-            source_dir=str(lambda_root / "LogResults"),
+            handler="lambda_function.handler",
+            runtime=runtime,
+            source_dir=str(finalize_dir),
             env=env_vars,
             layers=layers,
         ),
     )
 
-    # ---- Glue scripts (paths now under projects/fpac_pipeline/glue/...) ----
-    step1_script_local = str(glue_root / "landingFiles" / "landing_job.py")
-    step2_script_local = str(glue_root / "cleaningFiles" / "cleaning_job.py")
-    step3_script_local = str(glue_root / "finalFiles" / "final_job.py")
+    handle_failure_arn = ensure_lambda(
+        lam,
+        LambdaSpec(
+            name=names.handle_failure_fn,
+            role_arn=etl_lambda_role_arn,
+            handler="lambda_function.handler",
+            runtime=runtime,
+            source_dir=str(handle_failure_dir),
+            env=env_vars,
+            layers=layers,
+        ),
+    )
 
+    download_zip_arn = ensure_lambda(
+        lam,
+        LambdaSpec(
+            name=names.download_zip_fn,
+            role_arn=etl_lambda_role_arn,
+            handler=download_zip_handler,
+            runtime=runtime,
+            source_dir=str(download_zip_dir),
+            env=env_vars,
+            layers=layers,
+        ),
+    )
+
+    # --- Glue job ---
     ensure_glue_job(
         glue,
         s3,
         GlueJobSpec(
-            name=names.glue_step1,
+            name=names.exec_sql_glue_job,
             role_arn=glue_job_role_arn,
-            script_local_path=step1_script_local,
+            script_local_path=str(glue_script_local),
             script_s3_bucket=artifact_bucket,
-            script_s3_key=f"{prefix}glue/landing_job.py",
-            default_args=build_glue_args(
-                deploy_env=deploy_env,
-                project=project,
-                landing_bucket=landing_bucket_name,
-                clean_bucket=clean_bucket_name,
-                final_bucket=final_bucket_name,
-                bucket_region=bucket_region,
-                step="Step1",
-            ),
+            script_s3_key=f"{prefix}glue/{glue_script_local.name}",
+            default_args=(cfg.get("glueDefaultArgs") or {}),
         ),
     )
 
-    ensure_glue_job(
-        glue,
-        s3,
-        GlueJobSpec(
-            name=names.glue_step2,
-            role_arn=glue_job_role_arn,
-            script_local_path=step2_script_local,
-            script_s3_bucket=artifact_bucket,
-            script_s3_key=f"{prefix}glue/cleaning_job.py",
-            default_args=build_glue_args(
-                deploy_env=deploy_env,
-                project=project,
-                landing_bucket=landing_bucket_name,
-                clean_bucket=clean_bucket_name,
-                final_bucket=final_bucket_name,
-                bucket_region=bucket_region,
-                step="Step2",
-            ),
-        ),
+    # --- Step Function (from python builder in states/cars_stepfunction.py) ---
+    step_mod = _load_stepfunction_module()
+    EdvPipelineStateMachineInputs = step_mod.EdvPipelineStateMachineInputs
+    EdvPipelineStateMachineBuilder = step_mod.EdvPipelineStateMachineBuilder
+
+    sm_inputs = EdvPipelineStateMachineInputs(
+        build_processing_plan_fn=build_plan_arn,
+        check_results_fn=check_results_arn,
+        finalize_pipeline_fn=finalize_arn,
+        handle_failure_fn=handle_failure_arn,
+        exec_sql_glue_job_name=names.exec_sql_glue_job,
     )
 
-    ensure_glue_job(
-        glue,
-        s3,
-        GlueJobSpec(
-            name=names.glue_step3,
-            role_arn=glue_job_role_arn,
-            script_local_path=step3_script_local,
-            script_s3_bucket=artifact_bucket,
-            script_s3_key=f"{prefix}glue/final_job.py",
-            default_args=build_glue_args(
-                deploy_env=deploy_env,
-                project=project,
-                landing_bucket=landing_bucket_name,
-                clean_bucket=clean_bucket_name,
-                final_bucket=final_bucket_name,
-                bucket_region=bucket_region,
-                step="Step3",
-            ),
-        ),
-    )
+    definition = EdvPipelineStateMachineBuilder.edv_pipeline_asl(sm_inputs)
 
-    ensure_glue_crawler(
-        glue,
-        GlueCrawlerSpec(
-            name=names.crawler,
-            role_arn=glue_job_role_arn,
-            database_name=config_data["databaseName"],
-            target_s3_path=f"s3://{final_bucket_name}/",
-        ),
-    )
-
-       # ---- Step Functions definitions are now built in fpac_stepfunctions.py ----
-    sfn_role_arn = (cfg.get("stepFunctions", {}) or {}).get("roleArn") or ""
-    if not sfn_role_arn:
-        raise RuntimeError("stepFunctions.roleArn is empty. (Role creation not implemented here.)")
-
-    sm_inputs = FpacStateMachineInputs(
-        validate_lambda_arn=validate_arn,
-        create_id_lambda_arn=create_id_arn,
-        log_results_lambda_arn=log_results_arn,
-        glue_step1_job_name=names.glue_step1,
-        glue_step2_job_name=names.glue_step2,
-        glue_step3_job_name=names.glue_step3,
-        crawler_name=names.crawler,
-    )
-
-    step1_def = FpacStateMachineBuilder.step1_asl(sm_inputs)
-    step1_arn = ensure_state_machine(
+    sfn_arn = ensure_state_machine(
         sfn,
-        StateMachineSpec(name=names.sm_step1, role_arn=sfn_role_arn, definition=step1_def),
+        StateMachineSpec(
+            name=names.edv_state_machine,
+            role_arn=sfn_role_arn,
+            definition=definition,
+        ),
     )
-
-    step2_def = FpacStateMachineBuilder.step2_asl(sm_inputs)
-    step2_arn = ensure_state_machine(
-        sfn,
-        StateMachineSpec(name=names.sm_step2, role_arn=sfn_role_arn, definition=step2_def),
-    )
-
-    parent_def = FpacStateMachineBuilder.parent_asl(step1_arn, step2_arn)
-    parent_arn = ensure_state_machine(
-        sfn,
-        StateMachineSpec(name=names.sm_parent, role_arn=sfn_role_arn, definition=parent_def),
-    )
-
 
     return {
-        "landing_bucket": landing_bucket_name,
-        "clean_bucket": clean_bucket_name,
-        "final_bucket": final_bucket_name,
-        "validate_lambda_arn": validate_arn,
-        "create_id_lambda_arn": create_id_arn,
-        "log_results_lambda_arn": log_results_arn,
-        "glue_job_step1": names.glue_step1,
-        "glue_job_step2": names.glue_step2,
-        "glue_job_step3": names.glue_step3,
-        "glue_crawler": names.crawler,
-        "sfn_step1_arn": step1_arn,
-        "sfn_step2_arn": step2_arn,
-        "sfn_parent_arn": parent_arn,
+        "lambda_build_processing_plan_arn": build_plan_arn,
+        "lambda_check_results_arn": check_results_arn,
+        "lambda_finalize_pipeline_arn": finalize_arn,
+        "lambda_handle_failure_arn": handle_failure_arn,
+        "lambda_download_zip_arn": download_zip_arn,
+        "glue_job_name": names.exec_sql_glue_job,
+        "state_machine_arn": sfn_arn,
     }
-

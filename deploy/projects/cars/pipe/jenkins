@@ -38,6 +38,11 @@ pipeline {
                 . .venv/bin/activate
                 pip install -U pip
                 pip install -r requirements.txt
+                
+                cd projects/cars
+                chmod +x *.sh
+                cd scripts
+                chmod +x *.sh
                 '''
             }
         }

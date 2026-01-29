@@ -41,5 +41,15 @@
     "createRoleIfMissing": false,
     "roleName": "FSA-dev-FPACCARS-SfnExec",
     "roleArn": "arn:aws:iam::335965711887:role/FSA-dev-FPACCARS-SfnExec"
+  },
+  "configUpload": {
+    "functionName": "FSA-steam-dev-UploadConfig",
+    "sourceDir": "car",
+    "inputBucket": "dev-cars-artifacts",
+    "inputPrefix": "input/zips",
+    "outputBucket": "punkdev-fpacfsa-final-zone",
+    "outputPrefix": "car2",
+    "minExpectedObjects": 2,
+    "debug": true
   }
 }

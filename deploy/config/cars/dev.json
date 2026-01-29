@@ -24,7 +24,7 @@
     "finalBucketNameParam": "c108-dev-fpacfsa-final-zone",
     "glueJobRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-servicerole-glue",
     "etlRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-lambda",
-    "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:FSA-DEV-MDART-layer:5",
+    "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1",
     "customLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:FSA-polars:2"
   },
   "paths": {
@@ -41,6 +41,16 @@
     "createRoleIfMissing": false,
     "roleName": "disc-fsa-dev-stepfunction",
     "roleArn": "arn:aws:iam::241533156429:role/disc-fsa-dev-stepfunction"
+  },
+  "configUpload": {
+    "functionName": "FSA-FPACDEV-UploadConfig",
+    "sourceDir": "car",
+    "inputBucket": "fsa-dev-ops",
+    "inputPrefix": "input/zips",
+    "outputBucket": "c108-dev-fpacfsa-final-zone",
+    "outputPrefix": "car",
+    "minExpectedObjects": 2,
+    "debug": true
   }
 
 }

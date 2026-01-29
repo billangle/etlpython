@@ -56,6 +56,7 @@ class CarsEdvNames:
     exec_sql_glue_job: str
     edv_state_machine: str
     download_zip_fn: str
+    upload_config_fn: str
 
 
 def build_names(deploy_env: str) -> CarsEdvNames:
@@ -74,6 +75,7 @@ def build_names(deploy_env: str) -> CarsEdvNames:
         exec_sql_glue_job=f"{prefix}-DATAMART-EXEC-DB-SQL",
         edv_state_machine=f"{prefix}-CARS-EDV-Pipeline",
         download_zip_fn=f"{prefix}-DownloadZip",
+        upload_config_fn=f"{prefix}-UploadConfig",
     )
 
 
@@ -236,6 +238,20 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         ),
     )
 
+    upload_config_arn = ensure_lambda(
+        lam,
+        LambdaSpec(
+            name=names.upload_config_fn,
+            role_arn=etl_lambda_role_arn,
+            handler="lambda_function.handler",
+            runtime=runtime,
+            source_dir=str(lambda_root / "UploadConfig"),
+            env=env_vars,
+            layers=layers,
+        ),
+    )   
+
+
     # --- Glue job ---
     ensure_glue_job(
         glue,
@@ -282,4 +298,5 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         "lambda_download_zip_arn": download_zip_arn,
         "glue_job_name": names.exec_sql_glue_job,
         "state_machine_arn": sfn_arn,
+        "lambda_upload_config_arn": upload_config_arn,
     }

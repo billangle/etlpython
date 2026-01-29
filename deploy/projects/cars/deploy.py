@@ -74,6 +74,7 @@ def build_names(deploy_env: str) -> CarsEdvNames:
         handle_failure_fn=f"{prefix}-edv-handle-failure",
         exec_sql_glue_job=f"{prefix}-DATAMART-EXEC-DB-SQL",
         edv_state_machine=f"{prefix}-CARS-EDV-Pipeline",
+        #edv_state_machine=f"{prefix}-CARS-s3parquet-to-postgres-edv-load",
         download_zip_fn=f"{prefix}-DownloadZip",
         upload_config_fn=f"{prefix}-UploadConfig",
     )

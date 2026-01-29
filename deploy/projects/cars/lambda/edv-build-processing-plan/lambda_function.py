@@ -42,7 +42,7 @@ logger.setLevel(logging.INFO)
 REGION = os.environ.get("REGION", "us-east-1")
 
 
-def lambda_handler(event, context):
+def handler(event, context):
     logger.info(f"Build processing plan: {json.dumps(event)}")
 
     # Extract parameters

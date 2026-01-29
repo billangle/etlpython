@@ -50,7 +50,7 @@ REGION = os.environ.get("REGION", "us-east-1")
 SECRET_NAME = os.environ.get("SECRET_NAME", "FSA-CERT-Secrets")
 
 
-def lambda_handler(event, context):
+def handler(event, context):
     logger.info(f"Check results input: {json.dumps(event)}")
 
     layer = event.get("layer", "UNKNOWN")

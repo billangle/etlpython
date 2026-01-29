@@ -39,7 +39,7 @@ REGION = os.environ.get("REGION", "us-east-1")
 SECRET_NAME = os.environ.get("SECRET_NAME", "fsa-dart-edv-secrets")
 
 
-def lambda_handler(event, context):
+def handler(event, context):
     logger.info(f"Finalize pipeline input: {json.dumps(event)}")
 
     data_src_nm = event.get("data_src_nm", "UNKNOWN")

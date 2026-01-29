@@ -1,0 +1,31 @@
+SELECT 
+compliance_detail_history.compliance_detail_history_identifier AS CMPL_DET_HIST_ID
+,compliance_detail_history.agricultural_production_plan_identifier AS AG_PROD_PLAN_ID
+,compliance_detail_history.zero_acreage_crop_identifier AS ZERO_ACRG_CROP_ID
+,compliance_detail_history.subfield_number AS SFLD_NBR
+,compliance_detail_history.field_visit_measurement_indicator AS FLD_VST_MEAS_IND
+,compliance_detail_history.workload_first_quarter_indicator AS WKLD_FST_QTR_IND
+,compliance_detail_history.workload_second_quarter_indicator AS WKLD_SE_QTR_IND
+,compliance_detail_history.workload_third_quarter_indicator AS WKLD_THRD_QTR_IND
+,compliance_detail_history.workload_fourth_quarter_indicator AS WKLD_FRTH_QTR_IND
+,compliance_detail_history.workload_late_quarter_indicator AS WKLD_LATE_QTR_IND
+,compliance_detail_history.land_use_source_indicator AS LAND_USE_SRC_IND
+,compliance_detail_history.land_use_determined_indicator AS LAND_USE_DTER_IND
+,compliance_detail_history.crop_status_code AS CROP_STAT_CD
+,cast(compliance_detail_history.creation_date AS timestamp) AS CRE_DT
+,cast(compliance_detail_history.last_change_date AS timestamp) AS LAST_CHG_DT
+,compliance_detail_history.last_change_user_name AS LAST_CHG_USER_NM
+,compliance_detail_history.data_status_code AS DATA_STAT_CD
+,cast(compliance_detail_history.crop_field_determined_date AS timestamp) AS CROP_FLD_DTER_DT
+,compliance_detail_history.agricultural_production_plan_staging_identifier AS AG_PROD_PLAN_STG_ID
+,compliance_detail_history.zero_acreage_crop_staging_identifier AS ZERO_ACRG_CROP_STG_ID
+
+,'' AS HASH_DIFF
+,compliance_detail_history.op AS CDC_OPER_CD
+,dart_filedate AS LOAD_DT
+,'CARS_STG' AS DATA_SRC_NM
+,current_timestamp AS CDC_DT
+FROM `fsa-{env}-cars`.compliance_detail_history
+
+
+

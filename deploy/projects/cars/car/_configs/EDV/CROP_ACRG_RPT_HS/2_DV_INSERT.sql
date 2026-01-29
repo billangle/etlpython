@@ -1,0 +1,47 @@
+INSERT INTO edv.CROP_ACRG_RPT_HS (CROP_ACRG_RPT_H_ID, CROP_ACRG_RPT_ID, LOAD_DT, DATA_EFF_STRT_DT, DATA_SRC_NM, DATA_STAT_CD, SRC_CRE_DT, SRC_LAST_CHG_DT, SRC_LAST_CHG_USER_NM, DATA_IACTV_DT, RPT_DT, DOC_CERT_STAT_CD, RQR_PLNT_STAT_CPLT_IND, RQR_PLNT_STAT_CPLT_DT, ACRG_RPT_CNTNT_EXST_IND, CPLD_TOT_ACRG, CPLD_TOT_CERT_ACRG, ACRG_RPT_LAST_MOD_DT, FMLD_TOT_ACRG, DCP_TOT_ACRG, LAST_OVRRD_CHG_DT, LAST_OVRRD_CHG_USER_NM, BAT_PROC_CD, FILE_FARM_SEQ_NBR, FSA_578_ORGN_ID, FSA_578_RVSN_ID, TOT_BASE_ACRG, DATA_EFF_END_DT, LOAD_END_DT, HASH_DIF)
+  (SELECT stg.*
+   FROM
+     (SELECT DISTINCT MD5 (COALESCE (CROP_ACRG_RPT.PGM_YR::varchar(32), '-1') || '~~' || UPPER (COALESCE (TRIM (CROP_ACRG_RPT.ST_FSA_CD) , '--')) || '~~' || UPPER (COALESCE (TRIM (CROP_ACRG_RPT.CNTY_FSA_CD) , '--')) || '~~' || UPPER (COALESCE (TRIM (CROP_ACRG_RPT.FARM_NBR) , '--'))) AS CROP_ACRG_RPT_H_ID,
+                      COALESCE (CROP_ACRG_RPT.CROP_ACRG_RPT_ID,
+                                0) CROP_ACRG_RPT_ID,
+                               CROP_ACRG_RPT.LOAD_DT LOAD_DT,
+                               CROP_ACRG_RPT.CDC_DT DATA_EFF_STRT_DT,
+                               CROP_ACRG_RPT.DATA_SRC_NM DATA_SRC_NM,
+                               CROP_ACRG_RPT.DATA_STAT_CD DATA_STAT_CD,
+                               CROP_ACRG_RPT.CRE_DT SRC_CRE_DT,
+                               CROP_ACRG_RPT.LAST_CHG_DT SRC_LAST_CHG_DT,
+                               CROP_ACRG_RPT.LAST_CHG_USER_NM SRC_LAST_CHG_USER_NM,
+                               CROP_ACRG_RPT.DATA_IACTV_DT DATA_IACTV_DT,
+                               CROP_ACRG_RPT.RPT_DT RPT_DT,
+                               CROP_ACRG_RPT.DOC_CERT_STAT_CD DOC_CERT_STAT_CD,
+                               CROP_ACRG_RPT.RQR_PLNT_STAT_CPLT_IND RQR_PLNT_STAT_CPLT_IND,
+                               CROP_ACRG_RPT.RQR_PLNT_STAT_CPLT_DT RQR_PLNT_STAT_CPLT_DT,
+                               CROP_ACRG_RPT.ACRG_RPT_CNTNT_EXST_IND ACRG_RPT_CNTNT_EXST_IND,
+                               CROP_ACRG_RPT.CPLD_TOT_ACRG CPLD_TOT_ACRG,
+                               CROP_ACRG_RPT.CPLD_TOT_CERT_ACRG CPLD_TOT_CERT_ACRG,
+                               CROP_ACRG_RPT.ACRG_RPT_LAST_MOD_DT ACRG_RPT_LAST_MOD_DT,
+                               CROP_ACRG_RPT.FMLD_TOT_ACRG FMLD_TOT_ACRG,
+                               CROP_ACRG_RPT.DCP_TOT_ACRG DCP_TOT_ACRG,
+                               CROP_ACRG_RPT.LAST_OVRRD_CHG_DT LAST_OVRRD_CHG_DT,
+                               CROP_ACRG_RPT.LAST_OVRRD_CHG_USER_NM LAST_OVRRD_CHG_USER_NM,
+                               CROP_ACRG_RPT.BAT_PROC_CD BAT_PROC_CD,
+                               CROP_ACRG_RPT.FILE_FARM_SEQ_NBR FILE_FARM_SEQ_NBR,
+                               CROP_ACRG_RPT.FSA_578_ORGN_ID FSA_578_ORGN_ID,
+                               CROP_ACRG_RPT.FSA_578_RVSN_ID FSA_578_RVSN_ID,
+                               CROP_ACRG_RPT.TOT_BASE_ACRG TOT_BASE_ACRG,
+                               TO_DATE ('9999-12-31',
+                                        'YYYY-MM-DD') DATA_EFF_END_DT,
+                                       TO_DATE ('9999-12-31',
+                                                'YYYY-MM-DD') LOAD_END_DT,
+                                               MD5 (CROP_ACRG_RPT.PGM_YR || '~~' || TRIM (CROP_ACRG_RPT.ST_FSA_CD) || '~~' || TRIM (CROP_ACRG_RPT.CNTY_FSA_CD) || '~~' || TRIM (CROP_ACRG_RPT.FARM_NBR) || '~~' || CROP_ACRG_RPT.CROP_ACRG_RPT_ID || '~~' || TRIM (CROP_ACRG_RPT.DATA_STAT_CD) || '~~' || TO_CHAR (CROP_ACRG_RPT.CRE_DT, 'YYYY-MM-DD HH24:MI:SS.FF') || '~~' || TO_CHAR (CROP_ACRG_RPT.LAST_CHG_DT, 'YYYY-MM-DD HH24:MI:SS.FF') || '~~' || TRIM (CROP_ACRG_RPT.LAST_CHG_USER_NM) || '~~' || TO_CHAR (CROP_ACRG_RPT.DATA_IACTV_DT, 'YYYY-MM-DD HH24:MI:SS.FF') || '~~' || TO_CHAR (CROP_ACRG_RPT.RPT_DT, 'YYYY-MM-DD HH24:MI:SS.FF') || '~~' || TRIM (CROP_ACRG_RPT.DOC_CERT_STAT_CD) || '~~' || TRIM (CROP_ACRG_RPT.RQR_PLNT_STAT_CPLT_IND) || '~~' || TO_CHAR (CROP_ACRG_RPT.RQR_PLNT_STAT_CPLT_DT, 'YYYY-MM-DD HH24:MI:SS.FF') || '~~' || TRIM (CROP_ACRG_RPT.ACRG_RPT_CNTNT_EXST_IND) || '~~' || CROP_ACRG_RPT.CPLD_TOT_ACRG || '~~' || CROP_ACRG_RPT.CPLD_TOT_CERT_ACRG || '~~' || TO_CHAR (CROP_ACRG_RPT.ACRG_RPT_LAST_MOD_DT, 'YYYY-MM-DD HH24:MI:SS.FF') || '~~' || CROP_ACRG_RPT.FMLD_TOT_ACRG || '~~' || CROP_ACRG_RPT.DCP_TOT_ACRG || '~~' || TO_CHAR (CROP_ACRG_RPT.LAST_OVRRD_CHG_DT, 'YYYY-MM-DD HH24:MI:SS.FF') || '~~' || TRIM (CROP_ACRG_RPT.LAST_OVRRD_CHG_USER_NM) || '~~' || TRIM (CROP_ACRG_RPT.BAT_PROC_CD) || '~~' || CROP_ACRG_RPT.FILE_FARM_SEQ_NBR || '~~' || TRIM (CROP_ACRG_RPT.FSA_578_ORGN_ID) || '~~' || TRIM (CROP_ACRG_RPT.FSA_578_RVSN_ID) || '~~' || CROP_ACRG_RPT.TOT_BASE_ACRG) HASH_DIF
+      FROM CARS_STG.CROP_ACRG_RPT CROP_ACRG_RPT
+      WHERE CROP_ACRG_RPT.CDC_OPER_CD IN ('I',
+                                          'UN')
+        AND DATE (CROP_ACRG_RPT.CDC_DT) = DATE (TO_TIMESTAMP ('{ETL_START_TIMESTAMP}', 'YYYY-MM-DD HH24:MI:SS.FF'))
+        AND CROP_ACRG_RPT.LOAD_DT = TO_TIMESTAMP (TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD'),
+                                                  'YYYY-MM-DD HH24:MI:SS.FF')
+      ORDER BY CROP_ACRG_RPT.CDC_DT) stg
+   LEFT JOIN edv.CROP_ACRG_RPT_HS dv ON (stg.HASH_DIF = dv.HASH_DIF
+                                         AND dv.LOAD_END_DT = TO_TIMESTAMP ('9999-12-31',
+                                                                            'YYYY-MM-DD'))
+   WHERE dv.HASH_DIF IS NULL )

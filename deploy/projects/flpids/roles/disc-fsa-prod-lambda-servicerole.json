@@ -1,0 +1,569 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "kms:Decrypt",
+                "kms:Encrypt",
+                "kms:GenerateDataKey",
+                "kms:DescribeKey"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:UpdateEventSourceMapping",
+                "lambda:CreateEventSourceMapping",
+                "lambda:DeleteEventSourceMapping"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:ListFunctions",
+                "lambda:GetLayerVersion",
+                "lambda:PublishLayerVersion",
+                "iam:ListRoles",
+                "sns:Unsubscribe",
+                "lambda:GetAccountSettings",
+                "lambda:AddLayerVersionPermission",
+                "lambda:GetLayerVersionPolicy",
+                "lambda:RemoveLayerVersionPermission",
+                "ec2:DescribeSecurityGroups",
+                "lambda:ListTags",
+                "ec2:DescribeVpcs",
+                "lambda:DeleteLayerVersion",
+                "lambda:ListEventSourceMappings",
+                "lambda:ListLayerVersions",
+                "lambda:ListLayers",
+                "ec2:DescribeSubnets",
+                "lambda:GetPolicy"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor2",
+            "Effect": "Allow",
+            "Action": [
+                "iam:GetRole",
+                "lambda:GetFunction",
+                "lambda:GetFunctionConfiguration",
+                "lambda:GetFunctionCodeSigningConfig",
+                "cloudwatch:PutMetricAlarm",
+                "iam:PassRole",
+                "iam:SimulatePrincipalPolicy",
+                "lambda:AddPermission",
+                "sns:Publish",
+                "lambda:GetFunctionConcurrency",
+                "iam:ListAttachedRolePolicies",
+                "sns:ConfirmSubscription",
+                "iam:ListRolePolicies",
+                "iam:GetRolePolicy",
+                "lambda:RemovePermission",
+                "lambda:InvokeFunction"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CreateFunctionWithCostTag",
+            "Effect": "Allow",
+            "Action": "lambda:CreateFunction",
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor3",
+            "Effect": "Allow",
+            "NotAction": "lambda:PutFunctionConcurrency",
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor4",
+            "Effect": "Allow",
+            "Action": "logs:*",
+            "Resource": "*"
+        }
+    ]
+}
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "glue:CheckSchemaVersionValidity",
+                "glue:CreateClassifier",
+                "glue:CreateCustomEntityType",
+                "glue:CreateDataQualityRuleset",
+                "glue:GetSecurityConfiguration",
+                "glue:CreateScript",
+                "glue:SendFeedback",
+                "glue:GetDataPreviewStatement",
+                "redshift-data:GetStatementResult",
+                "glue:GlueNotebookAuthorize",
+                "glue:TerminateNotebook",
+                "redshift-data:CancelStatement",
+                "redshift-data:DescribeStatement",
+                "glue:StopCrawlerSchedule",
+                "glue:GetClassifier",
+                "glue:ListWorkflows",
+                "glue:GetJobs",
+                "glue:ListBlueprints",
+                "glue:GetTriggers",
+                "glue:StartCompletion",
+                "glue:ListCrawls",
+                "glue:ListCustomEntityTypes",
+                "redshift-data:ListStatements",
+                "glue:CreateCrawler",
+                "glue:DeleteSecurityConfiguration",
+                "glue:GetMapping",
+                "glue:GetDevEndpoints",
+                "glue:GetColumnStatisticsTaskRuns",
+                "glue:ListDevEndpoints",
+                "glue:StartCrawlerSchedule",
+                "glue:ListRegistries",
+                "glue:UseGlueStudio",
+                "glue:UpdateClassifier",
+                "glue:ListColumnStatisticsTaskRuns",
+                "glue:GetNotebookInstanceStatus",
+                "glue:CreateMLTransform",
+                "glue:GetCrawlers",
+                "glue:CreateSecurityConfiguration",
+                "glue:GetClassifiers",
+                "glue:RunDataPreviewStatement",
+                "glue:DeregisterDataPreview",
+                "glue:ResetJobBookmark",
+                "glue:GetJobBookmark",
+                "glue:GlueNotebookRefreshCredentials",
+                "glue:ListSessions",
+                "glue:GetColumnStatisticsTaskRun",
+                "glue:DeleteClassifier",
+                "glue:GetSecurityConfigurations",
+                "glue:ListTriggers",
+                "glue:ListJobs",
+                "glue:TestConnection",
+                "glue:UpdateCrawlerSchedule",
+                "glue:GetDataflowGraph",
+                "glue:StartNotebook",
+                "glue:CreateSession",
+                "glue:CreateDevEndpoint",
+                "glue:GetPlan",
+                "glue:ListCrawlers",
+                "glue:GetCrawlerMetrics"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": "s3:ListBucketMultipartUploads",
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor2",
+            "Effect": "Allow",
+            "Action": [
+                "s3:AbortMultipartUpload",
+                "s3:ListMultipartUploadParts"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor3",
+            "Effect": "Allow",
+            "Action": "s3:GetBucketLocation",
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor4",
+            "Effect": "Allow",
+            "Action": "redshift-data:*",
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor5",
+            "Effect": "Allow",
+            "Action": "glue:*",
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor6",
+            "Effect": "Allow",
+            "Action": [
+                "rds-data:ExecuteStatement",
+                "rds-data:RollbackTransaction",
+                "rds-data:CommitTransaction",
+                "rds-data:BatchExecuteStatement",
+                "rds-data:BeginTransaction"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": "dms:DescribeTableStatistics",
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "glue:GetCrawlers",
+                "sns:ListTopics",
+                "sns:Unsubscribe",
+                "s3:ListBucket",
+                "logs:GetLogDelivery",
+                "logs:ListLogDeliveries",
+                "sns:CheckIfPhoneNumberIsOptedOut",
+                "secretsmanager:GetRandomPassword",
+                "sns:ListEndpointsByPlatformApplication",
+                "ec2:DescribeNetworkInterfaces",
+                "redshift-data:GetStatementResult",
+                "redshift-data:CancelStatement",
+                "redshift-data:DescribeStatement",
+                "logs:DescribeQueryDefinitions",
+                "logs:DescribeResourcePolicies",
+                "logs:DescribeDestinations",
+                "logs:DescribeQueries",
+                "glue:GetJobs",
+                "sns:ListSMSSandboxPhoneNumbers",
+                "ec2:DeleteNetworkInterface",
+                "sns:GetPlatformApplicationAttributes",
+                "logs:StopQuery",
+                "logs:TestMetricFilter",
+                "sns:GetSubscriptionAttributes",
+                "sns:ListSubscriptions",
+                "dms:DescribeReplicationTasks",
+                "glue:ListJobs",
+                "redshift-data:ListStatements",
+                "sns:ListOriginationNumbers",
+                "sns:ListPhoneNumbersOptedOut",
+                "logs:DescribeExportTasks",
+                "sns:GetEndpointAttributes",
+                "s3:ListAllMyBuckets",
+                "logs:GetQueryResults",
+                "sns:GetSMSSandboxAccountStatus",
+                "secretsmanager:ListSecrets",
+                "sns:ListPlatformApplications"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor2",
+            "Effect": "Allow",
+            "Action": [
+                "sns:ListTagsForResource",
+                "sns:ListSubscriptionsByTopic",
+                "sns:Publish",
+                "sns:GetTopicAttributes",
+                "sns:Subscribe",
+                "logs:CreateLogGroup"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor3",
+            "Effect": "Allow",
+            "Action": [
+                "logs:ListTagsLogGroup",
+                "logs:CreateLogStream",
+                "logs:DeleteLogGroup",
+                "logs:DescribeLogStreams",
+                "logs:DescribeSubscriptionFilters",
+                "logs:StartQuery",
+                "logs:DescribeMetricFilters",
+                "logs:FilterLogEvents",
+                "logs:CreateLogGroup",
+                "logs:ListTagsForResource"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor4",
+            "Effect": "Allow",
+            "Action": [
+                "logs:DeleteDestination",
+                "logs:PutDestination",
+                "logs:ListTagsForResource"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor5",
+            "Effect": "Allow",
+            "Action": [
+                "athena:StartQueryExecution",
+                "kms:Decrypt",
+                "glue:GetCrawler",
+                "states:DescribeStateMachine",
+                "glacier:AbortMultipartUpload",
+                "secretsmanager:DescribeSecret",
+                "states:ListExecutions",
+                "states:DescribeStateMachineAlias",
+                "athena:GetQueryResults",
+                "secretsmanager:ListSecretVersionIds",
+                "logs:CreateLogStream",
+                "sns:Publish",
+                "secretsmanager:GetSecretValue",
+                "dms:StartReplicationTask",
+                "states:GetExecutionHistory",
+                "glacier:InitiateMultipartUpload",
+                "glue:GetJobRun",
+                "states:DescribeMapRun",
+                "glacier:UploadArchive",
+                "s3:DeleteObject",
+                "states:ListMapRuns",
+                "glue:GetTables",
+                "lambda:InvokeFunction",
+                "glacier:DeleteArchive",
+                "states:StopExecution",
+                "logs:PutLogEvents",
+                "glue:GetTable",
+                "ec2:CreateNetworkInterface",
+                "states:DescribeStateMachineForExecution",
+                "s3:PutObject",
+                "s3:GetObject",
+                "secretsmanager:GetResourcePolicy",
+                "rds-db:connect",
+                "states:DescribeExecution",
+                "glacier:SetVaultNotifications",
+                "athena:GetQueryExecution",
+                "kms:GenerateDataKey",
+                "glue:StartJobRun",
+                "glacier:CompleteMultipartUpload",
+                "dms:StopReplicationTask",
+                "states:StartExecution",
+                "dms:DescribeTableStatistics",
+                "glacier:UploadMultipartPart",
+                "redshift:GetClusterCredentials",
+                "s3:GetBucketLocation",
+                "glue:GetJobRuns",
+                "glue:GetJob"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor6",
+            "Effect": "Allow",
+            "Action": "logs:DescribeLogGroups",
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor7",
+            "Effect": "Allow",
+            "Action": "redshift-data:*",
+            "Resource": "*"
+        }
+    ]
+}
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "BaseAthenaPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "athena:*"
+            ],
+            "Resource": [
+                "*"
+            ]
+        },
+        {
+            "Sid": "BaseGluePermissions",
+            "Effect": "Allow",
+            "Action": [
+                "glue:CreateDatabase",
+                "glue:DeleteDatabase",
+                "glue:GetCatalog",
+                "glue:GetCatalogs",
+                "glue:GetDatabase",
+                "glue:GetDatabases",
+                "glue:UpdateDatabase",
+                "glue:CreateTable",
+                "glue:DeleteTable",
+                "glue:BatchDeleteTable",
+                "glue:UpdateTable",
+                "glue:GetTable",
+                "glue:GetTables",
+                "glue:BatchCreatePartition",
+                "glue:CreatePartition",
+                "glue:DeletePartition",
+                "glue:BatchDeletePartition",
+                "glue:UpdatePartition",
+                "glue:GetPartition",
+                "glue:GetPartitions",
+                "glue:BatchGetPartition",
+                "glue:StartColumnStatisticsTaskRun",
+                "glue:GetColumnStatisticsTaskRun",
+                "glue:GetColumnStatisticsTaskRuns",
+                "glue:GetCatalogImportStatus"
+            ],
+            "Resource": [
+                "*"
+            ]
+        },
+        {
+            "Sid": "BaseQueryResultsPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetBucketLocation",
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:ListBucketMultipartUploads",
+                "s3:ListMultipartUploadParts",
+                "s3:AbortMultipartUpload",
+                "s3:CreateBucket",
+                "s3:PutObject",
+                "s3:PutBucketPublicAccessBlock"
+            ],
+            "Resource": [
+                "arn:aws:s3:::aws-athena-query-results-*"
+            ]
+        },
+        {
+            "Sid": "BaseAthenaExamplesPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::athena-examples*"
+            ]
+        },
+        {
+            "Sid": "BaseS3BucketPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetBucketLocation",
+                "s3:ListAllMyBuckets"
+            ],
+            "Resource": [
+                "*"
+            ]
+        },
+        {
+            "Sid": "BaseSNSPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "sns:ListTopics",
+                "sns:GetTopicAttributes"
+            ],
+            "Resource": [
+                "*"
+            ]
+        },
+        {
+            "Sid": "BaseCloudWatchPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "cloudwatch:PutMetricAlarm",
+                "cloudwatch:DescribeAlarms",
+                "cloudwatch:DeleteAlarms",
+                "cloudwatch:GetMetricData"
+            ],
+            "Resource": [
+                "*"
+            ]
+        },
+        {
+            "Sid": "BaseLakeFormationPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "lakeformation:GetDataAccess"
+            ],
+            "Resource": [
+                "*"
+            ]
+        },
+        {
+            "Sid": "BaseDataZonePermissions",
+            "Effect": "Allow",
+            "Action": [
+                "datazone:ListDomains",
+                "datazone:ListProjects",
+                "datazone:ListAccountEnvironments"
+            ],
+            "Resource": [
+                "*"
+            ]
+        },
+        {
+            "Sid": "BasePricingPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "pricing:GetProducts"
+            ],
+            "Resource": [
+                "*"
+            ]
+        }
+    ]
+}
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:*",
+                "s3-object-lambda:*"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "autoscaling:Describe*",
+                "cloudwatch:*",
+                "logs:*",
+                "sns:*",
+                "iam:GetPolicy",
+                "iam:GetPolicyVersion",
+                "iam:GetRole",
+                "oam:ListSinks"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": "iam:CreateServiceLinkedRole",
+            "Resource": "arn:aws:iam::*:role/aws-service-role/events.amazonaws.com/AWSServiceRoleForCloudWatchEvents*",
+            "Condition": {
+                "StringLike": {
+                    "iam:AWSServiceName": "events.amazonaws.com"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "oam:ListAttachedLinks"
+            ],
+            "Resource": "arn:aws:oam:*:*:sink/*"
+        }
+    ]
+}

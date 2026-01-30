@@ -72,7 +72,7 @@
     "TimeoutMinutes": "480",
     "WorkerType": "G.4X",
     "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/cars/",
-    "NumberOfWorkers": "10",
+    "NumberOfWorkers": "2",
     "AutomaticScalingEnabled": "true",
     "GlueVersion": "4.0",
     "JobLanguage": "python",

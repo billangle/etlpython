@@ -458,7 +458,7 @@ def main():
 
     try:
         # Initialize database connection
-        glue_connection = f"FSA-CERT-PG-DART114"
+        glue_connection = f"FSA-{env.upper()}-PG-DART114"
         db = GlueDB(
             spark_context=sc,
             glue_context=glue_context,

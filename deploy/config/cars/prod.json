@@ -68,7 +68,7 @@
       "SecurityGroupIds": "sg-05e3e3fd000913769, sg-077ff58658f28e30f"
       }] ,
     "MaxConcurrency": "20",
-    "MaxRetries": "2",
+    "MaxRetries": "1",
     "TimeoutMinutes": "480",
     "WorkerType": "G.4X",
     "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/cars/",

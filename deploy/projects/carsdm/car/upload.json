@@ -1,8 +1,0 @@
-{
-  "src_dir": "/Users/williambeckett/etlpython/deploy/projects/cars/car",
-  "zip_path": "/var/folders/wm/xqp83w353p521__x_smw6wtr0000gn/T/car.XXXXXX.zip.W0vLPZp5CL.zip",
-  "bucket": "dev-cars-artifacts",
-  "key": "input/zips/car-20260129-180148-bec6129f49b4.zip",
-  "s3_uri": "s3://dev-cars-artifacts/input/zips/car-20260129-180148-bec6129f49b4.zip",
-  "sha256": "bec6129f49b4c1909dbaa54f9959812b10185729e6502ca6525a143d1de35288"
-}

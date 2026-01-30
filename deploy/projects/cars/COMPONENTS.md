@@ -113,7 +113,7 @@ This document maps **AWS Lambda functions**, **AWS Step Functions states**, and 
 ## Quick “What do I edit?” Guide
 
 - **Change the ETL transformation:** `glue/…`
-- **Change pipeline orchestration `states/cars_stepfunction.py`
+- **Change pipeline orchestration:** `states/cars_stepfunction.py`
 - **Change step-level validation / finalization:** `lambda/edv-*/lambda_function.py`
 - **Change resource names / env wiring:** `car/_configs/**` and `deploy.py`
 
@@ -122,7 +122,7 @@ This document maps **AWS Lambda functions**, **AWS Step Functions states**, and 
 ## Keeping This Mapping Correct
 
 When you update state machines or rename functions:
-1. Update the ASL JSON (or Python builder) in `states/`
+1. Update the Python builder in `states/`
 2. Update the config in `car/_configs/` (if names/inputs changed)
 3. Update this mapping in `COMPONENTS.md`
 

@@ -82,9 +82,7 @@
     "JobContinuousLogging": "ENABLED",
     "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
     "UseGlueDataCatalogAsTheHiveMetastore": "true",
-    "ReferencedFilesS3Path": "s3://c108-prod-fpacfsa-landing-zone/dart/scripts/python-modules/dart/glue/psycopg2_binary-2.9.9-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
-    "AdditionalPythonModulesS3Path": "s3://c108-prod-fpacfsa-landing-zone/dart/scripts/python-modules/dart/glue/psycopg2_binary-2.9.9-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl,awswrangler==2.15.1,sqlalchemy==1.4.0",
-    "JobParameters": {
+       "JobParameters": {
       "--data_src_nm": "cars",
       "--env": "prod",
       "--layer": "stg",

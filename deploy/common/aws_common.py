@@ -169,8 +169,7 @@ class LambdaSpec:
     architecture: str = "x86_64"
     publish: bool = True
 
-    # ✅ NEW: optional-ish VPC config
-    # For safe deterministic behavior:
+    # optional VPC config
     #   - pass real lists to attach
     #   - pass [] / [] to detach
     subnet_ids: Optional[List[str]] = None
@@ -281,44 +280,112 @@ def ensure_lambda(lambda_client, spec: LambdaSpec) -> str:
 
 @dataclass(frozen=True)
 class GlueJobSpec:
+    """
+    Glue Job deployment spec.
+
+    Defaults are provided so project deployers can omit fields safely.
+    """
     name: str
     role_arn: str
     script_local_path: str
     script_s3_bucket: str
     script_s3_key: str
+
+    # DefaultArguments in Glue must be string:string
     default_args: Dict[str, str]
+
+    # Existing knobs (defaulted)
     glue_version: str = "4.0"
     worker_type: str = "G.1X"
     number_of_workers: int = 2
     timeout_minutes: int = 60
     max_retries: int = 0
 
+    # NEW knobs (defaulted)
+    # ExecutionProperty.MaxConcurrentRuns
+    max_concurrency: int = 1
+
+    # NEW: attach existing Glue Connections to the job
+    # Glue Job API shape: {"Connections": {"Connections": ["name1", "name2"]}}
+    connection_names: Optional[List[str]] = None
+
+    # Keep PythonVersion stable with current behavior
+    python_version: str = "3"
+
+
+def _normalize_connection_names(vals: Optional[List[str]]) -> List[str]:
+    if not vals:
+        return []
+    if not isinstance(vals, list):
+        return []
+    out: List[str] = []
+    for v in vals:
+        if isinstance(v, str) and v.strip():
+            out.append(v.strip())
+    # de-dupe while preserving order
+    seen = set()
+    deduped: List[str] = []
+    for n in out:
+        if n in seen:
+            continue
+        seen.add(n)
+        deduped.append(n)
+    return deduped
+
 
 def ensure_glue_job(glue, s3, spec: GlueJobSpec) -> str:
+    """
+    Creates or updates a Glue Job (idempotent).
+
+    Supports:
+      - Glue version / workers / retries / timeout
+      - Max concurrent runs (ExecutionProperty.MaxConcurrentRuns)
+      - Optional job Connections list
+    """
+    # Upload script every time (matches your current behavior)
     script_s3_path = s3_upload_file(s3, spec.script_local_path, spec.script_s3_bucket, spec.script_s3_key)
 
-    job_update = {
+    # Ensure sane defaults even if caller passed None-ish values
+    default_args: Dict[str, str] = spec.default_args or {}
+    glue_version = spec.glue_version or "4.0"
+    worker_type = spec.worker_type or "G.1X"
+    number_of_workers = int(spec.number_of_workers or 2)
+    timeout_minutes = int(spec.timeout_minutes or 60)
+    max_retries = int(spec.max_retries or 0)
+    max_concurrency = int(spec.max_concurrency or 1)
+    python_version = spec.python_version or "3"
+
+    job_update: Dict[str, Any] = {
         "Role": spec.role_arn,
-        "Command": {"Name": "glueetl", "ScriptLocation": script_s3_path, "PythonVersion": "3"},
-        "DefaultArguments": spec.default_args,
-        "GlueVersion": spec.glue_version,
-        "WorkerType": spec.worker_type,
-        "NumberOfWorkers": spec.number_of_workers,
-        "Timeout": spec.timeout_minutes,
-        "MaxRetries": spec.max_retries,
-        "ExecutionProperty": {"MaxConcurrentRuns": 1},
+        "Command": {"Name": "glueetl", "ScriptLocation": script_s3_path, "PythonVersion": python_version},
+        "DefaultArguments": default_args,
+        "GlueVersion": glue_version,
+        "WorkerType": worker_type,
+        "NumberOfWorkers": number_of_workers,
+        "Timeout": timeout_minutes,
+        "MaxRetries": max_retries,
+        "ExecutionProperty": {"MaxConcurrentRuns": max_concurrency},
     }
+
+    # Optional Connections
+    conn_names = _normalize_connection_names(spec.connection_names)
+    if conn_names:
+        job_update["Connections"] = {"Connections": conn_names}
 
     try:
         glue.get_job(JobName=spec.name)
         glue.update_job(JobName=spec.name, JobUpdate=job_update)
-        print(f"[glue] updated job {spec.name} (script={script_s3_path})")
+        print(f"[glue] updated job {spec.name} (script={script_s3_path}, max_concurrency={max_concurrency})")
+        if conn_names:
+            print(f"[glue] job {spec.name} connections={conn_names}")
         return spec.name
     except ClientError as e:
         if e.response["Error"]["Code"] != "EntityNotFoundException":
             raise
         glue.create_job(Name=spec.name, **job_update)
-        print(f"[glue] created job {spec.name} (script={script_s3_path})")
+        print(f"[glue] created job {spec.name} (script={script_s3_path}, max_concurrency={max_concurrency})")
+        if conn_names:
+            print(f"[glue] job {spec.name} connections={conn_names}")
         return spec.name
 
 

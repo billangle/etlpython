@@ -4,7 +4,7 @@ from __future__ import annotations
 import importlib.util
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import sys
 
 import boto3
@@ -18,7 +18,6 @@ from common.aws_common import (
     GlueJobSpec,
     StateMachineSpec,
 )
-
 
 
 def _load_stepfunction_module():
@@ -44,7 +43,6 @@ def _load_stepfunction_module():
 
     spec.loader.exec_module(mod)
     return mod
-
 
 
 @dataclass(frozen=True)
@@ -74,7 +72,7 @@ def build_names(deploy_env: str) -> CarsEdvNames:
         handle_failure_fn=f"{prefix}-edv-handle-failure",
         exec_sql_glue_job=f"{prefix}-DATAMART-EXEC-DB-SQL",
         edv_state_machine=f"{prefix}-CARS-EDV-Pipeline",
-        #edv_state_machine=f"{prefix}-CARS-s3parquet-to-postgres-edv-load",
+        # edv_state_machine=f"{prefix}-CARS-s3parquet-to-postgres-edv-load",
         download_zip_fn=f"{prefix}-DownloadZip",
         upload_config_fn=f"{prefix}-UploadConfig",
     )
@@ -93,35 +91,134 @@ def _layers(cfg: Dict[str, Any]) -> List[str]:
     return layers
 
 
+# ---------------- GlueJobParameters helpers ----------------
+
+def _as_bool(v: Any) -> Optional[bool]:
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, (int, float)):
+        return bool(v)
+    if isinstance(v, str):
+        s = v.strip().lower()
+        if s in ("true", "1", "yes", "y", "on"):
+            return True
+        if s in ("false", "0", "no", "n", "off"):
+            return False
+    return None
+
+
+def _as_int(v: Any, default: int) -> int:
+    if v is None or v == "":
+        return default
+    try:
+        return int(str(v).strip())
+    except Exception:
+        return default
+
+
+def _parse_connection_names(glue_job_params: Dict[str, Any]) -> List[str]:
+    """
+    Glue job only references existing connection NAMES.
+    Your config includes VPC/Subnet/SG, but those are for the Connection object itself.
+    Here we only attach ConnectionName(s) to the job.
+    """
+    conns = glue_job_params.get("Connections") or []
+    if not isinstance(conns, list):
+        return []
+    out: List[str] = []
+    for c in conns:
+        if not isinstance(c, dict):
+            continue
+        n = c.get("ConnectionName")
+        if isinstance(n, str) and n.strip():
+            out.append(n.strip())
+
+    # de-dupe, preserve order
+    seen = set()
+    deduped: List[str] = []
+    for n in out:
+        if n in seen:
+            continue
+        seen.add(n)
+        deduped.append(n)
+    return deduped
+
+
+def _merge_glue_default_args(
+    base_args: Dict[str, Any],
+    glue_job_params: Dict[str, Any],
+) -> Dict[str, str]:
+    """
+    Produces DefaultArguments for Glue.
+
+    Precedence:
+      cfg.glueDefaultArgs < derived args from GlueJobParameters < GlueJobParameters.JobParameters
+    """
+    out: Dict[str, Any] = dict(base_args or {})
+
+    # Spark UI logs
+    spark_ui_path = glue_job_params.get("SparkUILogsPath")
+    if spark_ui_path:
+        out["--enable-spark-ui"] = "true"
+        out["--spark-event-logs-path"] = str(spark_ui_path)
+
+    # Metrics
+    if _as_bool(glue_job_params.get("GenerateMetrics")) is True:
+        out["--enable-metrics"] = "true"
+
+    # Bookmarks
+    bmk = _as_bool(glue_job_params.get("EnableJobBookmarks"))
+    if bmk is True:
+        out["--job-bookmark-option"] = "job-bookmark-enable"
+    elif bmk is False:
+        out["--job-bookmark-option"] = "job-bookmark-disable"
+
+    # Observability metrics
+    if str(glue_job_params.get("JobObservabilityMetrics", "")).strip().upper() == "ENABLED":
+        out["--enable-observability-metrics"] = "true"
+
+    # Continuous logging
+    if str(glue_job_params.get("JobContinuousLogging", "")).strip().upper() == "ENABLED":
+        out["--enable-continuous-cloudwatch-log"] = "true"
+
+    # Temp dir
+    temp_path = glue_job_params.get("TemporaryPath")
+    if temp_path:
+        out["--TempDir"] = str(temp_path)
+
+    # Use Data Catalog as Hive metastore
+    if _as_bool(glue_job_params.get("UseGlueDataCatalogAsTheHiveMetastore")) is True:
+        out["--enable-glue-datacatalog"] = "true"
+
+    # Extra files / py files (Glue expects comma-separated S3 URIs for these)
+    ref_files = glue_job_params.get("ReferencedFilesS3Path")
+    if ref_files:
+        out["--extra-files"] = str(ref_files)
+
+    extra_py = glue_job_params.get("AdditionalPythonModulesS3Path")
+    if extra_py:
+        out["--extra-py-files"] = str(extra_py)
+
+    # Explicit job parameters override everything
+    job_params = glue_job_params.get("JobParameters") or {}
+    if isinstance(job_params, dict):
+        for k, v in job_params.items():
+            out[str(k)] = "" if v is None else str(v)
+
+    # Glue expects string values
+    return {str(k): str(v) for k, v in out.items()}
+
+
 def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     """
     Deploys:
-      - 5 Lambdas:
-          cars/lambda/edv-build-processing-plan/lambda_function.py  (handler: lambda_function.handler)
-          cars/lambda/edv-check-results/lambda_function.py          (handler: lambda_function.handler)
-          cars/lambda/edv-finalize-pipeline/lambda_function.py      (handler: lambda_function.handler)
-          cars/lambda/edv-handle-failure/lambda_function.py         (handler: lambda_function.handler)
-          cars/lambda/DownloadZip/<your file>.py                    (handler: lambda_function.lambda_handler by default)
-      - 1 Glue Job:
-          cars/glue/FSA-CERT-DATAMART-EXEC-DB-SQL.py (uploaded to artifacts bucket)
-      - 1 Step Function:
-          definition generated by cars/states/cars_stepfunction.py (python builder)
+      - Lambdas
+      - Glue job
+      - Step Function
 
-    Required cfg keys (matches your existing deploy runner):
-      cfg["deployEnv"]
-      cfg["artifacts"]["artifactBucket"]
-      cfg["artifacts"]["prefix"]
-      cfg["strparams"]["etlRoleArnParam"]
-      cfg["strparams"]["glueJobRoleArnParam"]
-      cfg["stepFunctions"]["roleArn"]
-
-    Optional:
-      cfg["lambdaEnv"] (dict)
-      cfg["glueDefaultArgs"] (dict)
-      cfg["strparams"]["lambdaRuntime"] (defaults to python3.11)
-      cfg["strparams"]["thirdPartyLayerArnParam"], cfg["strparams"]["customLayerArnParam"]
-      cfg["downloadZip"]["handler"] (override handler string)
-      cfg["downloadZip"]["sourceDirName"] (override folder name under cars/lambda/, default "DownloadZip")
+    Adds support for cfg["GlueJobParameters"] to control Glue job settings and args.
     """
     deploy_env = cfg["deployEnv"]
     names = build_names(deploy_env)
@@ -137,7 +234,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     if not sfn_role_arn:
         raise RuntimeError("Missing required cfg.stepFunctions.roleArn")
 
-    # Project assets (matches your folder layout)
+    # Project assets
     project_dir = Path(__file__).resolve().parent  # .../deploy/projects/cars
     lambda_root = project_dir / "lambda"
     glue_root = project_dir / "glue"
@@ -250,10 +347,27 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
             env=env_vars,
             layers=layers,
         ),
-    )   
+    )
 
+    # --- Glue job (now supports GlueJobParameters) ---
+    glue_job_params = cfg.get("GlueJobParameters") or {}
 
-    # --- Glue job ---
+    merged_default_args = _merge_glue_default_args(
+        base_args=(cfg.get("glueDefaultArgs") or {}),
+        glue_job_params=glue_job_params,
+    )
+
+    # Defaults if fields are missing
+    glue_version = str(glue_job_params.get("GlueVersion") or "4.0")
+    worker_type = str(glue_job_params.get("WorkerType") or "G.1X")
+    number_of_workers = _as_int(glue_job_params.get("NumberOfWorkers"), default=2)
+    timeout_minutes = _as_int(glue_job_params.get("TimeoutMinutes"), default=60)
+    max_retries = _as_int(glue_job_params.get("MaxRetries"), default=0)
+    max_concurrency = _as_int(glue_job_params.get("MaxConcurrency"), default=1)
+
+    # Optional connection names
+    connection_names = _parse_connection_names(glue_job_params)
+
     ensure_glue_job(
         glue,
         s3,
@@ -263,7 +377,15 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
             script_local_path=str(glue_script_local),
             script_s3_bucket=artifact_bucket,
             script_s3_key=f"{prefix}glue/{glue_script_local.name}",
-            default_args=(cfg.get("glueDefaultArgs") or {}),
+            default_args=merged_default_args,
+
+            glue_version=glue_version,
+            worker_type=worker_type,
+            number_of_workers=number_of_workers,
+            timeout_minutes=timeout_minutes,
+            max_retries=max_retries,
+            max_concurrency=max_concurrency,
+            connection_names=connection_names,
         ),
     )
 

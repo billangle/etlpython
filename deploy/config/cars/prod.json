@@ -51,6 +51,47 @@
     "outputPrefix": "car",
     "minExpectedObjects": 2,
     "debug": true
-  }
+  },
+ "GlueJobParameters": {
+   "Connections" : [{
+      "ConnectionName": "FSA-PROD-PG-DART115",
+      "type": "JDBC",
+      "VpcId": "vpc-092b2aee3fba9e5e6",
+      "SubnetIds": "subnet-07843ec7237c1c9f1",
+      "SecurityGroupIds": "sg-05e3e3fd000913769,sg-077ff58658f28e30f"
+      },
+      {
+      "ConnectionName": "FSA-PROD-PG-DART114",
+      "type": "JDBC",
+      "VpcId": "vpc-092b2aee3fba9e5e6",
+      "SubnetIds": "subnet-0d4691e36b391b17f",
+      "SecurityGroupIds": "sg-05e3e3fd000913769, sg-077ff58658f28e30f"
+      }] ,
+    "MaxConcurrency": "20",
+    "MaxRetries": "2",
+    "TimeoutMinutes": "480",
+    "WorkerType": "G.4X",
+    "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/cars/",
+    "NumberOfWorkers": "10",
+    "AutomaticScalingEnabled": "true",
+    "GlueVersion": "4.0",
+    "JobLanguage": "python",
+    "GenerateMetrics": "true",
+    "EnableJobBookmarks": "true",
+    "JobObservabilityMetrics": "ENABLED",
+    "JobContinuousLogging": "ENABLED",
+    "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+    "UseGlueDataCatalogAsTheHiveMetastore": "true",
+    "ReferencedFilesS3Path": "s3://fsa-prod-ops/referenced-files/",
+    "AdditionalPythonModulesS3Path": "s3://fsa-prod-ops/additional-python-modules/",
+    "JobParameters": {
+      "--data_src_nm": "cars",
+      "--env": "prod",
+      "--layer": "stg",
+      "--run_type": "Incremental",
+      "--start_date": "2026-01-18",
+      "--table_name": "PRDR_PGM_PYMT_LMT_ADJ"
+    }
+ }
 
 }

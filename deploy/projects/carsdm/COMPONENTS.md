@@ -7,13 +7,12 @@ This document maps **AWS Lambda functions**, **AWS Step Functions states**, and 
 - *Where do I change behavior for a given step?*
 
 > **Note on accuracy:** This repo contains both **ASL JSON definitions** and **Python state machine builders**.
-> The documentation is based on:
+> Without parsing those files here, this mapping is based on:
 > - the **directory structure**
-> - the **naming conventions used**
+> - the **naming conventions used in recent implementation discussions**
 > - the **intended responsibility of each component**
-> - the **ASL JSON** is just for reference and does NOT get deployed
 >
-> If you rename a Lambda or add/remove states, update this file alongside python state machine definitions.
+> If you rename a Lambda or add/remove states, update this file alongside the ASL/Python state definitions.
 
 ---
 

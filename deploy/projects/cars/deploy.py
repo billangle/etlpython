@@ -20,21 +20,18 @@ from common.aws_common import (
 )
 
 
-def _load_stepfunction_module():
+def _load_module_by_path(project_dir: Path, rel_path: str, module_name: str):
     """
-    Load ./states/cars_stepfunction.py by file path.
+    Load a python module by file path.
     IMPORTANT: register in sys.modules BEFORE exec_module so @dataclass works on Python 3.14.
     """
-    project_dir = Path(__file__).resolve().parent  # .../deploy/projects/cars
-    step_fn_file = project_dir / "states" / "cars_stepfunction.py"
+    mod_file = project_dir / rel_path
+    if not mod_file.exists():
+        raise FileNotFoundError(f"Missing module file: {mod_file}")
 
-    if not step_fn_file.exists():
-        raise FileNotFoundError(f"Missing step function file: {step_fn_file}")
-
-    module_name = "projects.cars.states.cars_stepfunction"
-    spec = importlib.util.spec_from_file_location(module_name, str(step_fn_file))
+    spec = importlib.util.spec_from_file_location(module_name, str(mod_file))
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"Could not create module spec for: {step_fn_file}")
+        raise RuntimeError(f"Could not create module spec for: {mod_file}")
 
     mod = importlib.util.module_from_spec(spec)
 
@@ -46,33 +43,48 @@ def _load_stepfunction_module():
 
 
 @dataclass(frozen=True)
-class CarsEdvNames:
+class CarsNames:
+    # Lambdas (EDV pipeline)
     build_processing_plan_fn: str
     check_results_fn: str
     finalize_pipeline_fn: str
     handle_failure_fn: str
+
+    # Glue jobs
     exec_sql_glue_job: str
+    pg_to_redshift_glue_job: str
+
+    # Step Functions
     edv_state_machine: str
+    cars_dm_etl_state_machine: str
+
+    # Misc lambdas
     download_zip_fn: str
     upload_config_fn: str
 
 
-def build_names(deploy_env: str) -> CarsEdvNames:
+def build_names(deploy_env: str) -> CarsNames:
     """
     Naming matches your convention:
       - FSA-<ENV>-edv-*
       - FSA-<ENV>-DATAMART-EXEC-DB-SQL
+      - FSA-<ENV>-DART-PG-TO-REDSHIFT
       - FSA-<ENV>-DownloadZip
     """
     prefix = f"FSA-{deploy_env}"
-    return CarsEdvNames(
+    return CarsNames(
+        # EDV lambdas
         build_processing_plan_fn=f"{prefix}-edv-build-processing-plan",
         check_results_fn=f"{prefix}-edv-check-results",
         finalize_pipeline_fn=f"{prefix}-edv-finalize-pipeline",
         handle_failure_fn=f"{prefix}-edv-handle-failure",
+        # Glue jobs
         exec_sql_glue_job=f"{prefix}-DATAMART-EXEC-DB-SQL",
+        pg_to_redshift_glue_job=f"{prefix}-DART-PG-TO-REDSHIFT",
+        # State machines
         edv_state_machine=f"{prefix}-CARS-EDV-Pipeline",
-        # edv_state_machine=f"{prefix}-CARS-s3parquet-to-postgres-edv-load",
+        cars_dm_etl_state_machine=f"{prefix}-CARS-DM-ETL-Pipeline",
+        # Utility lambdas
         download_zip_fn=f"{prefix}-DownloadZip",
         upload_config_fn=f"{prefix}-UploadConfig",
     )
@@ -121,8 +133,6 @@ def _as_int(v: Any, default: int) -> int:
 def _parse_connection_names(glue_job_params: Dict[str, Any]) -> List[str]:
     """
     Glue job only references existing connection NAMES.
-    Your config includes VPC/Subnet/SG, but those are for the Connection object itself.
-    Here we only attach ConnectionName(s) to the job.
     """
     conns = glue_job_params.get("Connections") or []
     if not isinstance(conns, list):
@@ -211,14 +221,66 @@ def _merge_glue_default_args(
     return {str(k): str(v) for k, v in out.items()}
 
 
+def _deploy_glue_job(
+    *,
+    glue_client,
+    s3_client,
+    cfg: Dict[str, Any],
+    artifact_bucket: str,
+    prefix: str,
+    job_name: str,
+    job_role_arn: str,
+    script_local_path: Path,
+    glue_job_params: Dict[str, Any],
+) -> None:
+    """
+    Shared Glue job deployment logic for both jobs.
+    """
+    merged_default_args = _merge_glue_default_args(
+        base_args=(cfg.get("glueDefaultArgs") or {}),
+        glue_job_params=glue_job_params,
+    )
+
+    glue_version = str(glue_job_params.get("GlueVersion") or "4.0")
+    worker_type = str(glue_job_params.get("WorkerType") or "G.1X")
+    number_of_workers = _as_int(glue_job_params.get("NumberOfWorkers"), default=2)
+    timeout_minutes = _as_int(glue_job_params.get("TimeoutMinutes"), default=60)
+    max_retries = _as_int(glue_job_params.get("MaxRetries"), default=0)
+    max_concurrency = _as_int(glue_job_params.get("MaxConcurrency"), default=1)
+
+    connection_names = _parse_connection_names(glue_job_params)
+
+    ensure_glue_job(
+        glue_client,
+        s3_client,
+        GlueJobSpec(
+            name=job_name,
+            role_arn=job_role_arn,
+            script_local_path=str(script_local_path),
+            script_s3_bucket=artifact_bucket,
+            script_s3_key=f"{prefix}glue/{script_local_path.name}",
+            default_args=merged_default_args,
+            glue_version=glue_version,
+            worker_type=worker_type,
+            number_of_workers=number_of_workers,
+            timeout_minutes=timeout_minutes,
+            max_retries=max_retries,
+            max_concurrency=max_concurrency,
+            connection_names=connection_names,
+        ),
+    )
+
+
 def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     """
     Deploys:
-      - Lambdas
-      - Glue job
-      - Step Function
+      - Lambdas (EDV)
+      - Glue jobs: DATAMART-EXEC-DB-SQL + DART-PG-TO-REDSHIFT
+      - Step Functions: EDV pipeline + Cars DM ETL pipeline
 
-    Adds support for cfg["GlueJobParameters"] to control Glue job settings and args.
+    FIX:
+      - Passes the actual Glue Job names into DatamartEtlStateMachineInputs so the
+        DM ETL builder uses them (JobName / --JOB_NAME) as literals.
     """
     deploy_env = cfg["deployEnv"]
     names = build_names(deploy_env)
@@ -234,27 +296,23 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     if not sfn_role_arn:
         raise RuntimeError("Missing required cfg.stepFunctions.roleArn")
 
-    # Project assets
     project_dir = Path(__file__).resolve().parent  # .../deploy/projects/cars
     lambda_root = project_dir / "lambda"
     glue_root = project_dir / "glue"
 
-    # Lambda folders
     build_plan_dir = lambda_root / "edv-build-processing-plan"
     check_results_dir = lambda_root / "edv-check-results"
     finalize_dir = lambda_root / "edv-finalize-pipeline"
     handle_failure_dir = lambda_root / "edv-handle-failure"
 
-    # DownloadZip folder + handler override (optional)
     dz_cfg = cfg.get("downloadZip") or {}
     download_zip_dirname = dz_cfg.get("sourceDirName", "DownloadZip")
     download_zip_dir = lambda_root / download_zip_dirname
     download_zip_handler = dz_cfg.get("handler", "lambda_function.lambda_handler")
 
-    # Glue script (local)
-    glue_script_local = glue_root / "FSA-CERT-DATAMART-EXEC-DB-SQL.py"
+    exec_sql_script_local = glue_root / "FSA-CERT-DATAMART-EXEC-DB-SQL.py"
+    pg_to_rs_script_local = glue_root / "FSA-CERT-DART-PG-TO-REDSHIFT.py"
 
-    # Clients
     session = boto3.Session(region_name=region)
     s3 = session.client("s3")
     lam = session.client("lambda")
@@ -263,14 +321,13 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
 
     ensure_bucket_exists(s3, artifact_bucket, region)
 
-    # Optional env vars passed to all lambdas
     env_vars: Dict[str, str] = {}
     env_vars.update(cfg.get("lambdaEnv") or {})
 
     runtime = strparams.get("lambdaRuntime", "python3.11")
     layers = _layers(cfg)
 
-    # --- Lambdas ---
+    # --- Lambdas (EDV pipeline) ---
     build_plan_arn = ensure_lambda(
         lam,
         LambdaSpec(
@@ -349,67 +406,87 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         ),
     )
 
-    # --- Glue job (now supports GlueJobParameters) ---
-    glue_job_params = cfg.get("GlueJobParameters") or {}
+    # --- Glue jobs ---
+    glue_job_params_exec_sql = cfg.get("GlueJobParameters") or {}
 
-    merged_default_args = _merge_glue_default_args(
-        base_args=(cfg.get("glueDefaultArgs") or {}),
-        glue_job_params=glue_job_params,
+    _deploy_glue_job(
+        glue_client=glue,
+        s3_client=s3,
+        cfg=cfg,
+        artifact_bucket=artifact_bucket,
+        prefix=prefix,
+        job_name=names.exec_sql_glue_job,
+        job_role_arn=glue_job_role_arn,
+        script_local_path=exec_sql_script_local,
+        glue_job_params=glue_job_params_exec_sql,
     )
 
-    # Defaults if fields are missing
-    glue_version = str(glue_job_params.get("GlueVersion") or "4.0")
-    worker_type = str(glue_job_params.get("WorkerType") or "G.1X")
-    number_of_workers = _as_int(glue_job_params.get("NumberOfWorkers"), default=2)
-    timeout_minutes = _as_int(glue_job_params.get("TimeoutMinutes"), default=60)
-    max_retries = _as_int(glue_job_params.get("MaxRetries"), default=0)
-    max_concurrency = _as_int(glue_job_params.get("MaxConcurrency"), default=1)
+    glue_job_params_pg_to_rs = cfg.get("GlueJobParametersPgToRedshift")
+    if glue_job_params_pg_to_rs is None:
+        glue_job_params_pg_to_rs = glue_job_params_exec_sql
 
-    # Optional connection names
-    connection_names = _parse_connection_names(glue_job_params)
-
-    ensure_glue_job(
-        glue,
-        s3,
-        GlueJobSpec(
-            name=names.exec_sql_glue_job,
-            role_arn=glue_job_role_arn,
-            script_local_path=str(glue_script_local),
-            script_s3_bucket=artifact_bucket,
-            script_s3_key=f"{prefix}glue/{glue_script_local.name}",
-            default_args=merged_default_args,
-
-            glue_version=glue_version,
-            worker_type=worker_type,
-            number_of_workers=number_of_workers,
-            timeout_minutes=timeout_minutes,
-            max_retries=max_retries,
-            max_concurrency=max_concurrency,
-            connection_names=connection_names,
-        ),
+    _deploy_glue_job(
+        glue_client=glue,
+        s3_client=s3,
+        cfg=cfg,
+        artifact_bucket=artifact_bucket,
+        prefix=prefix,
+        job_name=names.pg_to_redshift_glue_job,
+        job_role_arn=glue_job_role_arn,
+        script_local_path=pg_to_rs_script_local,
+        glue_job_params=glue_job_params_pg_to_rs or {},
     )
 
-    # --- Step Function (from python builder in states/cars_stepfunction.py) ---
-    step_mod = _load_stepfunction_module()
-    EdvPipelineStateMachineInputs = step_mod.EdvPipelineStateMachineInputs
-    EdvPipelineStateMachineBuilder = step_mod.EdvPipelineStateMachineBuilder
+    # --- Step Function #1: EDV pipeline (states/cars_stepfunction.py) ---
+    edv_mod = _load_module_by_path(
+        project_dir=project_dir,
+        rel_path="states/cars_stepfunction.py",
+        module_name="projects.cars.states.cars_stepfunction",
+    )
+    EdvPipelineStateMachineInputs = edv_mod.EdvPipelineStateMachineInputs
+    EdvPipelineStateMachineBuilder = edv_mod.EdvPipelineStateMachineBuilder
 
-    sm_inputs = EdvPipelineStateMachineInputs(
+    edv_inputs = EdvPipelineStateMachineInputs(
         build_processing_plan_fn=build_plan_arn,
         check_results_fn=check_results_arn,
         finalize_pipeline_fn=finalize_arn,
         handle_failure_fn=handle_failure_arn,
         exec_sql_glue_job_name=names.exec_sql_glue_job,
     )
+    edv_definition = EdvPipelineStateMachineBuilder.edv_pipeline_asl(edv_inputs)
 
-    definition = EdvPipelineStateMachineBuilder.edv_pipeline_asl(sm_inputs)
-
-    sfn_arn = ensure_state_machine(
+    edv_sfn_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(
             name=names.edv_state_machine,
             role_arn=sfn_role_arn,
-            definition=definition,
+            definition=edv_definition,
+        ),
+    )
+
+    # --- Step Function #2: Cars DM ETL pipeline (states/cars_dm_etl_stepfunction.py) ---
+    dm_mod = _load_module_by_path(
+        project_dir=project_dir,
+        rel_path="states/cars_dm_etl_stepfunction.py",
+        module_name="projects.cars.states.cars_dm_etl_stepfunction",
+    )
+    DatamartEtlStateMachineInputs = dm_mod.DatamartEtlStateMachineInputs
+    DatamartEtlStateMachineBuilder = dm_mod.DatamartEtlStateMachineBuilder
+
+    # ✅ THIS is the “variables are passed” fix:
+    # Pass the *actual deployed* Glue job names into the DM ETL builder inputs.
+    dm_inputs = DatamartEtlStateMachineInputs(
+        exec_db_sql_glue_job_name=names.exec_sql_glue_job,
+        pg_to_redshift_glue_job_name=names.pg_to_redshift_glue_job,
+    )
+    dm_definition = DatamartEtlStateMachineBuilder.datamart_etl_asl(dm_inputs)
+
+    dm_sfn_arn = ensure_state_machine(
+        sfn,
+        StateMachineSpec(
+            name=names.cars_dm_etl_state_machine,
+            role_arn=sfn_role_arn,
+            definition=dm_definition,
         ),
     )
 
@@ -419,7 +496,9 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         "lambda_finalize_pipeline_arn": finalize_arn,
         "lambda_handle_failure_arn": handle_failure_arn,
         "lambda_download_zip_arn": download_zip_arn,
-        "glue_job_name": names.exec_sql_glue_job,
-        "state_machine_arn": sfn_arn,
         "lambda_upload_config_arn": upload_config_arn,
+        "glue_exec_sql_job_name": names.exec_sql_glue_job,
+        "glue_pg_to_redshift_job_name": names.pg_to_redshift_glue_job,
+        "state_machine_edv_arn": edv_sfn_arn,
+        "state_machine_cars_dm_etl_arn": dm_sfn_arn,
     }

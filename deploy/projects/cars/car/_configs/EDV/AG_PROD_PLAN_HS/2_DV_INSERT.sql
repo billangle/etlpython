@@ -78,7 +78,7 @@ INSERT INTO edv.AG_PROD_PLAN_HS (AG_PROD_PLAN_H_ID, LOAD_DT, DATA_EFF_STRT_DT, D
                       AG_PROD_PLAN.ACTL_LAND_USE_CD,
                       AG_PROD_PLAN.CROP_LATE_FILE_IND,
                       AG_PROD_PLAN.NTV_PSTR_CVSN_OVRRD_IND,
-					  AG_PROD_PLAN.PLNT_CT,
+					  AG_PROD_PLAN.PLNT_CNT,
                       TO_DATE ('9999-12-31',
                                'YYYY-MM-DD') DATA_EFF_END_DT,
                               TO_DATE ('9999-12-31',

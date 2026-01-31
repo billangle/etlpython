@@ -1,4 +1,4 @@
-# deploy/projects/cars/deploy.py
+# deploy/projects/carsdm/deploy.py
 from __future__ import annotations
 
 import importlib.util
@@ -22,16 +22,16 @@ from common.aws_common import (
 
 def _load_stepfunction_module():
     """
-    Load ./states/cars_stepfunction.py by file path.
+    Load ./states/carsdm_stepfunction.py by file path.
     IMPORTANT: register in sys.modules BEFORE exec_module so @dataclass works on Python 3.14.
     """
-    project_dir = Path(__file__).resolve().parent  # .../deploy/projects/cars
-    step_fn_file = project_dir / "states" / "cars_stepfunction.py"
+    project_dir = Path(__file__).resolve().parent  # .../deploy/projects/carsdm
+    step_fn_file = project_dir / "states" / "carsdm_stepfunction.py"
 
     if not step_fn_file.exists():
         raise FileNotFoundError(f"Missing step function file: {step_fn_file}")
 
-    module_name = "projects.cars.states.cars_stepfunction"
+    module_name = "projects.carsdm.states.carsdm_stepfunction"
     spec = importlib.util.spec_from_file_location(module_name, str(step_fn_file))
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Could not create module spec for: {step_fn_file}")
@@ -46,41 +46,50 @@ def _load_stepfunction_module():
 
 
 @dataclass(frozen=True)
-class CarsEdvNames:
-    build_processing_plan_fn: str
-    check_results_fn: str
-    finalize_pipeline_fn: str
-    handle_failure_fn: str
-    exec_sql_glue_job: str
-    edv_state_machine: str
-    download_zip_fn: str
-    upload_config_fn: str
+class CarsDmNames:
+    # Lambdas
+    get_incremental_tables_fn: str
+    sns_publish_errors_fn: str
+    etl_workflow_update_job_fn: str
+
+    # Glue Jobs
+    landing_files_glue_job: str
+    raw_dm_glue_job: str
+
+    # Step Function
+    carsdm_state_machine: str
 
 
-def build_names(deploy_env: str) -> CarsEdvNames:
+def build_names(deploy_env: str, project: str) -> CarsDmNames:
     """
-    Naming matches your convention:
-      - FSA-<ENV>-edv-*
-      - FSA-<ENV>-DATAMART-EXEC-DB-SQL
-      - FSA-<ENV>-DownloadZip
+    Prefix is now: FSA-<deployEnv>-<project>
+
+    Example:
+      deployEnv="PROD", project="CARS"  ->  FSA-PROD-CARS-...
+
+    (We keep the rest of the suffixes aligned with your existing naming style.)
     """
-    prefix = f"FSA-{deploy_env}"
-    return CarsEdvNames(
-        build_processing_plan_fn=f"{prefix}-edv-build-processing-plan",
-        check_results_fn=f"{prefix}-edv-check-results",
-        finalize_pipeline_fn=f"{prefix}-edv-finalize-pipeline",
-        handle_failure_fn=f"{prefix}-edv-handle-failure",
-        exec_sql_glue_job=f"{prefix}-DATAMART-EXEC-DB-SQL",
-        edv_state_machine=f"{prefix}-CARS-EDV-Pipeline",
-        # edv_state_machine=f"{prefix}-CARS-s3parquet-to-postgres-edv-load",
-        download_zip_fn=f"{prefix}-DownloadZip",
-        upload_config_fn=f"{prefix}-UploadConfig",
+    proj = (project or "").strip()
+    if not proj:
+        raise RuntimeError("Missing required cfg['project'] (cannot build names)")
+
+    prefix = f"FSA-{deploy_env}-{proj}"
+
+    return CarsDmNames(
+        get_incremental_tables_fn=f"{prefix}-get-incremental-tables",
+        sns_publish_errors_fn=f"{prefix}-RAW-DM-sns-publish-step-function-errors",
+        etl_workflow_update_job_fn=f"{prefix}-RAW-DM-etl-workflow-update-data-ppln-job",
+
+        landing_files_glue_job=f"{prefix}-LandingFiles",
+        raw_dm_glue_job=f"{prefix}-Cars-Raw-DM",
+
+        carsdm_state_machine=f"{prefix}-Cars-S3Landing-to-S3Final-Raw-DM",
     )
 
 
 def _layers(cfg: Dict[str, Any]) -> List[str]:
     """
-    Keep existing deploy.py behavior (optional two layers).
+    Optional two-layer behavior (same pattern as your other deploy.py).
     """
     sp = cfg.get("strparams") or {}
     layers: List[str] = []
@@ -121,8 +130,6 @@ def _as_int(v: Any, default: int) -> int:
 def _parse_connection_names(glue_job_params: Dict[str, Any]) -> List[str]:
     """
     Glue job only references existing connection NAMES.
-    Your config includes VPC/Subnet/SG, but those are for the Connection object itself.
-    Here we only attach ConnectionName(s) to the job.
     """
     conns = glue_job_params.get("Connections") or []
     if not isinstance(conns, list):
@@ -158,41 +165,33 @@ def _merge_glue_default_args(
     """
     out: Dict[str, Any] = dict(base_args or {})
 
-    # Spark UI logs
     spark_ui_path = glue_job_params.get("SparkUILogsPath")
     if spark_ui_path:
         out["--enable-spark-ui"] = "true"
         out["--spark-event-logs-path"] = str(spark_ui_path)
 
-    # Metrics
     if _as_bool(glue_job_params.get("GenerateMetrics")) is True:
         out["--enable-metrics"] = "true"
 
-    # Bookmarks
     bmk = _as_bool(glue_job_params.get("EnableJobBookmarks"))
     if bmk is True:
         out["--job-bookmark-option"] = "job-bookmark-enable"
     elif bmk is False:
         out["--job-bookmark-option"] = "job-bookmark-disable"
 
-    # Observability metrics
     if str(glue_job_params.get("JobObservabilityMetrics", "")).strip().upper() == "ENABLED":
         out["--enable-observability-metrics"] = "true"
 
-    # Continuous logging
     if str(glue_job_params.get("JobContinuousLogging", "")).strip().upper() == "ENABLED":
         out["--enable-continuous-cloudwatch-log"] = "true"
 
-    # Temp dir
     temp_path = glue_job_params.get("TemporaryPath")
     if temp_path:
         out["--TempDir"] = str(temp_path)
 
-    # Use Data Catalog as Hive metastore
     if _as_bool(glue_job_params.get("UseGlueDataCatalogAsTheHiveMetastore")) is True:
         out["--enable-glue-datacatalog"] = "true"
 
-    # Extra files / py files (Glue expects comma-separated S3 URIs for these)
     ref_files = glue_job_params.get("ReferencedFilesS3Path")
     if ref_files:
         out["--extra-files"] = str(ref_files)
@@ -201,27 +200,48 @@ def _merge_glue_default_args(
     if extra_py:
         out["--extra-py-files"] = str(extra_py)
 
-    # Explicit job parameters override everything
     job_params = glue_job_params.get("JobParameters") or {}
     if isinstance(job_params, dict):
         for k, v in job_params.items():
             out[str(k)] = "" if v is None else str(v)
 
-    # Glue expects string values
     return {str(k): str(v) for k, v in out.items()}
+
+
+def _get_job_cfg(cfg: Dict[str, Any], key: str) -> Dict[str, Any]:
+    """
+    Supports either:
+      cfg["glueJobs"][key] = {...}
+    or:
+      cfg[key] = {...}  (fallback)
+    """
+    glue_jobs = cfg.get("glueJobs") or {}
+    if isinstance(glue_jobs, dict) and isinstance(glue_jobs.get(key), dict):
+        return glue_jobs[key]
+    v = cfg.get(key) or {}
+    return v if isinstance(v, dict) else {}
 
 
 def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     """
-    Deploys:
-      - Lambdas
-      - Glue job
-      - Step Function
+    Deploys CARS DM:
+      - 3 Lambdas:
+          * get-incremental-tables
+          * sns-publish-step-function-errors
+          * etl-workflow-update-data-ppln-job
+      - 2 Glue jobs:
+          * LandingFiles
+          * Cars-Raw-DM
+      - 1 Step Function:
+          * Cars-S3Landing-to-S3Final-Raw-DM
 
-    Adds support for cfg["GlueJobParameters"] to control Glue job settings and args.
+    CHANGE REQUEST:
+      - get the project field from config.json (cfg["project"])
+      - prefix becomes: FSA-<deployEnv>-<project>
     """
-    deploy_env = cfg["deployEnv"]
-    names = build_names(deploy_env)
+    deploy_env = cfg["deployEnv"]           # e.g. "PROD", "CERT", "DEV"
+    project = cfg["project"]               # e.g. "CARS", "CARSDM", etc.
+    names = build_names(deploy_env, project)
 
     artifact_bucket = cfg["artifacts"]["artifactBucket"]
     prefix = cfg["artifacts"]["prefix"].rstrip("/") + "/"
@@ -235,24 +255,26 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         raise RuntimeError("Missing required cfg.stepFunctions.roleArn")
 
     # Project assets
-    project_dir = Path(__file__).resolve().parent  # .../deploy/projects/cars
+    project_dir = Path(__file__).resolve().parent  # .../deploy/projects/carsdm
     lambda_root = project_dir / "lambda"
     glue_root = project_dir / "glue"
 
-    # Lambda folders
-    build_plan_dir = lambda_root / "edv-build-processing-plan"
-    check_results_dir = lambda_root / "edv-check-results"
-    finalize_dir = lambda_root / "edv-finalize-pipeline"
-    handle_failure_dir = lambda_root / "edv-handle-failure"
+    # Lambda folders (match the directory structure)
+    get_incremental_dir = lambda_root / "get-incremental-tables"
+    sns_publish_dir = lambda_root / "sns-publish-step-function-errors"
+    etl_update_dir = lambda_root / "etl-workflow-update-data-ppln-job"
 
-    # DownloadZip folder + handler override (optional)
-    dz_cfg = cfg.get("downloadZip") or {}
-    download_zip_dirname = dz_cfg.get("sourceDirName", "DownloadZip")
-    download_zip_dir = lambda_root / download_zip_dirname
-    download_zip_handler = dz_cfg.get("handler", "lambda_function.lambda_handler")
+    # Local Glue scripts
+    landing_script_name = _get_job_cfg(cfg, "landingFiles").get("scriptFileName") or "FSA-CERT-CARS-LandingFiles.py"
+    raw_dm_script_name = _get_job_cfg(cfg, "rawDm").get("scriptFileName") or "FSA-CERT-Cars-Raw-DM.py"
 
-    # Glue script (local)
-    glue_script_local = glue_root / "FSA-CERT-DATAMART-EXEC-DB-SQL.py"
+    landing_glue_script_local = glue_root / landing_script_name
+    raw_dm_glue_script_local = glue_root / raw_dm_script_name
+
+    if not landing_glue_script_local.exists():
+        raise FileNotFoundError(f"Missing Glue script: {landing_glue_script_local}")
+    if not raw_dm_glue_script_local.exists():
+        raise FileNotFoundError(f"Missing Glue script: {raw_dm_glue_script_local}")
 
     # Clients
     session = boto3.Session(region_name=region)
@@ -270,156 +292,153 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     runtime = strparams.get("lambdaRuntime", "python3.11")
     layers = _layers(cfg)
 
+    # Handler defaults (override in cfg.lambdaHandlers if needed)
+    handlers = cfg.get("lambdaHandlers") or {}
+    get_incremental_handler = handlers.get("getIncrementalTables", "lambda_function.handler")
+    sns_publish_handler = handlers.get("snsPublishErrors", "lambda_function.handler")
+    etl_update_handler = handlers.get("etlWorkflowUpdateJob", "lambda_function.handler")
+
     # --- Lambdas ---
-    build_plan_arn = ensure_lambda(
+    get_incremental_arn = ensure_lambda(
         lam,
         LambdaSpec(
-            name=names.build_processing_plan_fn,
+            name=names.get_incremental_tables_fn,
             role_arn=etl_lambda_role_arn,
-            handler="lambda_function.handler",
+            handler=get_incremental_handler,
             runtime=runtime,
-            source_dir=str(build_plan_dir),
+            source_dir=str(get_incremental_dir),
             env=env_vars,
             layers=layers,
         ),
     )
 
-    check_results_arn = ensure_lambda(
+    sns_publish_arn = ensure_lambda(
         lam,
         LambdaSpec(
-            name=names.check_results_fn,
+            name=names.sns_publish_errors_fn,
             role_arn=etl_lambda_role_arn,
-            handler="lambda_function.handler",
+            handler=sns_publish_handler,
             runtime=runtime,
-            source_dir=str(check_results_dir),
+            source_dir=str(sns_publish_dir),
             env=env_vars,
             layers=layers,
         ),
     )
 
-    finalize_arn = ensure_lambda(
+    etl_update_arn = ensure_lambda(
         lam,
         LambdaSpec(
-            name=names.finalize_pipeline_fn,
+            name=names.etl_workflow_update_job_fn,
             role_arn=etl_lambda_role_arn,
-            handler="lambda_function.handler",
+            handler=etl_update_handler,
             runtime=runtime,
-            source_dir=str(finalize_dir),
+            source_dir=str(etl_update_dir),
             env=env_vars,
             layers=layers,
         ),
     )
 
-    handle_failure_arn = ensure_lambda(
-        lam,
-        LambdaSpec(
-            name=names.handle_failure_fn,
-            role_arn=etl_lambda_role_arn,
-            handler="lambda_function.handler",
-            runtime=runtime,
-            source_dir=str(handle_failure_dir),
-            env=env_vars,
-            layers=layers,
-        ),
-    )
-
-    download_zip_arn = ensure_lambda(
-        lam,
-        LambdaSpec(
-            name=names.download_zip_fn,
-            role_arn=etl_lambda_role_arn,
-            handler=download_zip_handler,
-            runtime=runtime,
-            source_dir=str(download_zip_dir),
-            env=env_vars,
-            layers=layers,
-        ),
-    )
-
-    upload_config_arn = ensure_lambda(
-        lam,
-        LambdaSpec(
-            name=names.upload_config_fn,
-            role_arn=etl_lambda_role_arn,
-            handler="lambda_function.handler",
-            runtime=runtime,
-            source_dir=str(lambda_root / "UploadConfig"),
-            env=env_vars,
-            layers=layers,
-        ),
-    )
-
-    # --- Glue job (now supports GlueJobParameters) ---
-    glue_job_params = cfg.get("GlueJobParameters") or {}
-
-    merged_default_args = _merge_glue_default_args(
+    # --- Glue job #1: LandingFiles ---
+    landing_cfg = _get_job_cfg(cfg, "landingFiles")
+    landing_params = landing_cfg.get("GlueJobParameters") or cfg.get("GlueJobParametersLandingFiles") or {}
+    landing_merged_default_args = _merge_glue_default_args(
         base_args=(cfg.get("glueDefaultArgs") or {}),
-        glue_job_params=glue_job_params,
+        glue_job_params=landing_params,
     )
 
-    # Defaults if fields are missing
-    glue_version = str(glue_job_params.get("GlueVersion") or "4.0")
-    worker_type = str(glue_job_params.get("WorkerType") or "G.1X")
-    number_of_workers = _as_int(glue_job_params.get("NumberOfWorkers"), default=2)
-    timeout_minutes = _as_int(glue_job_params.get("TimeoutMinutes"), default=60)
-    max_retries = _as_int(glue_job_params.get("MaxRetries"), default=0)
-    max_concurrency = _as_int(glue_job_params.get("MaxConcurrency"), default=1)
-
-    # Optional connection names
-    connection_names = _parse_connection_names(glue_job_params)
+    landing_job_name = landing_cfg.get("jobName") or names.landing_files_glue_job
 
     ensure_glue_job(
         glue,
         s3,
         GlueJobSpec(
-            name=names.exec_sql_glue_job,
+            name=landing_job_name,
             role_arn=glue_job_role_arn,
-            script_local_path=str(glue_script_local),
+            script_local_path=str(landing_glue_script_local),
             script_s3_bucket=artifact_bucket,
-            script_s3_key=f"{prefix}glue/{glue_script_local.name}",
-            default_args=merged_default_args,
-
-            glue_version=glue_version,
-            worker_type=worker_type,
-            number_of_workers=number_of_workers,
-            timeout_minutes=timeout_minutes,
-            max_retries=max_retries,
-            max_concurrency=max_concurrency,
-            connection_names=connection_names,
+            script_s3_key=f"{prefix}glue/{landing_glue_script_local.name}",
+            default_args=landing_merged_default_args,
+            glue_version=str(landing_params.get("GlueVersion") or "4.0"),
+            worker_type=str(landing_params.get("WorkerType") or "G.1X"),
+            number_of_workers=_as_int(landing_params.get("NumberOfWorkers"), default=2),
+            timeout_minutes=_as_int(landing_params.get("TimeoutMinutes"), default=60),
+            max_retries=_as_int(landing_params.get("MaxRetries"), default=0),
+            max_concurrency=_as_int(landing_params.get("MaxConcurrency"), default=1),
+            connection_names=_parse_connection_names(landing_params),
         ),
     )
 
-    # --- Step Function (from python builder in states/cars_stepfunction.py) ---
-    step_mod = _load_stepfunction_module()
-    EdvPipelineStateMachineInputs = step_mod.EdvPipelineStateMachineInputs
-    EdvPipelineStateMachineBuilder = step_mod.EdvPipelineStateMachineBuilder
-
-    sm_inputs = EdvPipelineStateMachineInputs(
-        build_processing_plan_fn=build_plan_arn,
-        check_results_fn=check_results_arn,
-        finalize_pipeline_fn=finalize_arn,
-        handle_failure_fn=handle_failure_arn,
-        exec_sql_glue_job_name=names.exec_sql_glue_job,
+    # --- Glue job #2: Cars-Raw-DM ---
+    rawdm_cfg = _get_job_cfg(cfg, "rawDm")
+    rawdm_params = rawdm_cfg.get("GlueJobParameters") or cfg.get("GlueJobParametersRawDm") or {}
+    rawdm_merged_default_args = _merge_glue_default_args(
+        base_args=(cfg.get("glueDefaultArgs") or {}),
+        glue_job_params=rawdm_params,
     )
 
-    definition = EdvPipelineStateMachineBuilder.edv_pipeline_asl(sm_inputs)
+    raw_dm_job_name = rawdm_cfg.get("jobName") or names.raw_dm_glue_job
+
+    ensure_glue_job(
+        glue,
+        s3,
+        GlueJobSpec(
+            name=raw_dm_job_name,
+            role_arn=glue_job_role_arn,
+            script_local_path=str(raw_dm_glue_script_local),
+            script_s3_bucket=artifact_bucket,
+            script_s3_key=f"{prefix}glue/{raw_dm_glue_script_local.name}",
+            default_args=rawdm_merged_default_args,
+            glue_version=str(rawdm_params.get("GlueVersion") or "4.0"),
+            worker_type=str(rawdm_params.get("WorkerType") or "G.1X"),
+            number_of_workers=_as_int(rawdm_params.get("NumberOfWorkers"), default=2),
+            timeout_minutes=_as_int(rawdm_params.get("TimeoutMinutes"), default=60),
+            max_retries=_as_int(rawdm_params.get("MaxRetries"), default=0),
+            max_concurrency=_as_int(rawdm_params.get("MaxConcurrency"), default=1),
+            connection_names=_parse_connection_names(rawdm_params),
+        ),
+    )
+
+    # --- Step Function (from python builder in states/carsdm_stepfunction.py) ---
+    step_mod = _load_stepfunction_module()
+    CarsDmStateMachineInputs = step_mod.CarsDmStateMachineInputs
+    CarsDmStateMachineBuilder = step_mod.CarsDmStateMachineBuilder
+
+    # State-machine fixed arguments (configurable)
+    carsdm_cfg = cfg.get("carsdm") or {}
+    env_lower = str(carsdm_cfg.get("env") or deploy_env).strip().lower()
+
+    sm_inputs = CarsDmStateMachineInputs(
+        get_incremental_tables_fn_arn=get_incremental_arn,
+        sns_publish_errors_fn_arn=sns_publish_arn,
+        etl_workflow_update_job_fn_arn=etl_update_arn,
+        raw_dm_glue_job_name=raw_dm_job_name,
+
+        env=env_lower,
+        postgres_prcs_ctrl_dbname=str(carsdm_cfg.get("postgres_prcs_ctrl_dbname") or "metadata_edw"),
+        region_name=str(carsdm_cfg.get("region_name") or region),
+        secret_name=str(carsdm_cfg.get("secret_name") or f"FSA-{deploy_env}-{project}-secrets"),
+        target_bucket=str(carsdm_cfg.get("target_bucket") or ""),
+    )
+
+    if not sm_inputs.target_bucket:
+        raise RuntimeError("Missing required cfg.carsdm.target_bucket")
+
+    definition = CarsDmStateMachineBuilder.carsdm_asl(sm_inputs)
 
     sfn_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(
-            name=names.edv_state_machine,
+            name=names.carsdm_state_machine,
             role_arn=sfn_role_arn,
             definition=definition,
         ),
     )
 
     return {
-        "lambda_build_processing_plan_arn": build_plan_arn,
-        "lambda_check_results_arn": check_results_arn,
-        "lambda_finalize_pipeline_arn": finalize_arn,
-        "lambda_handle_failure_arn": handle_failure_arn,
-        "lambda_download_zip_arn": download_zip_arn,
-        "glue_job_name": names.exec_sql_glue_job,
+        "lambda_get_incremental_tables_arn": get_incremental_arn,
+        "lambda_sns_publish_errors_arn": sns_publish_arn,
+        "lambda_etl_workflow_update_job_arn": etl_update_arn,
+        "glue_job_landing_files_name": landing_job_name,
+        "glue_job_raw_dm_name": raw_dm_job_name,
         "state_machine_arn": sfn_arn,
-        "lambda_upload_config_arn": upload_config_arn,
     }

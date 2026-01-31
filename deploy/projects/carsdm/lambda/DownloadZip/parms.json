@@ -1,8 +1,0 @@
-{
-  "source_bucket": "my-source-bucket",
-  "source_folder": "incoming/data",
-  "destination_bucket": "my-destination-bucket",
-  "destination_key": "exports/incoming-data.zip",
-  "ignore_patterns": ["*.zip", "*.tmp", "*.bak", "*/_SUCCESS"],
-  "include_source_folder_in_zip": false
-}

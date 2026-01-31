@@ -1,6 +1,6 @@
 {
   "deployEnv": "PROD",
-  "project": "sbsd",
+  "project": "farm",
   "region": "us-east-1",
   "bucketRegion": "us-east-1",
 
@@ -34,7 +34,7 @@
 
   "artifacts": {
     "artifactBucket": "fsa-prod-ops",
-    "prefix": "sbsd/"
+    "prefix": "farm/"
   },
 
   "stepFunctions": {

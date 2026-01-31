@@ -79,7 +79,7 @@ agricultural_production_plan.agricultural_production_plan_identifier AS AG_PROD_
 ,agricultural_production_plan.crop_late_filing_indicator AS CROP_LATE_FILE_IND
 ,agricultural_production_plan.native_pasture_conversion_override_indicator AS NTV_PSTR_CVSN_OVRRD_IND
 ,agricultural_production_plan.animal_unit_federal_managed_land_usage_percentage AS ANML_UNIT_FED_MNG_LAND_USE_PCT
-,agricultural_production_plan.plant_count AS PLNT_CT
+,agricultural_production_plan.plant_count AS PLNT_CNT
 
 FROM `fsa-{env}-cars-cdc`.`agricultural_production_plan`
  LEFT JOIN  `fsa-{env}-cars-cdc`.`tract` ON (agricultural_production_plan.tract_identifier=tract.tract_identifier)

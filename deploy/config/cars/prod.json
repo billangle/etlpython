@@ -77,7 +77,7 @@
     "GlueVersion": "4.0",
     "JobLanguage": "python",
     "GenerateMetrics": "true",
-    "EnableJobBookmarks": "true",
+    "EnableJobBookmarks": "false",
     "JobObservabilityMetrics": "ENABLED",
     "JobContinuousLogging": "ENABLED",
     "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",

@@ -1,0 +1,208 @@
+{
+  "Comment": "FSA-CERT-Cars-S3Landing-to-S3Final-Raw-DM",
+  "StartAt": "Get Incremental Table list From S3",
+  "States": {
+    "Get Incremental Table list From S3": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-1:241533156429:function:FSA-CERT-CARS-get-incremental-tables",
+      "Parameters": {
+        "JobId.$": "$.JobId",
+        "SfName.$": "$.SfName"
+      },
+      "ResultPath": "$.incremental_tables",
+      "Next": "CARS Tables"
+    },
+    "CARS Tables": {
+      "Type": "Pass",
+      "Next": "Map",
+      "Parameters": {
+        "JobId.$": "$.JobId",
+        "SfName.$": "$.SfName",
+        "Target": "cars",
+        "tables.$": "$.incremental_tables.tables"
+      },
+      "ResultPath": "$.input"
+    },
+    "Map": {
+      "Type": "Map",
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "INLINE"
+        },
+        "StartAt": "Pass (1)",
+        "States": {
+          "Pass (1)": {
+            "Type": "Pass",
+            "Next": "Move to Final Zone",
+            "ResultPath": "$.output",
+            "Parameters": {
+              "JobId.$": "$.JobId",
+              "table.$": "$.app_name.tablename",
+              "Target.$": "$.Target"
+            }
+          },
+          "Move to Final Zone": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+            "Parameters": {
+              "JobName": "FSA-CERT-Cars-Raw-DM",
+              "Arguments": {
+                "--JobId.$": "States.Format('{}', $.JobId)",
+                "--TableName.$": "$.output.table",
+                "--env": "cert",
+                "--postgres_prcs_ctrl_dbname": "metadata_edw",
+                "--region_name": "us-east-1",
+                "--secret_name": "FSA-CERT-Secrets",
+                "--target_bucket": "c108-cert-fpacfsa-final-zone",
+                "--target_prefix.$": "$.Target"
+              }
+            },
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "SNS Lambda RAW DM",
+                "ResultPath": "$.Error"
+              }
+            ],
+            "End": true
+          },
+          "SNS Lambda RAW DM": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "FunctionName": "arn:aws:lambda:us-east-1:241533156429:function:FSA-CERT-CARS-RAW-DM-sns-publish-step-function-errors",
+              "Payload.$": "$"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Pass",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "Pass"
+              }
+            ]
+          },
+          "Pass": {
+            "Type": "Pass",
+            "ResultPath": "$.status",
+            "Result": "Error",
+            "End": true
+          }
+        }
+      },
+      "Next": "data_ppl_job_update RAW DM",
+      "MaxConcurrency": 12,
+      "ItemsPath": "$.input.tables",
+      "ItemSelector": {
+        "JobId.$": "$.JobId",
+        "app_name.$": "$$.Map.Item.Value",
+        "Target.$": "$.input.Target"
+      },
+      "ResultPath": "$.MapOut"
+    },
+    "data_ppl_job_update RAW DM": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "arn:aws:lambda:us-east-1:241533156429:function:FSA-CERT-CARS-RAW-DM-etl-workflow-update-data-ppln-job"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "BackoffRate": 2,
+          "MaxAttempts": 3
+        }
+      ],
+      "ResultPath": "$.Update",
+      "Next": "Run Both Crawlers"
+    },
+    "Run Both Crawlers": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "FSA-CERT-CARS Final Zone Crawler",
+          "States": {
+            "FSA-CERT-CARS Final Zone Crawler": {
+              "Type": "Task",
+              "Parameters": {
+                "Name": "FSA-CERT-CARS-CRAWLER"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+              "ResultPath": "$.CrawlerResult",
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "ResultPath": "$.CrawlerError",
+                  "Next": "Final Crawler Failed"
+                }
+              ]
+            },
+            "Final Crawler Failed": {
+              "Type": "Pass",
+              "Result": "Final Zone Crawler Failed",
+              "ResultPath": "$.CrawlerStatus",
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "FSA-CERT-CARS CDC Crawler",
+          "States": {
+            "FSA-CERT-CARS CDC Crawler": {
+              "Type": "Task",
+              "Parameters": {
+                "Name": "FSA-CERT-CARS-cdc"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+              "ResultPath": "$.CrawlerResult",
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "ResultPath": "$.CrawlerError",
+                  "Next": "CDC Crawler Failed"
+                }
+              ]
+            },
+            "CDC Crawler Failed": {
+              "Type": "Pass",
+              "Result": "CDC Crawler Failed",
+              "ResultPath": "$.CrawlerStatus",
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": "$.Crawlers",
+      "End": true
+    }
+  }
+}

@@ -1,0 +1,47 @@
+INSERT into
+EDV.IRR_CNTY_CROP_L(IRR_CNTY_CROP_L_ID ,
+PGM_ABR,
+FSA_CROP_CD,
+FSA_CROP_TYPE_CD,
+ST_FSA_CD,
+CNTY_FSA_CD,
+LOAD_DT,
+DATA_SRC_NM)
+(
+select 
+stg.IRR_CNTY_CROP_L_ID,
+stg.PGM_ABR,
+stg.FSA_CROP_CD,
+stg.FSA_CROP_TYPE_CD,
+stg.ST_FSA_CD,
+stg.CNTY_FSA_CD,
+stg.LOAD_DT,
+stg.DATA_SRC_NM
+from (
+SELECT DISTINCT
+coalesce(IRR_CNTY_CROP.PGM_ABR, '--') PGM_ABR,
+coalesce(IRR_CNTY_CROP.FSA_CROP_CD, '--') FSA_CROP_CD,
+coalesce(IRR_CNTY_CROP.FSA_CROP_TYPE_CD, '--') FSA_CROP_TYPE_CD,
+coalesce(IRR_CNTY_CROP.ST_FSA_CD, '--') ST_FSA_CD,
+coalesce(IRR_CNTY_CROP.CNTY_FSA_CD, '--') CNTY_FSA_CD,
+IRR_CNTY_CROP.LOAD_DT LOAD_DT,
+IRR_CNTY_CROP.DATA_SRC_NM DATA_SRC_NM,
+ROW_NUMBER() OVER (PARTITION BY coalesce(IRR_CNTY_CROP.PGM_ABR, '--') ,
+coalesce(IRR_CNTY_CROP.FSA_CROP_CD, '--') ,
+coalesce(IRR_CNTY_CROP.FSA_CROP_TYPE_CD,'--') ,
+coalesce(IRR_CNTY_CROP.ST_FSA_CD, '--') ,
+coalesce(IRR_CNTY_CROP.CNTY_FSA_CD, '--')  ORDER BY IRR_CNTY_CROP.CDC_DT desc, IRR_CNTY_CROP.LOAD_DT desc) STG_EFF_DT_RANK,
+MD5(upper(coalesce(trim(both IRR_CNTY_CROP.PGM_ABR), '--') ||'~~'||coalesce(trim(both IRR_CNTY_CROP.FSA_CROP_CD), '--') ||'~~'||coalesce(trim(both IRR_CNTY_CROP.FSA_CROP_TYPE_CD), '--') ||'~~'||coalesce(trim(both IRR_CNTY_CROP.ST_FSA_CD), '--') ||'~~'||coalesce(trim(both IRR_CNTY_CROP.CNTY_FSA_CD), '--') )) IRR_CNTY_CROP_L_ID
+FROM SQL_FARM_RCD_STG.IRR_CNTY_CROP
+where IRR_CNTY_CROP.cdc_oper_cd IN ('I','UN','D')
+) stg 
+LEFT JOIN  EDV.IRR_CNTY_CROP_L dv
+ ON (
+stg.IRR_CNTY_CROP_L_ID = dv.IRR_CNTY_CROP_L_ID
+)
+where (
+dv.IRR_CNTY_CROP_L_ID IS NULL
+)
+and stg.STG_EFF_DT_RANK = 1
+)
+;

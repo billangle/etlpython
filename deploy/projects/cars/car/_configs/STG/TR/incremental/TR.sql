@@ -24,7 +24,7 @@ tract.tract_identifier AS TR_ID
 FROM `fsa-{env}-cars-cdc`.`tract`
  LEFT JOIN  `fsa-{env}-cars-cdc`.`crop_acreage_report` ON (TRACT.crop_acreage_report_identifier = crop_acreage_report.crop_acreage_report_identifier)
 
-WHERE tract.dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}'
+WHERE tract.dart_filedate BETWEEN DATE '{ETL_START_TIMESTAMP}' AND DATE '{ETL_END_TIMESTAMP}'
 
 
 

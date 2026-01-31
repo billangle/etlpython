@@ -1,0 +1,11 @@
+select
+	prdr_invl_srgt_id,
+	prdr_invl_durb_id,
+	cur_rcd_ind,
+	data_eff_strt_dt,
+	data_eff_end_dt,
+	cre_dt,
+	prdr_invl_cd,
+	prdr_invl_desc
+from
+	farm_dm_stg.prdr_invl_dim;

@@ -27,9 +27,9 @@ continuous_plan_certification_election.continuous_plan_certification_election_id
 ,cast(continuous_plan_certification_election.election_date AS timestamp) AS ELCT_DT
 
 FROM `fsa-{env}-cars-cdc`.`continuous_plan_certification_election`
- LEFT JOIN  `fsa-{env}-cars-cdc`.`crop_type` ON (continuous_plan_certification_election.crop_type_identifier=crop_type.crop_type_identifier)
-  LEFT JOIN  `fsa-{env}-cars-cdc`.`business_party` ON (continuous_plan_certification_election.business_party_identifier=business_party.business_party_identifier)
- JOIN `fsa-{env}-cars-cdc`.`crop_acreage_report` ON (business_party.crop_acreage_report_identifier=crop_acreage_report.crop_acreage_report_identifier)
+ LEFT JOIN  `fsa-{env}-cars`.`crop_type` ON (continuous_plan_certification_election.crop_type_identifier=crop_type.crop_type_identifier)
+  LEFT JOIN  `fsa-{env}-cars`.`business_party` ON (continuous_plan_certification_election.business_party_identifier=business_party.business_party_identifier)
+ JOIN `fsa-{env}-cars`.`crop_acreage_report` ON (business_party.crop_acreage_report_identifier=crop_acreage_report.crop_acreage_report_identifier)
 
 WHERE continuous_plan_certification_election.dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}'
 

@@ -1,0 +1,61 @@
+with incr_ARC_PLC_ELG_DTER_DIM as
+            (
+            
+            SELECT ARC_PLC_ELG_DTER_CD dr_id
+            FROM EDV.ARC_PLC_ELG_DTER_RH
+            WHERE CAST(LOAD_DT AS DATE)-1 = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+                       
+            UNION
+            
+            SELECT dv_dr_sat.ARC_PLC_ELG_DTER_CD dr_id   
+            FROM EDV.ARC_PLC_ELG_DTER_RS dv_dr_sat
+            WHERE CAST(dv_dr_sat.DATA_EFF_STRT_DT AS DATE) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
+            AND TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') < CAST(data_eff_end_dt AS DATE)
+            )
+, Insert_data as (
+SELECT 
+dv_dr.durb_id  ARC_PLC_ELG_DTER_DURB_ID
+,dv_dr.ARC_PLC_ELG_DTER_CD ARC_PLC_ELG_DTER_CD
+,RS.ARC_PLC_ELG_DTER_NM ARC_PLC_ELG_DTER_NM
+,RS.ARC_PLC_ELG_DTER_DESC ARC_PLC_ELG_DTER_DESC
+,dv_dr.ARC_PLC_ELG_DTER_CD As BUS_KEY
+,CASE WHEN dv_dr.durb_id > 0 THEN 0 ELSE 1 END DEF_ERR_IND
+,RS.SRC_LAST_CHG_DT
+,RS.LOAD_DT
+,('ARC_PLC_ELG_DTER_CD: ' || dv_dr.ARC_PLC_ELG_DTER_CD) BUS_KEY_ERR
+FROM (SELECT * 
+      FROM edv.ARC_PLC_ELG_DTER_RH 
+      WHERE data_src_nm <> 'SYSGEN' 
+      AND ARC_PLC_ELG_DTER_CD  in (SELECT dr_id from incr_ARC_PLC_ELG_DTER_DIM)
+      ) dv_dr
+LEFT JOIN 
+(
+SELECT 
+ARC_PLC_ELG_DTER_CD,
+ARC_PLC_ELG_DTER_NM,
+ARC_PLC_ELG_DTER_DESC,
+SRC_LAST_CHG_DT,
+LOAD_DT
+FROM
+(
+ SELECT 
+    ARC_PLC_ELG_DTER_CD,
+    ARC_PLC_ELG_DTER_NM,
+    ARC_PLC_ELG_DTER_DESC,
+    SRC_LAST_CHG_DT,
+    LOAD_DT
+    FROM EDV.ARC_PLC_ELG_DTER_RS
+    WHERE TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') >= CAST(data_eff_strt_dt AS DATE)
+    AND TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') < CAST(data_eff_end_dt AS DATE) 
+) sub
+) RS
+ON (dv_dr.ARC_PLC_ELG_DTER_CD = RS.ARC_PLC_ELG_DTER_CD)
+)
+select ARC_PLC_ELG_DTER_DURB_ID
+	,(CURRENT_DATE) as CRE_DT
+	,(CURRENT_DATE) as LAST_CHG_DT
+	,'A' as DATA_STAT_CD 
+	,ARC_PLC_ELG_DTER_CD
+	,ARC_PLC_ELG_DTER_NM
+	,ARC_PLC_ELG_DTER_DESC
+from Insert_data

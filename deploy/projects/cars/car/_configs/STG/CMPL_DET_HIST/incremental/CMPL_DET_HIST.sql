@@ -20,7 +20,6 @@ compliance_detail_history.compliance_detail_history_identifier AS CMPL_DET_HIST_
 ,cast(compliance_detail_history.crop_field_determined_date AS timestamp) AS CROP_FLD_DTER_DT
 ,compliance_detail_history.agricultural_production_plan_staging_identifier AS AG_PROD_PLAN_STG_ID
 ,compliance_detail_history.zero_acreage_crop_staging_identifier AS ZERO_ACRG_CROP_STG_ID
-
 ,'' AS HASH_DIFF
 ,compliance_detail_history.op AS CDC_OPER_CD
 ,current_timestamp AS LOAD_DT

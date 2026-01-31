@@ -1,0 +1,12 @@
+select
+	rcon_type_srgt_id,
+	rcon_type_durb_id,
+	cur_rcd_ind,
+	data_eff_strt_dt,
+	data_eff_end_dt,
+	cre_dt,
+	rcon_type_cd,
+	rcon_type_nm,
+	rcon_type_desc
+from
+	farm_dm_stg.rcon_type_dim;

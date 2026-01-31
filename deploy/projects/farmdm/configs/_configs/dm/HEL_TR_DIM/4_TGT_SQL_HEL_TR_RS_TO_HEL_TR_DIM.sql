@@ -1,0 +1,12 @@
+select
+	hel_tr_srgt_id,
+	hel_tr_durb_id,
+	cur_rcd_ind,
+	data_eff_strt_dt,
+	data_eff_end_dt,
+	cre_dt,
+	hel_tr_cd,
+	hel_tr_nm,
+	hel_tr_desc
+from
+	farm_dm_stg.hel_tr_dim;

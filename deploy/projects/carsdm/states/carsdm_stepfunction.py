@@ -8,47 +8,61 @@ from typing import Any, Dict
 @dataclass(frozen=True)
 class CarsDmStateMachineInputs:
     """
-    Provide the exact resource names/arns used by the ASL.
+    Variable-driven inputs for the CARS DM Step Function.
 
-    If you pass the same literal strings you currently have in the JSON,
-    the output ASL will be logically identical to your original definition.
+    - Lambdas + Glue jobs remain parameterized
+    - Crawlers are assumed to exist
+    - deploy_env is used to build crawler *state names* (no hard-coded CERT)
     """
 
+    # Environment
+    deploy_env: str                  # e.g. "cert", "prod", "dev"
+
     # Lambdas
-    get_incremental_tables_fn_arn: str  # e.g. "arn:aws:lambda:us-east-1:253490756794:function:FSA-PROD-CARS-get-incremental-tables"
-    sns_publish_errors_fn_arn: str      # e.g. "arn:aws:lambda:us-east-1:253490756794:function:FSA-PROD-CARS-RAW-DM-sns-publish-step-function-errors"
-    etl_workflow_update_job_fn_arn: str # e.g. "arn:aws:lambda:us-east-1:253490756794:function:FSA-PROD-CARS-RAW-DM-etl-workflow-update-data-ppln-job"
+    get_incremental_tables_fn_arn: str
+    sns_publish_errors_fn_arn: str
+    etl_workflow_update_job_fn_arn: str
 
     # Glue Job
-    raw_dm_glue_job_name: str           # e.g. "FSA-PROD-Cars-Raw-DM"
+    raw_dm_glue_job_name: str
 
-    # Static arguments used by the Glue job in the ASL
-    env: str                            # e.g. "prod"
-    postgres_prcs_ctrl_dbname: str      # e.g. "metadata_edw"
-    region_name: str                    # e.g. "us-east-1"
-    secret_name: str                    # e.g. "FSA-PROD-secrets"
-    target_bucket: str                  # e.g. "c108-prod-fpacfsa-final-zone"
+    # Static Glue args
+    env: str
+    postgres_prcs_ctrl_dbname: str
+    region_name: str
+    secret_name: str
+    target_bucket: str
+
+    # Crawlers (must already exist)
+    final_zone_crawler_name: str     # e.g. "FSA-CERT-CARS-CRAWLER"
+    cdc_crawler_name: str            # e.g. "FSA-CERT-CARS-cdc"
+
+    # State machine comment
+    comment: str
 
 
 class CarsDmStateMachineBuilder:
     """
-    Builder for the CARS DM (S3 Landing -> S3 Final Raw DM) state machine ASL.
+    Builder for the CARS DM (S3 Landing -> S3 Final Raw DM) ASL.
 
-    IMPORTANT:
-    - This is a structural refactor only (JSON -> Python dict builder).
-    - The emitted ASL preserves the original state machine behavior.
-    - Crawler is intentionally left "as-is" per instructions.
+    Diff vs previous version:
+    - Crawler *state names* are derived from deploy_env
+    - No hard-coded CERT anywhere
     """
 
     @staticmethod
     def carsdm_asl(inputs: CarsDmStateMachineInputs) -> Dict[str, Any]:
+        env_upper = inputs.deploy_env.upper()
+
+        final_crawler_state = f"FSA-{env_upper}-CARS Final Zone Crawler"
+        cdc_crawler_state = f"FSA-{env_upper}-CARS CDC Crawler"
+
         return {
-            "Comment": "FSA-PROD-Cars-S3Landing-to-S3Final-Raw-DM",
+            "Comment": inputs.comment,
             "StartAt": "Get Incremental Table list From S3",
             "States": {
                 "Get Incremental Table list From S3": {
                     "Type": "Task",
-                    # NOTE: Preserving the *original* direct Lambda ARN task resource (not lambda:invoke integration)
                     "Resource": inputs.get_incremental_tables_fn_arn,
                     "Parameters": {
                         "JobId.$": "$.JobId",
@@ -135,10 +149,7 @@ class CarsDmStateMachineBuilder:
                                 ],
                                 "Next": "Pass",
                                 "Catch": [
-                                    {
-                                        "ErrorEquals": ["States.ALL"],
-                                        "Next": "Pass",
-                                    }
+                                    {"ErrorEquals": ["States.ALL"], "Next": "Pass"}
                                 ],
                             },
 
@@ -182,16 +193,68 @@ class CarsDmStateMachineBuilder:
                         }
                     ],
                     "ResultPath": "$.Update",
-                    "Next": "FSA-PROD-CARS Crawler",
+                    "Next": "Run Both Crawlers",
                 },
 
-                # Per instructions: leave crawler alone (name + integration preserved)
-                "FSA-PROD-CARS Crawler": {
-                    "Type": "Task",
-                    "Parameters": {"Name": "FSA-PROD-CARS-CRAWLER"},
-                    "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
-                    "ResultPath": "$.Crawler",
-                    "OutputPath": "$.Crawler",
+                "Run Both Crawlers": {
+                    "Type": "Parallel",
+                    "Branches": [
+                        {
+                            "StartAt": final_crawler_state,
+                            "States": {
+                                final_crawler_state: {
+                                    "Type": "Task",
+                                    "Parameters": {
+                                        "Name": inputs.final_zone_crawler_name
+                                    },
+                                    "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+                                    "ResultPath": "$.CrawlerResult",
+                                    "End": True,
+                                    "Catch": [
+                                        {
+                                            "ErrorEquals": ["States.ALL"],
+                                            "ResultPath": "$.CrawlerError",
+                                            "Next": "Final Crawler Failed",
+                                        }
+                                    ],
+                                },
+                                "Final Crawler Failed": {
+                                    "Type": "Pass",
+                                    "Result": "Final Zone Crawler Failed",
+                                    "ResultPath": "$.CrawlerStatus",
+                                    "End": True,
+                                },
+                            },
+                        },
+                        {
+                            "StartAt": cdc_crawler_state,
+                            "States": {
+                                cdc_crawler_state: {
+                                    "Type": "Task",
+                                    "Parameters": {
+                                        "Name": inputs.cdc_crawler_name
+                                    },
+                                    "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+                                    "ResultPath": "$.CrawlerResult",
+                                    "End": True,
+                                    "Catch": [
+                                        {
+                                            "ErrorEquals": ["States.ALL"],
+                                            "ResultPath": "$.CrawlerError",
+                                            "Next": "CDC Crawler Failed",
+                                        }
+                                    ],
+                                },
+                                "CDC Crawler Failed": {
+                                    "Type": "Pass",
+                                    "Result": "CDC Crawler Failed",
+                                    "ResultPath": "$.CrawlerStatus",
+                                    "End": True,
+                                },
+                            },
+                        },
+                    ],
+                    "ResultPath": "$.Crawlers",
                     "End": True,
                 },
             },

@@ -1,0 +1,35 @@
+INSERT INTO EDV.CMB_PRDR_ACCT_MBR_ALOC_LS (CMB_PRDR_ACCT_MBR_ALOC_L_ID, LOAD_DT, DATA_EFF_STRT_DT, DATA_SRC_NM, DATA_STAT_CD, SRC_LAST_CHG_DT, SRC_LAST_CHG_USER_NM, CPA_CUST_ALOC_PCT, SBSD_CUST_ID, PYMT_PGM_PRD_ID, CMB_PRDR_ACCT_ID, CPA_CUST_PGM_BEN_ID, DATA_EFF_END_DT, LOAD_END_DT)
+  (SELECT stg.*
+   FROM
+     (SELECT DISTINCT MD5 (COALESCE (PYMT_PGM.PGM_NM, '[NULL IN SOURCE]') ||MD5 (coalesce(CMB_PRDR_ACCT.CMB_PRDR_ACCT_ID::varchar, '-1'))||COALESCE (SBSD_CUST.CORE_CUST_ID, '-1')) AS CMB_PRDR_ACCT_MBR_ALOC_L_ID,
+                      CPA_CUST_PGM_BEN.LOAD_DT,
+                      CPA_CUST_PGM_BEN.CDC_DT,
+                      CPA_CUST_PGM_BEN.DATA_SRC_NM,
+                      CPA_CUST_PGM_BEN.DATA_STAT_CD,
+                      CPA_CUST_PGM_BEN.LAST_CHG_DT,
+                      CPA_CUST_PGM_BEN.LAST_CHG_USER_NM,
+                      CPA_CUST_PGM_BEN.CPA_CUST_ALOC_PCT,
+                      CPA_CUST_PGM_BEN.SBSD_CUST_ID,
+                      CPA_CUST_PGM_BEN.PYMT_PGM_PRD_ID,
+                      CMB_PRDR_ACCT.CMB_PRDR_ACCT_ID,
+                      CPA_CUST_PGM_BEN.CPA_CUST_PGM_BEN_ID,
+                      to_date('9999-12-31', 'YYYY-MM-DD') DATA_EFF_END_DT,
+                      to_date('9999-12-31', 'YYYY-MM-DD') LOAD_END_DT
+      FROM SBSD_STG.CPA_CUST_PGM_BEN
+      JOIN EDV.V_SBSD_CUST SBSD_CUST ON (CPA_CUST_PGM_BEN.SBSD_CUST_ID = SBSD_CUST.SBSD_CUST_ID)
+      JOIN EDV.V_CMB_PRDR_ACCT CMB_PRDR_ACCT ON (CMB_PRDR_ACCT.CMB_PRDR_ACCT_ID = CPA_CUST_PGM_BEN.CMB_PRDR_ACCT_ID)
+      JOIN EDV.V_PYMT_PGM_PRD PYMT_PGM_PRD ON (PYMT_PGM_PRD.PYMT_PGM_PRD_ID = CPA_CUST_PGM_BEN.PYMT_PGM_PRD_ID)
+      JOIN EDV.V_PYMT_PGM PYMT_PGM ON (PYMT_PGM.PYMT_PGM_ID = PYMT_PGM_PRD.PYMT_PGM_ID)
+      WHERE CPA_CUST_PGM_BEN.CDC_OPER_CD<>'D'
+        AND DATE_TRUNC('day',CPA_CUST_PGM_BEN.CDC_DT) = DATE_TRUNC('day',TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD HH24:MI:SS.FF'))
+        AND CPA_CUST_PGM_BEN.LOAD_DT = (SELECT MAX(LOAD_DT) FROM SBSD_STG.CPA_CUST_PGM_BEN)
+      ORDER BY CPA_CUST_PGM_BEN.CDC_DT) stg
+   LEFT JOIN EDV.CMB_PRDR_ACCT_MBR_ALOC_LS dv ON (dv.CMB_PRDR_ACCT_MBR_ALOC_L_ID= stg.CMB_PRDR_ACCT_MBR_ALOC_L_ID
+                                                  AND coalesce(stg.DATA_STAT_CD, 'X') = coalesce(dv.DATA_STAT_CD, 'X')
+                                                  AND coalesce(stg.CPA_CUST_ALOC_PCT, 0) = coalesce(dv.CPA_CUST_ALOC_PCT, 0)
+                                                  AND coalesce(stg.SBSD_CUST_ID, 0) = coalesce(dv.SBSD_CUST_ID, 0)
+                                                  AND coalesce(stg.PYMT_PGM_PRD_ID, 0) = coalesce(dv.PYMT_PGM_PRD_ID, 0)
+                                                  AND coalesce(stg.CMB_PRDR_ACCT_ID, 0) = coalesce(dv.CMB_PRDR_ACCT_ID, 0)
+                                                  AND coalesce(stg.CPA_CUST_PGM_BEN_ID, 0) = coalesce(dv.CPA_CUST_PGM_BEN_ID, 0)
+                                                  AND dv.LOAD_END_DT = to_date('9999-12-31', 'YYYY-MM-DD'))
+   WHERE dv.CMB_PRDR_ACCT_MBR_ALOC_L_ID IS NULL )

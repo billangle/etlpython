@@ -1,0 +1,565 @@
+SELECT 
+
+ACCT_PGM_CD,
+AGI_ELG_IND,
+AGI_ERR_REF_CD,
+BUS_TYPE_CD,
+CASH_RENT_CPLD_FCTR,
+CMB_PTY_PYMT_SHR_PCT,
+CRE_DT,
+CRE_USER_NM,
+DATA_STAT_CD,
+FGN_PRSN_ELG_IND,
+LAST_CHG_DT,
+LAST_CHG_USER_NM,
+MBR_CTRB_ELG_IND,
+MBR_CTRB_SHR_PCT,
+MBR_SHR_PCT,
+NET_PYMT_AMT,
+OWNSHP_HRCH_LVL_SHR_PCT,
+PAID_PTY_SHR_PCT,
+PAID_SBSD_CUST_ID,
+PGM_IELG_RSN_TYPE_CD,
+PMIT_ENTY_ELG_IND,
+PYMT_ATRB_AMT,
+PYMT_ATRB_BUS_CAT_CD,
+PYMT_ATRB_SHR_PCT,
+PYMT_ATRB_SIM_ID,
+PYMT_LMT_YR,
+PYMT_PGM_ID,
+PYMT_PTY_RLT_CD,
+RCD_REF_PRIM_ID,
+RCD_REF_PRIM_ID_TYPE_CD,
+RCD_REF_SCND_ID,
+RCD_REF_SCND_ID_TYPE_CD,
+SBSD_CUST_ID,
+SBSD_PRD_STRT_YR,
+SBST_CHG_ELG_IND,
+TAX_ID_TYPE_CD,
+TOT_NET_PYMT_AMT,
+TOT_PYMT_ATRB_AMT,
+PRPS_PYMT_SIM_ID,
+PRNT_PYMT_ATRB_SIM_ID,
+ST_FSA_CD,
+CNTY_FSA_CD,
+PRPS_PYMT_SIM_ACCT_PGM_CD,
+PRPS_PYMT_SIM_SBSD_PRD_STRT_YR,
+PRNT_PYMT_ATRB_SIM_ST_FSA_CD,
+PRNT_PYMT_ATRB_SIM_CNTY_FSA_CD,
+PRNT_PYMT_ATRB_SIM_ACCT_PGM_CD,
+PRNT_ATRB_SIM_SBSD_PRD_STRT_YR,
+MBR_CORE_CUST_ID,
+PAID_CORE_CUST_ID,
+PRNT_PYMT_ATRB_CORE_CUST_ID,
+MBR_CORE_CUST_ST_CNTY_FSA_CD,
+PAID_CORE_CUST_ST_CNTY_FSA_CD,
+PRNT_ATRB_CUST_ST_CNTY_FSA_CD,
+CDC_OPER_CD,
+''  HASH_DIF,
+current_timestamp LOAD_DT,
+'sbsd'  DATA_SRC_NM,
+'{ETL_START_DATE}' AS CDC_DT
+FROM(
+SELECT * FROM
+(
+Select 
+ACCT_PGM_CD,
+AGI_ELG_IND,
+AGI_ERR_REF_CD,
+BUS_TYPE_CD,
+CASH_RENT_CPLD_FCTR,
+CMB_PTY_PYMT_SHR_PCT,
+CRE_DT,
+CRE_USER_NM,
+DATA_STAT_CD,
+FGN_PRSN_ELG_IND,
+LAST_CHG_DT,
+LAST_CHG_USER_NM,
+MBR_CTRB_ELG_IND,
+MBR_CTRB_SHR_PCT,
+MBR_SHR_PCT,
+NET_PYMT_AMT,
+OWNSHP_HRCH_LVL_SHR_PCT,
+PAID_PTY_SHR_PCT,
+PAID_SBSD_CUST_ID,
+PGM_IELG_RSN_TYPE_CD,
+PMIT_ENTY_ELG_IND,
+PYMT_ATRB_AMT,
+PYMT_ATRB_BUS_CAT_CD,
+PYMT_ATRB_SHR_PCT,
+PYMT_ATRB_SIM_ID,
+PYMT_LMT_YR,
+PYMT_PGM_ID,
+PYMT_PTY_RLT_CD,
+RCD_REF_PRIM_ID,
+RCD_REF_PRIM_ID_TYPE_CD,
+RCD_REF_SCND_ID,
+RCD_REF_SCND_ID_TYPE_CD,
+SBSD_CUST_ID,
+SBSD_PRD_STRT_YR,
+SBST_CHG_ELG_IND,
+TAX_ID_TYPE_CD,
+TOT_NET_PYMT_AMT,
+TOT_PYMT_ATRB_AMT,
+PRPS_PYMT_SIM_ID,
+PRNT_PYMT_ATRB_SIM_ID,
+ST_FSA_CD,
+CNTY_FSA_CD,
+PRPS_PYMT_SIM_ACCT_PGM_CD,
+PRPS_PYMT_SIM_SBSD_PRD_STRT_YR,
+PRNT_PYMT_ATRB_SIM_ST_FSA_CD,
+PRNT_PYMT_ATRB_SIM_CNTY_FSA_CD,
+PRNT_PYMT_ATRB_SIM_ACCT_PGM_CD,
+PRNT_ATRB_SIM_SBSD_PRD_STRT_YR,
+MBR_CORE_CUST_ID,
+PAID_CORE_CUST_ID,
+PRNT_PYMT_ATRB_CORE_CUST_ID,
+MBR_CORE_CUST_ST_CNTY_FSA_CD,
+PAID_CORE_CUST_ST_CNTY_FSA_CD,
+PRNT_ATRB_CUST_ST_CNTY_FSA_CD,
+OP CDC_OPER_CD,
+ROW_NUMBER() over ( partition by PYMT_ATRB_SIM_ID order by TBL_PRIORITY ASC, LAST_CHG_DT DESC ) AS row_num_part
+FROM 
+(
+
+Select 
+payment_attribution_simulation.accounting_program_code ACCT_PGM_CD,
+payment_attribution_simulation.agi_eligible_indicator AGI_ELG_IND,
+payment_attribution_simulation.agi_error_reference_code AGI_ERR_REF_CD,
+payment_attribution_simulation.business_type_code BUS_TYPE_CD,
+payment_attribution_simulation.cash_rent_cropland_factor CASH_RENT_CPLD_FCTR,
+payment_attribution_simulation.combined_party_payment_share_percentage CMB_PTY_PYMT_SHR_PCT,
+payment_attribution_simulation.creation_date CRE_DT,
+payment_attribution_simulation.creation_user_name CRE_USER_NM,
+payment_attribution_simulation.data_status_code DATA_STAT_CD,
+payment_attribution_simulation.foreign_person_eligible_indicator FGN_PRSN_ELG_IND,
+payment_attribution_simulation.last_change_date LAST_CHG_DT,
+payment_attribution_simulation.last_change_user_name LAST_CHG_USER_NM,
+payment_attribution_simulation.member_contribution_eligible_indicator MBR_CTRB_ELG_IND,
+payment_attribution_simulation.member_contribution_share_percentage MBR_CTRB_SHR_PCT,
+payment_attribution_simulation.member_share_percentage MBR_SHR_PCT,
+payment_attribution_simulation.net_payment_amount NET_PYMT_AMT,
+payment_attribution_simulation.ownership_hierarchy_level_share_percentage OWNSHP_HRCH_LVL_SHR_PCT,
+payment_attribution_simulation.paid_party_share_percentage PAID_PTY_SHR_PCT,
+payment_attribution_simulation.paid_subsidiary_customer_identifier PAID_SBSD_CUST_ID,
+payment_attribution_simulation.program_ineligibility_reason_type_code PGM_IELG_RSN_TYPE_CD,
+payment_attribution_simulation.permitted_entity_eligible_indicator PMIT_ENTY_ELG_IND,
+payment_attribution_simulation.payment_attribution_amount PYMT_ATRB_AMT,
+payment_attribution_simulation.payment_attribution_business_category_code PYMT_ATRB_BUS_CAT_CD,
+payment_attribution_simulation.payment_attribution_share_percentage PYMT_ATRB_SHR_PCT,
+payment_attribution_simulation.payment_attribution_simulation_identifier PYMT_ATRB_SIM_ID,
+payment_attribution_simulation.payment_limitation_year PYMT_LMT_YR,
+payment_attribution_simulation.limited_payment_program_identifier PYMT_PGM_ID,
+payment_attribution_simulation.payment_party_relationship_code PYMT_PTY_RLT_CD,
+payment_attribution_simulation.record_reference_primary_identification RCD_REF_PRIM_ID,
+payment_attribution_simulation.record_reference_primary_identification_type_code RCD_REF_PRIM_ID_TYPE_CD,
+payment_attribution_simulation.record_reference_secondary_identification RCD_REF_SCND_ID,
+payment_attribution_simulation.record_reference_secondary_identification_type_code RCD_REF_SCND_ID_TYPE_CD,
+payment_attribution_simulation.subsidiary_customer_identifier SBSD_CUST_ID,
+payment_attribution_simulation.subsidiary_period_start_year SBSD_PRD_STRT_YR,
+payment_attribution_simulation.substantive_change_eligible_indicator SBST_CHG_ELG_IND,
+payment_attribution_simulation.tax_identification_type_code TAX_ID_TYPE_CD,
+payment_attribution_simulation.total_net_payment_amount TOT_NET_PYMT_AMT,
+payment_attribution_simulation.total_payment_attribution_amount TOT_PYMT_ATRB_AMT,
+payment_attribution_simulation.proposed_payment_simulation_identifier PRPS_PYMT_SIM_ID,
+PRNT_payment_attribution_simulation.payment_attribution_simulation_identifier PRNT_PYMT_ATRB_SIM_ID,
+proposed_payment_simulation.state_fsa_code ST_FSA_CD,
+proposed_payment_simulation.county_fsa_code CNTY_FSA_CD,
+proposed_payment_simulation.accounting_program_code PRPS_PYMT_SIM_ACCT_PGM_CD,
+proposed_payment_simulation.subsidiary_period_start_year PRPS_PYMT_SIM_SBSD_PRD_STRT_YR,
+PRNT_proposed_payment_simulation.state_fsa_code PRNT_PYMT_ATRB_SIM_ST_FSA_CD,
+PRNT_proposed_payment_simulation.county_fsa_code PRNT_PYMT_ATRB_SIM_CNTY_FSA_CD,
+PRNT_proposed_payment_simulation.accounting_program_code PRNT_PYMT_ATRB_SIM_ACCT_PGM_CD,
+PRNT_proposed_payment_simulation.subsidiary_period_start_year PRNT_ATRB_SIM_SBSD_PRD_STRT_YR,
+subsidiary_customer.core_customer_identifier MBR_CORE_CUST_ID,
+paid_subsidiary_customer.core_customer_identifier PAID_CORE_CUST_ID,
+parent_subsidiary_customer.core_customer_identifier PRNT_PYMT_ATRB_CORE_CUST_ID,
+fsa_county.state_county_fsa_code MBR_CORE_CUST_ST_CNTY_FSA_CD,
+paid_fsa_county.state_county_fsa_code PAID_CORE_CUST_ST_CNTY_FSA_CD,
+parent_fsa_county.state_county_fsa_code PRNT_ATRB_CUST_ST_CNTY_FSA_CD,
+payment_attribution_simulation.OP,
+  1 AS TBL_PRIORITY
+from `fsa-{env}-sbsd-cdc`.`payment_attribution_simulation` payment_attribution_simulation
+Left join `fsa-{env}-sbsd-cdc`.`payment_attribution_simulation` PRNT_payment_attribution_simulation
+on (payment_attribution_simulation.parent_payment_attribution_simulation_identifier = PRNT_payment_attribution_simulation.payment_attribution_simulation_identifier)
+Left  join `fsa-{env}-sbsd-cdc`.`proposed_payment_simulation` proposed_payment_simulation 
+On (payment_attribution_simulation.proposed_payment_simulation_identifier =proposed_payment_simulation.proposed_payment_simulation_identifier)
+/* join to payment_attribution_simulation again to get parent values*/
+Left  join `fsa-{env}-sbsd-cdc`.`proposed_payment_simulation` PRNT_proposed_payment_simulation
+ON (PRNT_payment_attribution_simulation.proposed_payment_simulation_identifier = PRNT_proposed_payment_simulation.proposed_payment_simulation_identifier)
+LEFT JOIN `fsa-{env}-sbsd-cdc`.`subsidiary_customer` subsidiary_customer
+ON (payment_attribution_simulation.subsidiary_customer_identifier = subsidiary_customer.subsidiary_customer_identifier)
+ /* join to subsidary customer again to get parent values*/
+LEFT JOIN `fsa-{env}-sbsd-cdc`.`subsidiary_customer` parent_subsidiary_customer
+ON (PRNT_payment_attribution_simulation.subsidiary_customer_identifier = parent_subsidiary_customer.subsidiary_customer_identifier)
+      /* get paid customer information*/
+LEFT JOIN `fsa-{env}-sbsd-cdc`.`subsidiary_customer` paid_subsidiary_customer
+ON (payment_attribution_simulation.paid_subsidiary_customer_identifier = paid_subsidiary_customer.subsidiary_customer_identifier)
+Left join `fsa-{env}-sbsd-cdc`.`fsa_county` fsa_county
+On (subsidiary_customer.fsa_county_identifier =fsa_county.fsa_county_identifier)
+/*join to fsa county again to get parent values*/
+Left join `fsa-{env}-sbsd-cdc`.`fsa_county` parent_fsa_county
+on (parent_subsidiary_customer.fsa_county_identifier=parent_fsa_county.fsa_county_identifier)
+ /*get paid fsa county information*/
+Left join `fsa-{env}-sbsd-cdc`.`fsa_county` paid_fsa_county
+on (paid_subsidiary_customer.fsa_county_identifier = paid_fsa_county.fsa_county_identifier)
+WHERE payment_attribution_simulation.dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}'
+AND payment_attribution_simulation.OP <> 'D'
+
+Union
+
+Select 
+payment_attribution_simulation.accounting_program_code ACCT_PGM_CD,
+payment_attribution_simulation.agi_eligible_indicator AGI_ELG_IND,
+payment_attribution_simulation.agi_error_reference_code AGI_ERR_REF_CD,
+payment_attribution_simulation.business_type_code BUS_TYPE_CD,
+payment_attribution_simulation.cash_rent_cropland_factor CASH_RENT_CPLD_FCTR,
+payment_attribution_simulation.combined_party_payment_share_percentage CMB_PTY_PYMT_SHR_PCT,
+payment_attribution_simulation.creation_date CRE_DT,
+payment_attribution_simulation.creation_user_name CRE_USER_NM,
+payment_attribution_simulation.data_status_code DATA_STAT_CD,
+payment_attribution_simulation.foreign_person_eligible_indicator FGN_PRSN_ELG_IND,
+payment_attribution_simulation.last_change_date LAST_CHG_DT,
+payment_attribution_simulation.last_change_user_name LAST_CHG_USER_NM,
+payment_attribution_simulation.member_contribution_eligible_indicator MBR_CTRB_ELG_IND,
+payment_attribution_simulation.member_contribution_share_percentage MBR_CTRB_SHR_PCT,
+payment_attribution_simulation.member_share_percentage MBR_SHR_PCT,
+payment_attribution_simulation.net_payment_amount NET_PYMT_AMT,
+payment_attribution_simulation.ownership_hierarchy_level_share_percentage OWNSHP_HRCH_LVL_SHR_PCT,
+payment_attribution_simulation.paid_party_share_percentage PAID_PTY_SHR_PCT,
+payment_attribution_simulation.paid_subsidiary_customer_identifier PAID_SBSD_CUST_ID,
+payment_attribution_simulation.program_ineligibility_reason_type_code PGM_IELG_RSN_TYPE_CD,
+payment_attribution_simulation.permitted_entity_eligible_indicator PMIT_ENTY_ELG_IND,
+payment_attribution_simulation.payment_attribution_amount PYMT_ATRB_AMT,
+payment_attribution_simulation.payment_attribution_business_category_code PYMT_ATRB_BUS_CAT_CD,
+payment_attribution_simulation.payment_attribution_share_percentage PYMT_ATRB_SHR_PCT,
+payment_attribution_simulation.payment_attribution_simulation_identifier PYMT_ATRB_SIM_ID,
+payment_attribution_simulation.payment_limitation_year PYMT_LMT_YR,
+payment_attribution_simulation.limited_payment_program_identifier PYMT_PGM_ID,
+payment_attribution_simulation.payment_party_relationship_code PYMT_PTY_RLT_CD,
+payment_attribution_simulation.record_reference_primary_identification RCD_REF_PRIM_ID,
+payment_attribution_simulation.record_reference_primary_identification_type_code RCD_REF_PRIM_ID_TYPE_CD,
+payment_attribution_simulation.record_reference_secondary_identification RCD_REF_SCND_ID,
+payment_attribution_simulation.record_reference_secondary_identification_type_code RCD_REF_SCND_ID_TYPE_CD,
+payment_attribution_simulation.subsidiary_customer_identifier SBSD_CUST_ID,
+payment_attribution_simulation.subsidiary_period_start_year SBSD_PRD_STRT_YR,
+payment_attribution_simulation.substantive_change_eligible_indicator SBST_CHG_ELG_IND,
+payment_attribution_simulation.tax_identification_type_code TAX_ID_TYPE_CD,
+payment_attribution_simulation.total_net_payment_amount TOT_NET_PYMT_AMT,
+payment_attribution_simulation.total_payment_attribution_amount TOT_PYMT_ATRB_AMT,
+payment_attribution_simulation.proposed_payment_simulation_identifier PRPS_PYMT_SIM_ID,
+PRNT_payment_attribution_simulation.payment_attribution_simulation_identifier PRNT_PYMT_ATRB_SIM_ID,
+proposed_payment_simulation.state_fsa_code ST_FSA_CD,
+proposed_payment_simulation.county_fsa_code CNTY_FSA_CD,
+proposed_payment_simulation.accounting_program_code PRPS_PYMT_SIM_ACCT_PGM_CD,
+proposed_payment_simulation.subsidiary_period_start_year PRPS_PYMT_SIM_SBSD_PRD_STRT_YR,
+PRNT_proposed_payment_simulation.state_fsa_code PRNT_PYMT_ATRB_SIM_ST_FSA_CD,
+PRNT_proposed_payment_simulation.county_fsa_code PRNT_PYMT_ATRB_SIM_CNTY_FSA_CD,
+PRNT_proposed_payment_simulation.accounting_program_code PRNT_PYMT_ATRB_SIM_ACCT_PGM_CD,
+PRNT_proposed_payment_simulation.subsidiary_period_start_year PRNT_ATRB_SIM_SBSD_PRD_STRT_YR,
+subsidiary_customer.core_customer_identifier MBR_CORE_CUST_ID,
+paid_subsidiary_customer.core_customer_identifier PAID_CORE_CUST_ID,
+parent_subsidiary_customer.core_customer_identifier PRNT_PYMT_ATRB_CORE_CUST_ID,
+fsa_county.state_county_fsa_code MBR_CORE_CUST_ST_CNTY_FSA_CD,
+paid_fsa_county.state_county_fsa_code PAID_CORE_CUST_ST_CNTY_FSA_CD,
+parent_fsa_county.state_county_fsa_code PRNT_ATRB_CUST_ST_CNTY_FSA_CD,
+ proposed_payment_simulation.OP,
+  2 AS TBL_PRIORITY
+from `fsa-{env}-sbsd-cdc`.`proposed_payment_simulation` proposed_payment_simulation
+ join `fsa-{env}-sbsd-cdc`.`payment_attribution_simulation` payment_attribution_simulation
+On (payment_attribution_simulation.proposed_payment_simulation_identifier =proposed_payment_simulation.proposed_payment_simulation_identifier)
+Left join `fsa-{env}-sbsd-cdc`.`payment_attribution_simulation` PRNT_payment_attribution_simulation
+on (payment_attribution_simulation.parent_payment_attribution_simulation_identifier = PRNT_payment_attribution_simulation.payment_attribution_simulation_identifier)
+/* join to payment_attribution_simulation again to get parent values*/
+Left  join `fsa-{env}-sbsd-cdc`.`proposed_payment_simulation` PRNT_proposed_payment_simulation
+ON (PRNT_payment_attribution_simulation.proposed_payment_simulation_identifier = PRNT_proposed_payment_simulation.proposed_payment_simulation_identifier)
+LEFT JOIN `fsa-{env}-sbsd-cdc`.`subsidiary_customer` subsidiary_customer
+ON (payment_attribution_simulation.subsidiary_customer_identifier = subsidiary_customer.subsidiary_customer_identifier)
+ /* join to subsidary customer again to get parent values*/
+LEFT JOIN `fsa-{env}-sbsd-cdc`.`subsidiary_customer` parent_subsidiary_customer
+ON (PRNT_payment_attribution_simulation.subsidiary_customer_identifier = parent_subsidiary_customer.subsidiary_customer_identifier)
+      /* get paid customer information*/
+LEFT JOIN `fsa-{env}-sbsd-cdc`.`subsidiary_customer` paid_subsidiary_customer
+ON (payment_attribution_simulation.paid_subsidiary_customer_identifier = paid_subsidiary_customer.subsidiary_customer_identifier)
+Left join `fsa-{env}-sbsd-cdc`.`fsa_county` fsa_county
+On (subsidiary_customer.fsa_county_identifier =fsa_county.fsa_county_identifier)
+/*join to fsa county again to get parent values*/
+Left join `fsa-{env}-sbsd-cdc`.`fsa_county` parent_fsa_county
+on (parent_subsidiary_customer.fsa_county_identifier=parent_fsa_county.fsa_county_identifier)
+ /*get paid fsa county information*/
+Left join `fsa-{env}-sbsd-cdc`.`fsa_county` paid_fsa_county
+on (paid_subsidiary_customer.fsa_county_identifier = paid_fsa_county.fsa_county_identifier)
+WHERE proposed_payment_simulation.dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}'
+and proposed_payment_simulation.OP <> 'D'
+
+Union
+
+Select 
+payment_attribution_simulation.accounting_program_code ACCT_PGM_CD,
+payment_attribution_simulation.agi_eligible_indicator AGI_ELG_IND,
+payment_attribution_simulation.agi_error_reference_code AGI_ERR_REF_CD,
+payment_attribution_simulation.business_type_code BUS_TYPE_CD,
+payment_attribution_simulation.cash_rent_cropland_factor CASH_RENT_CPLD_FCTR,
+payment_attribution_simulation.combined_party_payment_share_percentage CMB_PTY_PYMT_SHR_PCT,
+payment_attribution_simulation.creation_date CRE_DT,
+payment_attribution_simulation.creation_user_name CRE_USER_NM,
+payment_attribution_simulation.data_status_code DATA_STAT_CD,
+payment_attribution_simulation.foreign_person_eligible_indicator FGN_PRSN_ELG_IND,
+payment_attribution_simulation.last_change_date LAST_CHG_DT,
+payment_attribution_simulation.last_change_user_name LAST_CHG_USER_NM,
+payment_attribution_simulation.member_contribution_eligible_indicator MBR_CTRB_ELG_IND,
+payment_attribution_simulation.member_contribution_share_percentage MBR_CTRB_SHR_PCT,
+payment_attribution_simulation.member_share_percentage MBR_SHR_PCT,
+payment_attribution_simulation.net_payment_amount NET_PYMT_AMT,
+payment_attribution_simulation.ownership_hierarchy_level_share_percentage OWNSHP_HRCH_LVL_SHR_PCT,
+payment_attribution_simulation.paid_party_share_percentage PAID_PTY_SHR_PCT,
+payment_attribution_simulation.paid_subsidiary_customer_identifier PAID_SBSD_CUST_ID,
+payment_attribution_simulation.program_ineligibility_reason_type_code PGM_IELG_RSN_TYPE_CD,
+payment_attribution_simulation.permitted_entity_eligible_indicator PMIT_ENTY_ELG_IND,
+payment_attribution_simulation.payment_attribution_amount PYMT_ATRB_AMT,
+payment_attribution_simulation.payment_attribution_business_category_code PYMT_ATRB_BUS_CAT_CD,
+payment_attribution_simulation.payment_attribution_share_percentage PYMT_ATRB_SHR_PCT,
+payment_attribution_simulation.payment_attribution_simulation_identifier PYMT_ATRB_SIM_ID,
+payment_attribution_simulation.payment_limitation_year PYMT_LMT_YR,
+payment_attribution_simulation.limited_payment_program_identifier PYMT_PGM_ID,
+payment_attribution_simulation.payment_party_relationship_code PYMT_PTY_RLT_CD,
+payment_attribution_simulation.record_reference_primary_identification RCD_REF_PRIM_ID,
+payment_attribution_simulation.record_reference_primary_identification_type_code RCD_REF_PRIM_ID_TYPE_CD,
+payment_attribution_simulation.record_reference_secondary_identification RCD_REF_SCND_ID,
+payment_attribution_simulation.record_reference_secondary_identification_type_code RCD_REF_SCND_ID_TYPE_CD,
+payment_attribution_simulation.subsidiary_customer_identifier SBSD_CUST_ID,
+payment_attribution_simulation.subsidiary_period_start_year SBSD_PRD_STRT_YR,
+payment_attribution_simulation.substantive_change_eligible_indicator SBST_CHG_ELG_IND,
+payment_attribution_simulation.tax_identification_type_code TAX_ID_TYPE_CD,
+payment_attribution_simulation.total_net_payment_amount TOT_NET_PYMT_AMT,
+payment_attribution_simulation.total_payment_attribution_amount TOT_PYMT_ATRB_AMT,
+payment_attribution_simulation.proposed_payment_simulation_identifier PRPS_PYMT_SIM_ID,
+PRNT_payment_attribution_simulation.payment_attribution_simulation_identifier PRNT_PYMT_ATRB_SIM_ID,
+proposed_payment_simulation.state_fsa_code ST_FSA_CD,
+proposed_payment_simulation.county_fsa_code CNTY_FSA_CD,
+proposed_payment_simulation.accounting_program_code PRPS_PYMT_SIM_ACCT_PGM_CD,
+proposed_payment_simulation.subsidiary_period_start_year PRPS_PYMT_SIM_SBSD_PRD_STRT_YR,
+PRNT_proposed_payment_simulation.state_fsa_code PRNT_PYMT_ATRB_SIM_ST_FSA_CD,
+PRNT_proposed_payment_simulation.county_fsa_code PRNT_PYMT_ATRB_SIM_CNTY_FSA_CD,
+PRNT_proposed_payment_simulation.accounting_program_code PRNT_PYMT_ATRB_SIM_ACCT_PGM_CD,
+PRNT_proposed_payment_simulation.subsidiary_period_start_year PRNT_ATRB_SIM_SBSD_PRD_STRT_YR,
+subsidiary_customer.core_customer_identifier MBR_CORE_CUST_ID,
+paid_subsidiary_customer.core_customer_identifier PAID_CORE_CUST_ID,
+parent_subsidiary_customer.core_customer_identifier PRNT_PYMT_ATRB_CORE_CUST_ID,
+fsa_county.state_county_fsa_code MBR_CORE_CUST_ST_CNTY_FSA_CD,
+paid_fsa_county.state_county_fsa_code PAID_CORE_CUST_ST_CNTY_FSA_CD,
+parent_fsa_county.state_county_fsa_code PRNT_ATRB_CUST_ST_CNTY_FSA_CD,
+ subsidiary_customer.OP,
+  3 AS TBL_PRIORITY
+from 
+  ( 
+ Select SBSD_PRE.* from (
+Select * FROM `fsa-{env}-sbsd-cdc`.`subsidiary_customer` subsidiary_customer  where  subsidiary_customer.op ='UN' And cast('{ETL_END_DATE}' as date)  <> cast(current_date as date)
+     UNION
+     /*same day scenario update happens*/
+    Select * FROM `fsa-{env}-sbsd-cdc`.`subsidiary_customer` where  subsidiary_customer.op ='UN'
+       And cast('{ETL_END_DATE}' as date)  = cast(current_date as date)
+     )  SBSD_PRE
+  JOIN
+   ( Select * from `fsa-{env}-sbsd-cdc`.`subsidiary_customer` subsidiary_customer   
+   ) SBSD_CUST_MAIN
+ON  ( SBSD_PRE.subsidiary_customer_identifier = SBSD_CUST_MAIN.subsidiary_customer_identifier 
+       And ( SBSD_PRE.fsa_county_identifier <> SBSD_CUST_MAIN.fsa_county_identifier Or SBSD_PRE.core_customer_identifier <> SBSD_CUST_MAIN.core_customer_identifier )
+     )
+     UNION
+   Select * FROM `fsa-{env}-sbsd-cdc`.`subsidiary_customer` subsidiary_customer  where   subsidiary_customer.op ='I'
+ ) subsidiary_customer
+JOIN `fsa-{env}-sbsd-cdc`.`payment_attribution_simulation` payment_attribution_simulation
+ON (payment_attribution_simulation.subsidiary_customer_identifier = subsidiary_customer.subsidiary_customer_identifier)
+Left join `fsa-{env}-sbsd-cdc`.`payment_attribution_simulation` PRNT_payment_attribution_simulation
+on (payment_attribution_simulation.parent_payment_attribution_simulation_identifier = PRNT_payment_attribution_simulation.payment_attribution_simulation_identifier)
+Left  join `fsa-{env}-sbsd-cdc`.`proposed_payment_simulation` proposed_payment_simulation 
+On (payment_attribution_simulation.proposed_payment_simulation_identifier =proposed_payment_simulation.proposed_payment_simulation_identifier)
+/* join to payment_attribution_simulation again to get parent values*/
+Left  join `fsa-{env}-sbsd-cdc`.`proposed_payment_simulation` PRNT_proposed_payment_simulation
+ON (PRNT_payment_attribution_simulation.proposed_payment_simulation_identifier = PRNT_proposed_payment_simulation.proposed_payment_simulation_identifier)
+ /* join to subsidary customer again to get parent values*/
+LEFT JOIN `fsa-{env}-sbsd-cdc`.`subsidiary_customer` parent_subsidiary_customer
+ON (PRNT_payment_attribution_simulation.subsidiary_customer_identifier = parent_subsidiary_customer.subsidiary_customer_identifier)
+      /* get paid customer information*/
+LEFT JOIN `fsa-{env}-sbsd-cdc`.`subsidiary_customer` paid_subsidiary_customer
+ON (payment_attribution_simulation.paid_subsidiary_customer_identifier = paid_subsidiary_customer.subsidiary_customer_identifier)
+Left join `fsa-{env}-sbsd-cdc`.`fsa_county` fsa_county
+On (subsidiary_customer.fsa_county_identifier =fsa_county.fsa_county_identifier)
+/*join to fsa county again to get parent values*/
+Left join `fsa-{env}-sbsd-cdc`.`fsa_county` parent_fsa_county
+on (parent_subsidiary_customer.fsa_county_identifier=parent_fsa_county.fsa_county_identifier)
+ /*get paid fsa county information*/
+Left join `fsa-{env}-sbsd-cdc`.`fsa_county` paid_fsa_county
+on (paid_subsidiary_customer.fsa_county_identifier = paid_fsa_county.fsa_county_identifier)
+WHERE subsidiary_customer.dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}'
+AND subsidiary_customer.op <> 'D'
+
+
+Union
+
+
+
+Select 
+payment_attribution_simulation.accounting_program_code ACCT_PGM_CD,
+payment_attribution_simulation.agi_eligible_indicator AGI_ELG_IND,
+payment_attribution_simulation.agi_error_reference_code AGI_ERR_REF_CD,
+payment_attribution_simulation.business_type_code BUS_TYPE_CD,
+payment_attribution_simulation.cash_rent_cropland_factor CASH_RENT_CPLD_FCTR,
+payment_attribution_simulation.combined_party_payment_share_percentage CMB_PTY_PYMT_SHR_PCT,
+payment_attribution_simulation.creation_date CRE_DT,
+payment_attribution_simulation.creation_user_name CRE_USER_NM,
+payment_attribution_simulation.data_status_code DATA_STAT_CD,
+payment_attribution_simulation.foreign_person_eligible_indicator FGN_PRSN_ELG_IND,
+payment_attribution_simulation.last_change_date LAST_CHG_DT,
+payment_attribution_simulation.last_change_user_name LAST_CHG_USER_NM,
+payment_attribution_simulation.member_contribution_eligible_indicator MBR_CTRB_ELG_IND,
+payment_attribution_simulation.member_contribution_share_percentage MBR_CTRB_SHR_PCT,
+payment_attribution_simulation.member_share_percentage MBR_SHR_PCT,
+payment_attribution_simulation.net_payment_amount NET_PYMT_AMT,
+payment_attribution_simulation.ownership_hierarchy_level_share_percentage OWNSHP_HRCH_LVL_SHR_PCT,
+payment_attribution_simulation.paid_party_share_percentage PAID_PTY_SHR_PCT,
+payment_attribution_simulation.paid_subsidiary_customer_identifier PAID_SBSD_CUST_ID,
+payment_attribution_simulation.program_ineligibility_reason_type_code PGM_IELG_RSN_TYPE_CD,
+payment_attribution_simulation.permitted_entity_eligible_indicator PMIT_ENTY_ELG_IND,
+payment_attribution_simulation.payment_attribution_amount PYMT_ATRB_AMT,
+payment_attribution_simulation.payment_attribution_business_category_code PYMT_ATRB_BUS_CAT_CD,
+payment_attribution_simulation.payment_attribution_share_percentage PYMT_ATRB_SHR_PCT,
+payment_attribution_simulation.payment_attribution_simulation_identifier PYMT_ATRB_SIM_ID,
+payment_attribution_simulation.payment_limitation_year PYMT_LMT_YR,
+payment_attribution_simulation.limited_payment_program_identifier PYMT_PGM_ID,
+payment_attribution_simulation.payment_party_relationship_code PYMT_PTY_RLT_CD,
+payment_attribution_simulation.record_reference_primary_identification RCD_REF_PRIM_ID,
+payment_attribution_simulation.record_reference_primary_identification_type_code RCD_REF_PRIM_ID_TYPE_CD,
+payment_attribution_simulation.record_reference_secondary_identification RCD_REF_SCND_ID,
+payment_attribution_simulation.record_reference_secondary_identification_type_code RCD_REF_SCND_ID_TYPE_CD,
+payment_attribution_simulation.subsidiary_customer_identifier SBSD_CUST_ID,
+payment_attribution_simulation.subsidiary_period_start_year SBSD_PRD_STRT_YR,
+payment_attribution_simulation.substantive_change_eligible_indicator SBST_CHG_ELG_IND,
+payment_attribution_simulation.tax_identification_type_code TAX_ID_TYPE_CD,
+payment_attribution_simulation.total_net_payment_amount TOT_NET_PYMT_AMT,
+payment_attribution_simulation.total_payment_attribution_amount TOT_PYMT_ATRB_AMT,
+payment_attribution_simulation.proposed_payment_simulation_identifier PRPS_PYMT_SIM_ID,
+PRNT_payment_attribution_simulation.payment_attribution_simulation_identifier PRNT_PYMT_ATRB_SIM_ID,
+proposed_payment_simulation.state_fsa_code ST_FSA_CD,
+proposed_payment_simulation.county_fsa_code CNTY_FSA_CD,
+proposed_payment_simulation.accounting_program_code PRPS_PYMT_SIM_ACCT_PGM_CD,
+proposed_payment_simulation.subsidiary_period_start_year PRPS_PYMT_SIM_SBSD_PRD_STRT_YR,
+PRNT_proposed_payment_simulation.state_fsa_code PRNT_PYMT_ATRB_SIM_ST_FSA_CD,
+PRNT_proposed_payment_simulation.county_fsa_code PRNT_PYMT_ATRB_SIM_CNTY_FSA_CD,
+PRNT_proposed_payment_simulation.accounting_program_code PRNT_PYMT_ATRB_SIM_ACCT_PGM_CD,
+PRNT_proposed_payment_simulation.subsidiary_period_start_year PRNT_ATRB_SIM_SBSD_PRD_STRT_YR,
+subsidiary_customer.core_customer_identifier MBR_CORE_CUST_ID,
+paid_subsidiary_customer.core_customer_identifier PAID_CORE_CUST_ID,
+parent_subsidiary_customer.core_customer_identifier PRNT_PYMT_ATRB_CORE_CUST_ID,
+fsa_county.state_county_fsa_code MBR_CORE_CUST_ST_CNTY_FSA_CD,
+paid_fsa_county.state_county_fsa_code PAID_CORE_CUST_ST_CNTY_FSA_CD,
+parent_fsa_county.state_county_fsa_code PRNT_ATRB_CUST_ST_CNTY_FSA_CD,
+payment_attribution_simulation.op,
+  4 AS TBL_PRIORITY
+from (  SELECT 
+    fsa_county_identifier,
+    state_county_fsa_code,
+    last_change_date, 
+    last_change_user_name,
+    fsa_county.op 
+    FROM (
+    SELECT *,ROW_NUMBER() OVER (PARTITION BY fsa_county_identifier
+            ORDER BY LAST_CHG_DT desc) as rnum 
+            FROM `fsa-{env}-sbsd-cdc`.`fsa_county` fsa_county) as SubQry
+    WHERE SubQry.rnum=1
+) fsa_county
+ join  `fsa-{env}-sbsd-cdc`.`subsidiary_customer` subsidiary_customer
+On (subsidiary_customer.fsa_county_identifier = fsa_county.fsa_county_identifier)
+ JOIN `fsa-{env}-sbsd-cdc`.`payment_attribution_simulation` payment_attribution_simulation
+ON (payment_attribution_simulation.subsidiary_customer_identifier = subsidiary_customer.subsidiary_customer_identifier)
+Left join `fsa-{env}-sbsd-cdc`.`payment_attribution_simulation` PRNT_payment_attribution_simulation
+on (payment_attribution_simulation.parent_payment_attribution_simulation_identifier = PRNT_payment_attribution_simulation.payment_attribution_simulation_identifier)
+Left  join `fsa-{env}-sbsd-cdc`.`proposed_payment_simulation` proposed_payment_simulation 
+On (payment_attribution_simulation.proposed_payment_simulation_identifier =proposed_payment_simulation.proposed_payment_simulation_identifier)
+/* join to payment_attribution_simulation again to get parent values*/
+Left  join `fsa-{env}-sbsd-cdc`.`proposed_payment_simulation` PRNT_proposed_payment_simulation
+ON (PRNT_payment_attribution_simulation.proposed_payment_simulation_identifier = PRNT_proposed_payment_simulation.proposed_payment_simulation_identifier)
+ /* join to subsidary customer again to get parent values*/
+LEFT JOIN `fsa-{env}-sbsd-cdc`.`subsidiary_customer` parent_subsidiary_customer
+ON (PRNT_payment_attribution_simulation.subsidiary_customer_identifier = parent_subsidiary_customer.subsidiary_customer_identifier)
+      /* get paid customer information*/
+LEFT JOIN `fsa-{env}-sbsd-cdc`.`subsidiary_customer` paid_subsidiary_customer
+ON (payment_attribution_simulation.paid_subsidiary_customer_identifier = paid_subsidiary_customer.subsidiary_customer_identifier)
+/*join to fsa county again to get parent values*/
+Left join `fsa-{env}-sbsd-cdc`.`fsa_county` parent_fsa_county
+on (parent_subsidiary_customer.fsa_county_identifier=parent_fsa_county.fsa_county_identifier)
+ /*get paid fsa county information*/
+Left join `fsa-{env}-sbsd-cdc`.`fsa_county` paid_fsa_county
+on (paid_subsidiary_customer.fsa_county_identifier = paid_fsa_county.fsa_county_identifier)
+WHERE fsa_county.OP <> 'D'
+
+    ) STG_ALL
+) STG_UNQ
+WHERE row_num_part = 1
+AND (
+ (COALESCE(CAST(CRE_DT AS DATE), DATE '1900-01-01') <= CAST('{ETL_START_DATE}'  AS DATE))
+    AND
+    (COALESCE(CAST(LAST_CHG_DT AS DATE), DATE '1900-01-01') <= CAST('{ETL_START_DATE}'  AS DATE))
+)
+UNION
+Select 
+payment_attribution_simulation.accounting_program_code ACCT_PGM_CD,
+payment_attribution_simulation.agi_eligible_indicator AGI_ELG_IND,
+payment_attribution_simulation.agi_error_reference_code AGI_ERR_REF_CD,
+payment_attribution_simulation.business_type_code BUS_TYPE_CD,
+payment_attribution_simulation.cash_rent_cropland_factor CASH_RENT_CPLD_FCTR,
+payment_attribution_simulation.combined_party_payment_share_percentage CMB_PTY_PYMT_SHR_PCT,
+payment_attribution_simulation.creation_date CRE_DT,
+payment_attribution_simulation.creation_user_name CRE_USER_NM,
+payment_attribution_simulation.data_status_code DATA_STAT_CD,
+payment_attribution_simulation.foreign_person_eligible_indicator FGN_PRSN_ELG_IND,
+payment_attribution_simulation.last_change_date LAST_CHG_DT,
+payment_attribution_simulation.last_change_user_name LAST_CHG_USER_NM,
+payment_attribution_simulation.member_contribution_eligible_indicator MBR_CTRB_ELG_IND,
+payment_attribution_simulation.member_contribution_share_percentage MBR_CTRB_SHR_PCT,
+payment_attribution_simulation.member_share_percentage MBR_SHR_PCT,
+payment_attribution_simulation.net_payment_amount NET_PYMT_AMT,
+payment_attribution_simulation.ownership_hierarchy_level_share_percentage OWNSHP_HRCH_LVL_SHR_PCT,
+payment_attribution_simulation.paid_party_share_percentage PAID_PTY_SHR_PCT,
+payment_attribution_simulation.paid_subsidiary_customer_identifier PAID_SBSD_CUST_ID,
+payment_attribution_simulation.program_ineligibility_reason_type_code PGM_IELG_RSN_TYPE_CD,
+payment_attribution_simulation.permitted_entity_eligible_indicator PMIT_ENTY_ELG_IND,
+payment_attribution_simulation.payment_attribution_amount PYMT_ATRB_AMT,
+payment_attribution_simulation.payment_attribution_business_category_code PYMT_ATRB_BUS_CAT_CD,
+payment_attribution_simulation.payment_attribution_share_percentage PYMT_ATRB_SHR_PCT,
+payment_attribution_simulation.payment_attribution_simulation_identifier PYMT_ATRB_SIM_ID,
+payment_attribution_simulation.payment_limitation_year PYMT_LMT_YR,
+payment_attribution_simulation.limited_payment_program_identifier PYMT_PGM_ID,
+payment_attribution_simulation.payment_party_relationship_code PYMT_PTY_RLT_CD,
+payment_attribution_simulation.record_reference_primary_identification RCD_REF_PRIM_ID,
+payment_attribution_simulation.record_reference_primary_identification_type_code RCD_REF_PRIM_ID_TYPE_CD,
+payment_attribution_simulation.record_reference_secondary_identification RCD_REF_SCND_ID,
+payment_attribution_simulation.record_reference_secondary_identification_type_code RCD_REF_SCND_ID_TYPE_CD,
+payment_attribution_simulation.subsidiary_customer_identifier SBSD_CUST_ID,
+payment_attribution_simulation.subsidiary_period_start_year SBSD_PRD_STRT_YR,
+payment_attribution_simulation.substantive_change_eligible_indicator SBST_CHG_ELG_IND,
+payment_attribution_simulation.tax_identification_type_code TAX_ID_TYPE_CD,
+payment_attribution_simulation.total_net_payment_amount TOT_NET_PYMT_AMT,
+payment_attribution_simulation.total_payment_attribution_amount TOT_PYMT_ATRB_AMT,
+payment_attribution_simulation.proposed_payment_simulation_identifier PRPS_PYMT_SIM_ID,
+payment_attribution_simulation.parent_payment_attribution_simulation_identifier PRNT_PYMT_ATRB_SIM_ID,
+Null ST_FSA_CD,
+Null CNTY_FSA_CD,
+Null PRPS_PYMT_SIM_ACCT_PGM_CD,
+Null PRPS_PYMT_SIM_SBSD_PRD_STRT_YR,
+Null PRNT_PYMT_ATRB_SIM_ST_FSA_CD,
+Null PRNT_PYMT_ATRB_SIM_CNTY_FSA_CD,
+Null PRNT_PYMT_ATRB_SIM_ACCT_PGM_CD,
+Null PRNT_ATRB_SIM_SBSD_PRD_STRT_YR,
+Null MBR_CORE_CUST_ID,
+Null PAID_CORE_CUST_ID,
+Null PRNT_PYMT_ATRB_CORE_CUST_ID,
+Null MBR_CORE_CUST_ST_CNTY_FSA_CD,
+Null PAID_CORE_CUST_ST_CNTY_FSA_CD,
+Null PRNT_ATRB_CUST_ST_CNTY_FSA_CD,
+'D' OP,
+1 AS row_num_part
+from `fsa-{env}-sbsd-cdc`.`payment_attribution_simulation` payment_attribution_simulation
+WHERE EWT14SGNP.dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}'
+AND payment_attribution_simulation.OP = 'D')

@@ -1,0 +1,30 @@
+INSERT INTO EDV.PYMT_PGM_RS (PYMT_PGM_NM, LOAD_DT, DATA_EFF_STRT_DT, DATA_SRC_NM, DATA_STAT_CD, SRC_CRE_DT, SRC_CRE_USER_NM, SRC_LAST_CHG_DT, SRC_LAST_CHG_USER_NM, PGM_SHRT_NM, PYMT_PGM_ID, PGM_AR_ID, DATA_EFF_END_DT, LOAD_END_DT)
+  (SELECT stg.*
+   FROM
+     (SELECT DISTINCT COALESCE (PYMT_PGM.PGM_NM,
+                           '[NULL IN SOURCE]') PYMT_PGM_NM,
+                          PYMT_PGM.LOAD_DT LOAD_DT,
+                          PYMT_PGM.CDC_DT DATA_EFF_STRT_DT,
+                          PYMT_PGM.DATA_SRC_NM DATA_SRC_NM,
+                          PYMT_PGM.DATA_STAT_CD DATA_STAT_CD,
+                          PYMT_PGM.CRE_DT SRC_CRE_DT,
+                          PYMT_PGM.CRE_USER_NM SRC_CRE_USER_NM,
+                          PYMT_PGM.LAST_CHG_DT SRC_LAST_CHG_DT,
+                          PYMT_PGM.LAST_CHG_USER_NM SRC_LAST_CHG_USER_NM,
+                          PYMT_PGM.PGM_SHRT_NM PGM_SHRT_NM,
+                          PYMT_PGM.PYMT_PGM_ID PYMT_PGM_ID,
+                          PYMT_PGM.PGM_AR_ID PGM_AR_ID,
+                          TO_TIMESTAMP('9999-12-31', 'YYYY-MM-DD') DATA_EFF_END_DT,
+                          TO_TIMESTAMP('9999-12-31', 'YYYY-MM-DD') LOAD_END_DT
+      FROM SBSD_STG.PYMT_PGM
+      WHERE PYMT_PGM.cdc_oper_cd <> 'D'
+        AND date(PYMT_PGM.CDC_DT) = date(TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD HH24:MI:SS.FF'))
+        AND PYMT_PGM.LOAD_DT = (SELECT MAX(LOAD_DT) FROM SBSD_STG.PYMT_PGM)
+      ORDER BY PYMT_PGM.CDC_DT) stg
+   LEFT JOIN EDV.PYMT_PGM_RS dv ON (coalesce(stg.PYMT_PGM_NM, 'X') = coalesce(dv.PYMT_PGM_NM, 'X')
+                                    AND coalesce(stg.DATA_STAT_CD, 'X') = coalesce(dv.DATA_STAT_CD, 'X')
+                                    AND coalesce(stg.PGM_SHRT_NM, 'X') = coalesce(dv.PGM_SHRT_NM, 'X')
+                                    AND coalesce(stg.PYMT_PGM_ID, 0) = coalesce(dv.PYMT_PGM_ID, 0)
+                                    AND coalesce(stg.PGM_AR_ID, 0) = coalesce(dv.PGM_AR_ID, 0)
+                                    AND dv.LOAD_END_DT = TO_TIMESTAMP('9999-12-31', 'YYYY-MM-DD'))
+   WHERE dv.PYMT_PGM_NM IS NULL )

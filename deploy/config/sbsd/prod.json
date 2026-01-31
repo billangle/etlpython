@@ -1,0 +1,95 @@
+{
+  "deployEnv": "PROD",
+  "project": "sbsd",
+  "region": "us-east-1",
+  "bucketRegion": "us-east-1",
+
+  "configData": {
+    "databaseName": "fsa-fpac-db",
+    "dynamoTableName": "FsaFpacMetadata"
+  },
+
+  "ssm": {
+    "landingBucketNameParam": "fpacFsaLandingBucketSSMName",
+    "cleanBucketNameParam": "fpacFsaCleanBucketSSMName",
+    "finalBucketNameParam": "fpacFsaFinalBucketSSMName",
+    "glueJobRoleArnParam": "fpacFsaGlueJobRoleSSMArn",
+    "etlRoleArnParam": "fpacFsaLambdaExecuteRoleARN",
+    "thirdPartyLayerArnParam": "fpacfsaThirdPartyLayerArn",
+    "customLayerArnParam": "fpacfsaCustomLayerArn"
+  },
+  "strparams": {
+    "landingBucketNameParam": "c108-prod-fpacfsa-landing-zone",
+    "cleanBucketNameParam": "c108-prod-fpacfsa-cleansed-zone",
+    "finalBucketNameParam": "c108-prod-fpacfsa-final-zone",
+    "glueJobRoleArnParam": "arn:aws:iam::253490756794:role/disc-fsa-prod-glue-servicerole",
+    "etlRoleArnParam": "arn:aws:iam::253490756794:role/disc-fsa-prod-lambda-servicerole",
+    "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:253490756794:layer:FSA-DEV-psycopg2-python311:1",
+    "customLayerArnParam": "arn:aws:lambda:us-east-1:253490756794:layer:FSA-polars:1"
+  },
+  "paths": {
+    "glueRootPath": "../src/glue/",
+    "lambdaRootPath": "../src/lambda/"
+  },
+
+  "artifacts": {
+    "artifactBucket": "fsa-prod-ops",
+    "prefix": "sbsd/"
+  },
+
+  "stepFunctions": {
+    "createRoleIfMissing": false,
+    "roleName": "disc-fsa-prod-stepfunction-servicerole",
+    "roleArn": "arn:aws:iam::253490756794:role/disc-fsa-prod-stepfunction-servicerole"
+  },
+  "configUpload": {
+    "functionName": "FSA-PROD-UploadConfig",
+    "sourceDir": "configs",
+    "inputBucket": "fsa-prod-ops",
+    "inputPrefix": "input/zips",
+    "outputBucket": "c108-prod-fpacfsa-final-zone",
+    "outputPrefix": "sbsd",
+    "minExpectedObjects": 2,
+    "debug": true
+  },
+ "GlueJobParameters": {
+   "Connections" : [{
+      "ConnectionName": "FSA-PROD-PG-DART115",
+      "type": "JDBC",
+      "VpcId": "vpc-092b2aee3fba9e5e6",
+      "SubnetIds": "subnet-07843ec7237c1c9f1",
+      "SecurityGroupIds": "sg-05e3e3fd000913769,sg-077ff58658f28e30f"
+      },
+      {
+      "ConnectionName": "FSA-PROD-PG-DART114",
+      "type": "JDBC",
+      "VpcId": "vpc-092b2aee3fba9e5e6",
+      "SubnetIds": "subnet-0d4691e36b391b17f",
+      "SecurityGroupIds": "sg-05e3e3fd000913769, sg-077ff58658f28e30f"
+      }] ,
+    "MaxConcurrency": "20",
+    "MaxRetries": "1",
+    "TimeoutMinutes": "480",
+    "WorkerType": "G.4X",
+    "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/cars/",
+    "NumberOfWorkers": "2",
+    "AutomaticScalingEnabled": "true",
+    "GlueVersion": "4.0",
+    "JobLanguage": "python",
+    "GenerateMetrics": "true",
+    "EnableJobBookmarks": "false",
+    "JobObservabilityMetrics": "ENABLED",
+    "JobContinuousLogging": "ENABLED",
+    "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+    "UseGlueDataCatalogAsTheHiveMetastore": "true",
+       "JobParameters": {
+      "--data_src_nm": "cars",
+      "--env": "prod",
+      "--layer": "stg",
+      "--run_type": "Incremental",
+      "--start_date": "2026-01-18",
+      "--table_name": "PRDR_PGM_PYMT_LMT_ADJ"
+    }
+ }
+
+}

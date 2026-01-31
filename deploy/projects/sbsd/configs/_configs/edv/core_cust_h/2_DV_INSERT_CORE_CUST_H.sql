@@ -1,0 +1,15 @@
+INSERT INTO EDV.CORE_CUST_H (CORE_CUST_ID, LOAD_DT, DATA_SRC_NM)
+  (SELECT stg.CORE_CUST_ID,
+          stg.LOAD_DT,
+          stg.DATA_SRC_NM
+   FROM
+     (SELECT DISTINCT COALESCE (SBSD_CUST.CORE_CUST_ID,
+                           '-1') CORE_CUST_ID,
+                          SBSD_CUST.LOAD_DT LOAD_DT,
+                          SBSD_CUST.DATA_SRC_NM DATA_SRC_NM,
+                          ROW_NUMBER () OVER (PARTITION BY SBSD_CUST.CORE_CUST_ID
+                                              ORDER BY SBSD_CUST.CDC_DT DESC, SBSD_CUST.LOAD_DT DESC) STG_EFF_DT_RANK
+      FROM SBSD_STG.SBSD_CUST) stg
+   LEFT JOIN EDV.CORE_CUST_H dv ON (stg.CORE_CUST_ID = dv.CORE_CUST_ID)
+   WHERE (dv.CORE_CUST_ID IS NULL)
+     AND stg.STG_EFF_DT_RANK = 1 )

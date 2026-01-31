@@ -99,6 +99,9 @@
       "--start_date": "2026-01-18",
       "--table_name": "PRDR_PGM_PYMT_LMT_ADJ"
     }
- }
+ },
+  "carsdm": {
+    "target_bucket": "c108-prod-fpacfsa-final-zone"
+  }
 
 }

@@ -1,0 +1,22 @@
+INSERT INTO EDV.CMB_PRDR_ACCT_MBR_L (CMB_PRDR_ACCT_MBR_L_ID, CMB_PRDR_ACCT_H_ID, CORE_CUST_ID, LOAD_DT, DATA_SRC_NM)
+  (SELECT MD5  ((stg.CMB_PRDR_ACCT_H_ID || stg.CORE_CUST_ID)::varchar) CMB_PRDR_ACCT_MBR_L_ID,
+          stg.CMB_PRDR_ACCT_H_ID,
+          stg.CORE_CUST_ID,
+          stg.LOAD_DT,
+          stg.DATA_SRC_NM
+   FROM
+     (SELECT DISTINCT MD5 (coalesce(CMB_PRDR_ACCT_H.CMB_PRDR_ACCT_ID::varchar, '-1')) CMB_PRDR_ACCT_H_ID,
+                      coalesce(SBSD_CUST.CORE_CUST_ID, '-1') CORE_CUST_ID,
+                      CMB_ACCT_MBR.LOAD_DT LOAD_DT,
+                      CMB_ACCT_MBR.DATA_SRC_NM DATA_SRC_NM,
+                      ROW_NUMBER () OVER (PARTITION BY MD5 (coalesce(CMB_PRDR_ACCT_H.CMB_PRDR_ACCT_ID::varchar, '-1')),
+                                                       coalesce(SBSD_CUST.CORE_CUST_ID, '-1')
+                                          ORDER BY CMB_ACCT_MBR.CDC_DT DESC, CMB_ACCT_MBR.LOAD_DT DESC) STG_EFF_DT_RANK
+      FROM SBSD_STG.CMB_ACCT_MBR
+      JOIN EDV.V_SBSD_CUST SBSD_CUST ON (CMB_ACCT_MBR.SBSD_CUST_ID=SBSD_CUST.SBSD_CUST_ID)
+      LEFT OUTER JOIN EDV.CMB_PRDR_ACCT_H ON (CMB_PRDR_ACCT_H.CMB_PRDR_ACCT_ID=CMB_ACCT_MBR.CMB_PRDR_ACCT_ID)) stg
+   LEFT JOIN EDV.CMB_PRDR_ACCT_MBR_L dv ON (stg.CMB_PRDR_ACCT_H_ID = dv.CMB_PRDR_ACCT_H_ID
+                                            AND stg.CORE_CUST_ID = dv.CORE_CUST_ID)
+   WHERE (dv.CMB_PRDR_ACCT_H_ID IS NULL
+          OR dv.CORE_CUST_ID IS NULL)
+     AND stg.STG_EFF_DT_RANK = 1 )

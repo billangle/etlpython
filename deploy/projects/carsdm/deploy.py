@@ -218,27 +218,14 @@ def _merge_glue_default_args(
 def _strip_known_script_prefixes(filename: str) -> str:
     """
     Remove environment/project-ish prefixes from existing script filenames.
-
-    Examples:
-      FSA-CERT-CARS-LandingFiles.py  -> LandingFiles.py
-      FSA-CERT-Cars-Raw-DM.py        -> Raw-DM.py
-      Cars-Raw-DM.py                 -> Raw-DM.py
-      CARS-LandingFiles.py           -> LandingFiles.py
-
-    Rule:
-      - strip leading "FSA-<something>-" if present (first 2 segments)
-      - then strip leading "CARS-" or "Cars-"
     """
     name = Path(filename).name
 
-    # If it starts with FSA-XXX-..., drop the first two segments "FSA-XXX-"
-    # (We specifically want to remove any old hardcoded env markers like CERT/PROD/etc.)
     if name.startswith("FSA-"):
         parts = name.split("-", 2)  # ["FSA", "<ENV>", "<rest>"]
         if len(parts) == 3:
             name = parts[2]
 
-    # Now remove "CARS-" or "Cars-" prefix if present
     for pfx in ("CARS-", "Cars-"):
         if name.startswith(pfx):
             name = name[len(pfx):]
@@ -249,16 +236,8 @@ def _strip_known_script_prefixes(filename: str) -> str:
 
 def _s3_script_key(prefix: str, deploy_env: str, project: str, local_filename: str) -> str:
     """
-    Upload Glue scripts to S3 with a name that ALWAYS matches:
-
-      FSA-<deploy_env>-<project>-<something>.py
-
-    Where <something> is derived from the original file name AFTER stripping old
-    prefixes like FSA-CERT-CARS or Cars.
-
-    Examples:
-      local="FSA-CERT-CARS-LandingFiles.py" -> FSA-steam-dev-carsdm-LandingFiles.py
-      local="FSA-CERT-Cars-Raw-DM.py"       -> FSA-steam-dev-carsdm-Raw-DM.py
+    Upload Glue scripts to S3 with name:
+      FSA-<deploy_env>-<project>-<suffix>.py
     """
     dep = (deploy_env or "").strip()
     proj = (project or "").strip()
@@ -276,8 +255,6 @@ def _resolve_target_bucket(cfg: Dict[str, Any]) -> str:
 
       - If cfg.carsdm.target_bucket exists, use it.
       - Else, use cfg.artifacts.artifactBucket.
-
-    This guarantees NO MORE missing-bucket errors as long as artifacts.artifactBucket exists.
     """
     carsdm_cfg = cfg.get("carsdm") or {}
     override = carsdm_cfg.get("target_bucket")
@@ -290,6 +267,33 @@ def _resolve_target_bucket(cfg: Dict[str, Any]) -> str:
         return bucket.strip()
 
     raise RuntimeError("Missing required cfg.artifacts.artifactBucket")
+
+
+def _resolve_crawler_names(cfg: Dict[str, Any], deploy_env: str) -> Dict[str, str]:
+    """
+    Crawlers are assumed to exist.
+
+    We allow optional overrides in cfg.carsdm, otherwise use deterministic defaults:
+      final: FSA-<DEPLOY_ENV>-CARS-CRAWLER
+      cdc:   FSA-<DEPLOY_ENV>-CARS-cdc
+    """
+    carsdm_cfg = cfg.get("carsdm") or {}
+
+    final_override = carsdm_cfg.get("final_zone_crawler_name")
+    cdc_override = carsdm_cfg.get("cdc_crawler_name")
+
+    final_name = (
+        final_override.strip()
+        if isinstance(final_override, str) and final_override.strip()
+        else f"FSA-{deploy_env}-CARS-CRAWLER"
+    )
+    cdc_name = (
+        cdc_override.strip()
+        if isinstance(cdc_override, str) and cdc_override.strip()
+        else f"FSA-{deploy_env}-CARS-cdc"
+    )
+
+    return {"final_zone_crawler_name": final_name, "cdc_crawler_name": cdc_name}
 
 
 def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
@@ -314,7 +318,6 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     if not sfn_role_arn:
         raise RuntimeError("Missing required cfg.stepFunctions.roleArn")
 
-    # Project assets
     project_dir = Path(__file__).resolve().parent  # .../deploy/projects/carsdm
     lambda_root = project_dir / "lambda"
     glue_root = project_dir / "glue"
@@ -324,7 +327,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     sns_publish_dir = lambda_root / "sns-publish-step-function-errors"
     etl_update_dir = lambda_root / "etl-workflow-update-data-ppln-job"
 
-    # Glue scripts (local) - repo filenames
+    # Glue scripts (local) - repo filenames (can still be old; upload key will be normalized)
     landing_glue_script_local = glue_root / "FSA-CERT-CARS-LandingFiles.py"
     raw_dm_glue_script_local = glue_root / "FSA-CERT-Cars-Raw-DM.py"
 
@@ -348,8 +351,6 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
 
     runtime = strparams.get("lambdaRuntime", "python3.11")
     layers = _layers(cfg)
-
-    # Handlers
     handler = "lambda_function.handler"
 
     # --- Lambdas ---
@@ -393,7 +394,6 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     )
 
     # --- Glue jobs ---
-    # NOTE: If you have cfg["GlueJobParameters"] it's used; otherwise empty dicts (no guessing).
     glue_job_params_root = cfg.get("GlueJobParameters")
     has_glue_job_parameters = isinstance(glue_job_params_root, dict) and bool(glue_job_params_root)
 
@@ -467,7 +467,11 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     carsdm_cfg = cfg.get("carsdm") or {}
     env_lower = str(carsdm_cfg.get("env") or deploy_env).strip().lower()
 
+    crawler_names = _resolve_crawler_names(cfg, deploy_env)
+
+    # ✅ CRITICAL CHANGE: pass deploy_env into the builder inputs
     sm_inputs = CarsDmStateMachineInputs(
+        deploy_env=deploy_env,  # <-- required by the new builder to build crawler state names
         get_incremental_tables_fn_arn=get_incremental_arn,
         sns_publish_errors_fn_arn=sns_publish_arn,
         etl_workflow_update_job_fn_arn=etl_update_arn,
@@ -477,6 +481,9 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         region_name=str(carsdm_cfg.get("region_name") or region),
         secret_name=str(carsdm_cfg.get("secret_name") or f"FSA-{deploy_env}-{project}-secrets"),
         target_bucket=target_bucket,
+        final_zone_crawler_name=crawler_names["final_zone_crawler_name"],
+        cdc_crawler_name=crawler_names["cdc_crawler_name"],
+        comment=str(carsdm_cfg.get("comment") or f"FSA-{deploy_env}-Cars-S3Landing-to-S3Final-Raw-DM"),
     )
 
     definition = CarsDmStateMachineBuilder.carsdm_asl(sm_inputs)

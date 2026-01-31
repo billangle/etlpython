@@ -1,0 +1,32 @@
+SELECT 
+limited_payment_program_period_identifier AS PYMT_PGM_PRD_ID
+,effective_date AS EFF_DT
+,payment_limitation_prorating_percentage AS PYMT_LMT_PRRT_PCT
+,conservation_program_indicator AS CNSV_PGM_IND
+,direct_payment_program_indicator AS DIR_PYMT_PGM_IND
+,agi_threshhold_code AS AGI_THLD_CD
+,pay_state_local_governments_indicator AS PAY_ST_LCL_GVT_IND
+,pay_federal_entities_indicator AS PAY_FED_ENTY_IND
+,allow_positive_adjustment_indicator AS ALOW_POS_ADJ_IND
+,allow_negative_adjustment_indicator AS ALOW_NEG_ADJ_IND
+,allow_program_adjustment_indicator AS ALOW_PGM_ADJ_IND
+,apply_combined_party_rules_indicator AS APP_CMB_PTY_RULES_IND
+,combined_party_rules_source_code AS CMB_PTY_RULES_SRC_CD
+,allow_permitted_entity_adjustment_indicator AS ALOW_PMIT_ENTY_ADJ_IND
+,allow_inheritance_adjustment_indicator AS ALOW_INHRT_ADJ_IND
+,apply_member_contribution_requirement_indicator AS APP_MBR_CTRB_RQMT_IND
+,apply_substantive_change_requirement_indicator AS APP_SBST_CHG_RQMT_IND
+,apply_cash_rent_tenant_rule_indicator AS APP_CASH_RENT_TNT_RULE_IND
+,apply_3_ownership_level_limit_indicator AS APP_3_OWNSHP_LVL_LMT_IND
+,public_school_payment_limitation_rule_code AS PUB_SCHL_PYMT_LMT_RULE_CD
+,creation_date AS CRE_DT
+,creation_user_name AS CRE_USER_NM
+,last_change_date AS LAST_CHG_DT
+,last_change_user_name AS LAST_CHG_USER_NM
+,allow_foreign_person_participation_indicator AS ALOW_FGN_PRSN_PTCP_IND
+,allow_public_school_participation_indicator AS ALOW_PUB_SCHL_PTCP_IND
+,review_completed_date AS RVW_CPLT_DT
+,reviewer_name AS RVW_NM
+,agi_900k_payment_program_indicator AS AGI_900K_PYMT_PGM_IND
+, op AS CDC_OPER_CD 
+FROM `fsa-{env}-sbsd-cdc`.`payment_program_period_parameters`

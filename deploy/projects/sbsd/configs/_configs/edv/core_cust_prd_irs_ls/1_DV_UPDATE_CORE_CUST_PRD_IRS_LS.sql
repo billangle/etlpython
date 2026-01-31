@@ -1,0 +1,48 @@
+MERGE INTO EDV.CORE_CUST_PRD_IRS_LS dv USING
+  (SELECT DISTINCT MD5 (coalesce(PGM_YR_IRS_BUS_PTY_2014.CORE_CUST_ID::varchar, '-1')||PGM_YR_IRS_BUS_PTY_2014.PGM_YR) AS CORE_CUST_PRD_IRS_L_ID,
+                   PGM_YR_IRS_BUS_PTY_2014.LOAD_DT,
+                   PGM_YR_IRS_BUS_PTY_2014.CDC_DT,
+                   PGM_YR_IRS_BUS_PTY_2014.DATA_SRC_NM,
+                   PGM_YR_IRS_BUS_PTY_2014.DATA_STAT_CD,
+                   PGM_YR_IRS_BUS_PTY_2014.CRE_DT,
+                   PGM_YR_IRS_BUS_PTY_2014.CRE_USER_NM,
+                   PGM_YR_IRS_BUS_PTY_2014.LAST_CHG_DT,
+                   PGM_YR_IRS_BUS_PTY_2014.LAST_CHG_USER_NM,
+                   PGM_YR_IRS_BUS_PTY_2014.DATA_RCV_DT,
+                   PGM_YR_IRS_BUS_PTY_2014.AGI_CNST_FORM_IRS_IPUT_DT,
+                   PGM_YR_IRS_BUS_PTY_2014.BAT_PROC_STAT_EFF_DT,
+                   PGM_YR_IRS_BUS_PTY_2014.BAT_PROC_STAT_CD,
+                   PGM_YR_IRS_BUS_PTY_2014.CUST_DATA_IRS_VLD_CD,
+                   PGM_YR_IRS_BUS_PTY_2014.IRS_900K_AGI_ELG_DTER_CD,
+                   IRS_AGI_ELG_ERR_TYPE.IRS_AGI_ELG_ERR_TYPE_NBR,
+                   IRS_AGI_ELG_ERR_TYPE.IRS_AGI_ELG_ERR_CAT_CD,
+                   PGM_YR_IRS_BUS_PTY_2014.IRS_AGI_ELG_ERR_TYPE_ID,
+                   PGM_YR_IRS_BUS_PTY_2014.CORE_CUST_ID,
+                   PGM_YR_IRS_BUS_PTY_2014.PGM_YR_IRS_BUS_PTY_2014_ID,
+                   PGM_YR_IRS_BUS_PTY_2014.CDC_OPER_CD
+   FROM SBSD_STG.PGM_YR_IRS_BUS_PTY_2014
+   LEFT OUTER JOIN EDV.V_IRS_AGI_ELG_ERR_TYPE IRS_AGI_ELG_ERR_TYPE ON (PGM_YR_IRS_BUS_PTY_2014.IRS_AGI_ELG_ERR_TYPE_ID=IRS_AGI_ELG_ERR_TYPE.IRS_AGI_ELG_ERR_TYPE_ID)
+   WHERE PGM_YR_IRS_BUS_PTY_2014.CDC_OPER_CD<>'D'
+     AND DATE_TRUNC('day',PGM_YR_IRS_BUS_PTY_2014.CDC_DT) = DATE_TRUNC('day',TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD HH24:MI:SS.FF'))
+     AND PGM_YR_IRS_BUS_PTY_2014.LOAD_DT = (SELECT MAX(LOAD_DT) FROM SBSD_STG.PGM_YR_IRS_BUS_PTY_2014)
+   ORDER BY PGM_YR_IRS_BUS_PTY_2014.CDC_DT
+  ) stg 
+ON (coalesce(stg.PGM_YR_IRS_BUS_PTY_2014_ID, 0) = coalesce(dv.PGM_YR_IRS_BUS_PTY_2014_ID, 0)) 
+WHEN MATCHED 
+  AND dv.LOAD_DT <> stg.LOAD_DT
+  AND dv.LOAD_END_DT = to_date('9999-12-31', 'YYYY-MM-DD')
+  AND (coalesce(stg.CORE_CUST_PRD_IRS_L_ID, 'X') <> coalesce(dv.CORE_CUST_PRD_IRS_L_ID, 'X')
+       OR coalesce(stg.DATA_STAT_CD, 'X') <> coalesce(dv.DATA_STAT_CD, 'X')
+       OR coalesce(stg.AGI_CNST_FORM_IRS_IPUT_DT, current_date) <> coalesce(dv.AGI_CNST_FORM_IRS_IPUT_DT, current_date)
+       OR coalesce(stg.BAT_PROC_STAT_EFF_DT, current_date) <> coalesce(dv.BAT_PROC_STAT_EFF_DT, current_date)
+       OR coalesce(stg.BAT_PROC_STAT_CD, 'X') <> coalesce(dv.BAT_PROC_STAT_CD, 'X')
+       OR coalesce(stg.CUST_DATA_IRS_VLD_CD, 'X') <> coalesce(dv.CUST_DATA_IRS_VLD_CD, 'X')
+       OR coalesce(stg.IRS_900K_AGI_ELG_DTER_CD, 'X') <> coalesce(dv.IRS_900K_AGI_ELG_DTER_CD, 'X')
+       OR coalesce(stg.IRS_AGI_ELG_ERR_TYPE_NBR, 'X') <> coalesce(dv.IRS_AGI_ELG_ERR_TYPE_NBR, 'X')
+       OR coalesce(stg.IRS_AGI_ELG_ERR_CAT_CD, 'X') <> coalesce(dv.IRS_AGI_ELG_ERR_CAT_CD, 'X')
+       OR coalesce(stg.IRS_AGI_ELG_ERR_TYPE_ID, 0) <> coalesce(dv.IRS_AGI_ELG_ERR_TYPE_ID, 0)
+       OR coalesce(stg.CORE_CUST_ID, 0) <> coalesce(dv.CORE_CUST_ID, 0))
+THEN
+UPDATE
+SET LOAD_END_DT=stg.LOAD_DT,
+    DATA_EFF_END_DT=stg.CDC_DT

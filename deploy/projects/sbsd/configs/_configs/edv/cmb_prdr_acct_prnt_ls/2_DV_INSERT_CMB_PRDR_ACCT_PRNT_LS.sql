@@ -1,0 +1,28 @@
+INSERT INTO EDV.CMB_PRDR_ACCT_PRNT_LS (CMB_PRDR_ACCT_PRNT_L_ID, CMB_PRDR_ACCT_ID, LOAD_DT, DATA_EFF_STRT_DT, DATA_SRC_NM, DATA_STAT_CD, SRC_LAST_CHG_DT, SRC_LAST_CHG_USER_NM, PRNT_CMB_PRDR_ACCT_ID, DATA_EFF_END_DT, LOAD_END_DT)
+  (SELECT stg.*
+   FROM
+     (SELECT DISTINCT MD5 (MD5 (coalesce(CMB_PRDR_ACCT_H.CMB_PRDR_ACCT_ID::varchar, '-1'))||MD5 (coalesce(CMB_PRDR_ACCT.CMB_PRDR_ACCT_ID::varchar, '-1'))) AS CMB_PRDR_ACCT_PRNT_L_ID,
+                      CMB_PRDR_ACCT.CMB_PRDR_ACCT_ID,
+                      CMB_PRDR_ACCT.LOAD_DT,
+                      CMB_PRDR_ACCT.CDC_DT,
+                      CMB_PRDR_ACCT.DATA_SRC_NM,
+                      CMB_PRDR_ACCT.DATA_STAT_CD,
+                      CMB_PRDR_ACCT.LAST_CHG_DT,
+                      CMB_PRDR_ACCT.LAST_CHG_USER_NM,
+                      CMB_PRDR_ACCT_H.CMB_PRDR_ACCT_ID PRNT_CMB_PRDR_ACCT_ID,
+                      to_date('9999-12-31', 'YYYY-MM-DD') DATA_EFF_END_DT,
+                      to_date('9999-12-31', 'YYYY-MM-DD') LOAD_END_DT
+      FROM SBSD_STG.CMB_PRDR_ACCT CMB_PRDR_ACCT
+      LEFT OUTER JOIN EDV.CMB_PRDR_ACCT_H ON (CMB_PRDR_ACCT_H.CMB_PRDR_ACCT_ID=CMB_PRDR_ACCT.PRNT_CMB_PRDR_ACCT_ID)
+      WHERE CMB_PRDR_ACCT.PRNT_CMB_PRDR_ACCT_ID <>0
+        AND CMB_PRDR_ACCT.PRNT_CMB_PRDR_ACCT_ID IS NOT NULL
+        AND CMB_PRDR_ACCT.CDC_OPER_CD<>'D'
+        AND DATE_TRUNC('day',CMB_PRDR_ACCT.CDC_DT) = DATE_TRUNC('day',TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD HH24:MI:SS.FF'))
+        AND CMB_PRDR_ACCT.LOAD_DT = (SELECT MAX(LOAD_DT) FROM SBSD_STG.CMB_PRDR_ACCT)
+      ORDER BY CMB_PRDR_ACCT.CDC_DT) stg
+   LEFT JOIN EDV.CMB_PRDR_ACCT_PRNT_LS dv ON (dv.CMB_PRDR_ACCT_PRNT_L_ID= stg.CMB_PRDR_ACCT_PRNT_L_ID
+                                              AND coalesce(stg.CMB_PRDR_ACCT_ID, 0) = coalesce(dv.CMB_PRDR_ACCT_ID, 0)
+                                              AND coalesce(stg.PRNT_CMB_PRDR_ACCT_ID, 0) = coalesce(dv.PRNT_CMB_PRDR_ACCT_ID, 0)
+                                              AND coalesce(stg.DATA_STAT_CD, 'X') = coalesce(dv.DATA_STAT_CD, 'X')
+                                              AND dv.LOAD_END_DT = TO_TIMESTAMP('9999-12-31', 'YYYY-MM-DD'))
+   WHERE dv.CMB_PRDR_ACCT_PRNT_L_ID IS NULL )

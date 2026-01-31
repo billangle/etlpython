@@ -1,0 +1,11 @@
+SELECT 
+record_reference_identification_type.record_reference_identification_type_code RCD_REF_ID_TYPE_CD,
+record_reference_identification_type.record_reference_identification_type_name RCD_REF_ID_TYPE_NM,
+record_reference_identification_type.reference_level_code REF_LVL_CD,
+record_reference_identification_type.creation_date CRE_DT,
+record_reference_identification_type.creation_user_name CRE_USER_NM,
+record_reference_identification_type.last_change_date LAST_CHG_DT,
+record_reference_identification_type.last_change_user_name LAST_CHG_USER_NM,
+'I' CDC_OPER_CD,
+1 AS row_num_part
+FROM `fsa-{env}-sbsd-cdc`.`record_reference_identification_type`

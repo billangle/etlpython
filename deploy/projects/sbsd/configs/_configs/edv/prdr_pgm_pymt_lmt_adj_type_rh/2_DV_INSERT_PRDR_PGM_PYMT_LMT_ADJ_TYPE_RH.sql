@@ -1,0 +1,18 @@
+INSERT INTO EDV.PRDR_PGM_PYMT_LMT_ADJ_TYPE_RH (PRDR_PYMT_LMT_ADJ_TYPE_CD, LOAD_DT, DATA_SRC_NM)
+  (SELECT stg.PRDR_PYMT_LMT_ADJ_TYPE_CD,
+          stg.LOAD_DT,
+          stg.DATA_SRC_NM
+   FROM
+     (SELECT DISTINCT COALESCE (PRDR_PYMT_LMT_ADJ_TYPE.PRDR_PYMT_LMT_ADJ_TYPE_CD,
+                           '--') PRDR_PYMT_LMT_ADJ_TYPE_CD,
+                          PRDR_PYMT_LMT_ADJ_TYPE.LOAD_DT LOAD_DT,
+                          PRDR_PYMT_LMT_ADJ_TYPE.DATA_SRC_NM DATA_SRC_NM,
+                          ROW_NUMBER () OVER (PARTITION BY PRDR_PYMT_LMT_ADJ_TYPE.PRDR_PYMT_LMT_ADJ_TYPE_CD
+                                              ORDER BY PRDR_PYMT_LMT_ADJ_TYPE.CDC_DT DESC, PRDR_PYMT_LMT_ADJ_TYPE.LOAD_DT DESC) STG_EFF_DT_RANK
+      FROM SBSD_STG.PRDR_PYMT_LMT_ADJ_TYPE
+      WHERE PRDR_PYMT_LMT_ADJ_TYPE.cdc_oper_cd IN ('I',
+                                                   'UN',
+                                                   'D') ) stg
+   LEFT JOIN EDV.PRDR_PGM_PYMT_LMT_ADJ_TYPE_RH dv ON (stg.PRDR_PYMT_LMT_ADJ_TYPE_CD = dv.PRDR_PYMT_LMT_ADJ_TYPE_CD)
+   WHERE (dv.PRDR_PYMT_LMT_ADJ_TYPE_CD IS NULL)
+     AND stg.STG_EFF_DT_RANK = 1 )

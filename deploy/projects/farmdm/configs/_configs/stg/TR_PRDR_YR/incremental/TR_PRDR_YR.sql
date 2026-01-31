@@ -1,10 +1,3 @@
-INSERT INTO sql_farm_rcd_stg.tr_prdr_yr
-(tr_prdr_yr_id, core_cust_id, tr_yr_id, prdr_invl_cd, prdr_invl_strt_dt, prdr_invl_end_dt, 
-prdr_invl_intrpt_ind, tr_prdr_hel_excp_cd, tr_prdr_cw_excp_cd, tr_prdr_pcw_excp_cd, data_stat_cd, 
-cre_dt, last_chg_dt, last_chg_user_nm, tm_prd_id, st_fsa_cd, cnty_fsa_cd, farm_id, farm_nbr, tr_nbr, pgm_yr, 
-hash_dif, cdc_oper_cd, load_dt, data_src_nm, cdc_dt, hel_apls_exhst_dt, cw_apls_exhst_dt, pcw_apls_exhst_dt,
- tr_prdr_rma_hel_excp_cd, tr_prdr_rma_cw_excp_cd, tr_prdr_rma_pcw_excp_cd)
-
 SELECT distinct t.tract_producer_year_identifier As TR_PRDR_YR_ID,
 t.core_customer_identifier As CORE_CUST_ID,
 t.tract_year_identifier As TR_YR_ID,
@@ -30,7 +23,7 @@ CAST(tp.time_period_name AS numeric(4)) as PGM_YR,
 t.cdc_oper_cd AS CDC_OPER_CD,
 CAST(current_date as date) as LOAD_DT,
 'SAP/CRM' as DATA_SCR_NM,
-CAST(current_date-1 as date) as CDC_DT,
+t.cdc_dt as CDC_DT,
 t.hel_appeals_exhausted_date As HEL_APLS_EXHST_DT, 
 t.cw_appeals_exhausted_date As CW_APLS_EXHST_DT, 
 t.pcw_appeals_exhausted_date As PCW_APLS_EXHST_DT,
@@ -39,4 +32,4 @@ t.tract_producer_rma_cw_exception_code As TR_PRDR_RMA_CW_EXCP_CD,
 t.tract_producer_rma_pcw_exception_code As TR_PRDR_RMA_PCW_EXCP_CD
 from farm_records_reporting.tract_producer_year t 
 left join farm_records_reporting.time_period tp on t.time_period_identifier = tp.time_period_identifier
-where t.cdc_dt >= current_date - 1
+where t.cdc_dt between date '{ETL_START_DATE}' and date '{ETL_END_DATE}'

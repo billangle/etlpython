@@ -1,8 +1,3 @@
-INSERT INTO sql_farm_rcd_stg.farm_rcon
-(farm_rcon_id, rcon_id, prnt_farm_yr_id, rslt_farm_yr_id, prnt_farm_nbr, 
-prnt_st_fsa_cd, prnt_cnty_fsa_cd, rslt_farm_nbr, rslt_st_fsa_cd, rslt_cnty_fsa_cd, 
-pgm_yr, data_stat_cd, cre_dt, last_chg_dt, last_chg_user_nm, 
-hash_dif, cdc_oper_cd, load_dt, data_src_nm, cdc_dt)
 SELECT DISTINCT
     fr.farm_reconstitution_identifier,
     fr.reconstitution_identifier,
@@ -20,10 +15,10 @@ SELECT DISTINCT
     fr.last_change_date,
     fr.last_change_user_name,
     ''  as hash_dif,
-	'I' as cdc_oper_cd,
+	cdc_oper_cd as cdc_oper_cd,
 	CAST(current_date as date) as load_dt,
 	'SAP/CRM' as data_src_nm,
-	CAST((current_date - 1) as date) as cdc_dt
+	cdc_dt as cdc_dt
 FROM
     farm_records_reporting.farm_reconstitution fr
 inner join farm_records_reporting.farm_year fy 
@@ -35,4 +30,4 @@ join farm_records_reporting.time_period t
 on t.time_period_identifier = fy.time_period_identifier
 inner join farm_records_reporting.county_office_control coc
 on f.county_office_control_identifier = coc.county_office_control_identifier
-where fr.cdc_dt >= current_date - 1
+where fr.cdc_dt between date '{ETL_START_DATE}' and date '{ETL_END_DATE}'

@@ -1,7 +1,3 @@
-INSERT INTO sql_farm_rcd_stg.farm_yr
-(farm_yr_id, farm_id, tm_prd_id, crp_acrg, mpl_acrg, farm_nbr, st_fsa_cd, cnty_fsa_cd, pgm_yr, 
-data_stat_cd, cre_dt, last_chg_dt, last_chg_user_nm, ver_nbr, hash_dif, cdc_oper_cd, load_dt, 
-data_src_nm, cdc_dt, arc_plc_elg_dter_cd)
 select  distinct fy.farm_year_identifier as farm_yr_id,
         f.farm_identifier as farm_id,
 		c.time_period_identifier as tm_prd_id,
@@ -13,22 +9,16 @@ select  distinct fy.farm_year_identifier as farm_yr_id,
 		cast(t.time_period_name as int) as pgm_yr,
 		f.data_status_code as data_stat_cd,
 		f.creation_date as cre_dt,
-        --f.county_office_control_identifier as cnty_ofc_ctl_id,
-        --f.farm_common_name as farm_cmn_nm,
-        --f.reconstitution_pending_approval_code as rcon_pend_apvl_cd,
-        --f.data_locked_date as data_lock_dt, 
-        --CONCAT_WS('-', c.state_fsa_code, c.county_fsa_code, c.last_assigned_farm_number) as farm_description,
         f.last_change_date as last_chg_dt,
         f.last_change_user_name as last_chg_user_nm,
 		fy.version_number as ver_nbr,
 		''  as hash_dif,
-		'I' as cdc_oper_cd,
+		cdc_oper_cd as cdc_oper_cd,
 		CAST(current_date as date) as load_dt,
 		'SAP/CRM' as data_src_nm,
-		CAST((current_date - 1) as date) as cdc_dt,
+		cdc_dt as cdc_dt,
 		--fy.arc_plc_elg_dter_id as arc_plc_elg_dter_id,
-		fy.arc_plc_eligibility_determination_code as arc_plc_elg_dter_cd
-		
+		fy.arc_plc_eligibility_determination_code as arc_plc_elg_dter_cd		
 from farm_records_reporting.farm_year fy
 --from farm_records_reporting.county_office_control c
 inner join farm_records_reporting.time_period t
@@ -38,6 +28,4 @@ on f.farm_identifier = fy.farm_identifier
 inner join farm_records_reporting.county_office_control c
 on f.county_office_control_identifier = c.county_office_control_identifier
 and fy.time_period_identifier = c.time_period_identifier
--- and (DATE_PART('year', f.creation_date) - 1998) = c.time_period_identifier
--- and (DATE_PART('year', f.creation_date) - 1998) = fy.time_period_identifier
-where fy.cdc_dt >= current_date - 1
+where fy.cdc_dt between date '{ETL_START_DATE}' and date '{ETL_END_DATE}'

@@ -1,29 +1,3 @@
-INSERT INTO sql_farm_rcd_stg.farm_yr_crop_irr_hist
-(
-    farm_yr_crop_irr_hist_id, 
-    farm_yr_id, 
-    irr_cnty_crop_id, 
-    hist_irr_pct, 
-    st_fsa_cd, 
-    cnty_fsa_cd, 
-    pgm_abr, 
-    fsa_crop_cd, 
-    fsa_crop_type_cd, 
-    farm_nbr, 
-    farm_st_fsa_cd, 
-    farm_cnty_fsa_cd, 
-    pgm_yr, 
-    data_stat_cd, 
-    cre_dt, 
-    cre_user_nm, 
-    last_chg_dt, 
-    last_chg_user_nm, 
-    hash_dif, 
-    cdc_oper_cd, 
-    load_dt, 
-    data_src_nm, 
-    cdc_dt
-)
 SELECT
     farm_year_crop_irrigation_history.farm_year_crop_irrigation_history_identifier AS farm_yr_crop_irr_hist_id,
     farm_year_crop_irrigation_history.farm_year_identifier AS farm_yr_id,
@@ -44,15 +18,10 @@ SELECT
     farm_year_crop_irrigation_history.last_change_date AS last_chg_dt,
     LTRIM(RTRIM(farm_year_crop_irrigation_history.last_change_user_name)) AS last_chg_user_nm,
 	''  as hash_dif,
-	'I' as cdc_oper_cd,
+	farm_year_crop_irrigation_history.cdc_oper_cd as cdc_oper_cd,
 	CAST(current_date as date) as load_dt,
 	'SAP/CRM' as data_src_nm,
-	CAST((current_date - 1) as date) as cdc_dt
-    -- The following columns were in original SELECT but are not in INSERT, so commented out:
-    -- LTRIM(RTRIM(phyloc.state_fsa_code)) AS ST_FSA_CD,
-    -- LTRIM(RTRIM(phyloc.county_fsa_code)) AS CNTY_FSA_CD,
-    -- LTRIM(RTRIM(admnloc.state_fsa_code)) AS FARM_ST_FSA_CD,
-    -- LTRIM(RTRIM(admnloc.county_fsa_code)) AS FARM_CNTY_FSA_CD
+	farm_year_crop_irrigation_history.cdc_dt as cdc_dt
 FROM farm_records_reporting.farm_year_crop_irrigation_history 
 LEFT JOIN farm_records_reporting.irrigation_county_crop 
     ON farm_year_crop_irrigation_history.irrigation_county_crop_identifier = irrigation_county_crop.irrigation_county_crop_identifier
@@ -68,4 +37,4 @@ LEFT JOIN farm_records_reporting.county_office_control AS phyloc
     ON irrigation_county_crop.county_office_control_identifier = phyloc.county_office_control_identifier
 LEFT JOIN farm_records_reporting.county_office_control AS admnloc 
     ON farm.county_office_control_identifier = admnloc.county_office_control_identifier
-where farm_year_crop_irrigation_history.cdc_dt >= current_date - 1
+where farm_year_crop_irrigation_history.cdc_dt between date '{ETL_START_DATE}' and date '{ETL_END_DATE}'

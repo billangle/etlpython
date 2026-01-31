@@ -1,8 +1,3 @@
-INSERT INTO sql_farm_rcd_stg.tr_yr_dcp_adj
-(tr_yr_adj_id, tr_yr_dcp_id, tr_yr_adj_type_cd, tr_yr_adj_rsn_cd, aft_adj_val, bef_adj_val, prnt_tbl_phy_nm,
- farm_nbr, tr_nbr, st_fsa_cd, cnty_fsa_cd, pgm_yr, data_stat_cd, cre_dt, last_chg_dt, last_chg_user_nm, hash_dif,
- cdc_oper_cd, load_dt, data_src_nm, cdc_dt)
-
 SELECT distinct TRACT_YEAR_ADJUSTMENT.TRACT_YEAR_ADJUSTMENT_IDENTIFIER AS TR_YR_ADJ_ID,
 TRACT_YEAR_ADJUSTMENT.TRACT_YEAR_DCP_IDENTIFIER AS TR_YR_DCP_ID,
 TRACT_YEAR_ADJUSTMENT.TRACT_YEAR_ADJUSTMENT_TYPE_CODE AS TR_YR_ADJ_TYPE_CD,
@@ -23,7 +18,7 @@ LTRIM(RTRIM(TRACT_YEAR_ADJUSTMENT.LAST_CHANGE_USER_NAME)) AS LAST_CHG_USER_NM,
 tract_year_adjustment.cdc_oper_cd AS CDC_OPER_CD,
 CAST(current_date as date) as LOAD_DT,
 'SAP/CRM' as DATA_SRC_NM,
-CAST(current_date-1 as date) as CDC_DT
+tract_year_adjustment.cdc_dt as CDC_DT
 from farm_records_reporting.tract_year_adjustment 
 LEFT JOIN farm_records_reporting.TRACT_YEAR_DCP ON (TRACT_YEAR_ADJUSTMENT.TRACT_YEAR_DCP_IDENTIFIER = TRACT_YEAR_DCP.TRACT_YEAR_DCP_IDENTIFIER)
 LEFT JOIN farm_records_reporting.TRACT_YEAR ON (TRACT_YEAR.TRACT_YEAR_IDENTIFIER = TRACT_YEAR_DCP.TRACT_YEAR_IDENTIFIER)
@@ -33,4 +28,4 @@ LEFT JOIN farm_records_reporting.FARM_YEAR ON (FARM_YEAR.FARM_YEAR_IDENTIFIER = 
 LEFT JOIN farm_records_reporting.FARM ON (FARM.FARM_IDENTIFIER = FARM_YEAR.FARM_IDENTIFIER)
 LEFT JOIN farm_records_reporting.TIME_PERIOD ON (TIME_PERIOD.TIME_PERIOD_IDENTIFIER = FARM_YEAR.TIME_PERIOD_IDENTIFIER)
 WHERE TRACT_YEAR_DCP.TRACT_YEAR_DCP_IDENTIFIER IS NOT null
-and tract_year_adjustment.cdc_dt >= current_date - 1
+and tract_year_adjustment.cdc_dt between date '{ETL_START_DATE}' and date '{ETL_END_DATE}'

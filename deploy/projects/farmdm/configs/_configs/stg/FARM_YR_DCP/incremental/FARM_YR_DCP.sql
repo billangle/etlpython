@@ -1,22 +1,3 @@
-INSERT INTO sql_farm_rcd_stg.farm_yr_dcp
-(
-    farm_yr_dcp_id, 
-    farm_yr_id, 
-    dcp_dbl_crop_acrg, 
-    farm_nbr, 
-    st_fsa_cd, 
-    cnty_fsa_cd, 
-    pgm_yr, 
-    data_stat_cd, 
-    cre_dt, 
-    last_chg_dt, 
-    last_chg_user_nm, 
-    hash_dif, 
-    cdc_oper_cd, 
-    load_dt, 
-    data_src_nm, 
-    cdc_dt
-)
 SELECT DISTINCT
     fyd.farm_year_dcp_identifier AS farm_yr_dcp_id,
     fyd.farm_year_identifier AS farm_yr_id,
@@ -30,10 +11,10 @@ SELECT DISTINCT
     f.last_change_date AS last_chg_dt,
     f.last_change_user_name AS last_chg_user_nm,
     '' AS hash_dif,
-    'I' AS cdc_oper_cd,
+    fyd.cdc_oper_cd AS cdc_oper_cd,
     CURRENT_DATE AS load_dt,
     'SQL_FARM_RCD' AS data_src_nm,
-    CURRENT_DATE - 1 AS cdc_dt
+    fyd.cdc_dt AS cdc_dt
 FROM farm_records_reporting.farm_year_dcp fyd
 INNER JOIN farm_records_reporting.farm_year fy
     ON fyd.farm_year_identifier = fy.farm_year_identifier
@@ -41,5 +22,4 @@ INNER JOIN farm_records_reporting.farm f
     ON f.farm_identifier = fy.farm_identifier
 INNER JOIN farm_records_reporting.county_office_control c
     ON f.county_office_control_identifier = c.county_office_control_identifier
-    --AND c.last_assigned_farm_number = CAST(f.farm_number AS INT)
-where fyd.cdc_dt >= current_date - 1
+where fyd.cdc_dt between date '{ETL_START_DATE}' and date '{ETL_END_DATE}'

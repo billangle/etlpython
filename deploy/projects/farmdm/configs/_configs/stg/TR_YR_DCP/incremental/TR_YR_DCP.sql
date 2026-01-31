@@ -1,8 +1,3 @@
-INSERT INTO sql_farm_rcd_stg.tr_yr_dcp
-(tr_yr_dcp_id, tr_yr_id, dcp_dbl_crop_acrg, dcp_cpld_acrg, dcp_aft_rdn_acrg, fav_wr_hist_ind, 
-farm_nbr, tr_nbr, st_fsa_cd, cnty_fsa_cd, pgm_yr, data_stat_cd, cre_dt, last_chg_dt, last_chg_user_nm, 
-hash_dif, cdc_oper_cd, load_dt, data_src_nm, cdc_dt)
-
 SELECT distinct tract_year_dcp.tract_year_dcp_identifier As TR_YR_DCP_ID,
 tract_year_dcp.tract_year_identifier As TR_YR_ID,
 tract_year_dcp.dcp_double_crop_acreage As DCP_DBL_CROP_ACRG,
@@ -22,7 +17,7 @@ LTrim(RTrim(tract_year_dcp.last_change_user_name) ) As LAST_CHG_USER_NM,
 tract_year_dcp.cdc_oper_cd AS CDC_OPER_CD,
 CAST(current_date as date) as LOAD_DT,
 'SAP/CRM' as DATA_SRC_NM,
-CAST(current_date-1 as date) as CDC_DT
+tract_year_dcp.cdc_dt as CDC_DT
 from farm_records_reporting.tract_year_dcp
 LEFT JOIN farm_records_reporting.tract_year ON ( tract_year_dcp.tract_year_identifier = tract_year.tract_year_identifier ) 
 JOIN farm_records_reporting.tract ON ( tract_year.tract_identifier = tract.tract_identifier ) 
@@ -30,4 +25,4 @@ JOIN farm_records_reporting.farm_year ON (tract_year.farm_year_identifier = farm
 JOIN farm_records_reporting.farm ON ( farm_year.farm_identifier = farm.farm_identifier )
 JOIN farm_records_reporting.county_office_control ON ( farm.county_office_control_identifier = county_office_control.county_office_control_identifier)
 JOIN farm_records_reporting.time_period ON (farm_year.time_period_identifier =time_period.time_period_identifier)
-where tract_year_dcp.cdc_dt >= current_date - 1
+where tract_year_dcp.cdc_dt between date '{ETL_START_DATE}' and date '{ETL_END_DATE}'

@@ -1,4 +1,4 @@
-"ETL_DV_TBL_ID"|"dv_tbl_nm"
+etl_dv_tbl_id|dv_tbl_nm
 181|acct_pgm_rh
 182|acct_pgm_rs
 183|adm_area_pymt_lmt_rs

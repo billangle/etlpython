@@ -1,0 +1,20 @@
+select  distinct county_office_control_identifier as cnty_ofc_ctl_id,
+        time_period_identifier as tm_prd_id,
+        state_fsa_code as st_fsa_cd,
+        county_fsa_code as cnty_fsa_cd,
+        last_assigned_farm_number as last_asgn_farm_nbr,
+        last_assigned_tract_number as last_asgn_tr_nbr,
+        last_assigned_reconstitution_sequence_number as last_asgn_rcon_seq_nbr,
+        '' as pgm_yr,
+        data_status_code as data_stat_cd,
+        creation_date as cre_dt,
+        last_change_date as last_chg_dt,
+        last_change_user_name as last_chg_user_nm,
+        ''  as hash_dif,
+        'I' as cdc_oper_cd,
+        CAST(current_date as date) as load_dt,
+        'SAP/CRM' as data_src_nm,
+        CAST((current_date - 1) as date) as cdc_dt,               
+        CONCAT_WS('-', state_fsa_code, county_fsa_code, last_assigned_farm_number) as farm_description
+from farm_records_reporting.county_office_control coc 
+order by county_office_control_identifier asc

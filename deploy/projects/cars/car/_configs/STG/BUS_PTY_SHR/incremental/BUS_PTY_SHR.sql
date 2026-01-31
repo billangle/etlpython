@@ -35,19 +35,19 @@ business_party_share.business_party_share_identifier AS BUS_PTY_SHR_ID
 ,'CARS_STG' AS DATA_SRC_NM
 ,business_party_share.dart_filedate AS CDC_DT
 FROM `fsa-{env}-cars-cdc`.`business_party_share`
-  LEFT JOIN `fsa-{env}-cars-cdc`.`agricultural_production_plan` 
+  LEFT JOIN `fsa-{env}-cars`.`agricultural_production_plan` 
 ON (business_party_share.agricultural_production_plan_identifier=agricultural_production_plan.agricultural_production_plan_identifier)
- JOIN `fsa-{env}-cars-cdc`.`tract` 
+ JOIN `fsa-{env}-cars`.`tract` 
 ON (agricultural_production_plan.tract_identifier=tract.tract_identifier)
- JOIN `fsa-{env}-cars-cdc`.`crop_acreage_report` 
+ JOIN `fsa-{env}-cars`.`crop_acreage_report` 
 ON (tract.crop_acreage_report_identifier=crop_acreage_report.crop_acreage_report_identifier)
- LEFT JOIN `fsa-{env}-cars-cdc`.`tract_business_party` 
+ LEFT JOIN `fsa-{env}-cars`.`tract_business_party` 
 ON (business_party_share.tract_business_party_identifier=tract_business_party.tract_business_party_identifier)
- JOIN `fsa-{env}-cars-cdc`.`business_party` 
+ JOIN `fsa-{env}-cars`.`business_party` 
 ON (tract_business_party.business_party_identifier=business_party.business_party_identifier)
- JOIN `fsa-{env}-cars-cdc`.`crop_acreage_report` crop_acreage_report2 
+ JOIN `fsa-{env}-cars`.`crop_acreage_report` crop_acreage_report2 
 ON (business_party.crop_acreage_report_identifier = crop_acreage_report2.crop_acreage_report_identifier)
- JOIN `fsa-{env}-cars-cdc`.`tract` tract2 
+ JOIN `fsa-{env}-cars`.`tract` tract2 
 ON (tract_business_party.tract_identifier=tract2.tract_identifier)
 
 WHERE business_party_share.dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}'

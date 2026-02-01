@@ -1,0 +1,344 @@
+{
+  "Comment": "Datamart ETL Pipeline: Athena -> PostgreSQL -> Redshift. Level 1 & 2: Athena to PostgreSQL. Level 3: PostgreSQL to Redshift.",
+  "StartAt": "ProcessLevel1Tables",
+  "States": {
+    "ProcessLevel1Tables": {
+      "Type": "Map",
+      "ItemsPath": "$.level1_tables",
+      "MaxConcurrency": 5,
+      "Parameters": {
+        "table_name.$": "$$.Map.Item.Value",
+        "data_src_nm.$": "$.data_src_nm",
+        "env.$": "$.env",
+        "layer.$": "$.layer",
+        "run_type.$": "$.run_type",
+        "start_date.$": "$.start_date",
+        "source_schema.$": "$.source_schema",
+        "target_schema.$": "$.target_schema"
+      },
+      "Iterator": {
+        "StartAt": "ExecuteLevel1SQL",
+        "States": {
+          "ExecuteLevel1SQL": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+            "Parameters": {
+              "JobName.$": "States.Format('FSA-{}-DATAMART-EXEC-DB-SQL', $.env)",
+              "Arguments": {
+                "--JOB_NAME.$": "States.Format('FSA-{}-DATAMART-EXEC-DB-SQL', $.env)",
+                "--table_name.$": "$.table_name",
+                "--data_src_nm.$": "$.data_src_nm",
+                "--env.$": "$.env",
+                "--layer.$": "$.layer",
+                "--run_type.$": "$.run_type",
+                "--start_date.$": "$.start_date"
+              }
+            },
+            "ResultPath": "$.glueResult",
+            "Next": "Level1TableSuccess",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "Level1TableFailed",
+                "ResultPath": "$.error"
+              }
+            ]
+          },
+          "Level1TableSuccess": {
+            "Type": "Pass",
+            "Parameters": {
+              "table_name.$": "$.table_name",
+              "status": "SUCCESS",
+              "level": 1
+            },
+            "End": true
+          },
+          "Level1TableFailed": {
+            "Type": "Pass",
+            "Parameters": {
+              "table_name.$": "$.table_name",
+              "status": "FAILED",
+              "level": 1,
+              "error.$": "$.error"
+            },
+            "End": true
+          }
+        }
+      },
+      "ResultPath": "$.level1Results",
+      "Next": "CheckLevel2Tables",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "PipelineFailed",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "CheckLevel2Tables": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.level2_tables[0]",
+          "IsPresent": true,
+          "Next": "ProcessLevel2Tables"
+        }
+      ],
+      "Default": "ProcessLevel3RedshiftTables"
+    },
+    "ProcessLevel2Tables": {
+      "Type": "Map",
+      "ItemsPath": "$.level2_tables",
+      "MaxConcurrency": 5,
+      "Parameters": {
+        "table_name.$": "$$.Map.Item.Value",
+        "data_src_nm.$": "$.data_src_nm",
+        "env.$": "$.env",
+        "layer.$": "$.layer",
+        "run_type.$": "$.run_type",
+        "start_date.$": "$.start_date",
+        "source_schema.$": "$.source_schema",
+        "target_schema.$": "$.target_schema"
+      },
+      "Iterator": {
+        "StartAt": "ExecuteLevel2SQL",
+        "States": {
+          "ExecuteLevel2SQL": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+            "Parameters": {
+              "JobName.$": "States.Format('FSA-{}-DATAMART-EXEC-DB-SQL', $.env)",
+              "Arguments": {
+                "--JOB_NAME.$": "States.Format('FSA-{}-DATAMART-EXEC-DB-SQL', $.env)",
+                "--table_name.$": "$.table_name",
+                "--data_src_nm.$": "$.data_src_nm",
+                "--env.$": "$.env",
+                "--layer.$": "$.layer",
+                "--run_type.$": "$.run_type",
+                "--start_date.$": "$.start_date"
+              }
+            },
+            "ResultPath": "$.glueResult",
+            "Next": "Level2TableSuccess",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "Level2TableFailed",
+                "ResultPath": "$.error"
+              }
+            ]
+          },
+          "Level2TableSuccess": {
+            "Type": "Pass",
+            "Parameters": {
+              "table_name.$": "$.table_name",
+              "status": "SUCCESS",
+              "level": 2
+            },
+            "End": true
+          },
+          "Level2TableFailed": {
+            "Type": "Pass",
+            "Parameters": {
+              "table_name.$": "$.table_name",
+              "status": "FAILED",
+              "level": 2,
+              "error.$": "$.error"
+            },
+            "End": true
+          }
+        }
+      },
+      "ResultPath": "$.level2Results",
+      "Next": "ProcessLevel3RedshiftTables",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "PipelineFailed",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "ProcessLevel3RedshiftTables": {
+      "Type": "Map",
+      "ItemsPath": "$.level1_tables",
+      "MaxConcurrency": 5,
+      "Parameters": {
+        "table_name.$": "$$.Map.Item.Value",
+        "data_src_nm.$": "$.data_src_nm",
+        "env.$": "$.env",
+        "run_type.$": "$.run_type",
+        "start_date.$": "$.start_date",
+        "source_schema.$": "$.source_schema",
+        "target_schema.$": "$.target_schema"
+      },
+      "Iterator": {
+        "StartAt": "ExecuteLevel3PGToRedshift",
+        "States": {
+          "ExecuteLevel3PGToRedshift": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+            "Parameters": {
+              "JobName.$": "States.Format('FSA-{}-DART-PG-TO-REDSHIFT', $.env)",
+              "Arguments": {
+                "--JOB_NAME.$": "States.Format('FSA-{}-DART-PG-TO-REDSHIFT', $.env)",
+                "--table_name.$": "$.table_name",
+                "--source_schema.$": "$.source_schema",
+                "--target_schema.$": "$.target_schema",
+                "--env.$": "$.env",
+                "--run_type.$": "$.run_type",
+                "--start_date.$": "$.start_date",
+                "--data_src_nm.$": "$.data_src_nm"
+              }
+            },
+            "ResultPath": "$.glueResult",
+            "Next": "Level3TableSuccess",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "Level3TableFailed",
+                "ResultPath": "$.error"
+              }
+            ]
+          },
+          "Level3TableSuccess": {
+            "Type": "Pass",
+            "Parameters": {
+              "table_name.$": "$.table_name",
+              "status": "SUCCESS",
+              "level": 3
+            },
+            "End": true
+          },
+          "Level3TableFailed": {
+            "Type": "Pass",
+            "Parameters": {
+              "table_name.$": "$.table_name",
+              "status": "FAILED",
+              "level": 3,
+              "error.$": "$.error"
+            },
+            "End": true
+          }
+        }
+      },
+      "ResultPath": "$.level3Results",
+      "Next": "CheckLevel2ForRedshift",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "PipelineFailed",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "CheckLevel2ForRedshift": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.level2_tables[0]",
+          "IsPresent": true,
+          "Next": "ProcessLevel3RedshiftLevel2Tables"
+        }
+      ],
+      "Default": "PipelineSuccess"
+    },
+    "ProcessLevel3RedshiftLevel2Tables": {
+      "Type": "Map",
+      "ItemsPath": "$.level2_tables",
+      "MaxConcurrency": 5,
+      "Parameters": {
+        "table_name.$": "$$.Map.Item.Value",
+        "data_src_nm.$": "$.data_src_nm",
+        "env.$": "$.env",
+        "run_type.$": "$.run_type",
+        "start_date.$": "$.start_date",
+        "source_schema.$": "$.source_schema",
+        "target_schema.$": "$.target_schema"
+      },
+      "Iterator": {
+        "StartAt": "ExecuteLevel3PGToRedshiftLevel2",
+        "States": {
+          "ExecuteLevel3PGToRedshiftLevel2": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+            "Parameters": {
+              "JobName.$": "States.Format('FSA-{}-DART-PG-TO-REDSHIFT', $.env)",
+              "Arguments": {
+                "--JOB_NAME.$": "States.Format('FSA-{}-DART-PG-TO-REDSHIFT', $.env)",
+                "--table_name.$": "$.table_name",
+                "--source_schema.$": "$.source_schema",
+                "--target_schema.$": "$.target_schema",
+                "--env.$": "$.env",
+                "--run_type.$": "$.run_type",
+                "--start_date.$": "$.start_date",
+                "--data_src_nm.$": "$.data_src_nm"
+              }
+            },
+            "ResultPath": "$.glueResult",
+            "Next": "Level3Level2TableSuccess",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "Level3Level2TableFailed",
+                "ResultPath": "$.error"
+              }
+            ]
+          },
+          "Level3Level2TableSuccess": {
+            "Type": "Pass",
+            "Parameters": {
+              "table_name.$": "$.table_name",
+              "status": "SUCCESS",
+              "level": "3-L2"
+            },
+            "End": true
+          },
+          "Level3Level2TableFailed": {
+            "Type": "Pass",
+            "Parameters": {
+              "table_name.$": "$.table_name",
+              "status": "FAILED",
+              "level": "3-L2",
+              "error.$": "$.error"
+            },
+            "End": true
+          }
+        }
+      },
+      "ResultPath": "$.level3Level2Results",
+      "Next": "PipelineSuccess",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "PipelineFailed",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "PipelineSuccess": {
+      "Type": "Succeed"
+    },
+    "PipelineFailed": {
+      "Type": "Fail",
+      "Error": "PipelineExecutionFailed",
+      "Cause": "Pipeline execution failed - check logs for details"
+    }
+  }
+}

@@ -13,9 +13,9 @@ select  distinct
         f.last_change_user_name as last_chg_user_nm,
 		''  as hash_dif,
 		CAST(current_date as date) as load_dt,
-        cdc_oper_cd as cdc_oper_cd,
+        f.cdc_oper_cd as cdc_oper_cd,
         'SAP/CRM' as data_src_nm,
-        cdc_dt as cdc_dt
+        f.cdc_dt as cdc_dt
 from farm_records_reporting.farm f
 join farm_records_reporting.county_office_control c on c.county_office_control_identifier = f.county_office_control_identifier
 where f.cdc_dt between date '{ETL_START_DATE}' and date '{ETL_END_DATE}'

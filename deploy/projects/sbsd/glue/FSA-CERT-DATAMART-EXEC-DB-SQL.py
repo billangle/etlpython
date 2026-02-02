@@ -8,7 +8,7 @@ Parameters (Required):
     --run_type:     'initial' or 'incremental'
     --start_date:   Start date for processing (YYYY-MM-DD)
     --env:          Environment (dev, cert, prod)
-    --layer:        'STG', 'EDV', 'EBV', or 'DM'
+    --layer:        'STG', 'EDV', 'EBV', or 'DM'Reading:
 
 Single day processing: ETL_START_DATE = ETL_END_DATE = start_date
 """
@@ -112,7 +112,18 @@ class SQLFS:
         if not start_date:
             raise ValueError("start_date is required")
 
-        key = f"{self.base_prefix}/STG/{table_name.upper()}/{run_type}/{table_name.upper()}.sql"
+        stg_prefix = f"{self.base_prefix}/STG/"
+
+        table_folder = self._resolve_s3_path_case(stg_prefix, table_name)
+        table_prefix = f"{stg_prefix}{table_folder}/"
+
+        run_type_folder = self._resolve_s3_path_case(table_prefix, run_type)
+        run_prefix = f"{table_prefix}{run_type_folder}/"
+
+        file_name = self._resolve_s3_path_case(run_prefix, f"{table_name}.sql")
+
+        key = f"{run_prefix}{file_name}"
+
         return self._read_sql_file(key, start_date, end_date)
 
     def get_layer_sqls(self, layer: str, table_name: str,
@@ -193,6 +204,27 @@ class SQLFS:
                 print(separator)
 
         return scripts
+    
+    #added code to find s3 file ignoring case sensitivity
+
+    def _resolve_s3_path_case(self, prefix: str, target: str) -> str:
+        """
+        returns S3 name with correct case sensitivity
+        """
+        response = self.s3_client.list_objects_v2(
+            Bucket=self.bucket,
+            Prefix=prefix
+        )
+
+        for obj in response.get("Contents", []):
+            parts = obj["Key"].split("/")
+            for part in parts:
+                if part.lower() == target.lower():
+                    return part
+
+        raise FileNotFoundError(
+            f"Could not resolve S3 casing for '{target}' under '{prefix}'"
+        )
 
     def _substitute_parameters(self, sql_content: str, start_date: str, end_date: str = None) -> str:
         """Substitute parameters in SQL."""

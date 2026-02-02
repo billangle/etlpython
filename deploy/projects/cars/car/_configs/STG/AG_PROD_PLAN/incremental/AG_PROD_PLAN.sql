@@ -82,7 +82,7 @@ agricultural_production_plan.agricultural_production_plan_identifier AS AG_PROD_
 ,agricultural_production_plan.plant_count AS PLNT_CNT
 
 FROM `fsa-{env}-cars-cdc`.`agricultural_production_plan`
- LEFT JOIN  `fsa-{env}-cars-cdc`.`tract` ON (agricultural_production_plan.tract_identifier=tract.tract_identifier)
- JOIN `fsa-{env}-cars-cdc`.`crop_acreage_report` ON (tract.crop_acreage_report_identifier=crop_acreage_report.crop_acreage_report_identifier)
+ LEFT JOIN  `fsa-{env}-cars`.`tract` ON (agricultural_production_plan.tract_identifier=tract.tract_identifier)
+ JOIN `fsa-{env}-cars`.`crop_acreage_report` ON (tract.crop_acreage_report_identifier=crop_acreage_report.crop_acreage_report_identifier)
 
 WHERE `agricultural_production_plan`.`dart_filedate` BETWEEN DATE '{ETL_START_TIMESTAMP}' AND DATE '{ETL_END_TIMESTAMP}'

@@ -30,7 +30,7 @@ crop_acreage_report.crop_acreage_report_identifier AS CROP_ACRG_RPT_ID
 ,crop_acreage_report.FSA_578_REVISION_IDENTIFIER AS FSA_578_RVSN_ID
 ,crop_acreage_report.total_base_acres AS TOT_BASE_ACRG
 --, __CDC_OPERATION AS CDC_OPER_CD 
-FROM "fsa-cert-cars-cdc"."crop_acreage_report"
+FROM "fsa-{env}-cars-cdc"."crop_acreage_report"
 CROSS JOIN params
 WHERE dart_filedate BETWEEN params.start_date AND current_date
 

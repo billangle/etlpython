@@ -27,8 +27,8 @@ field.field_identifier AS FLD_ID
 ,field.cropland_indicator AS CPLD_IND
 ,cast(field.native_sod_conversion_date AS timestamp) AS NTV_SOD_CVSN_DT
 FROM `fsa-{env}-cars-cdc`.`field`
- LEFT JOIN  `fsa-{env}-cars-cdc`.`TRACT` ON (FIELD.tract_identifier = TRACT.tract_identifier)
- JOIN `fsa-{env}-cars-cdc`.`crop_acreage_report` ON (TRACT.crop_acreage_report_identifier = crop_acreage_report.crop_acreage_report_identifier)
+ LEFT JOIN  `fsa-{env}-cars`.`TRACT` ON (FIELD.tract_identifier = TRACT.tract_identifier)
+ JOIN `fsa-{env}-cars`.`crop_acreage_report` ON (TRACT.crop_acreage_report_identifier = crop_acreage_report.crop_acreage_report_identifier)
 
 WHERE field.dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}'
 

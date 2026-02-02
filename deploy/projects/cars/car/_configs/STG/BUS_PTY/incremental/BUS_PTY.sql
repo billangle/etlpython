@@ -19,7 +19,7 @@ business_party.business_party_identifier AS BUS_PTY_ID
 ,'CARS_STG' AS DATA_SRC_NM
 ,business_party.dart_filedate AS CDC_DT
 FROM `fsa-{env}-cars-cdc`.`business_party`
- LEFT JOIN  `fsa-{env}-cars-cdc`.`crop_acreage_report` ON (business_party.crop_acreage_report_identifier=crop_acreage_report.crop_acreage_report_identifier)
+ LEFT JOIN  `fsa-{env}-cars`.`crop_acreage_report` ON (business_party.crop_acreage_report_identifier=crop_acreage_report.crop_acreage_report_identifier)
  
 WHERE business_party.dart_filedate BETWEEN DATE '{ETL_START_TIMESTAMP}' AND DATE '{ETL_END_TIMESTAMP}'
 

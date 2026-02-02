@@ -24,7 +24,7 @@ compliance_detail_history.compliance_detail_history_identifier AS CMPL_DET_HIST_
 ,compliance_detail_history.zero_acreage_crop_staging_identifier AS ZERO_ACRG_CROP_STG_ID
 
 --, __CDC_OPERATION AS CDC_OPER_CD 
-FROM "fsa-cert-cars-cdc"."compliance_detail_history"
+FROM "fsa-{env}-cars-cdc"."compliance_detail_history"
 CROSS JOIN params
 WHERE dart_filedate BETWEEN params.start_date AND current_date
 

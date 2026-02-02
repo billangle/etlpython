@@ -1,5 +1,5 @@
 {
-  "deployEnv": "FPACDEV",
+  "deployEnv": "CERT",
   "project": "sbsd",
   "region": "us-east-1",
   "bucketRegion": "us-east-1",

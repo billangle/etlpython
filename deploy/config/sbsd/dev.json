@@ -44,7 +44,7 @@
   },
   "configUpload": {
     "functionName": "FSA-FPACDEV-UploadConfig",
-    "sourceDir": "sbsd",
+    "sourceDir": "configs",
     "inputBucket": "fsa-dev-ops",
     "inputPrefix": "input/zips",
     "outputBucket": "c108-dev-fpacfsa-final-zone",

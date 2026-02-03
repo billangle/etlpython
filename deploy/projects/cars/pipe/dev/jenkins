@@ -39,7 +39,7 @@ pipeline {
                 pip install -U pip
                 pip install -r requirements.txt
                 
-                cd projects/cars
+                cd projects/$PROJECT
                 chmod +x *.sh
                 cd scripts
                 chmod +x *.sh
@@ -62,7 +62,7 @@ pipeline {
                         cd deploy;
                         . .venv/bin/activate
                         python deploy.py --config $DEPLOY_ENV --region $AWS_REGION --project-type $PROJECT
-                        cd projects/cars;
+                        cd projects/$PROJECT;
                         ./deploy_config.sh ../../$DEPLOY_ENV
                     '''
                 }

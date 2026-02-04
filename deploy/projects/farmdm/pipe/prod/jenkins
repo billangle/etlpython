@@ -1,0 +1,63 @@
+pipeline {
+    agent any
+ 
+    environment {
+      DEPLOY_ENV = 'config/farmdm/prod.json'
+      AWS_REGION = 'us-east-1'
+      PROJECT = 'farmdm'
+    }
+ 
+    stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+ 
+        stage('Checkout Code') {
+            steps {
+                echo 'Checking out code from Bitbucket'
+                script {
+                    checkout scm: [
+                        $class: 'GitSCM',
+                        branches: [[name: 'main']],
+                        userRemoteConfigs: [[
+                            url: 'https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git', 
+                            credentialsId: 'BitBucketRepoAccess'
+                        ]]
+                    ]
+                }
+            }
+        }
+ 
+        stage('Install') {
+            steps {
+                sh '''
+                cd projects/$PROJECT
+                chmod +x *.sh
+                cd scripts
+                chmod +x *.sh
+                '''
+            }
+        }
+        
+        stage('Setup AWS Credentials') {
+            steps {
+                withAWS(credentials: 'fsafpac-prod', region: "${AWS_REGION}") {
+                    echo "AWS Credentials set up successfully."
+                }
+            }
+        }
+        
+        stage('Deploy') {
+            steps {
+                withAWS(credentials: 'fsafpac-prod', region: "${AWS_REGION}") {
+                    sh '''
+                        cd deploy/projects/$PROJECT;
+                        ./deploy_config.sh ../../$DEPLOY_ENV
+                    '''
+                }
+            }
+        }
+    }
+}

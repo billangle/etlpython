@@ -1,0 +1,72 @@
+pipeline {
+    agent any
+ 
+    environment {
+      DEPLOY_ENV = 'config/sbsd/dev.json'
+      AWS_REGION = 'us-east-1'
+      PROJECT = 'sbsd'
+    }
+ 
+    stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+ 
+        stage('Checkout Code') {
+            steps {
+                echo 'Checking out code from Bitbucket'
+                script {
+                    checkout scm: [
+                        $class: 'GitSCM',
+                        branches: [[name: 'main']],
+                        userRemoteConfigs: [[
+                            url: 'https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git', 
+                            credentialsId: 'BitBucketRepoAccess'
+                        ]]
+                    ]
+                }
+            }
+        }
+ 
+        stage('Install') {
+            steps {
+                sh '''
+                cd deploy;
+                python3 -m venv .venv
+                . .venv/bin/activate
+                pip install -U pip
+                pip install -r requirements.txt
+                
+                cd projects/$PROJECT
+                chmod +x *.sh
+                cd scripts
+                chmod +x *.sh
+                '''
+            }
+        }
+        
+        stage('Setup AWS Credentials') {
+            steps {
+                withAWS(credentials: 'disc_fsafpac', region: "${AWS_REGION}") {
+                    echo "AWS Credentials set up successfully."
+                }
+            }
+        }
+        
+        stage('Deploy') {
+            steps {
+                withAWS(credentials: 'disc_fsafpac', region: "${AWS_REGION}") {
+                    sh '''
+                        cd deploy;
+                        . .venv/bin/activate
+                        python deploy.py --config $DEPLOY_ENV --region $AWS_REGION --project-type $PROJECT
+                        cd projects/$PROJECT;
+                        ./deploy_config.sh ../../$DEPLOY_ENV
+                    '''
+                }
+            }
+        }
+    }
+}

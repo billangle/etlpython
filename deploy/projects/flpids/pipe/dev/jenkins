@@ -2,7 +2,7 @@ pipeline {
     agent any
  
     environment {
-      DEPLOY_ENV = 'config/flpidsdev.json'
+      DEPLOY_ENV = 'config/flpids/dev.json'
       AWS_REGION = 'us-east-1'
       PROJECT = 'flpids'
     }

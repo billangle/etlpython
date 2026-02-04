@@ -1,1 +1,0 @@
-{"ok": true, "source_bucket": "punkdev-fpacfsa-landing-zone", "source_folder": "carspython/", "destination_bucket": "dev-cars-artifacts", "destination_key": "exports/punkdev-fpacfsa-landing-zone-carspython.zip", "ignore_patterns": ["*.zip"], "include_source_folder_in_zip": true, "zipped_files": 2, "skipped_files": 0, "zip_size_bytes": 8616}

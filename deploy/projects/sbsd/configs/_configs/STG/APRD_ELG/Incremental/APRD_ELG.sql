@@ -26,7 +26,7 @@ FROM (
             ORDER BY last_change_date DESC
         ) AS rnum
     FROM `fsa-{env}-sbsd-cdc`.`aperiodic_eligibility` 
-    WHERE dart_filedate BETWEEN DATE '{ETL_START_DATE}'
+    WHERE cast(dart_filedate as DATE) BETWEEN DATE '{ETL_START_DATE}'
                           AND DATE '{ETL_END_DATE}'
 ) SubQry
 WHERE SubQry.rnum = 1;

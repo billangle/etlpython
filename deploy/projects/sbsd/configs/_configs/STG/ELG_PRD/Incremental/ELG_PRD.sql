@@ -90,5 +90,5 @@ Veteran_10_Year_Not_Farming_Determination_Date
 , op 
 FROM (SELECT *,ROW_NUMBER() OVER (PARTITION BY eligibility_period_identifier ORDER BY last_change_date DESC)as rnum
             FROM `fsa-{env}-sbsd-cdc`.`eligibility_period`
-WHERE dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}') as SubQry
+WHERE cast(dart_filedate as DATE) BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}') as SubQry
 WHERE SubQry.rnum=1

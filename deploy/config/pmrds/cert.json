@@ -1,0 +1,89 @@
+{
+  "deployEnv": "CERT",
+  "project": "PMRDS",
+  "region": "us-east-1",
+  "bucketRegion": "us-east-1",
+
+  "configData": {
+    "databaseName": "fsa-fpac-db",
+    "dynamoTableName": "FsaFpacMetadata"
+  },
+
+  "ssm": {
+    "landingBucketNameParam": "fpacFsaLandingBucketSSMName",
+    "cleanBucketNameParam": "fpacFsaCleanBucketSSMName",
+    "finalBucketNameParam": "fpacFsaFinalBucketSSMName",
+    "glueJobRoleArnParam": "fpacFsaGlueJobRoleSSMArn",
+    "etlRoleArnParam": "fpacFsaLambdaExecuteRoleARN",
+    "thirdPartyLayerArnParam": "fpacfsaThirdPartyLayerArn",
+    "customLayerArnParam": "fpacfsaCustomLayerArn"
+  },
+  "strparams": {
+    "landingBucketNameParam": "c108-cert-fpacfsa-landing-zone",
+    "cleanBucketNameParam": "c108-cert-fpacfsa-cleansed-zone",
+    "finalBucketNameParam": "c108-cert-fpacfsa-final-zone",
+    "snsArnParam": "arn:aws:sns:us-east-1:241533156429:FSA-CERT-PMRDS",
+    "glueJobRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-cert-servicerole-glue",
+    "etlRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-cert-lambda",
+    "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1",
+    "customLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:FSA-polars:2"
+  },
+  "paths": {
+    "glueRootPath": "../src/glue/",
+    "lambdaRootPath": "../src/lambda/"
+  },
+
+  "artifacts": {
+    "artifactBucket": "fsa-dev-ops",
+    "prefix": "fmmi/"
+  },
+
+  "stepFunctions": {
+    "createRoleIfMissing": false,
+    "roleName": "disc-fsa-dev-stepfunction",
+    "roleArn": "arn:aws:iam::241533156429:role/disc-fsa-dev-stepfunction"
+  },
+  "configUpload": {
+    "functionName": "FSA-FPACDEV-UploadConfig",
+    "sourceDir": "fmmi",
+    "inputBucket": "fsa-dev-ops",
+    "inputPrefix": "input/zips",
+    "outputBucket": "c108-dev-fpacfsa-final-zone",
+    "outputPrefix": "fmmi",
+    "minExpectedObjects": 2,
+    "debug": true
+  },
+   "GlueJobParameters": {
+    "Connections" : [{
+        "ConnectionName": "FSA-DEV-CERT-CONN",
+        "type": "JDBC",
+        "VpcId": "vpc-05f9625eecaabbfd4",
+        "SubnetIds": "subnet-0757d215da1902198",
+        "SecurityGroupIds": "sg-0d9f6f8633b91d354, sg-036039481aa5aeccc, sg-00c4a92e918e642d4, sg-0a038a338469af190, sg-095cc861f7770b31a"
+        }] ,
+      "MaxConcurrency": "1",
+      "MaxRetries": "1",
+      "TimeoutMinutes": "480",
+      "WorkerType": "G.2X",
+      "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/pmrds/cert/",
+      "NumberOfWorkers": "2",
+      "AutomaticScalingEnabled": "true",
+      "GlueVersion": "4.0",
+      "JobLanguage": "python",
+      "GenerateMetrics": "true",
+      "EnableJobBookmarks": "false",
+      "JobObservabilityMetrics": "ENABLED",
+      "JobContinuousLogging": "ENABLED",
+      "TemporaryPath": "s3://fsa-dev-ops/temp/glue/",
+      "PythonLibraryPath": "s3://c108-dev-fpacfsa-landing-zone/dart/scripts/python-modules/dart/glue/dart_debug-0.1-py3-none-any.whl,s3://c108-dev-fpacfsa-landing-zone/dart/scripts/config/common/dart_table_sql_config.py",
+      "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+        "--ppln_nm": "pmrds",
+        "--env": "cert",
+        "--operator_nm": "FSA-CERT-PMRDS-LOAD-STAGING",
+        "--step_nm": "Final_to_Staging",
+        "--system_date": "20260130"
+      }
+ }
+
+}

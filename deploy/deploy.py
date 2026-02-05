@@ -9,13 +9,14 @@ from projects.tsthooks.deploy import deploy as tsthooks_deploy
 from projects.cars.deploy import deploy as cars_deploy
 from projects.carsdm.deploy import deploy as carsdm_deploy
 from projects.sbsd.deploy import deploy as sbsd_deploy
+from projects.pmrds.deploy import deploy as pmrds_deploy    
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
     ap.add_argument("--region", required=True)
-    ap.add_argument("--project-type", default="fpac", choices=["fpac","farmrec","flpids","tsthooks","cars","carsdm","sbsd"])
+    ap.add_argument("--project-type", default="fpac", choices=["fpac","farmrec","flpids","tsthooks","cars","carsdm","sbsd","pmrds"])
     args = ap.parse_args()
 
     cfg = read_json(args.config)
@@ -34,6 +35,8 @@ def main() -> int:
         summary = carsdm_deploy(cfg, args.region)
     elif args.project_type == "sbsd":
         summary = sbsd_deploy(cfg, args.region)
+    elif args.project_type == "pmrds":
+        summary = pmrds_deploy(cfg, args.region)
     else:
         raise RuntimeError(f"Unknown project-type: {args.project_type}")
 

@@ -31,7 +31,11 @@
     "glueRootPath": "../src/glue/",
     "lambdaRootPath": "../src/lambda/"
   },
-
+  "lambdas": {
+    "NATS_FUNCTION": "arn:aws:lambda:us-east-1:241533156429:function:FSA-CERT-DART-ECHO-FETCH-FLPIDS-NATS",
+    "NATS_STEP" : "FLPIDS_ODS Landing Zone",
+    "NAT_PIPELINE": "FLPIDS_ODS"
+  },
   "artifacts": {
     "artifactBucket": "fsa-prod-ops",
     "prefix": "flpidschk/"

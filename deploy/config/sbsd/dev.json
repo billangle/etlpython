@@ -64,7 +64,7 @@
     "MaxRetries": "1",
     "TimeoutMinutes": "480",
     "WorkerType": "G.4X",
-    "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/sbsd/",
+    "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/sbsd/",
     "NumberOfWorkers": "2",
     "AutomaticScalingEnabled": "true",
     "GlueVersion": "4.0",
@@ -73,7 +73,7 @@
     "EnableJobBookmarks": "false",
     "JobObservabilityMetrics": "ENABLED",
     "JobContinuousLogging": "ENABLED",
-    "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+    "TemporaryPath": "s3://fsa-dev-ops/temp/glue/",
     "UseGlueDataCatalogAsTheHiveMetastore": "true",
        "JobParameters": {
       "--data_src_nm": "sbsd",

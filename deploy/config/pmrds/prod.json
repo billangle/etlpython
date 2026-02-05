@@ -1,6 +1,6 @@
 {
   "deployEnv": "PROD",
-  "project": "fmmi",
+  "project": "PMRDS",
   "region": "us-east-1",
   "bucketRegion": "us-east-1",
 
@@ -22,6 +22,7 @@
     "landingBucketNameParam": "c108-prod-fpacfsa-landing-zone",
     "cleanBucketNameParam": "c108-prod-fpacfsa-cleansed-zone",
     "finalBucketNameParam": "c108-prod-fpacfsa-final-zone",
+    "snsArnParam": "arn:aws:sns:us-east-1:241533156429:FSA-PRD-PMRDS",
     "glueJobRoleArnParam": "arn:aws:iam::253490756794:role/disc-fsa-prod-glue-servicerole",
     "etlRoleArnParam": "arn:aws:iam::253490756794:role/disc-fsa-prod-lambda-servicerole",
     "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:253490756794:layer:FSA-DEV-psycopg2-python311:1",
@@ -34,7 +35,7 @@
 
   "artifacts": {
     "artifactBucket": "fsa-prod-ops",
-    "prefix": "fmmi/"
+    "prefix": "pmrds/"
   },
 
   "stepFunctions": {
@@ -44,11 +45,11 @@
   },
   "configUpload": {
     "functionName": "FSA-PROD-UploadConfig",
-    "sourceDir": "fmmi",
+    "sourceDir": "pmrds",
     "inputBucket": "fsa-prod-ops",
     "inputPrefix": "input/zips",
     "outputBucket": "c108-prod-fpacfsa-final-zone",
-    "outputPrefix": "fmmi",
+    "outputPrefix": "pmrds",
     "minExpectedObjects": 2,
     "debug": true
   },
@@ -71,7 +72,7 @@
     "MaxRetries": "1",
     "TimeoutMinutes": "480",
     "WorkerType": "G.4X",
-    "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/fmmi/",
+    "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/pmrds/",
     "NumberOfWorkers": "2",
     "AutomaticScalingEnabled": "true",
     "GlueVersion": "4.0",
@@ -82,14 +83,13 @@
     "JobContinuousLogging": "ENABLED",
     "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
     "UseGlueDataCatalogAsTheHiveMetastore": "true",
-       "JobParameters": {
-      "--data_src_nm": "fmmi",
-      "--env": "prod",
-      "--layer": "stg",
-      "--run_type": "Incremental",
-      "--start_date": "2026-01-18",
-      "--table_name": "PRDR_PGM_PYMT_LMT_ADJ"
-    }
+          "JobParameters": {
+            "--ppln_nm": "pmrds",
+            "--env": "prod",
+            "--operator_nm": "FSA-PROD-PMRDS-LOAD-STAGING",
+            "--step_nm": "Final_to_Staging",
+            "--system_date": "20260130"
+          }
  }
 
 }

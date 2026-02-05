@@ -1,6 +1,6 @@
 {
   "deployEnv": "steam-dev",
-  "project": "fmmi",
+  "project": "PMRDS",
   "region": "us-east-1",
   "bucketRegion": "us-east-1",
 
@@ -22,6 +22,7 @@
     "landingBucketNameParam": "punkdev-fpacfsa-landing-zone",
     "cleanBucketNameParam": "punkdev-fpacfsa-cleansed-zone",
     "finalBucketNameParam": "punkdev-fpacfsa-final-zone",
+    "snsArnParam": "arn:aws:sns:us-east-1:335965711887:FSA-DEV-PMRDS",
     "glueJobRoleArnParam": "arn:aws:iam::335965711887:role/FPACGlueCDKRole",
     "etlRoleArnParam": "arn:aws:iam::335965711887:role/FPACLambdaCDKRole",
     "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:335965711887:layer:FSA-DEV-MDART-layer:1",
@@ -33,8 +34,8 @@
   },
 
   "artifacts": {
-    "artifactBucket": "dev-fmmi-artifacts",
-    "prefix": "fmmi/"
+    "artifactBucket": "dev-cars-artifacts",
+    "prefix": "pmrds/"
   },
 
    "stepFunctions": {
@@ -44,11 +45,11 @@
   },
   "configUpload": {
     "functionName": "FSA-steam-dev-UploadConfig",
-    "sourceDir": "fmmi",
-    "inputBucket": "dev-fmmi-artifacts",
+    "sourceDir": "pmrds",
+    "inputBucket": "dev-cars-artifacts",
     "inputPrefix": "input/zips",
     "outputBucket": "punkdev-fpacfsa-final-zone",
-    "outputPrefix": "fmmi",
+    "outputPrefix": "pmrds",
     "minExpectedObjects": 2,
     "debug": true
   }

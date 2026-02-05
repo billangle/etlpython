@@ -35,7 +35,7 @@
 
   "artifacts": {
     "artifactBucket": "fsa-dev-ops",
-    "prefix": "fmmi/"
+    "prefix": "pmrds/"
   },
 
   "stepFunctions": {
@@ -45,11 +45,11 @@
   },
   "configUpload": {
     "functionName": "FSA-FPACDEV-UploadConfig",
-    "sourceDir": "fmmi",
+    "sourceDir": "pmrds",
     "inputBucket": "fsa-dev-ops",
     "inputPrefix": "input/zips",
     "outputBucket": "c108-dev-fpacfsa-final-zone",
-    "outputPrefix": "fmmi",
+    "outputPrefix": "pmrds",
     "minExpectedObjects": 2,
     "debug": true
   },

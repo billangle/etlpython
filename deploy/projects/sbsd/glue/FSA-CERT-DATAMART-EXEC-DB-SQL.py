@@ -131,11 +131,24 @@ class SQLFS:
         """Get SQLs for a layer (EDV, EBV, DM), ordered by numeric prefix."""
         if not start_date:
             raise ValueError("start_date is required")
+            
+        #added more changes here to fix case sensitivity issues when reading s3 bucket
 
         layer_upper = layer.upper()
-        layer_folder = self.layer_folders.get(layer_upper, layer)
-
-        prefix = f"{self.base_prefix}/{layer_folder}/{table_name.upper()}/"
+        
+        # Resolve layer folder case (EDV, EBV, DM)
+        layer_folder = self._resolve_s3_path_case(
+            f"{self.base_prefix}/",
+            self.layer_folders.get(layer_upper, layer_upper)
+        )
+        
+        # Resolve table folder case
+        table_folder = self._resolve_s3_path_case(
+            f"{self.base_prefix}/{layer_folder}/",
+            table_name
+        )
+        
+        prefix = f"{self.base_prefix}/{layer_folder}/{table_folder}/"
         return self._read_ordered_sqls(prefix, start_date, end_date)
 
     def _read_sql_file(self, key: str, start_date: str, end_date: str = None) -> Optional[str]:

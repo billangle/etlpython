@@ -6,7 +6,7 @@
 
   "configData": {
     "databaseName": "fsa-fpac-db",
-    "dynamoTableName": "FsaFpacMetadata"
+    "dynamoTableName": "FSA-FileChecks"
   },
 
   "ssm": {

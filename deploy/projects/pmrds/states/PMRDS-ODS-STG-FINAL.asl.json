@@ -1,0 +1,201 @@
+{
+  "Comment": "PMRDS Pipeline - Stage1 → Stage2 with consolidated SNS notification",
+  "StartAt": "Stage1_ODS_to_STG",
+  "States": {
+    "Stage1_ODS_to_STG": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName.$": "$.stage1_job_name",
+        "Arguments": {
+          "--env.$": "$.env",
+          "--system_date.$": "$.system_date",
+          "--ppln_nm": "PMRDS",
+          "--step_nm": "STAGE1",
+          "--operator_nm": "StepFunction"
+        }
+      },
+      "ResultPath": "$.stage1_result",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.stage1_error",
+          "Next": "Read_Stage1_Status"
+        }
+      ],
+      "Next": "Read_Stage1_Status"
+    },
+    "Read_Stage1_Status": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:s3:getObject",
+      "Parameters": {
+        "Bucket.$": "$.cleansed_bucket",
+        "Key.$": "States.Format('PMRDS_STATUS/{}/STAGE1_status.json', $.system_date)"
+      },
+      "ResultSelector": {
+        "status_json.$": "States.StringToJson($.Body)"
+      },
+      "ResultPath": "$.stage1_status",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.stage1_status_error",
+          "Next": "Check_Stage1_Error"
+        }
+      ],
+      "Next": "Check_Stage1_Error"
+    },
+    "Check_Stage1_Error": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.stage1_status_error",
+          "IsPresent": true,
+          "Next": "Format_Failure_Message_Stage1"
+        }
+      ],
+      "Default": "Stage2_STG_to_Final"
+    },
+    "Stage2_STG_to_Final": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName.$": "$.stage2_job_name",
+        "Arguments": {
+          "--env.$": "$.env",
+          "--system_date.$": "$.system_date",
+          "--ppln_nm": "PMRDS",
+          "--step_nm": "STAGE2",
+          "--operator_nm": "StepFunction"
+        }
+      },
+      "ResultPath": "$.stage2_result",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.stage2_error",
+          "Next": "Read_Stage2_Status"
+        }
+      ],
+      "Next": "Read_Stage2_Status"
+    },
+    "Read_Stage2_Status": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:s3:getObject",
+      "Parameters": {
+        "Bucket.$": "$.final_bucket",
+        "Key.$": "States.Format('PMRDS_STATUS/{}/STAGE2_status.json', $.system_date)"
+      },
+      "ResultSelector": {
+        "status_json.$": "States.StringToJson($.Body)"
+      },
+      "ResultPath": "$.stage2_status",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.stage2_status_error",
+          "Next": "Check_Stage2_Error"
+        }
+      ],
+      "Next": "Check_Stage2_Error"
+    },
+    "Check_Stage2_Error": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Or": [
+            {
+              "Variable": "$.stage2_status_error",
+              "IsPresent": true
+            }
+          ],
+          "Next": "Format_Failure_Message_Stage2"
+        }
+      ],
+      "Default": "Format_Success_Message"
+    },
+    "Format_Failure_Message_Stage1": {
+      "Type": "Pass",
+      "Parameters": {
+        "sns_subject.$": "States.Format('PMRDS Pipeline FAILED [{}] - Stage 1', $.env)",
+        "sns_message.$": "States.Format('PMRDS Pipeline FAILED at Stage 1 (ODS → STG)\n\nEnvironment: {}\nProcess Date: {}\n\nStage 1 Status: {}\nErrors: {}\n\nWarnings: {}\n\nPlease check CloudWatch logs for details.', $.env, $.system_date, $.stage1_status.status_json.status, $.stage1_status.status_json.errors, $.stage1_status.status_json.warnings)",
+        "final_status": "FAILED",
+        "failed_stage": "STAGE1"
+      },
+      "ResultPath": "$.notification",
+      "Next": "Send_SNS_Notification"
+    },
+    "Format_Failure_Message_Stage2": {
+      "Type": "Pass",
+      "Parameters": {
+        "sns_subject.$": "States.Format('PMRDS Pipeline FAILED [{}] - Stage 2', $.env)",
+        "sns_message.$": "States.Format('PMRDS Pipeline FAILED at Stage 2 (STG → Final)\n\nEnvironment: {}\nProcess Date: {}\n\n--- Stage 1 (Completed) ---\nStatus: {}\nTables Written: {}\nInput Rows: {}\nOutput Rows: {}\n\n--- Stage 2 (FAILED) ---\nStatus: {}\nErrors: {}\n\nPlease check CloudWatch logs for details.', $.env, $.system_date, $.stage1_status.status_json.status, $.stage1_status.status_json.tables_written, $.stage1_status.status_json.metrics.total_input_rows, $.stage1_status.status_json.metrics.total_output_rows, $.stage2_status.status_json.status, $.stage2_status.status_json.errors)",
+        "final_status": "FAILED",
+        "failed_stage": "STAGE2"
+      },
+      "ResultPath": "$.notification",
+      "Next": "Send_SNS_Notification"
+    },
+    "Format_Success_Message": {
+      "Type": "Pass",
+      "Parameters": {
+        "sns_subject.$": "States.Format('PMRDS Pipeline SUCCESS [{}]', $.env)",
+        "sns_message.$": "States.Format('PMRDS Pipeline completed successfully!\n\nEnvironment: {}\nProcess Date: {}\n\n--- Stage 1 (ODS → STG) ---\nStatus: {}\nSources Processed: {}\nSources Missing: {}\nTables Written: {}\nInput Rows: {}\nOutput Rows: {}\n\n--- Stage 2 (STG → Final) ---\nStatus: {}\nTables Written: {}\nInput Rows: {}\nOutput Rows: {}\n\n--- Financial Summary ---\n{}', $.env, $.system_date, $.stage1_status.status_json.status, $.stage1_status.status_json.sources_processed, $.stage1_status.status_json.sources_missing, $.stage1_status.status_json.tables_written, $.stage1_status.status_json.metrics.total_input_rows, $.stage1_status.status_json.metrics.total_output_rows, $.stage2_status.status_json.status, $.stage2_status.status_json.tables_written, $.stage2_status.status_json.metrics.total_input_rows, $.stage2_status.status_json.metrics.total_output_rows, $.stage2_status.status_json.metrics.financial_totals)",
+        "final_status": "SUCCESS"
+      },
+      "ResultPath": "$.notification",
+      "Next": "Send_SNS_Notification"
+    },
+    "Send_SNS_Notification": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn.$": "$.sns_topic_arn",
+        "Subject.$": "$.notification.sns_subject",
+        "Message.$": "$.notification.sns_message",
+        "MessageAttributes": {
+          "env": {
+            "DataType": "String",
+            "StringValue.$": "$.env"
+          },
+          "status": {
+            "DataType": "String",
+            "StringValue.$": "$.notification.final_status"
+          },
+          "pipeline": {
+            "DataType": "String",
+            "StringValue": "PMRDS"
+          }
+        }
+      },
+      "ResultPath": "$.sns_result",
+      "Next": "Final_Status_Check"
+    },
+    "Final_Status_Check": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.notification.final_status",
+          "StringEquals": "FAILED",
+          "Next": "Pipeline_Failed"
+        }
+      ],
+      "Default": "Pipeline_Success"
+    },
+    "Pipeline_Success": {
+      "Type": "Succeed"
+    },
+    "Pipeline_Failed": {
+      "Type": "Fail",
+      "Cause": "PMRDS Pipeline Failed"
+    }
+  }
+}

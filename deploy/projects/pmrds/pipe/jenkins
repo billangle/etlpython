@@ -1,72 +1,213 @@
 pipeline {
     agent any
- 
-    environment {
-      DEPLOY_ENV = 'config/cars/dev.json'
-      AWS_REGION = 'us-east-1'
-      PROJECT = 'cars'
+
+    parameters {
+        string(
+            name: 'OVERRIDE_DATE',
+            defaultValue: '',
+            description: 'Leave empty for today\'s date, or enter YYYYMMDD for backfill/reprocessing'
+        )
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['dev', 'staging', 'prod'],
+            description: 'Target environment'
+        )
     }
- 
+
+    triggers {
+        cron('0 6 * * *')  // Daily at 6 AM EST - adjust as needed
+    }
+
+    environment {
+        AWS_REGION          = 'us-east-1'
+        PIPELINE_NAME       = 'PMRDS'
+        SYSTEM_DATE         = "${params.OVERRIDE_DATE ?: sh(script: 'date +%Y%m%d', returnStdout: true).trim()}"
+        POLL_INTERVAL       = '30'   // seconds between status checks
+        TIMEOUT_MINUTES     = '60'   // max wait time for step function
+    }
+
+    options {
+        timeout(time: 90, unit: 'MINUTES')
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+    }
+
     stages {
-        stage('Clean Workspace') {
+
+        stage('Initialize') {
             steps {
-                cleanWs()
-            }
-        }
- 
-        stage('Checkout Code') {
-            steps {
-                echo 'Checking out code from Bitbucket'
                 script {
-                    checkout scm: [
-                        $class: 'GitSCM',
-                        branches: [[name: 'main']],
-                        userRemoteConfigs: [[
-                            url: 'https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git', 
-                            credentialsId: 'BitBucketRepoAccess'
-                        ]]
-                    ]
+                    // Set environment-specific variables
+                    switch(params.ENVIRONMENT) {
+                        case 'dev':
+                            env.STATE_MACHINE_ARN   = 'arn:aws:states:us-east-1:241533156429:stateMachine:FSA-DEV-PMRDS-ODS-STG-FINAL'
+                            env.STAGE1_JOB_NAME     = 'FSA-DEV-PMRDS-LOAD-STAGING'
+                            env.STAGE2_JOB_NAME     = 'FSA-DEV-PMRDS-LOADING-STG2FINAL'
+                            env.CLEANSED_BUCKET     = 'c108-dev-fpacfsa-cleansed-zone'
+                            env.FINAL_BUCKET        = 'c108-dev-fpacfsa-final-zone'
+                            env.SNS_TOPIC_ARN       = 'arn:aws:sns:us-east-1:241533156429:FSA-DEV-PMRDS'
+                            break
+                        case 'staging':
+                            env.STATE_MACHINE_ARN   = 'arn:aws:states:us-east-1:241533156429:stateMachine:FSA-STG-PMRDS-ODS-STG-FINAL'
+                            env.STAGE1_JOB_NAME     = 'FSA-STG-PMRDS-LOAD-STAGING'
+                            env.STAGE2_JOB_NAME     = 'FSA-STG-PMRDS-LOADING-STG2FINAL'
+                            env.CLEANSED_BUCKET     = 'c108-stg-fpacfsa-cleansed-zone'
+                            env.FINAL_BUCKET        = 'c108-stg-fpacfsa-final-zone'
+                            env.SNS_TOPIC_ARN       = 'arn:aws:sns:us-east-1:241533156429:FSA-STG-PMRDS'
+                            break
+                        case 'prod':
+                            env.STATE_MACHINE_ARN   = 'arn:aws:states:us-east-1:241533156429:stateMachine:FSA-PRD-PMRDS-ODS-STG-FINAL'
+                            env.STAGE1_JOB_NAME     = 'FSA-PRD-PMRDS-LOAD-STAGING'
+                            env.STAGE2_JOB_NAME     = 'FSA-PRD-PMRDS-LOADING-STG2FINAL'
+                            env.CLEANSED_BUCKET     = 'c108-prd-fpacfsa-cleansed-zone'
+                            env.FINAL_BUCKET        = 'c108-prd-fpacfsa-final-zone'
+                            env.SNS_TOPIC_ARN       = 'arn:aws:sns:us-east-1:241533156429:FSA-PRD-PMRDS'
+                            break
+                    }
+
+                    echo "============================================"
+                    echo "PMRDS Pipeline Execution"
+                    echo "============================================"
+                    echo "Environment  : ${params.ENVIRONMENT}"
+                    echo "System Date  : ${env.SYSTEM_DATE}"
+                    echo "State Machine: ${env.STATE_MACHINE_ARN}"
+                    echo "Stage 1 Job  : ${env.STAGE1_JOB_NAME}"
+                    echo "Stage 2 Job  : ${env.STAGE2_JOB_NAME}"
+                    echo "Cleansed     : ${env.CLEANSED_BUCKET}"
+                    echo "Final        : ${env.FINAL_BUCKET}"
+                    echo "============================================"
                 }
             }
         }
- 
-        stage('Install') {
+
+        stage('Validate Date') {
             steps {
-                sh '''
-                cd deploy;
-                python3 -m venv .venv
-                . .venv/bin/activate
-                pip install -U pip
-                pip install -r requirements.txt
-                
-                cd projects/cars
-                chmod +x *.sh
-                cd scripts
-                chmod +x *.sh
-                '''
-            }
-        }
-        
-        stage('Setup AWS Credentials') {
-            steps {
-                withAWS(credentials: 'disc_fsafpac', region: "${AWS_REGION}") {
-                    echo "AWS Credentials set up successfully."
+                script {
+                    // Validate SYSTEM_DATE is exactly 8 digits in YYYYMMDD format
+                    if (!(env.SYSTEM_DATE ==~ /^\d{8}$/)) {
+                        error "Invalid SYSTEM_DATE: '${env.SYSTEM_DATE}'. Must be YYYYMMDD format."
+                    }
+
+                    // Basic range check
+                    def year  = env.SYSTEM_DATE[0..3] as int
+                    def month = env.SYSTEM_DATE[4..5] as int
+                    def day   = env.SYSTEM_DATE[6..7] as int
+
+                    if (month < 1 || month > 12 || day < 1 || day > 31) {
+                        error "Invalid date values in SYSTEM_DATE: '${env.SYSTEM_DATE}'"
+                    }
+
+                    echo "Date validation passed: ${env.SYSTEM_DATE}"
                 }
             }
         }
-        
-        stage('Deploy') {
+
+        stage('Start Step Function') {
             steps {
-                withAWS(credentials: 'disc_fsafpac', region: "${AWS_REGION}") {
-                    sh '''
-                        cd deploy;
-                        . .venv/bin/activate
-                        python deploy.py --config $DEPLOY_ENV --region $AWS_REGION --project-type $PROJECT
-                        cd projects/cars;
-                        ./deploy_config.sh ../../$DEPLOY_ENV
-                    '''
+                script {
+                    def input = """
+                    {
+                        "env": "${params.ENVIRONMENT}",
+                        "system_date": "${env.SYSTEM_DATE}",
+                        "stage1_job_name": "${env.STAGE1_JOB_NAME}",
+                        "stage2_job_name": "${env.STAGE2_JOB_NAME}",
+                        "cleansed_bucket": "${env.CLEANSED_BUCKET}",
+                        "final_bucket": "${env.FINAL_BUCKET}",
+                        "sns_topic_arn": "${env.SNS_TOPIC_ARN}"
+                    }
+                    """.stripIndent().trim()
+
+                    echo "Step Function Input:\n${input}"
+
+                    def startResult = sh(
+                        script: """
+                            aws stepfunctions start-execution \
+                                --region ${env.AWS_REGION} \
+                                --state-machine-arn '${env.STATE_MACHINE_ARN}' \
+                                --input '${input}'
+                        """,
+                        returnStdout: true
+                    ).trim()
+
+                    def json = readJSON text: startResult
+                    env.EXECUTION_ARN = json.executionArn
+
+                    echo "Execution started: ${env.EXECUTION_ARN}"
+                    echo "Console URL: https://${env.AWS_REGION}.console.aws.amazon.com/states/home?region=${env.AWS_REGION}#/v2/executions/details/${env.EXECUTION_ARN}"
                 }
             }
+        }
+
+        stage('Monitor Execution') {
+            steps {
+                script {
+                    def status = 'RUNNING'
+                    def elapsed = 0
+                    def maxWait = env.TIMEOUT_MINUTES.toInteger() * 60
+
+                    echo "Polling every ${env.POLL_INTERVAL}s (timeout: ${env.TIMEOUT_MINUTES} min)..."
+
+                    while (status == 'RUNNING' && elapsed < maxWait) {
+                        sleep(time: env.POLL_INTERVAL.toInteger(), unit: 'SECONDS')
+                        elapsed += env.POLL_INTERVAL.toInteger()
+
+                        def describeResult = sh(
+                            script: """
+                                aws stepfunctions describe-execution \
+                                    --region ${env.AWS_REGION} \
+                                    --execution-arn '${env.EXECUTION_ARN}' \
+                                    --query 'status' \
+                                    --output text
+                            """,
+                            returnStdout: true
+                        ).trim()
+
+                        status = describeResult
+                        def mins = (elapsed / 60).toInteger()
+                        def secs = elapsed % 60
+                        echo "[${mins}m ${secs}s] Status: ${status}"
+                    }
+
+                    env.EXECUTION_STATUS = status
+
+                    if (status == 'RUNNING') {
+                        error "Step Function timed out after ${env.TIMEOUT_MINUTES} minutes. Execution is still running: ${env.EXECUTION_ARN}"
+                    }
+
+                    if (status == 'SUCCEEDED') {
+                        echo "Step Function completed successfully!"
+                    } else {
+                        // Fetch failure details
+                        def execDetail = sh(
+                            script: """
+                                aws stepfunctions describe-execution \
+                                    --region ${env.AWS_REGION} \
+                                    --execution-arn '${env.EXECUTION_ARN}' \
+                                    --query '{status: status, error: error, cause: cause}' \
+                                    --output json
+                            """,
+                            returnStdout: true
+                        ).trim()
+
+                        echo "Execution failed:\n${execDetail}"
+                        error "Step Function finished with status: ${status}"
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "PMRDS Pipeline [${params.ENVIRONMENT}] - ${env.SYSTEM_DATE} - SUCCEEDED"
+        }
+        failure {
+            echo "PMRDS Pipeline [${params.ENVIRONMENT}] - ${env.SYSTEM_DATE} - FAILED"
+            echo "Execution ARN: ${env.EXECUTION_ARN ?: 'N/A'}"
+            echo "Check Step Function console for details."
+        }
+        always {
+            echo "Pipeline execution complete."
         }
     }
 }

@@ -25,7 +25,8 @@
     "glueJobRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-servicerole-glue",
     "etlRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-lambda",
     "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1",
-    "customLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:FSA-polars:2"
+    "customLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:FSA-polars:2",
+    "snsArnParam": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-FMMI"
   },
   "paths": {
     "glueRootPath": "../src/glue/",

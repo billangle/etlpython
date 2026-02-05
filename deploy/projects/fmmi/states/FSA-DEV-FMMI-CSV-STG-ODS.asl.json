@@ -1,0 +1,184 @@
+{
+  "Comment": "FMMI Echo → STG → ODS Pipeline with BOTH support",
+  "StartAt": "RunEchoLanding",
+  "States": {
+    "RunEchoLanding": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "FSA-DEV-FMMI-LandingFiles"
+      },
+      "Next": "CheckJobType",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "FailureSNS"
+        }
+      ]
+    },
+    "CheckJobType": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.job_type",
+          "StringEquals": "BOTH",
+          "Next": "RunBOTH"
+        },
+        {
+          "Variable": "$.job_type",
+          "StringEquals": "STG",
+          "Next": "RunSTG"
+        },
+        {
+          "Variable": "$.job_type",
+          "StringEquals": "ODS",
+          "Next": "RunODS"
+        }
+      ],
+      "Default": "RunSTG"
+    },
+    "RunSTG": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "FSA-DEV-FMMI-S3-STG-ODS-parquet",
+        "Arguments": {
+          "--job_type": "STG",
+          "--env": "dev",
+          "--bucket_name": "c108-dev-fpacfsa-landing-zone",
+          "--folder_name": "fmmi/fmmi_ocfo_files",
+          "--stg_bucket_name": "c108-dev-fpacfsa-cleansed-zone",
+          "--stg_folder_name": "fmmi_stg",
+          "--ods_bucket_name": "c108-dev-fpacfsa-final-zone",
+          "--ods_folder_name": "fmmi_ods",
+          "--file_name.$": "$.file_name",
+          "--file_names.$": "$.file_names",
+          "--run_date.$": "$.run_date"
+        }
+      },
+      "Next": "RunODS",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "FailureSNS"
+        }
+      ]
+    },
+    "RunODS": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "FSA-DEV-FMMI-S3-STG-ODS-parquet",
+        "Arguments": {
+          "--job_type": "ODS",
+          "--env": "dev",
+          "--bucket_name": "c108-dev-fpacfsa-landing-zone",
+          "--folder_name": "fmmi/fmmi_ocfo_files",
+          "--stg_bucket_name": "c108-dev-fpacfsa-cleansed-zone",
+          "--stg_folder_name": "fmmi_stg",
+          "--ods_bucket_name": "c108-dev-fpacfsa-final-zone",
+          "--ods_folder_name": "fmmi_ods",
+          "--file_name.$": "$.file_name",
+          "--file_names.$": "$.file_names",
+          "--run_date.$": "$.run_date"
+        }
+      },
+      "ResultSelector": {
+        "landing_date.$": "$.JobRun.Output.landing_date",
+        "success_tables.$": "$.JobRun.Output.success_tables",
+        "missing_tables.$": "$.JobRun.Output.missing_tables",
+        "failed_tables.$": "$.JobRun.Output.failed_tables",
+        "gl_count.$": "$.JobRun.Output.gl_count",
+        "sa_count.$": "$.JobRun.Output.sa_count",
+        "gl_sa_status.$": "$.JobRun.Output.gl_sa_status"
+      },
+      "ResultPath": "$.ods_result",
+      "Next": "SuccessSNS",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "FailureSNS"
+        }
+      ]
+    },
+    "RunBOTH": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "FSA-DEV-FMMI-S3-STG-ODS-parquet",
+        "Arguments": {
+          "--job_type": "BOTH",
+          "--env": "dev",
+          "--bucket_name": "c108-dev-fpacfsa-landing-zone",
+          "--folder_name": "fmmi/fmmi_ocfo_files",
+          "--stg_bucket_name": "c108-dev-fpacfsa-cleansed-zone",
+          "--stg_folder_name": "fmmi_stg",
+          "--ods_bucket_name": "c108-dev-fpacfsa-final-zone",
+          "--ods_folder_name": "fmmi_ods",
+          "--file_name.$": "$.file_name",
+          "--file_names.$": "$.file_names",
+          "--run_date.$": "$.run_date"
+        }
+      },
+      "ResultSelector": {
+        "landing_date.$": "$.JobRun.Output.landing_date",
+        "success_tables.$": "$.JobRun.Output.success_tables",
+        "missing_tables.$": "$.JobRun.Output.missing_tables",
+        "failed_tables.$": "$.JobRun.Output.failed_tables",
+        "gl_count.$": "$.JobRun.Output.gl_count",
+        "sa_count.$": "$.JobRun.Output.sa_count",
+        "gl_sa_status.$": "$.JobRun.Output.gl_sa_status"
+      },
+      "ResultPath": "$.ods_result",
+      "Next": "SuccessSNS",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "FailureSNS"
+        }
+      ]
+    },
+    "SuccessSNS": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-FMMI",
+        "Message": {
+          "default": {
+            "status": "SUCCESS",
+            "landing_date.$": "$.ods_result.landing_date",
+            "success_tables.$": "$.ods_result.success_tables",
+            "missing_tables.$": "$.ods_result.missing_tables",
+            "failed_tables.$": "$.ods_result.failed_tables",
+            "gl_count.$": "$.ods_result.gl_count",
+            "sa_count.$": "$.ods_result.sa_count",
+            "gl_sa_status.$": "$.ods_result.gl_sa_status"
+          }
+        }
+      },
+      "End": true
+    },
+    "FailureSNS": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-FMMI",
+        "Message": {
+          "default": {
+            "status": "FAILED",
+            "error.$": "$.Error"
+          }
+        }
+      },
+      "End": true
+    }
+  }
+}

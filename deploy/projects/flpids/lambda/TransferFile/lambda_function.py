@@ -13,10 +13,6 @@ import boto3
 TMP_DIR = "/tmp"
 
 
-# ----------------------------
-# Helpers (embedded)
-# ----------------------------
-
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -42,7 +38,6 @@ def fetch_secret(secret_id: str, debug: bool = False) -> dict:
 
 
 def _sanitize_cmd_for_logs(cmd: List[str]) -> List[str]:
-    """Redact credentials in '--user user:pass' args."""
     safe = []
     i = 0
     while i < len(cmd):
@@ -75,11 +70,6 @@ def _run_cmd(cmd: List[str], timeout: int = 120, debug: bool = False) -> Tuple[i
 
 
 def _curl_url(host: str, port: int, mode: str, path: str, debug: bool = False) -> str:
-    """
-    mode:
-      - "implicit" => scheme ftps (typically port 990)
-      - "explicit" => scheme ftp (typically port 21) with --ssl-reqd
-    """
     if not path.startswith("/"):
         path = "/" + path
     scheme = "ftps" if mode == "implicit" else "ftp"
@@ -116,7 +106,6 @@ def _curl_download(host: str, port: int, mode: str, remote_path: str, username: 
 
 def _curl_delete(host: str, port: int, mode: str, remote_path: str, username: str, password: str,
                  timeout: int, verify_tls: bool, debug: bool):
-    """Delete remote file using FTP command DELE."""
     parent = remote_path.rsplit("/", 1)[0] or "/"
     parent_url = _curl_url(host, port, mode, parent + "/", debug=debug)
     dele_cmd = f"DELE {remote_path}"
@@ -126,36 +115,32 @@ def _curl_delete(host: str, port: int, mode: str, remote_path: str, username: st
         raise RuntimeError(f"curl delete failed rc={rc}: {err.strip() or out.strip()}")
 
 
-# ----------------------------
-# Lambda
-# ----------------------------
+def _resolve_secret_id_from_ddb(table, job_id: str, project: str, debug: bool) -> str:
+    resp = table.get_item(Key={"jobId": job_id, "project": project})
+    item = resp.get("Item") or {}
+    event_cfg = item.get("event") or {}
+    secret_id = (event_cfg.get("secret_id") or "").strip()
+    if debug:
+        print(f"[DEBUG] Resolved secret_id from DynamoDB event.secret_id={secret_id!r}")
+    return secret_id
+
 
 def lambda_handler(event, context):
-    """
-    Transfer file FTPS -> S3 and delete from FTPS.
-
-    IMPORTANT CHANGE (v4):
-      - We do NOT create an S3 "folder" placeholder (project/).
-        S3 has no real folders; uploading to project/file is sufficient and avoids
-        s3:PutObject permission errors on the literal key "project/".
-
-    Input (from Step Functions):
-      {
-        "jobId": "...",
-        "project": "...",
-        "table_name": "FSA-FileChecks",        # optional if env TABLE_NAME set
-        "bucket": "my-target-bucket",          # REQUIRED (or env BUCKET)
-        "secret_id": "FSA-CERT-Secrets",       # REQUIRED (or env SECRET_ID)
-        "verify_tls": false,                   # optional (default false)
-        "timeout_seconds": 120                 # optional (default 120)
-      }
-    """
     debug = bool(event.get("debug", False))
+
     job_id = event.get("jobId")
     project = event.get("project")
     table_name = event.get("table_name") or os.environ.get("TABLE_NAME")
-    bucket = event.get("bucket") or os.environ.get("BUCKET")
-    secret_id = event.get("secret_id") or os.environ.get("SECRET_ID")
+
+    # ✅ FIX: prefer LANDING_BUCKET (what deploy.py sets), keep BUCKET as legacy fallback
+    bucket = (
+        (event.get("bucket") or "").strip()
+        or (os.environ.get("LANDING_BUCKET") or "").strip()
+        or (os.environ.get("BUCKET") or "").strip()
+    )
+
+    # secret_id primarily from input; otherwise DynamoDB event.secret_id
+    secret_id = (event.get("secret_id") or "").strip() or (os.environ.get("SECRET_ID") or "").strip()
 
     if not job_id:
         raise ValueError("Missing required input: jobId")
@@ -164,9 +149,7 @@ def lambda_handler(event, context):
     if not table_name:
         raise ValueError("Missing required input: table_name (or env TABLE_NAME)")
     if not bucket:
-        raise ValueError("Missing required input: bucket (or env BUCKET)")
-    if not secret_id:
-        raise ValueError("Missing required input: secret_id (or env SECRET_ID)")
+        raise ValueError("Missing required input: bucket (event.bucket or env LANDING_BUCKET/BUCKET)")
 
     verify_tls = bool(event.get("verify_tls", False))
     timeout = int(event.get("timeout_seconds", 120))
@@ -175,6 +158,13 @@ def lambda_handler(event, context):
     table = ddb.Table(table_name)
     s3 = boto3.client("s3")
 
+    if not secret_id:
+        secret_id = _resolve_secret_id_from_ddb(table, job_id, project, debug=debug)
+
+    if not secret_id:
+        raise ValueError("Missing required input: secret_id (input/env empty and DynamoDB event.secret_id empty)")
+
+    # Load row for file + stats details
     resp = table.get_item(Key={"jobId": job_id, "project": project})
     item = resp.get("Item")
     if not item:
@@ -202,8 +192,9 @@ def lambda_handler(event, context):
     mode = "implicit" if port == 990 else "explicit"
 
     if debug:
-        print(f"[DEBUG] DDB row resolved remote_path={remote_path} file_name={file_name}")
-        print(f"[DEBUG] FTPS resolved host={host} port={port} mode={mode} secret_id={secret_id} verify_tls={verify_tls}")
+        print(f"[DEBUG] Using bucket={bucket} secret_id={secret_id}")
+        print(f"[DEBUG] DDB row remote_path={remote_path} file_name={file_name}")
+        print(f"[DEBUG] FTPS host={host} port={port} mode={mode} verify_tls={verify_tls} timeout={timeout}")
 
     secret = fetch_secret(secret_id, debug=debug)
     username = secret.get("echo_dart_username")

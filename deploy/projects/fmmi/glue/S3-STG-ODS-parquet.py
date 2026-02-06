@@ -80,160 +80,6 @@ def normalize_table_name(raw_name: str) -> str:
         return ods_name_map[raw_name]
     return raw_name.replace(".", "_")
 
-# ---------------- STRICT CSV LOADER (SKIP FIRST ROW + FAILFAST) ----------------
-def load_stg_dataframe(key, source_schema):
-    # Read raw text
-    raw = spark.read.text(f"s3://{landing_bucket}/{key}")
-
-    # Drop first row (|| count)
-    data_rdd = (
-        raw.rdd
-           .zipWithIndex()
-           .filter(lambda x: x[1] > 0)
-           .map(lambda x: x[0][0])
-    )
-
-    # Convert RDD → DataFrame with a single column "line"
-    df_raw = data_rdd.toDF(["line"])
-
-    # Split into columns based on schema length
-    expected_cols = len(source_schema)
-    col_names = [f"col{i}" for i in range(expected_cols)]
-
-    # Split by pipe
-    df_split = df_raw.withColumn("parts", F.split("line", "\\|"))
-
-    # Fix missing last column
-    df_split = df_split.withColumn(
-        "parts",
-        F.when(F.size("parts") == expected_cols - 1,
-               F.concat("parts", F.array(F.lit("0"))))
-         .otherwise(F.col("parts"))
-    )
-
-    # Skip rows with missing middle columns
-    df_split = df_split.filter(F.size("parts") >= expected_cols - 1)
-
-    # Skip rows with too many columns
-    df_split = df_split.filter(F.size("parts") <= expected_cols)
-
-    # Fill empty last column
-    df_split = df_split.withColumn(
-        "parts",
-        F.when(
-            (F.size("parts") == expected_cols) &
-            (F.col("parts")[expected_cols - 1] == ""),
-            F.expr(f"transform(parts, (x, i) -> CASE WHEN i={expected_cols-1} THEN '0' ELSE x END)")
-        ).otherwise(F.col("parts"))
-    )
-
-    # Rebuild DataFrame with correct schema columns
-    df_final = df_split.select(
-        *[F.col("parts")[i].alias(source_schema[i].name) for i in range(expected_cols)]
-    )
-
-    return df_final
-
-# ---------------- SCHEMA VALIDATION (VARCHAR + NUMBER(p,s)) ----------------
-from pyspark.sql.functions import col, length
-
-def validate_schema(df, source_schema):
-    for field in source_schema.fields:
-        colname = field.name
-        dtype = field.dataType.simpleString().lower()
-
-        # VARCHAR(n)
-        if "varchar" in dtype:
-            max_len = int(dtype.split("(")[1].split(")")[0])
-            bad_len = df.filter(length(col(colname)) > max_len)
-            if bad_len.count() > 0:
-                raise Exception(
-                    f"[STG] Column '{colname}' exceeds varchar({max_len}) length"
-                )
-
-        # NUMBER(p,s) → Spark uses decimal(p,s)
-        if "decimal" in dtype:
-            inside = dtype.split("(")[1].split(")")[0]
-            precision, scale = map(int, inside.split(","))
-
-            # Invalid numeric
-            bad_numeric = df.filter(
-                col(colname).isNotNull() &
-                col(colname).cast(dtype).isNull()
-            )
-            if bad_numeric.count() > 0:
-                raise Exception(
-                    f"[STG] Column '{colname}' contains invalid NUMBER({precision},{scale}) data"
-                )
-
-            # Precision overflow
-            bad_precision = df.filter(
-                col(colname).cast(dtype).isNotNull() &
-                (length(col(colname).cast("string")) > precision + 1)  # +1 for decimal point
-            )
-            if bad_precision.count() > 0:
-                raise Exception(
-                    f"[STG] Column '{colname}' exceeds NUMBER({precision},{scale}) precision"
-                )
-
-def normalize_stg_dataframe(df, schema_cols, table_name, logger, landing_date, stg_bucket):
-    expected_cols = len(schema_cols)
-    last_col = schema_cols[-1]
-
-    # Convert row to array of strings
-    df = df.withColumn("_arr", F.split(F.concat_ws("|", *schema_cols), "\\|"))
-    df = df.withColumn("_col_count", F.size("_arr"))
-
-    # Missing middle columns → skip + log
-    bad_middle = df.filter(F.col("_col_count") < expected_cols - 1)
-    for r in bad_middle.collect():
-        row_text = "|".join([str(x) for x in r["_arr"]])
-        logger.warn(f"[STG][{table_name}] Skipping malformed row. Logged to S3.")
-        log_skipped_row_to_s3(row_text, table_name, landing_date, stg_bucket)
-
-    df = df.filter(F.col("_col_count") >= expected_cols - 1)
-
-    # Missing ONLY last column → append "0"
-    df = df.withColumn(
-        "_arr",
-        F.when(F.col("_col_count") == expected_cols - 1,
-               F.concat(F.col("_arr"), F.array(F.lit("0"))))
-         .otherwise(F.col("_arr"))
-    )
-
-    # Too many columns → skip + log
-    bad_extra = df.filter(F.col("_col_count") > expected_cols)
-    for r in bad_extra.collect():
-        row_text = "|".join([str(x) for x in r["_arr"]])
-        logger.warn(f"[STG][{table_name}] Skipping malformed row. Logged to S3.")
-        log_skipped_row_to_s3(row_text, table_name, landing_date, stg_bucket)
-
-    df = df.filter(F.col("_col_count") <= expected_cols)
-
-    # Last column empty → fill "0"
-    df = df.withColumn(
-        "_arr",
-        F.when(
-            (F.col("_col_count") == expected_cols) &
-            (F.col("_arr")[expected_cols - 1] == ""),
-            F.expr(f"transform(_arr, (x, i) -> CASE WHEN i={expected_cols-1} THEN '0' ELSE x END)")
-        ).otherwise(F.col("_arr"))
-    )
-
-    # Rebuild DataFrame
-    for i, col in enumerate(schema_cols):
-        df = df.withColumn(col, F.col("_arr")[i])
-
-    return df.drop("_arr", "_col_count")
-
-# ---------------- SAFE SAMPLE LOGGER ----------------
-def log_sample(df, name, n=5):
-    try:
-        sample = df.limit(n).toPandas()
-        logger.info(f"[SAMPLE] {name} (showing {len(sample)} rows):\n{sample}")
-    except Exception as e:
-        logger.warn(f"[SAMPLE] Could not show sample for {name}: {e}")
-
 def get_landing_date():
     prefix = f"{landing_prefix}/"
     paginator = s3_client.get_paginator("list_objects_v2")
@@ -344,6 +190,15 @@ sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 logger = glueContext.get_logger()
+import logging
+spark.sparkContext.setLogLevel("ERROR")
+logging.getLogger("boto3").setLevel(logging.WARNING)
+logging.getLogger("botocore").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+
+# 4. Silence py4j spam (Java gateway)
+logging.getLogger("py4j").setLevel(logging.ERROR)
+
 
 logger.info(f"[DEBUG] landing_bucket={landing_bucket}")
 logger.info(f"[DEBUG] landing_prefix={landing_prefix}")
@@ -603,30 +458,6 @@ def add_audit_columns(df, src_table_name):
         .withColumn("load_bat_id", F.lit(load_bat_id))
     )
 
-def log_skipped_row_to_s3(row_text, table_name, landing_date, stg_bucket):
-    """
-    Writes skipped/malformed rows to S3 under:
-    s3://<bucket>/fmmi/stg_bad_rows/<table>/<landing_date>/bad_rows.txt
-    """
-    import boto3
-    s3 = boto3.client("s3")
-
-    key = f"fmmi/stg_bad_rows/{table_name}/{landing_date}/bad_rows.txt"
-
-    # Append mode: read existing content if present
-    try:
-        existing = s3.get_object(Bucket=stg_bucket, Key=key)["Body"].read().decode("utf-8")
-    except Exception:
-        existing = ""
-
-    new_content = existing + row_text + "\n"
-
-    s3.put_object(
-        Bucket=stg_bucket,
-        Key=key,
-        Body=new_content.encode("utf-8")
-    )
-
 # ---------------- STG LOGIC ----------------
 def run_stg():
     global landing_date
@@ -690,20 +521,16 @@ def run_stg():
 
             source_schema = json_to_spark_schema(source_json)
 
-            # CSV LOAD + VALIDATION
-            df = load_stg_dataframe(key, source_schema)
-            schema_cols = [c["Name"] for c in source_json["schema"]]
-            df = normalize_stg_dataframe(df, schema_cols, raw_table_name, logger, landing_date, stg_bucket)
+            df = (
+                spark.read
+                    .option("header", "false")
+                    .option("delimiter", "|")
+                    .option("quote", "\u0000")
+                    .schema(source_schema)
+                    .csv(f"s3://{landing_bucket}/{key}")
+            )
 
-            validate_schema(df, source_schema)
-            
-            log_sample(df, f"STG sample for {raw_table_name}")
-
-            df = df.toDF(*[c.lower() for c in df.columns])
-            df = add_audit_columns(df, raw_table_name)
-
-
-            #df = skip_first_row(df)
+            df = skip_first_row(df)
 
             if df.count() == 0:
                 logger.info("[STG] No data rows found. Writing EMPTY parquet with schema only.")
@@ -765,16 +592,16 @@ def run_stg():
 
         source_schema = json_to_spark_schema(source_json)
 
-        # STRICT CSV LOAD + VALIDATION
-        df = load_stg_dataframe(key, source_schema)
-        schema_cols = [c["Name"] for c in source_json["schema"]]
-        df = normalize_stg_dataframe(df, schema_cols, raw_table_name, logger, landing_date, stg_bucket)
-        validate_schema(df, source_schema)
-        log_sample(df, f"STG sample for {raw_table_name}")
+        df = (
+            spark.read
+                .option("header", "false")
+                .option("delimiter", "|")
+                .option("quote", "\u0000")
+                .schema(source_schema)
+                .csv(f"s3://{landing_bucket}/{key}")
+        )
 
-        df = df.toDF(*[c.lower() for c in df.columns])
-        df = add_audit_columns(df, raw_table_name)
-
+        df = skip_first_row(df)
 
         if df.count() == 0:
             logger.info("[STG] No data rows found. Writing EMPTY parquet with schema only.")
@@ -1174,23 +1001,9 @@ def run_ods():
             F.sum("fg_credit").alias("sa_credit")
         ).orderBy("fiscal_year", "business_area", "fiscal_year_period")
 
-        # Show only first 5 grouped rows for GL
-        try:
-            gl_sample = gl_grouped.limit(5).toPandas()
-            logger.info("[ODS][GL] Sample grouped summary (first 5 rows):")
-            logger.info(f"\n{gl_sample}")
-        except Exception as e:
-            logger.warn(f"[ODS][GL] Could not show GL summary sample: {e}")
+        gl_rows = gl_grouped.collect()
+        sa_rows = sa_grouped.collect()
 
-    # Show only first 5 grouped rows for SA
-        try:
-            sa_sample = sa_grouped.limit(5).toPandas()
-            logger.info("[ODS][SA] Sample grouped summary (first 5 rows):")
-            logger.info(f"\n{sa_sample}")
-        except Exception as e:
-            logger.warn(f"[ODS][SA] Could not show SA summary sample: {e}")
-
-        #
         if diff_cnt == 0:
             gl_ods = ods_name_map.get(gl_table, gl_stg)
             sa_ods = ods_name_map.get(sa_table, sa_stg)

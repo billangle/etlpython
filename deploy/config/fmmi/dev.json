@@ -102,7 +102,7 @@
           "MaxConcurrency": "55",
           "MaxRetries": "0",
           "TimeoutMinutes": "4880",
-          "WorkerType": "G.12X",
+          "WorkerType": "G.4X",
           "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/fmmi/",
           "NumberOfWorkers": "20",
           "AutomaticScalingEnabled": "true",

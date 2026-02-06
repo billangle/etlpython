@@ -1,0 +1,58 @@
+{
+  "Comment": "Child Step Function for Step 1 - Calls Glue Job and passes JobId",
+  "StartAt": "Ingest CNSV CNTR MAINT Incremental data to S3 Landing",
+  "States": {
+    "Ingest CNSV CNTR MAINT Incremental data to S3 Landing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "FSA-CERT-Cnsv-Cntr-Maint-LandingFiles"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Glue.ServiceException",
+            "Glue.AWSGlueException",
+            "Glue.SdkClientException",
+            "Glue.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "BackoffRate": 2,
+          "MaxAttempts": 9
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "HandleError"
+        }
+      ],
+      "Next": "Get Job ID from S3"
+    },
+    "Get Job ID from S3": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:s3:getObject",
+      "Parameters": {
+        "Bucket": "c108-cert-fpacfsa-landing-zone",
+        "Key": "contract_maintenance/etl-jobs/job_id.json"
+      },
+      "ResultSelector": {
+        "JobId.$": "States.StringToJson($.Body)"
+      },
+      "Next": "Pass Job ID To Parent"
+    },
+    "Pass Job ID To Parent": {
+      "Type": "Pass",
+      "ResultPath": "$.Payload",
+      "OutputPath": "$.Payload",
+      "End": true
+    },
+    "HandleError": {
+      "Type": "Fail",
+      "Error": "GlueJobFailed",
+      "Cause": "The Glue job failed."
+    }
+  }
+}

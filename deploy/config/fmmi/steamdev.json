@@ -54,7 +54,8 @@
     "debug": true
   },
    "crawler": {
-    "name": "FSA-steam-dev-FMMI-ODS",
+    "name": "CRWL-ODS",
+    "databaseName": "fsa-fpac-fmmi-db",
     "description": "FMMI ODS crawler data sources (grouped by bucket)",
     "s3TargetsByBucket": [
       {

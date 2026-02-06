@@ -132,8 +132,9 @@
     }
   ],
   "crawler": {
-    "name": "FSA-DEV-FMMI-ODS",
+    "name": "CRWL-ODS",
     "description": "FMMI ODS crawler data sources (grouped by bucket)",
+    "databaseName": "fsa-dev-fmmi_ods",
     "s3TargetsByBucket": [
       {
         "bucket": "c108-dev-fpacfsa-final-zone",

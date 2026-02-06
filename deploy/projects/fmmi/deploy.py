@@ -26,6 +26,7 @@ class FmmiNames:
     echo_landing_glue_job: str
     stg_ods_glue_job: str
     fmmi_state_machine: str
+    fmmi_crawler: str
 
 
 def build_names(deploy_env: str, project: str) -> FmmiNames:
@@ -45,6 +46,7 @@ def build_names(deploy_env: str, project: str) -> FmmiNames:
         echo_landing_glue_job=f"{prefix}-LandingFiles",
         stg_ods_glue_job=f"{prefix}-S3-STG-ODS-parquet",
         fmmi_state_machine=f"{prefix}-CSV-STG-ODS",
+        fmmi_crawler=f"{prefix}-ODS",
     )
 
 
@@ -85,22 +87,14 @@ def _as_str(v: Any, default: str = "") -> str:
 
 
 # --------------------------------------------------------------------------------------
-# GlueConfig (NEW) helpers
+# GlueConfig helpers
 # --------------------------------------------------------------------------------------
 
 def _script_stem(p: Path) -> str:
-    """GlueConfig key must match file name without .py (stem)."""
     return p.name[:-3] if p.name.lower().endswith(".py") else p.name
 
 
 def _parse_glue_config_array(cfg: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
-    """
-    New structure:
-      cfg["GlueConfig"] is a list
-      each list item is {"<script_stem>": { ... glue params ... }}
-
-    Returns a dict keyed by script_stem -> params dict
-    """
     root = cfg.get("GlueConfig")
     if not isinstance(root, list) or not root:
         return {}
@@ -121,7 +115,7 @@ def _glue_config_for_script(cfg: Dict[str, Any], script_stem_name: str) -> Dict[
 
 
 # --------------------------------------------------------------------------------------
-# GlueJobParameters helpers
+# Glue job helpers
 # --------------------------------------------------------------------------------------
 
 def _parse_connection_names(glue_job_params: Dict[str, Any]) -> List[str]:
@@ -150,12 +144,6 @@ def _merge_glue_default_args(
     base_args: Dict[str, Any],
     glue_job_params: Dict[str, Any],
 ) -> Dict[str, str]:
-    """
-    Produces DefaultArguments for Glue.
-
-    Precedence:
-      cfg.glueDefaultArgs < derived args from Glue params < Glue params.JobParameters
-    """
     out: Dict[str, Any] = dict(base_args or {})
 
     spark_ui_path = glue_job_params.get("SparkUILogsPath")
@@ -245,16 +233,10 @@ def _load_asl_definition(project_dir: Path) -> Dict[str, Any]:
 
 
 # --------------------------------------------------------------------------------------
-# Crawler helpers (NEW)
+# Crawler helpers
 # --------------------------------------------------------------------------------------
 
 def _build_crawler_s3_targets(crawler_cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Expects:
-      crawler_cfg["s3TargetsByBucket"] = [{"bucket": "...", "prefixes": ["a/", "b/"]}, ...]
-    Produces Glue API:
-      Targets={"S3Targets":[{"Path":"s3://bucket/prefix"}, ...]}
-    """
     out: List[Dict[str, Any]] = []
     groups = crawler_cfg.get("s3TargetsByBucket")
     if not isinstance(groups, list):
@@ -287,9 +269,6 @@ def ensure_glue_crawler(
     description: str = "",
     recrawl_behavior: str = "CRAWL_EVERYTHING",
 ) -> str:
-    """
-    Create or update a Glue crawler.
-    """
     if not s3_targets:
         raise RuntimeError("Crawler requested but no S3 targets were provided.")
 
@@ -317,8 +296,6 @@ def ensure_glue_crawler(
     }
 
     if exists:
-        # update_crawler does not accept some create-only fields in older API versions,
-        # but the above set is supported broadly; keep it simple.
         glue_client.update_crawler(**params)
     else:
         glue_client.create_crawler(**params)
@@ -333,13 +310,19 @@ def ensure_glue_crawler(
 def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     """
     Deploy FMMI:
-      - 2 Glue jobs (Landing + STG/ODS Parquet)
-      - 1 Step Function (definition from ASL file)
+      - 2 Glue jobs
+      - 1 Step Function
       - OPTIONAL: 1 Glue Crawler if cfg["crawler"] is present
 
-    Glue job sizing/args:
-      - Reads from cfg["GlueConfig"] array keyed by script filename stem (no .py)
-      - If missing, deploys with defaults + cfg.glueDefaultArgs.
+    Crawler naming:
+      - Uses the same FSA-<deployEnv>-<project> prefix via build_names()
+      - If cfg.crawler.name is provided, we append it as a suffix:
+            <prefix>-<cfg.crawler.name>
+        unless cfg.crawler.name already starts with "FSA-"
+      - If cfg.crawler.name is NOT provided, default: names.fmmi_crawler
+    Database name preference:
+      - Prefer cfg.crawler.databaseName if present
+      - Else cfg.configData.databaseName
     """
     deploy_env = cfg["deployEnv"]
     project = cfg["project"]
@@ -398,8 +381,8 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     if not stg_ods_script_local.exists():
         raise FileNotFoundError(f"Missing Glue script: {stg_ods_script_local}")
 
-    landing_script_stem = _script_stem(landing_script_local)  # "FMMI-LandingFiles"
-    stg_ods_script_stem = _script_stem(stg_ods_script_local)  # "S3-STG-ODS-parquet"
+    landing_script_stem = _script_stem(landing_script_local)
+    stg_ods_script_stem = _script_stem(stg_ods_script_local)
 
     # GlueConfig lookup (optional)
     landing_params = _glue_config_for_script(cfg, landing_script_stem)
@@ -494,7 +477,6 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
 
     # --- Step Function ---
     definition = _load_asl_definition(project_dir)
-
     sfn_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(
@@ -506,36 +488,44 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
 
     # --- OPTIONAL: Crawler ---
     crawler_result = "skipped"
+    crawler_name_used = ""
+    crawler_db_used = ""
+
     crawler_cfg = cfg.get("crawler")
     if isinstance(crawler_cfg, dict) and crawler_cfg:
-        crawler_name = _as_str(crawler_cfg.get("name"))
+        # base prefix aligns with glue + step function: FSA-<dep>-<proj>
+        prefix_base = f"FSA-{(deploy_env or '').strip()}-{(project or '').strip()}"
+
+        raw_name = _as_str(crawler_cfg.get("name"))
+        if raw_name:
+            # if user provided a full FSA-* name, accept it; otherwise suffix it
+            crawler_name_used = raw_name if raw_name.startswith("FSA-") else f"{prefix_base}-{raw_name}"
+        else:
+            crawler_name_used = names.fmmi_crawler
+
         crawler_desc = _as_str(crawler_cfg.get("description"))
         s3_targets = _build_crawler_s3_targets(crawler_cfg)
 
-        # Determine database name:
-        # 1) crawler.databaseName
-        # 2) cfg.configData.databaseName
-        db_name = _as_str(crawler_cfg.get("databaseName")) or _as_str((cfg.get("configData") or {}).get("databaseName"))
-        if not db_name:
-            raise RuntimeError("crawler.databaseName or cfg.configData.databaseName is required when crawler is enabled")
+        # Prefer crawler.databaseName if present, else configData.databaseName
+        crawler_db_used = _as_str(crawler_cfg.get("databaseName")) or _as_str((cfg.get("configData") or {}).get("databaseName"))
+        if not crawler_db_used:
+            raise RuntimeError("crawler.databaseName (preferred) or cfg.configData.databaseName is required when crawler is enabled")
 
         # Determine crawler role:
         # 1) crawler.roleArn
         # 2) strparams.glueCrawlerRoleArnParam
-        # 3) fallback to strparams.glueJobRoleArnParam (commonly works)
+        # 3) fallback to strparams.glueJobRoleArnParam
         crawler_role_arn = (
             _as_str(crawler_cfg.get("roleArn"))
-            or _as_str(strparams.get("glueCrawlerRoleArnParam"))
+            or _as_str((cfg.get("strparams") or {}).get("glueCrawlerRoleArnParam"))
             or glue_job_role_arn
         )
-        if not crawler_name:
-            raise RuntimeError("cfg.crawler.name is required when crawler is enabled")
 
         ensure_glue_crawler(
             glue,
-            name=crawler_name,
+            name=crawler_name_used,
             role_arn=crawler_role_arn,
-            database_name=db_name,
+            database_name=crawler_db_used,
             s3_targets=s3_targets,
             description=crawler_desc,
             recrawl_behavior=_as_str(crawler_cfg.get("recrawlBehavior"), "CRAWL_EVERYTHING"),
@@ -560,5 +550,6 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         "glue_config_used_for_landing": "yes" if bool(landing_params) else "no",
         "glue_config_used_for_stg_ods": "yes" if bool(stg_ods_params) else "no",
         "crawler": crawler_result,
-        "crawler_name": _as_str((cfg.get("crawler") or {}).get("name")),
+        "crawler_name": crawler_name_used,
+        "crawler_database": crawler_db_used,
     }

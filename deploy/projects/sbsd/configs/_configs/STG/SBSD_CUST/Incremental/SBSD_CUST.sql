@@ -9,6 +9,8 @@ subsidiary_customer_identifier AS SBSD_CUST_ID
 ,version_number AS VER_NBR
 ,tax_identification_alias AS TAX_ID_ALIAS
 ,tax_identification_type_code AS TAX_ID_TYPE_CD
-, op AS CDC_OPER_CD
-, 'SBSD' as DATA_SRC_NM
+,op AS CDC_OPER_CD
+,current_timestamp AS load_dt
+,'SBSD_STG' AS data_src_nm
+,dart_filedate AS cdc_dt
  FROM `fsa-{env}-sbsd-cdc`.`subsidiary_customer` 

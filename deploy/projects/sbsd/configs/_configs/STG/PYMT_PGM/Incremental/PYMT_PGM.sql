@@ -8,5 +8,8 @@ limited_payment_program_identifier AS PYMT_PGM_ID
 ,creation_user_name AS CRE_USER_NM
 ,last_change_date AS LAST_CHG_DT
 ,last_change_user_name AS LAST_CHG_USER_NM
-, op AS CDC_OPER_CD 
+,op AS CDC_OPER_CD 
+,current_timestamp AS load_dt
+,'SBSD_STG' AS data_src_nm
+,dart_filedate AS cdc_dt
 FROM `fsa-{env}-sbsd-cdc`.`limited_payment_program`

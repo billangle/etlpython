@@ -12,5 +12,8 @@ limited_payment_program_period_identifier AS PYMT_PGM_PRD_ID
 ,program_midsize_name AS PGM_MSIZE_NM
 ,parent_limited_payment_program_identifier AS PRNT_PYMT_PGM_ID
 ,payment_limitation_indicator AS PYMT_LMT_IND
-, op AS CDC_OPER_CD 
+,op AS CDC_OPER_CD 
+,current_timestamp AS load_dt
+,'SBSD_STG' AS data_src_nm
+,dart_filedate AS cdc_dt
 FROM `fsa-{env}-sbsd-cdc`.`limited_payment_program_period`

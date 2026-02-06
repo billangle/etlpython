@@ -28,5 +28,8 @@ limited_payment_program_period_identifier AS PYMT_PGM_PRD_ID
 ,review_completed_date AS RVW_CPLT_DT
 ,reviewer_name AS RVW_NM
 ,agi_900k_payment_program_indicator AS AGI_900K_PYMT_PGM_IND
-, op AS CDC_OPER_CD 
+,op AS CDC_OPER_CD 
+,current_timestamp AS load_dt
+,'SBSD_STG' AS data_src_nm
+,dart_filedate AS cdc_dt
 FROM `fsa-{env}-sbsd-cdc`.`limited_payment_program_period_parameters`

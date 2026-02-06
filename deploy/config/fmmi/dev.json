@@ -52,6 +52,83 @@
     "outputPrefix": "fmmi",
     "minExpectedObjects": 2,
     "debug": true
-  }
+  },
+  "GlueConfig": [ 
+    { 
+      "FMMI-LandingFiles": {
+        "Connections" : [{
+            "ConnectionName": "FSA-DEV-PG-MDART",
+            "type": "JDBC",
+            "VpcId": "vpc-05f9625eecaabbfd4",
+            "SubnetIds": "subnet-0757d215da1902198",
+            "SecurityGroupIds": "sg-0d9f6f8633b91d354, sg-036039481aa5aeccc, sg-00c4a92e918e642d4, sg-095cc861f7770b31a, sg-0a038a338469af190"
+            }] ,
+          "MaxConcurrency": "55",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "2880",
+          "WorkerType": "G.2X",
+          "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/fmmi/",
+          "NumberOfWorkers": "10",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://fsa-dev-ops/temp/glue/",
+          "PythonLibraryPath": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+            "--DestinationBucket": "c108-dev-fpacfsa-landing-zone",
+            "--DestinationPrefix": "fmmi/fmmi_ocfo_files",
+            "--EchoFolder": "fmmi",
+            "--FileNames": "FMMI.FSA*",
+            "--JOB_NAME": "FSA-DEV-FMMI-LandingFiles",
+            "--PipelineName": "fmmi",
+            "--SecretId": "FSA-DEV-secrets"
+          }
+      }
+    },
+    {
+     "S3-STG-ODS-parquet": {
+        "Connections" : [{
+            "ConnectionName": "FSA-DEV-PG-MDART",
+            "type": "JDBC",
+            "VpcId": "vpc-05f9625eecaabbfd4",
+            "SubnetIds": "subnet-0757d215da1902198",
+            "SecurityGroupIds": "sg-0d9f6f8633b91d354, sg-036039481aa5aeccc, sg-00c4a92e918e642d4, sg-095cc861f7770b31a, sg-0a038a338469af190"
+            }] ,
+          "MaxConcurrency": "55",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "4880",
+          "WorkerType": "G.12X",
+          "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/fmmi/",
+          "NumberOfWorkers": "20",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://fsa-dev-ops/temp/glue/",
+          "PythonLibraryPath": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+              "--JOB_NAME": "FSA-DEV-FMMI-S3-STG-ODS-parquet",
+              "--SecretId": "FSA-DEV-secrets",
+              "--bucket_name": "c108-dev-fpacfsa-landing-zone",
+              "--env": "dev",
+              "--enable-job-insights": "fmmi/fmmi_ocfo_files",
+              "--job_type": "BOTH",
+              "--enable-job-insights": "c108-dev-fpacfsa-final-zone",
+              "--ods_folder_name": "fmmi_ods",
+              "--stg_bucket_name": "c108-dev-fpacfsa-cleansed-zone",
+              "--stg_folder_name": "fmmi_stg"
+            }
+      }
+    }
+  ]
 
 }

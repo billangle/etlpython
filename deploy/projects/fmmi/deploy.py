@@ -4,9 +4,10 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import boto3
+from botocore.exceptions import ClientError
 
 from common.aws_common import (
     ensure_bucket_exists,
@@ -108,7 +109,6 @@ def _parse_glue_config_array(cfg: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     for item in root:
         if not isinstance(item, dict) or not item:
             continue
-        # each item should have exactly one key: the script stem
         for k, v in item.items():
             if isinstance(k, str) and k.strip() and isinstance(v, dict):
                 out[k.strip()] = v
@@ -116,15 +116,12 @@ def _parse_glue_config_array(cfg: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
 
 
 def _glue_config_for_script(cfg: Dict[str, Any], script_stem_name: str) -> Dict[str, Any]:
-    """
-    Returns GlueConfig settings for the given script stem (no .py), else {}.
-    """
     m = _parse_glue_config_array(cfg)
     return m.get(script_stem_name, {}) if m else {}
 
 
 # --------------------------------------------------------------------------------------
-# GlueJobParameters helpers (kept for backward compatibility / default args)
+# GlueJobParameters helpers
 # --------------------------------------------------------------------------------------
 
 def _parse_connection_names(glue_job_params: Dict[str, Any]) -> List[str]:
@@ -200,7 +197,6 @@ def _merge_glue_default_args(
     if python_lib_path and "--extra-py-files" not in out:
         out["--extra-py-files"] = python_lib_path
 
-    # Explicit job parameters override everything
     job_params = glue_job_params.get("JobParameters") or {}
     if isinstance(job_params, dict):
         for k, v in job_params.items():
@@ -249,6 +245,88 @@ def _load_asl_definition(project_dir: Path) -> Dict[str, Any]:
 
 
 # --------------------------------------------------------------------------------------
+# Crawler helpers (NEW)
+# --------------------------------------------------------------------------------------
+
+def _build_crawler_s3_targets(crawler_cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Expects:
+      crawler_cfg["s3TargetsByBucket"] = [{"bucket": "...", "prefixes": ["a/", "b/"]}, ...]
+    Produces Glue API:
+      Targets={"S3Targets":[{"Path":"s3://bucket/prefix"}, ...]}
+    """
+    out: List[Dict[str, Any]] = []
+    groups = crawler_cfg.get("s3TargetsByBucket")
+    if not isinstance(groups, list):
+        return out
+
+    for g in groups:
+        if not isinstance(g, dict):
+            continue
+        bucket = _as_str(g.get("bucket"))
+        prefixes = g.get("prefixes")
+        if not bucket or not isinstance(prefixes, list):
+            continue
+        for p in prefixes:
+            pref = _as_str(p)
+            if not pref:
+                continue
+            if pref.startswith("/"):
+                pref = pref[1:]
+            out.append({"Path": f"s3://{bucket}/{pref}"})
+    return out
+
+
+def ensure_glue_crawler(
+    glue_client,
+    *,
+    name: str,
+    role_arn: str,
+    database_name: str,
+    s3_targets: List[Dict[str, Any]],
+    description: str = "",
+    recrawl_behavior: str = "CRAWL_EVERYTHING",
+) -> str:
+    """
+    Create or update a Glue crawler.
+    """
+    if not s3_targets:
+        raise RuntimeError("Crawler requested but no S3 targets were provided.")
+
+    try:
+        glue_client.get_crawler(Name=name)
+        exists = True
+    except ClientError as e:
+        code = e.response.get("Error", {}).get("Code", "")
+        if code in ("EntityNotFoundException", "CrawlerNotFoundException"):
+            exists = False
+        else:
+            raise
+
+    params = {
+        "Name": name,
+        "Role": role_arn,
+        "DatabaseName": database_name,
+        "Description": description or "",
+        "Targets": {"S3Targets": s3_targets},
+        "RecrawlPolicy": {"RecrawlBehavior": recrawl_behavior},
+        "SchemaChangePolicy": {
+            "UpdateBehavior": "UPDATE_IN_DATABASE",
+            "DeleteBehavior": "DEPRECATE_IN_DATABASE",
+        },
+    }
+
+    if exists:
+        # update_crawler does not accept some create-only fields in older API versions,
+        # but the above set is supported broadly; keep it simple.
+        glue_client.update_crawler(**params)
+    else:
+        glue_client.create_crawler(**params)
+
+    return name
+
+
+# --------------------------------------------------------------------------------------
 # Deploy
 # --------------------------------------------------------------------------------------
 
@@ -257,11 +335,11 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     Deploy FMMI:
       - 2 Glue jobs (Landing + STG/ODS Parquet)
       - 1 Step Function (definition from ASL file)
+      - OPTIONAL: 1 Glue Crawler if cfg["crawler"] is present
 
-    NEW:
-      - Reads Glue sizing/args from cfg["GlueConfig"] array keyed by script filename stem.
-      - If GlueConfig missing or doesn't contain a matching entry, falls back to defaults
-        (GlueVersion=4.0, WorkerType=G.1X, etc.) plus cfg.glueDefaultArgs.
+    Glue job sizing/args:
+      - Reads from cfg["GlueConfig"] array keyed by script filename stem (no .py)
+      - If missing, deploys with defaults + cfg.glueDefaultArgs.
     """
     deploy_env = cfg["deployEnv"]
     project = cfg["project"]
@@ -320,14 +398,13 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     if not stg_ods_script_local.exists():
         raise FileNotFoundError(f"Missing Glue script: {stg_ods_script_local}")
 
-    landing_script_stem = _script_stem(landing_script_local)        # "FMMI-LandingFiles"
-    stg_ods_script_stem = _script_stem(stg_ods_script_local)        # "S3-STG-ODS-parquet"
+    landing_script_stem = _script_stem(landing_script_local)  # "FMMI-LandingFiles"
+    stg_ods_script_stem = _script_stem(stg_ods_script_local)  # "S3-STG-ODS-parquet"
 
-    # NEW GlueConfig lookup (optional)
+    # GlueConfig lookup (optional)
     landing_params = _glue_config_for_script(cfg, landing_script_stem)
     stg_ods_params = _glue_config_for_script(cfg, stg_ods_script_stem)
 
-    # Defaults if missing or empty
     def _defaults(p: Dict[str, Any], default_worker: str) -> Dict[str, Any]:
         return {
             "GlueVersion": _as_str(p.get("GlueVersion"), "4.0"),
@@ -338,12 +415,9 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
             "MaxConcurrency": _as_int(p.get("MaxConcurrency"), 1),
         }
 
-    # Reasonable defaults (can be overridden via GlueConfig)
     landing_d = _defaults(landing_params, default_worker="G.1X")
     stg_ods_d = _defaults(stg_ods_params, default_worker="G.1X")
 
-    # DefaultArguments:
-    # - If GlueConfig missing, these become mostly cfg.glueDefaultArgs plus injected values
     glue_default_base = cfg.get("glueDefaultArgs") or {}
     landing_default_args = _merge_glue_default_args(glue_default_base, landing_params)
     stg_ods_default_args = _merge_glue_default_args(glue_default_base, stg_ods_params)
@@ -352,7 +426,6 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         if k not in args and v:
             args[k] = v
 
-    # Helpful injected params if your scripts accept them (only if not already set)
     for args in (landing_default_args, stg_ods_default_args):
         _set_if_missing(args, "--env", str(deploy_env))
         _set_if_missing(args, "--landing_bucket", landing_bucket)
@@ -363,7 +436,6 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         _set_if_missing(args, "--stg_folder", stg_folder)
         _set_if_missing(args, "--ods_folder", ods_folder)
 
-    # Connections (names only)
     landing_conns = _parse_connection_names(landing_params)
     stg_ods_conns = _parse_connection_names(stg_ods_params)
 
@@ -432,6 +504,44 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         ),
     )
 
+    # --- OPTIONAL: Crawler ---
+    crawler_result = "skipped"
+    crawler_cfg = cfg.get("crawler")
+    if isinstance(crawler_cfg, dict) and crawler_cfg:
+        crawler_name = _as_str(crawler_cfg.get("name"))
+        crawler_desc = _as_str(crawler_cfg.get("description"))
+        s3_targets = _build_crawler_s3_targets(crawler_cfg)
+
+        # Determine database name:
+        # 1) crawler.databaseName
+        # 2) cfg.configData.databaseName
+        db_name = _as_str(crawler_cfg.get("databaseName")) or _as_str((cfg.get("configData") or {}).get("databaseName"))
+        if not db_name:
+            raise RuntimeError("crawler.databaseName or cfg.configData.databaseName is required when crawler is enabled")
+
+        # Determine crawler role:
+        # 1) crawler.roleArn
+        # 2) strparams.glueCrawlerRoleArnParam
+        # 3) fallback to strparams.glueJobRoleArnParam (commonly works)
+        crawler_role_arn = (
+            _as_str(crawler_cfg.get("roleArn"))
+            or _as_str(strparams.get("glueCrawlerRoleArnParam"))
+            or glue_job_role_arn
+        )
+        if not crawler_name:
+            raise RuntimeError("cfg.crawler.name is required when crawler is enabled")
+
+        ensure_glue_crawler(
+            glue,
+            name=crawler_name,
+            role_arn=crawler_role_arn,
+            database_name=db_name,
+            s3_targets=s3_targets,
+            description=crawler_desc,
+            recrawl_behavior=_as_str(crawler_cfg.get("recrawlBehavior"), "CRAWL_EVERYTHING"),
+        )
+        crawler_result = "created_or_updated"
+
     return {
         "deploy_env": str(deploy_env),
         "project": str(project),
@@ -449,4 +559,6 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         "state_machine_arn": sfn_arn,
         "glue_config_used_for_landing": "yes" if bool(landing_params) else "no",
         "glue_config_used_for_stg_ods": "yes" if bool(stg_ods_params) else "no",
+        "crawler": crawler_result,
+        "crawler_name": _as_str((cfg.get("crawler") or {}).get("name")),
     }

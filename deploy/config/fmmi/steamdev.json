@@ -52,5 +52,38 @@
     "outputPrefix": "fmmi",
     "minExpectedObjects": 2,
     "debug": true
+  },
+   "crawler": {
+    "name": "FSA-steam-dev-FMMI-ODS",
+    "description": "FMMI ODS crawler data sources (grouped by bucket)",
+    "s3TargetsByBucket": [
+      {
+        "bucket": "punkdev-fpacfsa-final-zone",
+        "prefixes": [
+          "fmmi/fmmi_ods/CS_TBL_CMMT_ITEM/",
+          "fmmi/fmmi_ods/CS_TBL_CUSTOMER/",
+          "fmmi/fmmi_ods/CS_TBL_FUNC_AREA/",
+          "fmmi/fmmi_ods/CS_TBL_FUND/",
+          "fmmi/fmmi_ods/CS_TBL_FUNDED_PROGRAM/",
+          "fmmi/fmmi_ods/CS_TBL_GL_ACCOUNT/",
+          "fmmi/fmmi_ods/CS_TBL_WBS/",
+          "fmmi/fmmi_ods/CS_TBL_VENDOR/",
+          "fmmi/fmmi_ods/CS_TBL_PAYROLL/",
+          "fmmi/fmmi_ods/CS_TBL_PO_HEADER/",
+          "fmmi/fmmi_ods/CS_TBL_PO_ITEM/",
+          "fmmi/fmmi_ods/CS_TBL_PURCHASING/",
+          "fmmi/fmmi_ods/CS_TBL_INVOICE_DIS/",
+          "fmmi/fmmi_ods/CS_TBL_COST_CENTER/",
+          "fmmi/fmmi_ods/CS_TBL_MATERIAL_DOC/",
+          "fmmi/fmmi_ods/CS_TBL_COMMITMENT/",
+          "fmmi/fmmi_ods/CS_TBL_FUND_CENTER/",
+          "fmmi/fmmi_ods/TMP_GL/",
+          "fmmi/fmmi_ods/TMP_SA/",
+          "fmmi/fmmi_ods/CS_TBL_GL/",
+          "fmmi/fmmi_ods/CS_TBL_SYSTEM_ASSURANCE/",
+          "fmmi/fmmi_ods/GL_SUMMARY/"
+        ]
+      }
+    ]
   }
 }

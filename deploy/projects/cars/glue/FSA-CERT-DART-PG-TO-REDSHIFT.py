@@ -12,10 +12,11 @@ Parameters (Required):
 Parameters (Optional):
     --start_date:       Start date for incremental load (YYYY-MM-DD) - required for incremental
     --data_src_nm:      Application name for logging (cars, cnsv, cvs)
+    --date_column:      Column to use for incremental filtering (default: load_dt)
 
 Load Behavior:
     - initial:     Truncates target Redshift table, loads ALL data from PostgreSQL
-    - incremental: No truncate, loads only records where load_dt >= start_date
+    - incremental: No truncate, loads only records where {date_column} >= start_date
 """
 
 import sys
@@ -34,10 +35,12 @@ from pyspark.sql.functions import col
 from py4j.java_gateway import java_import
 
 
-#CONFIGURATION
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
 
-#Column used for incremental filtering
-INCREMENTAL_DATE_COLUMN = "data_eff_strt_dt"
+# Default column used for incremental filtering (can be overridden via --date_column)
+DEFAULT_DATE_COLUMN = "load_dt"
 
 
 def get_environment_config(env: str) -> dict:
@@ -75,7 +78,9 @@ def get_environment_config(env: str) -> dict:
     return configs[env_lower]
 
 
+# =============================================================================
 # DATABASE CONNECTIONS
+# =============================================================================
 
 class PostgresConnection:
     """PostgreSQL database connection for reading source data."""
@@ -86,14 +91,14 @@ class PostgresConnection:
         self.database = database
         self.env = env.upper()
         
-        #Glue connection name
+        # Glue connection name
         self.glue_connection = f"FSA-{self.env}-PG-DART114"
         
-        #Get connection properties
+        # Get connection properties
         self.jdbc_conf = glue_context.extract_jdbc_conf(self.glue_connection)
         self.connection_properties = self._get_connection_properties()
         
-        #For Spark DataFrame reads
+        # For Spark DataFrame reads
         self.jdbc_url = self.connection_properties["jdbc_url"]
         self.spark_properties = {
             "user": self.connection_properties["user"],
@@ -151,6 +156,7 @@ class PostgresConnection:
         
         return df
 
+
 class RedshiftConnection:
     """Redshift database connection for writing data."""
     
@@ -159,7 +165,7 @@ class RedshiftConnection:
         self.env = env.lower()
         self.config = get_environment_config(env)
         
-        #Get credentials from Secrets Manager
+        # Get credentials from Secrets Manager
         self.credentials = self._get_credentials()
         
         self.catalog_connection = self.config["rs_catalog_connection"]
@@ -182,7 +188,7 @@ class RedshiftConnection:
         print(f"Writing to Redshift: {full_table}")
         print(f"Truncate before load: {truncate}")
         
-        #Generate temp path for Redshift COPY command
+        # Generate temp path for Redshift COPY command
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         tmp_path = f"s3://{self.tmp_bucket}/_redshift_tmp/{schema}/{table}/{timestamp}/"
         
@@ -192,11 +198,11 @@ class RedshiftConnection:
             "aws_iam_role": self.arn_role,
         }
         
-        #Add truncate preaction if requested (for initial load)
+        # Add truncate preaction if requested (for initial load)
         if truncate:
             conn_options["preactions"] = f"TRUNCATE TABLE {full_table};"
         
-        #Write to Redshift
+        # Write to Redshift
         self.glue_context.write_dynamic_frame.from_jdbc_conf(
             frame=dynamic_frame,
             catalog_connection=self.catalog_connection,
@@ -218,10 +224,10 @@ class ProcessControlLogger:
         self.sc = spark_context
         self.env = env.upper()
         
-        #Import Java JDBC
+        # Import Java JDBC
         java_import(spark_context._gateway.jvm, "java.sql.DriverManager")
         
-        #Get connection
+        # Get connection
         glue_connection = f"FSA-{self.env}-PG-DART114"
         jdbc_conf = glue_context.extract_jdbc_conf(glue_connection)
         
@@ -319,7 +325,9 @@ class ProcessControlLogger:
             pass
 
 
+# =============================================================================
 # UTILITY FUNCTIONS
+# =============================================================================
 
 def debug_df(df, label: str):
     """Print schema and sample rows for debugging."""
@@ -332,10 +340,12 @@ def debug_df(df, label: str):
     print(f"Partition count: {df.rdd.getNumPartitions()}")
 
 
+# =============================================================================
 # MAIN
+# =============================================================================
 
 def main():
-    #Parse required arguments
+    # Parse required arguments
     args = getResolvedOptions(sys.argv, [
         "JOB_NAME",
         "table_name",
@@ -345,10 +355,11 @@ def main():
         "run_type"
     ])
     
-    #Parse optional arguments with defaults
+    # Parse optional arguments with defaults
     optional_params = {
         "start_date": datetime.utcnow().strftime("%Y-%m-%d"),
         "data_src_nm": "",
+        "date_column": DEFAULT_DATE_COLUMN,
     }
     
     for param in optional_params.keys():
@@ -358,7 +369,7 @@ def main():
         except:
             pass
     
-    #Extract parameters
+    # Extract parameters
     table_name = args["table_name"]
     source_schema = args["source_schema"]
     target_schema = args["target_schema"]
@@ -366,18 +377,19 @@ def main():
     run_type = args["run_type"].lower()
     start_date = optional_params["start_date"]
     data_src_nm = optional_params["data_src_nm"]
+    date_column = optional_params["date_column"]
     
-    #Validate run_type
+    # Validate run_type
     if run_type not in ["initial", "incremental"]:
         raise ValueError(f"Invalid run_type: {run_type}. Must be 'initial' or 'incremental'")
     
-    #For incremental, start_date is required
+    # For incremental, start_date is required
     if run_type == "incremental" and not start_date:
         raise ValueError("start_date is required for incremental run_type")
     
     job_run_id = args.get("JOB_RUN_ID", datetime.utcnow().strftime("%Y%m%d%H%M%S"))
     
-    #Initialize Spark/Glue
+    # Initialize Spark/Glue
     sc = SparkContext()
     glue_context = GlueContext(sc)
     spark = glue_context.spark_session
@@ -385,7 +397,7 @@ def main():
     job = Job(glue_context)
     job.init(args["JOB_NAME"], args)
     
-    #Determine behavior based on run_type
+    # Determine behavior based on run_type
     truncate_target = (run_type == "initial")
     
     print("=" * 70)
@@ -399,9 +411,9 @@ def main():
     print(f"  Start Date:     {start_date}")
     print(f"  Data Source:    {data_src_nm}")
     print(f"  Truncate:       {truncate_target}")
+    print(f"  Date Column:    {date_column}")
     if run_type == "incremental":
-        print(f"  Filter Column:  {INCREMENTAL_DATE_COLUMN}")
-        print(f"  Filter:         {INCREMENTAL_DATE_COLUMN} >= '{start_date}'")
+        print(f"  Filter:         {date_column} >= '{start_date}'")
     print("=" * 70)
     
     process_start_time = datetime.utcnow()
@@ -409,7 +421,7 @@ def main():
     pc_logger = None
     
     try:
-        #Initialize connections
+        # Initialize connections
         pg_conn = PostgresConnection(
             spark_context=sc,
             glue_context=glue_context,
@@ -424,7 +436,7 @@ def main():
         )
         print("Redshift connection established")
         
-        #Initialize process control logger (optional)
+        # Initialize process control logger (optional)
         try:
             pc_logger = ProcessControlLogger(
                 spark_context=sc,
@@ -435,23 +447,23 @@ def main():
             print(f"Process control logger not available: {e}")
             pc_logger = None
         
-        #Read data from PostgreSQL based on run_type
+        # Read data from PostgreSQL based on run_type
         if run_type == "initial":
             # Initial: Read all data
             print(f"\nINITIAL LOAD: Reading ALL data from {source_schema}.{table_name}")
             source_df = pg_conn.read_table(spark, source_schema, table_name)
         else:
-            # Incremental: Read filtered data
-            print(f"\nINCREMENTAL LOAD: Reading data where {INCREMENTAL_DATE_COLUMN} >= '{start_date}'")
+            # Incremental: Read filtered data using the specified date_column
+            print(f"\nINCREMENTAL LOAD: Reading data where {date_column} >= '{start_date}'")
             source_df = pg_conn.read_table_incremental(
                 spark=spark,
                 schema=source_schema,
                 table=table_name,
-                date_column=INCREMENTAL_DATE_COLUMN,
+                date_column=date_column,
                 start_date=start_date
             )
         
-        #Cache for performance
+        # Cache for performance
         source_df.cache()
         total_rows = source_df.count()
         print(f"Read {total_rows} rows from PostgreSQL")
@@ -459,13 +471,13 @@ def main():
         if total_rows == 0:
             print("No data to transfer")
         else:
-            #Debug output
+            # Debug output
             debug_df(source_df, f"Source: {source_schema}.{table_name}")
             
-            #Convert to DynamicFrame for Glue write
+            # Convert to DynamicFrame for Glue write
             dynamic_frame = DynamicFrame.fromDF(source_df, glue_context, "source_df")
             
-            #Write to Redshift
+            # Write to Redshift
             print(f"\nWriting to Redshift: {target_schema}.{table_name}")
             rs_conn.write_table(
                 dynamic_frame=dynamic_frame,
@@ -474,10 +486,10 @@ def main():
                 truncate=truncate_target
             )
         
-        #Unpersist cached DataFrame
+        # Unpersist cached DataFrame
         source_df.unpersist()
         
-        #Log success
+        # Log success
         if pc_logger:
             pc_logger.log_operation(
                 table_name=table_name,
@@ -508,7 +520,7 @@ def main():
         print(f"Traceback:\n{error_tb}")
         print("=" * 70)
         
-        #Log failure
+        # Log failure
         if pc_logger:
             try:
                 pc_logger.log_operation(

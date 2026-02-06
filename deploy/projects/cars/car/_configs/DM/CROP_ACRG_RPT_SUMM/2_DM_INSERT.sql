@@ -21,13 +21,11 @@ INSERT INTO CAR_DM_STG.CROP_ACRG_RPT_SUMM
 WITH years
 AS (
     SELECT PGM_YR
-        , ADD_MONTHS(TRUNC(current_date)-1, (1-rownum)*12) AS Yesterday
-        ,   rownum as Rnbr
-    FROM (  SELECT PGM_YR
-            FROM cmn_dim_dm_stg.PGM_YR_DIM 
-            WHERE DATA_STAT_CD='A' 
-                AND current_date BETWEEN PGM_YR_STRT_DT AND ADD_MONTHS(PGM_YR_END_DT,36)
-            ORDER BY 1 DESC )
+        , (CURRENT_DATE - 1) + ((1 - ROW_NUMBER() OVER(ORDER BY PGM_YR DESC)) * INTERVAL '12 months') AS Yesterday
+        , ROW_NUMBER() OVER(ORDER BY PGM_YR DESC) as Rnbr
+    FROM cmn_dim_dm_stg.PGM_YR_DIM 
+    WHERE DATA_STAT_CD='A' 
+        AND CURRENT_DATE BETWEEN PGM_YR_STRT_DT AND (PGM_YR_END_DT + INTERVAL '36 months')
 )
 , STCNTYYR
 AS
@@ -54,13 +52,13 @@ AS
         ,   appd.ST_FSA_CD
         ,   appd.CNTY_FSA_CD
         --,   COUNT(DISTINCT appd.CNTY_FSA_CD ) AS Counties
-        ,   SUM(CASE WHEN TRUNC (appd.AG_PROD_PLAN_CRE_DT) = (TRUNC(current_date)-1) THEN 1 ELSE 0 END) AS CropFieldAdded
-        ,   SUM(CASE WHEN TRUNC (appd.AG_PROD_PLAN_LAST_CHG_DT) = (TRUNC(current_date)-1)
-                        AND TRUNC (appd.AG_PROD_PLAN_LAST_CHG_DT) != TRUNC (appd.AG_PROD_PLAN_CRE_DT)
+        ,   SUM(CASE WHEN DATE(appd.AG_PROD_PLAN_CRE_DT) = (CURRENT_DATE - 1) THEN 1 ELSE 0 END) AS CropFieldAdded
+        ,   SUM(CASE WHEN DATE(appd.AG_PROD_PLAN_LAST_CHG_DT) = (CURRENT_DATE - 1)
+                        AND DATE(appd.AG_PROD_PLAN_LAST_CHG_DT) != DATE(appd.AG_PROD_PLAN_CRE_DT)
                     THEN 1
                     ELSE 0 END ) AS CropFieldUpdated
         ,   COUNT(*) AS TotalField
-        ,   SUM(CASE WHEN TRUNC (appd.AG_PROD_PLAN_CRE_DT) <= years.Yesterday THEN 1 ELSE 0 END) AS CropFieldPgmYr
+        ,   SUM(CASE WHEN DATE(appd.AG_PROD_PLAN_CRE_DT) <= years.Yesterday THEN 1 ELSE 0 END) AS CropFieldPgmYr
     FROM CAR_DM_STG.AG_PROD_PLAN_DIM appd
         INNER JOIN years ON years.pgm_yr = appd.pgm_yr
         INNER JOIN CAR_DM_STG.AG_PROD_PLAN_FACT B ON appd.SRC_AG_PROD_PLAN_ID=b.SRC_AG_PROD_PLAN_ID
@@ -83,12 +81,12 @@ AS
         ,   cars.ST_FSA_CD
         ,   cars.CNTY_FSA_CD
         ,   SUM(CASE WHEN cars.SRC_DATA_STAT_CD = 'A'
-                        AND TRUNC (cars.CROP_ACRG_RPT_CRE_DT) =  (TRUNC(current_date)-1) 
+                        AND DATE(cars.CROP_ACRG_RPT_CRE_DT) = (CURRENT_DATE - 1) 
                     THEN 1 
                     ELSE 0 END) AS CreatedReports
         ,   SUM(CASE WHEN cars.SRC_DATA_STAT_CD = 'A'
-                        AND TRUNC (CARS.ACRG_RPT_LAST_MOD_DT) = (TRUNC(current_date)-1)
-                        AND TRUNC (CARS.ACRG_RPT_LAST_MOD_DT) != TRUNC (CARS.CROP_ACRG_RPT_CRE_DT)
+                        AND DATE(CARS.ACRG_RPT_LAST_MOD_DT) = (CURRENT_DATE - 1)
+                        AND DATE(CARS.ACRG_RPT_LAST_MOD_DT) != DATE(CARS.CROP_ACRG_RPT_CRE_DT)
                     THEN 1
                     ELSE 0 END ) AS UpdatedReports
         ,   SUM(CASE WHEN cars.SRC_DATA_STAT_CD = 'A' THEN 1 ELSE 0 END) AS TotalReport
@@ -101,13 +99,13 @@ AS
                     ELSE 0 END ) AS CompleteReport
         ,   SUM(CASE WHEN SRC_DATA_STAT_CD = 'A'
                         AND ( ( cars.RQR_PLNT_STAT_CPLT_IND = 1 -- 'Y'
-                                AND TRUNC(cars.RQR_PLNT_STAT_CPLT_DT) <= years.Yesterday )
+                                AND DATE(cars.RQR_PLNT_STAT_CPLT_DT) <= years.Yesterday )
                               OR ( cars.ACRG_RPT_CNTNT_EXST_IND = 1  -- 'Y'
-                                    AND TRUNC(cars.LAST_OVRRD_CHG_DT) <= years.Yesterday ) )
+                                    AND DATE(cars.LAST_OVRRD_CHG_DT) <= years.Yesterday ) )
                     THEN 1
                     ELSE 0 END ) AS FullReportPgmYr
         ,   SUM(CASE WHEN cars.SRC_DATA_STAT_CD = 'A' 
-                        AND TRUNC(cars.CROP_ACRG_RPT_CRE_DT) <= years.Yesterday 
+                        AND DATE(cars.CROP_ACRG_RPT_CRE_DT) <= years.Yesterday 
                     THEN 1 
                     ELSE 0 END) AS AcrgRptPgmYr
     FROM   CAR_DM_STG.CROP_ACRG_RPT_DIM cars
@@ -137,8 +135,8 @@ AS
         and hs.doc_cert_stat_cd <> 'N'
     group by h.pgm_yr, h.st_fsa_cd, h.cnty_fsa_cd
 )
-SELECT  /*+PARALLEL(8) */
-        current_date as CRE_DT
+SELECT
+        CURRENT_DATE as CRE_DT
     ,   STCNTYYR.PGM_YR
     ,   STCNTYYR.ST_FSA_CD
     ,   STCNTYYR.CNTY_FSA_CD
@@ -181,4 +179,4 @@ FROM STCNTYYR
         ON STCNTYYR.PGM_YR - 1 = PrevCars.PGM_YR
             AND STCNTYYR.ST_FSA_CD = PrevCars.ST_FSA_CD
             AND STCNTYYR.CNTY_FSA_CD = PrevCars.CNTY_FSA_CD
-WHERE   STCNTYYR.Rnbr <= 3'
+WHERE   STCNTYYR.Rnbr <= 3

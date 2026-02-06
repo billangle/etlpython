@@ -1,4 +1,4 @@
-INSERT CAR_DM_STG.CVR_CMDY_BY_TR_RPT_PRMPT
+INSERT INTO CAR_DM_STG.CVR_CMDY_BY_TR_RPT_PRMPT
 (CRE_DT,
 PGM_YR,
 ADM_ST_NM,
@@ -69,5 +69,4 @@ SELECT current_date AS SYS_DATE,
        C5      AS ADM_ST_NM,
        C3      AS ADM_CNTY_NM,
        C10     AS TR_NBR
-FROM base	   
-	   
+FROM base

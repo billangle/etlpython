@@ -1,6 +1,6 @@
 {
   "deployEnv": "FPACDEV",
-  "project": "fmmi",
+  "project": "FMMI",
   "region": "us-east-1",
   "bucketRegion": "us-east-1",
 

@@ -118,6 +118,7 @@
             "JobParameters": {
               "--JOB_NAME": "FSA-DEV-FMMI-S3-STG-ODS-parquet",
               "--SecretId": "FSA-DEV-secrets",
+              "--datalake-formats": "c108-dev-fpacfsa-landing-zone",
               "--bucket_name": "c108-dev-fpacfsa-landing-zone",
               "--env": "dev",
               "--enable-job-insights": "fmmi/fmmi_ocfo_files",

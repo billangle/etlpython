@@ -9,4 +9,4 @@ limited_payment_program_identifier AS PYMT_PGM_ID
 ,last_change_date AS LAST_CHG_DT
 ,last_change_user_name AS LAST_CHG_USER_NM
 , op AS CDC_OPER_CD 
-FROM `fsa-{env}-sbsd-cdc`.`payment_program`
+FROM `fsa-{env}-sbsd-cdc`.`limited_payment_program`

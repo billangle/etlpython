@@ -13,4 +13,4 @@ limited_payment_program_period_identifier AS PYMT_PGM_PRD_ID
 ,parent_limited_payment_program_identifier AS PRNT_PYMT_PGM_ID
 ,payment_limitation_indicator AS PYMT_LMT_IND
 , op AS CDC_OPER_CD 
-FROM `fsa-{env}-sbsd-cdc`.`payment_program_period`
+FROM `fsa-{env}-sbsd-cdc`.`limited_payment_program_period`

@@ -10,4 +10,5 @@ subsidiary_customer_identifier AS SBSD_CUST_ID
 ,tax_identification_alias AS TAX_ID_ALIAS
 ,tax_identification_type_code AS TAX_ID_TYPE_CD
 , op AS CDC_OPER_CD
+, 'SBSD' as DATA_SRC_NM
  FROM `fsa-{env}-sbsd-cdc`.`subsidiary_customer` 

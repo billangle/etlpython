@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import boto3
 
@@ -84,7 +84,47 @@ def _as_str(v: Any, default: str = "") -> str:
 
 
 # --------------------------------------------------------------------------------------
-# GlueJobParameters helpers
+# GlueConfig (NEW) helpers
+# --------------------------------------------------------------------------------------
+
+def _script_stem(p: Path) -> str:
+    """GlueConfig key must match file name without .py (stem)."""
+    return p.name[:-3] if p.name.lower().endswith(".py") else p.name
+
+
+def _parse_glue_config_array(cfg: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """
+    New structure:
+      cfg["GlueConfig"] is a list
+      each list item is {"<script_stem>": { ... glue params ... }}
+
+    Returns a dict keyed by script_stem -> params dict
+    """
+    root = cfg.get("GlueConfig")
+    if not isinstance(root, list) or not root:
+        return {}
+
+    out: Dict[str, Dict[str, Any]] = {}
+    for item in root:
+        if not isinstance(item, dict) or not item:
+            continue
+        # each item should have exactly one key: the script stem
+        for k, v in item.items():
+            if isinstance(k, str) and k.strip() and isinstance(v, dict):
+                out[k.strip()] = v
+    return out
+
+
+def _glue_config_for_script(cfg: Dict[str, Any], script_stem_name: str) -> Dict[str, Any]:
+    """
+    Returns GlueConfig settings for the given script stem (no .py), else {}.
+    """
+    m = _parse_glue_config_array(cfg)
+    return m.get(script_stem_name, {}) if m else {}
+
+
+# --------------------------------------------------------------------------------------
+# GlueJobParameters helpers (kept for backward compatibility / default args)
 # --------------------------------------------------------------------------------------
 
 def _parse_connection_names(glue_job_params: Dict[str, Any]) -> List[str]:
@@ -113,6 +153,12 @@ def _merge_glue_default_args(
     base_args: Dict[str, Any],
     glue_job_params: Dict[str, Any],
 ) -> Dict[str, str]:
+    """
+    Produces DefaultArguments for Glue.
+
+    Precedence:
+      cfg.glueDefaultArgs < derived args from Glue params < Glue params.JobParameters
+    """
     out: Dict[str, Any] = dict(base_args or {})
 
     spark_ui_path = glue_job_params.get("SparkUILogsPath")
@@ -154,28 +200,13 @@ def _merge_glue_default_args(
     if python_lib_path and "--extra-py-files" not in out:
         out["--extra-py-files"] = python_lib_path
 
+    # Explicit job parameters override everything
     job_params = glue_job_params.get("JobParameters") or {}
     if isinstance(job_params, dict):
         for k, v in job_params.items():
             out[str(k)] = "" if v is None else str(v)
 
     return {str(k): str(v) for k, v in out.items()}
-
-
-def _glue_params_for_job(cfg: Dict[str, Any], job_key: str) -> Dict[str, Any]:
-    root = cfg.get("GlueJobParameters")
-    if not isinstance(root, dict) or not root:
-        return {}
-
-    candidate = root.get(job_key)
-    if isinstance(candidate, dict) and candidate:
-        if "Connections" not in candidate and "Connections" in root:
-            merged = dict(candidate)
-            merged["Connections"] = root.get("Connections")
-            return merged
-        return candidate
-
-    return root
 
 
 # --------------------------------------------------------------------------------------
@@ -227,7 +258,10 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
       - 2 Glue jobs (Landing + STG/ODS Parquet)
       - 1 Step Function (definition from ASL file)
 
-    No environment hardcoding: buckets + snsArnParam come from cfg["strparams"].
+    NEW:
+      - Reads Glue sizing/args from cfg["GlueConfig"] array keyed by script filename stem.
+      - If GlueConfig missing or doesn't contain a matching entry, falls back to defaults
+        (GlueVersion=4.0, WorkerType=G.1X, etc.) plus cfg.glueDefaultArgs.
     """
     deploy_env = cfg["deployEnv"]
     project = cfg["project"]
@@ -278,7 +312,6 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     project_dir = Path(__file__).resolve().parent
     glue_root = project_dir / "glue"
 
-    # UPDATED: file name uses hyphen, not underscore
     landing_script_local = glue_root / "FMMI-LandingFiles.py"
     stg_ods_script_local = glue_root / "S3-STG-ODS-parquet.py"
 
@@ -286,6 +319,53 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         raise FileNotFoundError(f"Missing Glue script: {landing_script_local}")
     if not stg_ods_script_local.exists():
         raise FileNotFoundError(f"Missing Glue script: {stg_ods_script_local}")
+
+    landing_script_stem = _script_stem(landing_script_local)        # "FMMI-LandingFiles"
+    stg_ods_script_stem = _script_stem(stg_ods_script_local)        # "S3-STG-ODS-parquet"
+
+    # NEW GlueConfig lookup (optional)
+    landing_params = _glue_config_for_script(cfg, landing_script_stem)
+    stg_ods_params = _glue_config_for_script(cfg, stg_ods_script_stem)
+
+    # Defaults if missing or empty
+    def _defaults(p: Dict[str, Any], default_worker: str) -> Dict[str, Any]:
+        return {
+            "GlueVersion": _as_str(p.get("GlueVersion"), "4.0"),
+            "WorkerType": _as_str(p.get("WorkerType"), default_worker),
+            "NumberOfWorkers": _as_int(p.get("NumberOfWorkers"), 2),
+            "TimeoutMinutes": _as_int(p.get("TimeoutMinutes"), 60),
+            "MaxRetries": _as_int(p.get("MaxRetries"), 0),
+            "MaxConcurrency": _as_int(p.get("MaxConcurrency"), 1),
+        }
+
+    # Reasonable defaults (can be overridden via GlueConfig)
+    landing_d = _defaults(landing_params, default_worker="G.1X")
+    stg_ods_d = _defaults(stg_ods_params, default_worker="G.1X")
+
+    # DefaultArguments:
+    # - If GlueConfig missing, these become mostly cfg.glueDefaultArgs plus injected values
+    glue_default_base = cfg.get("glueDefaultArgs") or {}
+    landing_default_args = _merge_glue_default_args(glue_default_base, landing_params)
+    stg_ods_default_args = _merge_glue_default_args(glue_default_base, stg_ods_params)
+
+    def _set_if_missing(args: Dict[str, str], k: str, v: str) -> None:
+        if k not in args and v:
+            args[k] = v
+
+    # Helpful injected params if your scripts accept them (only if not already set)
+    for args in (landing_default_args, stg_ods_default_args):
+        _set_if_missing(args, "--env", str(deploy_env))
+        _set_if_missing(args, "--landing_bucket", landing_bucket)
+        _set_if_missing(args, "--clean_bucket", clean_bucket)
+        _set_if_missing(args, "--final_bucket", final_bucket)
+        _set_if_missing(args, "--sns_topic_arn", sns_topic_arn)
+        _set_if_missing(args, "--landing_folder", landing_folder)
+        _set_if_missing(args, "--stg_folder", stg_folder)
+        _set_if_missing(args, "--ods_folder", ods_folder)
+
+    # Connections (names only)
+    landing_conns = _parse_connection_names(landing_params)
+    stg_ods_conns = _parse_connection_names(stg_ods_params)
 
     # Clients
     session = boto3.Session(region_name=region)
@@ -295,48 +375,9 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
 
     ensure_bucket_exists(s3, artifact_bucket, region)
 
-    # Glue params (shared blob by default, or landing/stg_ods override)
-    landing_params = _glue_params_for_job(cfg, "landing")
-    stg_ods_params = _glue_params_for_job(cfg, "stg_ods")
-
-    def _defaults(p: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            "GlueVersion": _as_str(p.get("GlueVersion"), "4.0"),
-            "WorkerType": _as_str(p.get("WorkerType"), "G.1X"),
-            "NumberOfWorkers": _as_int(p.get("NumberOfWorkers"), 2),
-            "TimeoutMinutes": _as_int(p.get("TimeoutMinutes"), 60),
-            "MaxRetries": _as_int(p.get("MaxRetries"), 0),
-            "MaxConcurrency": _as_int(p.get("MaxConcurrency"), 1),
-        }
-
-    landing_d = _defaults(landing_params)
-    stg_ods_d = _defaults(stg_ods_params)
-
-    landing_default_args = _merge_glue_default_args(cfg.get("glueDefaultArgs") or {}, landing_params)
-    stg_ods_default_args = _merge_glue_default_args(cfg.get("glueDefaultArgs") or {}, stg_ods_params)
-
-    def _set_if_missing(args: Dict[str, str], k: str, v: str) -> None:
-        if k not in args and v:
-            args[k] = v
-
-    for args in (landing_default_args, stg_ods_default_args):
-        _set_if_missing(args, "--env", str(deploy_env))
-        _set_if_missing(args, "--landing_bucket", landing_bucket)
-        _set_if_missing(args, "--clean_bucket", clean_bucket)
-        _set_if_missing(args, "--final_bucket", final_bucket)
-        _set_if_missing(args, "--sns_topic_arn", sns_topic_arn)
-
-        _set_if_missing(args, "--landing_folder", landing_folder)
-        _set_if_missing(args, "--stg_folder", stg_folder)
-        _set_if_missing(args, "--ods_folder", ods_folder)
-
-    # S3 keys for scripts (renamed with FSA-<env>-<proj>- prefix)
+    # Script S3 keys (renamed with FSA-<env>-<proj>- prefix)
     landing_script_s3_key = _s3_script_key(prefix, deploy_env, project, landing_script_local.name)
     stg_ods_script_s3_key = _s3_script_key(prefix, deploy_env, project, stg_ods_script_local.name)
-
-    # Connection names
-    landing_conns = _parse_connection_names(landing_params)
-    stg_ods_conns = _parse_connection_names(stg_ods_params)
 
     # --- Glue jobs ---
     ensure_glue_job(
@@ -406,4 +447,6 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         "glue_stg_ods_script_s3_key": stg_ods_script_s3_key,
         "state_machine_name": names.fmmi_state_machine,
         "state_machine_arn": sfn_arn,
+        "glue_config_used_for_landing": "yes" if bool(landing_params) else "no",
+        "glue_config_used_for_stg_ods": "yes" if bool(stg_ods_params) else "no",
     }

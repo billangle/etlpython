@@ -1,24 +1,24 @@
 {
-  "Comment": "FSA-PROD-Cars-S3Landing-to-S3Final-Raw-DM",
+  "Comment": "FSA-CERT-Cnsv-Cntr-Maint-S3Landing-to-S3Final-Raw-DM",
   "StartAt": "Get Incremental Table list From S3",
   "States": {
     "Get Incremental Table list From S3": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-1:253490756794:function:FSA-PROD-CARS-get-incremental-tables",
+      "Resource": "arn:aws:lambda:us-east-1:241533156429:function:FSA-CERT-CNSV-Cntr-Maint-get-incremental-tables",
       "Parameters": {
         "JobId.$": "$.JobId",
         "SfName.$": "$.SfName"
       },
       "ResultPath": "$.incremental_tables",
-      "Next": "CARS Tables"
+      "Next": "CNSV-Cntr-Maint Tables"
     },
-    "CARS Tables": {
+    "CNSV-Cntr-Maint Tables": {
       "Type": "Pass",
       "Next": "Map",
       "Parameters": {
         "JobId.$": "$.JobId",
         "SfName.$": "$.SfName",
-        "Target": "cars",
+        "Target": "contract_maintenance",
         "tables.$": "$.incremental_tables.tables"
       },
       "ResultPath": "$.input"
@@ -45,17 +45,17 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::glue:startJobRun.sync",
             "Parameters": {
-              "JobName": "FSA-PROD-Cars-Raw-DM",
               "Arguments": {
                 "--JobId.$": "States.Format('{}', $.JobId)",
                 "--TableName.$": "$.output.table",
-                "--env": "prod",
+                "--env": "cert",
                 "--postgres_prcs_ctrl_dbname": "metadata_edw",
                 "--region_name": "us-east-1",
-                "--secret_name": "FSA-PROD-secrets",
-                "--target_bucket": "c108-prod-fpacfsa-final-zone",
+                "--secret_name": "FSA-CERT-secrets",
+                "--target_bucket": "c108-cert-fpacfsa-final-zone",
                 "--target_prefix.$": "$.Target"
-              }
+              },
+              "JobName.$": "$.raw_dm_glue_job_name"
             },
             "Catch": [
               {
@@ -72,8 +72,8 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::lambda:invoke",
             "Parameters": {
-              "FunctionName": "arn:aws:lambda:us-east-1:253490756794:function:FSA-PROD-CARS-RAW-DM-sns-publish-step-function-errors",
-              "Payload.$": "$"
+              "Payload.$": "$",
+              "FunctionName.$": "$.sns_publish_step_function_errors_lambda_arn"
             },
             "Retry": [
               {
@@ -121,7 +121,7 @@
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
         "Payload.$": "$",
-        "FunctionName": "arn:aws:lambda:us-east-1:253490756794:function:FSA-PROD-CARS-RAW-DM-etl-workflow-update-data-ppln-job"
+        "FunctionName.$": "$.etl_workflow_update_data_ppln_job_lambda_arn"
       },
       "Retry": [
         {
@@ -137,16 +137,69 @@
         }
       ],
       "ResultPath": "$.Update",
-      "Next": "FSA-PROD-CARS Crawler"
+      "Next": "Run Both Crawlers"
     },
-    "FSA-PROD-CARS Crawler": {
-      "Type": "Task",
-      "Parameters": {
-        "Name": "FSA-PROD-CARS-CRAWLER"
-      },
-      "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
-      "ResultPath": "$.Crawler",
-      "OutputPath": "$.Crawler",
+    "Run Both Crawlers": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "FSA-CERT-Cnsv-Cntr-Maint Final Zone Crawler",
+          "States": {
+            "FSA-CERT-Cnsv-Cntr-Maint Final Zone Crawler": {
+              "Type": "Task",
+              "Parameters": {
+                "Name.$": "$.crawler_name"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+              "ResultPath": null,
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "ResultPath": null,
+                  "Next": "Final Crawler Failed"
+                }
+              ]
+            },
+            "Final Crawler Failed": {
+              "Type": "Pass",
+              "Result": "Failed",
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "FSA-CERT-Cnsv-Cntr-Maint CDC Crawler",
+          "States": {
+            "FSA-CERT-Cnsv-Cntr-Maint CDC Crawler": {
+              "Type": "Task",
+              "Parameters": {
+                "Name.$": "$.crawler_name"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+              "ResultPath": null,
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "ResultPath": null,
+                  "Next": "CDC Crawler Failed"
+                }
+              ]
+            },
+            "CDC Crawler Failed": {
+              "Type": "Pass",
+              "Result": "Failed",
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": null,
       "End": true
     }
   }

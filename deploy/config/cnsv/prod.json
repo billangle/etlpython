@@ -1,6 +1,6 @@
 {
   "deployEnv": "PROD",
-  "project": "fmmi",
+  "project": "FMMI",
   "region": "us-east-1",
   "bucketRegion": "us-east-1",
 
@@ -52,44 +52,117 @@
     "minExpectedObjects": 2,
     "debug": true
   },
- "GlueJobParameters": {
-   "Connections" : [{
-      "ConnectionName": "FSA-PROD-PG-DART115",
-      "type": "JDBC",
-      "VpcId": "vpc-092b2aee3fba9e5e6",
-      "SubnetIds": "subnet-07843ec7237c1c9f1",
-      "SecurityGroupIds": "sg-05e3e3fd000913769,sg-077ff58658f28e30f"
-      },
-      {
-      "ConnectionName": "FSA-PROD-PG-DART114",
-      "type": "JDBC",
-      "VpcId": "vpc-092b2aee3fba9e5e6",
-      "SubnetIds": "subnet-0d4691e36b391b17f",
-      "SecurityGroupIds": "sg-05e3e3fd000913769, sg-077ff58658f28e30f"
-      }] ,
-    "MaxConcurrency": "20",
-    "MaxRetries": "1",
-    "TimeoutMinutes": "480",
-    "WorkerType": "G.4X",
-    "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/fmmi/",
-    "NumberOfWorkers": "2",
-    "AutomaticScalingEnabled": "true",
-    "GlueVersion": "4.0",
-    "JobLanguage": "python",
-    "GenerateMetrics": "true",
-    "EnableJobBookmarks": "false",
-    "JobObservabilityMetrics": "ENABLED",
-    "JobContinuousLogging": "ENABLED",
-    "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
-    "UseGlueDataCatalogAsTheHiveMetastore": "true",
-       "JobParameters": {
-      "--data_src_nm": "fmmi",
-      "--env": "prod",
-      "--layer": "stg",
-      "--run_type": "Incremental",
-      "--start_date": "2026-01-18",
-      "--table_name": "PRDR_PGM_PYMT_LMT_ADJ"
+  "GlueConfig": [ 
+    { 
+      "FMMI-LandingFiles": {
+        "Connections" : [{
+            "ConnectionName": "FSA-PROD-PG-MDART-115",
+            "type": "JDBC",
+            "VpcId": "vpc-092b2aee3fba9e5e6",
+            "SubnetIds": "subnet-07843ec7237c1c9f1",
+            "SecurityGroupIds": "sg-05e3e3fd000913769"
+            }] ,
+          "MaxConcurrency": "55",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "2880",
+          "WorkerType": "G.2X",
+          "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/fmmi/",
+          "NumberOfWorkers": "10",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+          "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+            "--DestinationBucket": "c108-prod-fpacfsa-landing-zone",
+            "--DestinationPrefix": "fmmi/fmmi_ocfo_files",
+            "--EchoFolder": "fmmi",
+            "--FileNames": "FMMI.FSA*",
+            "--JOB_NAME": "FSA-PROD-FMMI-LandingFiles",
+            "--PipelineName": "fmmi",
+            "--SecretId": "FSA-PROD-secrets"
+          }
+      }
+    },
+    {
+     "S3-STG-ODS-parquet": {
+        "Connections" : [{
+            "ConnectionName": "FSA-PROD-PG-MDART-115",
+            "type": "JDBC",
+            "VpcId": "vpc-092b2aee3fba9e5e6",
+            "SubnetIds": "subnet-07843ec7237c1c9f1",
+            "SecurityGroupIds": "sg-05e3e3fd000913769"
+            }] ,
+          "MaxConcurrency": "55",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "4880",
+          "WorkerType": "G.4X",
+          "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/fmmi/",
+          "NumberOfWorkers": "20",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+          "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+              "--JOB_NAME": "FSA-PROD-FMMI-S3-STG-ODS-parquet",
+              "--SecretId": "FSA-PROD-secrets",
+              "--datalake-formats": "c108-prod-fpacfsa-landing-zone",
+              "--bucket_name": "c108-prod-fpacfsa-landing-zone",
+              "--env": "prod",
+              "--enable-job-insights": "fmmi/fmmi_ocfo_files",
+              "--job_type": "BOTH",
+              "--enable-job-insights": "c108-prod-fpacfsa-final-zone",
+              "--ods_folder_name": "fmmi_ods",
+              "--stg_bucket_name": "c108-prod-fpacfsa-cleansed-zone",
+              "--stg_folder_name": "fmmi_stg"
+            }
+      }
     }
- }
+  ],
+  "crawler": {
+    "name": "CRWL-ODS",
+    "description": "FMMI ODS crawler data sources (grouped by bucket)",
+    "databaseName": "fsa-prod-fmmi_ods",
+    "s3TargetsByBucket": [
+      {
+        "bucket": "c108-prod-fpacfsa-final-zone",
+        "prefixes": [
+          "fmmi/fmmi_ods/CS_TBL_CMMT_ITEM/",
+          "fmmi/fmmi_ods/CS_TBL_CUSTOMER/",
+          "fmmi/fmmi_ods/CS_TBL_FUNC_AREA/",
+          "fmmi/fmmi_ods/CS_TBL_FUND/",
+          "fmmi/fmmi_ods/CS_TBL_FUNDED_PROGRAM/",
+          "fmmi/fmmi_ods/CS_TBL_GL_ACCOUNT/",
+          "fmmi/fmmi_ods/CS_TBL_WBS/",
+          "fmmi/fmmi_ods/CS_TBL_VENDOR/",
+          "fmmi/fmmi_ods/CS_TBL_PAYROLL/",
+          "fmmi/fmmi_ods/CS_TBL_PO_HEADER/",
+          "fmmi/fmmi_ods/CS_TBL_PO_ITEM/",
+          "fmmi/fmmi_ods/CS_TBL_PURCHASING/",
+          "fmmi/fmmi_ods/CS_TBL_INVOICE_DIS/",
+          "fmmi/fmmi_ods/CS_TBL_COST_CENTER/",
+          "fmmi/fmmi_ods/CS_TBL_MATERIAL_DOC/",
+          "fmmi/fmmi_ods/CS_TBL_COMMITMENT/",
+          "fmmi/fmmi_ods/CS_TBL_FUND_CENTER/",
+          "fmmi/fmmi_ods/TMP_GL/",
+          "fmmi/fmmi_ods/TMP_SA/",
+          "fmmi/fmmi_ods/CS_TBL_GL/",
+          "fmmi/fmmi_ods/CS_TBL_SYSTEM_ASSURANCE/",
+          "fmmi/fmmi_ods/GL_SUMMARY/"
+        ]
+      }
+    ]
+  }
 
 }

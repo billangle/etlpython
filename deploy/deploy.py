@@ -10,14 +10,16 @@ from projects.cars.deploy import deploy as cars_deploy
 from projects.carsdm.deploy import deploy as carsdm_deploy
 from projects.sbsd.deploy import deploy as sbsd_deploy
 from projects.pmrds.deploy import deploy as pmrds_deploy  
-from projects.fmmi.deploy import deploy as fmmi_deploy    
+from projects.fmmi.deploy import deploy as fmmi_deploy  
+from projects.cnsv.deploy_base import deploy as cnsv_deploy_base  
+from projects.cnsv.deploy_maint import deploy as snsv_deploy_maint
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
     ap.add_argument("--region", required=True)
-    ap.add_argument("--project-type", default="fpac", choices=["fpac","farmrec","flpids","tsthooks","cars","carsdm","sbsd","pmrds","fmmi"])
+    ap.add_argument("--project-type", default="fpac", choices=["fpac","farmrec","flpids","tsthooks","cars","carsdm","sbsd","pmrds","fmmi","cnsvbase","cnsvmaint"])
     args = ap.parse_args()
 
     cfg = read_json(args.config)
@@ -40,6 +42,10 @@ def main() -> int:
         summary = pmrds_deploy(cfg, args.region)
     elif args.project_type == "fmmi":
         summary = fmmi_deploy(cfg, args.region)
+    elif args.project_type == "cnsvbase":
+        summary = cnsv_deploy_base(cfg, args.region)
+    elif args.project_type == "cnsvmaint":  
+        summary = snsv_deploy_maint(cfg, args.region)
     else:
         raise RuntimeError(f"Unknown project-type: {args.project_type}")
 

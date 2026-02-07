@@ -1,0 +1,209 @@
+{
+  "Comment": "",
+  "StartAt": "Get Incremental Table list From S3",
+  "States": {
+    "Get Incremental Table list From S3": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName.$": "$.get_incremental_tables_fn_arn",
+        "Payload": {
+          "JobId.$": "$.JobId",
+          "SfName.$": "$.SfName"
+        }
+      },
+      "ResultPath": "$.incremental_tables",
+      "Next": "CNSV Conservation Payment Tables"
+    },
+    "CNSV Conservation Payment Tables": {
+      "Type": "Pass",
+      "Next": "Map",
+      "Parameters": {
+        "JobId.$": "$.JobId",
+        "SfName.$": "$.SfName",
+        "Target": "conservation_payments",
+        "tables.$": "$.incremental_tables.tables"
+      },
+      "ResultPath": "$.input"
+    },
+    "Map": {
+      "Type": "Map",
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "INLINE"
+        },
+        "StartAt": "Pass (1)",
+        "States": {
+          "Pass (1)": {
+            "Type": "Pass",
+            "Next": "Move to Final Zone",
+            "ResultPath": "$.output",
+            "Parameters": {
+              "JobId.$": "$.JobId",
+              "table.$": "$.app_name.tablename",
+              "Target.$": "$.Target"
+            }
+          },
+          "Move to Final Zone": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+            "Parameters": {
+              "Arguments": {
+                "--JobId.$": "States.Format('{}', $.JobId)",
+                "--TableName.$": "$.output.table",
+                "--env": "cert",
+                "--region_name": "us-east-1",
+                "--target_bucket": "c108-cert-fpacfsa-final-zone",
+                "--target_prefix.$": "$.Target",
+                "--secret_name.$": "$.secret_name",
+                "--postgres_prcs_ctrl_dbname.$": "$.postgres_prcs_ctrl_dbname"
+              },
+              "JobName.$": "$.raw_dm_glue_job_name"
+            },
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "SNS Lambda RAW DM",
+                "ResultPath": "$.Error"
+              }
+            ],
+            "End": true
+          },
+          "SNS Lambda RAW DM": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "Payload.$": "$",
+              "FunctionName.$": "$.raw_dm_sns_publish_errors_fn_arn"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Pass",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "Pass"
+              }
+            ]
+          },
+          "Pass": {
+            "Type": "Pass",
+            "ResultPath": "$.status",
+            "Result": "Error",
+            "End": true
+          }
+        }
+      },
+      "Next": "data_ppl_job_update RAW DM",
+      "MaxConcurrency": 12,
+      "ItemsPath": "$.input.tables",
+      "ItemSelector": {
+        "JobId.$": "$.JobId",
+        "app_name.$": "$$.Map.Item.Value",
+        "Target.$": "$.input.Target"
+      },
+      "ResultPath": "$.MapOut"
+    },
+    "data_ppl_job_update RAW DM": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName.$": "$.raw_dm_etl_workflow_update_fn_arn"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "BackoffRate": 2,
+          "MaxAttempts": 3
+        }
+      ],
+      "ResultPath": "$.Update",
+      "Next": "Run Both Crawlers"
+    },
+    "Run Both Crawlers": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "Final Zone Crawler",
+          "States": {
+            "Final Zone Crawler": {
+              "Type": "Task",
+              "Parameters": {
+                "Name.$": "$.crawler_name"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+              "ResultPath": null,
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "ResultPath": null,
+                  "Next": "Final Crawler Failed"
+                }
+              ]
+            },
+            "Final Crawler Failed": {
+              "Type": "Pass",
+              "Result": "Failed",
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "CDC Crawler",
+          "States": {
+            "CDC Crawler": {
+              "Type": "Task",
+              "Parameters": {
+                "Name.$": "$.crawler_name"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+              "ResultPath": null,
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "ResultPath": null,
+                  "Next": "CDC Crawler Failed"
+                }
+              ]
+            },
+            "CDC Crawler Failed": {
+              "Type": "Pass",
+              "Result": "Failed",
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": null,
+      "End": true
+    }
+  }
+}

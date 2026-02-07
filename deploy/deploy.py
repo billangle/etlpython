@@ -13,13 +13,14 @@ from projects.pmrds.deploy import deploy as pmrds_deploy
 from projects.fmmi.deploy import deploy as fmmi_deploy  
 from projects.cnsv.deploy_base import deploy as cnsv_deploy_base  
 from projects.cnsv.deploy_maint import deploy as snsv_deploy_maint
+from projects.cnsv.deploy_pymts import deploy as cnsv_deploy_pymts
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
     ap.add_argument("--region", required=True)
-    ap.add_argument("--project-type", default="fpac", choices=["fpac","farmrec","flpids","tsthooks","cars","carsdm","sbsd","pmrds","fmmi","cnsvbase","cnsvmaint"])
+    ap.add_argument("--project-type", default="fpac", choices=["fpac","farmrec","flpids","tsthooks","cars","carsdm","sbsd","pmrds","fmmi","cnsvbase","cnsvmaint","cnsvpymts"])
     args = ap.parse_args()
 
     cfg = read_json(args.config)
@@ -46,6 +47,8 @@ def main() -> int:
         summary = cnsv_deploy_base(cfg, args.region)
     elif args.project_type == "cnsvmaint":  
         summary = snsv_deploy_maint(cfg, args.region)
+    elif args.project_type == "cnsvpymts":
+        summary = cnsv_deploy_pymts(cfg, args.region)
     else:
         raise RuntimeError(f"Unknown project-type: {args.project_type}")
 

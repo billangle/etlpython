@@ -4,10 +4,10 @@ import os
 import psycopg2
 from datetime import datetime
 
-SECRET_NAME = "FSA-PROD-secrets"
+SECRET_NAME = "FSA-CERT-secrets"
 REGION = os.getenv("AWS_REGION")
 
-def handler(event, context):
+def lambda_handler(event, context):
 
     # get secrets
     secrets = boto3.client("secretsmanager", region_name=REGION)
@@ -36,15 +36,16 @@ def handler(event, context):
     data_ppln_job_id = event["JobId"]
     
     
-    if "JobId" in event:# and 'ExecutedVersion' in event["Payload"]:
+    if "JobId" in event: # and 'ExecutedVersion' in event["Payload"]:
         job_stat_nm = 'In Progress'
         data_ppln_job_id = event["JobId"]
         err_msg_txt = ''
     else:
         job_stat_nm = 'Failed'
         data_ppln_job_id = event["JobId"]
-        err_msg_txt = 'errors occured when executing state machine: FSA-PROD-Cars-S3Landing-to-S3Final-Raw-DM' 
+        err_msg_txt = 'errors occured when executing state machine: FSA-DEV-CNSV-Step2' 
 
+   
     # update data pipeline job
     data_ppln_job_update_on_complete_sql = f"""
         update dart_process_control.data_ppln_job
@@ -55,10 +56,12 @@ def handler(event, context):
         """
         
     cursor.execute(data_ppln_job_update_on_complete_sql, (  datetime.utcnow(), 
-                                                            "FSA-PROD-CARS-RAW-DM",
+                                                            "FSA-DEV-CNSV",
                                                             job_stat_nm,err_msg_txt,
                                                             data_ppln_job_id))
                                             
     conn.close()
+    
 
     return 
+

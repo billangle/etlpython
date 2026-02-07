@@ -7,20 +7,15 @@ What this does:
   - Applies your schema typing, PK-based dedupe and merge (preserves target rows not in source; adds/updates non-deletes).
   - Writes the final target to: s3://<target_bucket>/<target_prefix>/<table>/part-*.parquet
   - Writes CDC data (including deletes) to: s3://<target_bucket>/<target_prefix>/_cdc/<table>/dart_filedate=YYYY-MM-DD/
-  - TARGET PART SIZE ≈ 1 GiB (no new Glue args or envs). Number of output writers is computed from input bytes.
 
 Architecture:
   - Final Zone ({table}/)     : Like dbo schema in SQL Server - NO deletes, permanent data
   - CDC Zone (_cdc/{table}/)  : Like fnet_changes in SQL Server - ALL ops including D, 10-day retention
 
-Why this is faster:
-  - Removes coalesce(1) single-writer bottleneck; uses many writers in parallel sized to ~1 GiB each.
-  - Keeps your folder structure so Glue/Athena crawlers can treat the folder as the dataset.
-
-Notes:
-  - If a table is < 1 GiB you'll still get a single small part file (same folder structure).
-  - Counts are kept as in your current job for audit (can be expensive; keep if you need them).
-  - CDC tables should be crawled into a separate Athena database (e.g., fsa_{env}_cdc_db)
+Performance Options:
+  - SKIP_DQ_TABLES: Comma-separated list of tables to skip ALL DQ metrics
+  - SKIP_COUNT_TABLES: Comma-separated list of tables to skip only expensive count operations
+  - PARTITION_CONFIG: Tables configured here will be partitioned by specified column
 """
 
 import sys, os, re, json, math, hashlib, logging, s3fs, uuid, urllib.parse, boto3
@@ -46,11 +41,38 @@ from pyspark.sql.types import (
 # ------------------------------
 # Args & Spark session
 # ------------------------------
-args = getResolvedOptions(sys.argv, [
+# Required arguments
+required_args = [
     "JOB_NAME", "env", "TableName", "JobId",
     "postgres_prcs_ctrl_dbname", "target_bucket",
     "target_prefix", "source_prefix"
-])
+]
+
+# Get required arguments first
+args = getResolvedOptions(sys.argv, required_args)
+
+# Handle optional arguments with defaults
+def get_optional_arg(arg_name: str, default_value: str) -> str:
+    """
+    Get optional Glue argument with a default value.
+
+    Args:
+        arg_name: Name of the argument (without --)
+        default_value: Default value if argument not provided
+
+    Returns:
+        Argument value or default
+    """
+    try:
+        optional_args = getResolvedOptions(sys.argv, [arg_name])
+        return optional_args.get(arg_name, default_value)
+    except:
+        return default_value
+
+# Get optional performance arguments from Glue job args
+ENABLE_DQ_METRICS_ARG = get_optional_arg("ENABLE_DQ_METRICS", "true")
+SKIP_DQ_TABLES_ARG = get_optional_arg("SKIP_DQ_TABLES", "")
+SKIP_COUNT_TABLES_ARG = get_optional_arg("SKIP_COUNT_TABLES", "")
 
 sc = SparkContext()
 glueContext = GlueContext(sc)
@@ -66,10 +88,10 @@ spark: SparkSession = (
     .config("spark.sql.parquet.datetimeRebaseModeInWrite", "LEGACY")
     .config("spark.sql.session.timeZone", "UTC")
     .config("spark.sql.legacy.timeParserPolicy", "LEGACY")
-    .config("spark.sql.files.maxPartitionBytes", "256m")    
-    .config("spark.sql.parquet.int96RebaseModeInWrite", "LEGACY")    
-    .config("spark.sql.parquet.int96RebaseModeInRead", "LEGACY")    
-    .config("spark.sql.parquet.datetimeRebaseModeInWrite", "LEGACY")    
+    .config("spark.sql.files.maxPartitionBytes", "256m")
+    .config("spark.sql.parquet.int96RebaseModeInWrite", "LEGACY")
+    .config("spark.sql.parquet.int96RebaseModeInRead", "LEGACY")
+    .config("spark.sql.parquet.datetimeRebaseModeInWrite", "LEGACY")
     .config("spark.sql.parquet.datetimeRebaseModeInRead", "LEGACY")
     .getOrCreate()
 )
@@ -100,11 +122,77 @@ MAX_OUTPUT_PARTS   = 2048
 TARGET_CDC_DIR = f"s3://{TARGET_BUCKET}/{TARGET_PREFIX}/_cdc/{TABLE}/"
 CDC_RETENTION_COUNT = 10
 
-# Optional: Disable DQ metrics collection if causing issues (default: enabled)
-# Set to "false" in Glue job args to disable
-ENABLE_DQ_METRICS = os.environ.get("ENABLE_DQ_METRICS", "true").lower() == "true"
-if not ENABLE_DQ_METRICS:
-    log.warning("[CONFIG] DQ metrics collection is DISABLED")
+# ------------------------------
+# Partition Configuration
+# ------------------------------
+# Maps table name (lowercase) to partition column name
+# Tables listed here will be written with .partitionBy(column)
+PARTITION_CONFIG = {
+    # Add more tables as needed:
+    # "your_table_name": "your_partition_column",
+}
+
+# Get partition column for current table (if configured)
+PARTITION_COL = PARTITION_CONFIG.get(TABLE.lower())
+
+# ------------------------------
+# Performance Configuration
+# ------------------------------
+# Global toggle for DQ metrics
+ENABLE_DQ_METRICS = ENABLE_DQ_METRICS_ARG.lower() == "true"
+
+# Tables to skip ALL DQ metrics (comma-separated, case-insensitive)
+SKIP_DQ_TABLES = [t.strip().upper() for t in SKIP_DQ_TABLES_ARG.split(",") if t.strip()]
+
+# Tables to skip only expensive count operations (comma-separated, case-insensitive)
+# This is the FASTER option - skips counts but still collects basic metrics
+SKIP_COUNT_TABLES = [t.strip().upper() for t in SKIP_COUNT_TABLES_ARG.split(",") if t.strip()]
+
+# Check if current table should skip operations
+CURRENT_TABLE_UPPER = TABLE.upper()
+SKIP_DQ_FOR_TABLE = CURRENT_TABLE_UPPER in SKIP_DQ_TABLES
+SKIP_COUNTS_FOR_TABLE = CURRENT_TABLE_UPPER in SKIP_COUNT_TABLES
+
+# ------------------------------
+# PROMINENT PERFORMANCE CONFIG LOGGING
+# ------------------------------
+log.info("="*80)
+log.info(f"[PERFORMANCE CONFIG] Current Table: {TABLE} (normalized: {CURRENT_TABLE_UPPER})")
+log.info("="*80)
+
+# Log partition configuration
+if PARTITION_COL:
+    log.info(f"[PERFORMANCE CONFIG] Table will be PARTITIONED by '{PARTITION_COL}'")
+else:
+    log.info(f"[PERFORMANCE CONFIG] Table will NOT be partitioned (no repartition overhead)")
+
+# Log global DQ setting
+log.info(f"[PERFORMANCE CONFIG] Global DQ Metrics Enabled: {ENABLE_DQ_METRICS}")
+
+# Log DQ skip configuration
+if SKIP_DQ_TABLES_ARG:
+    log.info(f"[PERFORMANCE CONFIG] DQ Skip List (raw): '{SKIP_DQ_TABLES_ARG}'")
+    log.info(f"[PERFORMANCE CONFIG] DQ Skip List (parsed): {SKIP_DQ_TABLES}")
+    if SKIP_DQ_FOR_TABLE:
+        log.warning(f"[PERFORMANCE CONFIG] ALL DQ METRICS WILL BE SKIPPED FOR '{TABLE}'")
+    else:
+        log.info(f"[PERFORMANCE CONFIG] DQ metrics enabled for '{TABLE}' (not in DQ skip list)")
+else:
+    log.info(f"[PERFORMANCE CONFIG] DQ Skip List: EMPTY - DQ metrics enabled for all tables")
+
+# Log count skip configuration
+if SKIP_COUNT_TABLES_ARG:
+    log.info(f"[PERFORMANCE CONFIG] Count Skip List (raw): '{SKIP_COUNT_TABLES_ARG}'")
+    log.info(f"[PERFORMANCE CONFIG] Count Skip List (parsed): {SKIP_COUNT_TABLES}")
+    if SKIP_COUNTS_FOR_TABLE:
+        log.warning(f"[PERFORMANCE CONFIG] EXPENSIVE COUNTS WILL BE SKIPPED FOR '{TABLE}'")
+        log.warning(f"[PERFORMANCE CONFIG] (Basic metrics still collected, only .count() operations skipped)")
+    else:
+        log.info(f"[PERFORMANCE CONFIG] Detailed counts enabled for '{TABLE}' (not in count skip list)")
+else:
+    log.info(f"[PERFORMANCE CONFIG] Count Skip List: EMPTY - Detailed counts enabled for all tables")
+
+log.info("="*80)
 
 # Schema JSON path (same convention as before)
 SOURCE_BUCKET = TARGET_BUCKET.replace("final", "landing")
@@ -259,7 +347,7 @@ LOAD_OPER_TGT_ID = get_load_oper_tgt_id_s3(pcdb_conn, TARGET_BUCKET, TARGET_PREF
 OPER_STRT_DT = datetime.utcnow()
 
 # -------------------------------------------------------------
-# CDC Functions (NEW)
+# CDC Functions
 # -------------------------------------------------------------
 def cleanup_old_cdc_partitions(cdc_base_path: str, retention_count: int = 10,
                                 exclude_dates: List[str] = None):
@@ -387,6 +475,62 @@ def extract_filedate_from_data(df: DataFrame) -> Optional[str]:
         log.warning(f"[FILEDATE] Error extracting dart_filedate from data: {e}")
         return None
 
+def create_empty_cdc_table(df_schema: DataFrame, cdc_dir: str, table_name: str):
+    """
+    Create an empty CDC table with the correct schema for Glue Crawler discovery.
+    dart_filedate is stored in folder path only (not inside parquet file).
+    """
+    log.info(f"[CDC] Creating empty CDC table structure for {table_name}")
+
+    try:
+        # Clean up any existing CDC data for clean initial load
+        parsed = urlparse(cdc_dir)
+        bucket = parsed.netloc
+        prefix = parsed.path.lstrip("/")
+
+        response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=1)
+
+        if response.get('Contents') or response.get('CommonPrefixes'):
+            log.warning(f"[CDC] Existing CDC data found - DELETING for clean initial load")
+
+            paginator = s3_client.get_paginator('list_objects_v2')
+            objects_to_delete = []
+
+            for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+                for obj in page.get('Contents', []):
+                    objects_to_delete.append({'Key': obj['Key']})
+
+            if objects_to_delete:
+                for i in range(0, len(objects_to_delete), 1000):
+                    batch = objects_to_delete[i:i+1000]
+                    s3_client.delete_objects(Bucket=bucket, Delete={'Objects': batch})
+                log.info(f"[CDC] Deleted {len(objects_to_delete)} existing CDC files")
+
+        # Create empty DataFrame with same schema
+        empty_df = df_schema.limit(0)
+
+        # DROP dart_filedate if it exists - it will be in folder path only
+        if "dart_filedate" in empty_df.columns:
+            empty_df = empty_df.drop("dart_filedate")
+
+        # Write to partition folder (dart_filedate is in folder name, not in file)
+        placeholder_date = "1900-01-01"
+        partition_path = f"{cdc_dir.rstrip('/')}/dart_filedate={placeholder_date}/"
+
+        log.info(f"[CDC] Writing empty schema file to {partition_path}")
+
+        (empty_df
+            .write
+            .mode("overwrite")
+            .option("parquet.compression", "snappy")
+            .parquet(partition_path))
+
+        log.info(f"[CDC] Empty CDC table created at {cdc_dir}")
+        log.info(f"[CDC] dart_filedate stored in folder path only (no duplicate column)")
+
+    except Exception as e:
+        log.warning(f"[CDC] Failed to create empty CDC table (non-fatal): {e}")
+
 def write_cdc_changes(df_source: DataFrame, table_name: str, cdc_dir: str,
                       dart_filedate: Optional[str] = None):
     """
@@ -418,12 +562,16 @@ def write_cdc_changes(df_source: DataFrame, table_name: str, cdc_dir: str,
         df_source = df_source.withColumn("dart_filedate", F.lit(dart_filedate).cast(DateType()))
         log.warning(f"[CDC] No dart_filedate provided, using current date: {dart_filedate}")
 
-    row_count = df_source.count()
-
-    # Count by operation type
-    op_counts = df_source.groupBy("op").count().collect()
-    op_summary = {row["op"]: row["count"] for row in op_counts}
-    log.info(f"[CDC] Writing {row_count} deduplicated records: {op_summary}")
+    # Count - but respect SKIP_COUNTS_FOR_TABLE
+    if not SKIP_COUNTS_FOR_TABLE:
+        row_count = df_source.count()
+        # Count by operation type
+        op_counts = df_source.groupBy("op").count().collect()
+        op_summary = {row["op"]: row["count"] for row in op_counts}
+        log.info(f"[CDC] Writing {row_count} deduplicated records: {op_summary}")
+    else:
+        log.info(f"[CDC] SKIPPING CDC row count (table in SKIP_COUNT_TABLES)")
+        row_count = -1  # Estimate for partition calculation
 
     # Get distinct dates being written
     dates_written = [row['dart_filedate'].strftime('%Y-%m-%d')
@@ -431,22 +579,18 @@ def write_cdc_changes(df_source: DataFrame, table_name: str, cdc_dir: str,
     log.info(f"[CDC] Writing to partitions: {dates_written}")
 
     # ========== DELETE EXISTING PARTITION(S) BEFORE WRITE ==========
-    # This prevents duplicates when re-running for the same dart_filedate
     for date_str in dates_written:
         partition_path = f"{cdc_dir.rstrip('/')}/dart_filedate={date_str}/"
         delete_partition_if_exists(partition_path)
     # ===============================================================
 
-    # Calculate optimal partitions
-    CDC_TARGET_FILE_BYTES = 128 * 1024 * 1024  # 128 MB per file
-    estimated_bytes = row_count * 1024  # ~1KB per row estimate
-    num_partitions = max(1, min(100, math.ceil(estimated_bytes / CDC_TARGET_FILE_BYTES)))
-    log.info(f"[CDC] Writing with {num_partitions} partitions")
+    # CDC always uses partitionBy dart_filedate - repartition by column is efficient
+    log.info(f"[CDC] Writing with repartition('dart_filedate') + partitionBy('dart_filedate')")
 
     (df_source
-        .repartition(num_partitions)
+        .repartition("dart_filedate")
         .write
-        .mode("append")  # Still append mode, but partition was deleted first
+        .mode("append")
         .partitionBy("dart_filedate")
         .option("parquet.compression", "snappy")
         .parquet(cdc_dir))
@@ -495,7 +639,7 @@ def delete_partition_if_exists(partition_path: str):
         log.warning(f"[CDC] Error checking/deleting partition (non-fatal): {e}")
 
 # -------------------------------------------------------------
-# DQ metrics (ENHANCED - append-only datasets for crawler-friendly tables)
+# DQ metrics
 # -------------------------------------------------------------
 TARGET_DQ_SUMMARY_DIR = f"s3://{TARGET_BUCKET}/{TARGET_PREFIX}/_dq_metrics_run_summary/"
 TARGET_DQ_COLUMN_DIR  = f"s3://{TARGET_BUCKET}/{TARGET_PREFIX}/_dq_metrics_column_profile/"
@@ -505,17 +649,21 @@ def _is_minmax_type(dt):
     return isinstance(dt, (IntegerType, LongType, ShortType, ByteType,
                            DoubleType, DecimalType, DateType, TimestampType))
 
-def _approx_distinct_pk(df: DataFrame, primary_keys: List[str]) -> Optional[int]:
+def _approx_distinct_pk(df: DataFrame, primary_keys: List[str], skip_counts: bool = False) -> Optional[int]:
     """
     Calculate approximate distinct count of primary key combinations.
 
     Args:
         df: DataFrame to analyze
         primary_keys: List of primary key column names
+        skip_counts: If True, skip the count operation
 
     Returns:
-        Approximate distinct count or None if no primary keys
+        Approximate distinct count or None if no primary keys or skipped
     """
+    if skip_counts:
+        log.info("[DQ] SKIPPING approx distinct PK count (table in SKIP_COUNT_TABLES)")
+        return None
     if not primary_keys:
         log.warning("[DQ] No primary keys defined, skipping PK cardinality check")
         return None
@@ -523,17 +671,37 @@ def _approx_distinct_pk(df: DataFrame, primary_keys: List[str]) -> Optional[int]
     return df.select(F.approx_count_distinct(F.concat_ws("||", *[F.col(c).cast("string") for c in primary_keys]))\
                      .alias("acd")).first()["acd"]
 
-def _collect_column_metrics(df: DataFrame) -> List[Dict]:
+def _collect_column_metrics(df: DataFrame, skip_counts: bool = False) -> List[Dict]:
     """
     Collect comprehensive column-level metrics including nulls, cardinality, min/max.
 
     Args:
         df: DataFrame to analyze
+        skip_counts: If True, skip expensive count operations
 
     Returns:
         List of dictionaries with per-column metrics
     """
     log.info(f"[DQ] Collecting column metrics for {len(df.columns)} columns")
+
+    if skip_counts:
+        log.info("[DQ] SKIPPING detailed column metrics (table in SKIP_COUNT_TABLES)")
+        # Return basic schema info without counts
+        out = []
+        for c in df.columns:
+            field = df.schema[c]
+            out.append({
+                "column": c,
+                "data_type": str(field.dataType),
+                "nullable": field.nullable,
+                "null_count": -1,  # Skipped
+                "null_percentage": -1.0,
+                "approx_cardinality": -1,
+                "cardinality_ratio": -1.0,
+                "min_value": None,
+                "max_value": None,
+            })
+        return out
 
     # Null counts
     null_aggs = [F.sum(F.col(c).isNull().cast("bigint")).alias(c) for c in df.columns]
@@ -552,7 +720,7 @@ def _collect_column_metrics(df: DataFrame) -> List[Dict]:
     else:
         mins, maxs = {}, {}
 
-    # ENHANCED: Add data type and sample values
+    # Get total row count for percentage calculations
     total_rows = df.count()
     out = []
     for c in df.columns:
@@ -575,20 +743,28 @@ def _collect_column_metrics(df: DataFrame) -> List[Dict]:
     log.info(f"[DQ] Column metrics collected successfully")
     return out
 
-def _validate_data_quality(df: DataFrame, primary_keys: List[str], table_name: str) -> Dict:
+def _validate_data_quality(df: DataFrame, primary_keys: List[str], table_name: str,
+                           skip_counts: bool = False) -> Dict:
     """
-    ENHANCED: Perform data quality validations and return metrics.
+    Perform data quality validations and return metrics.
 
     Args:
         df: DataFrame to validate
         primary_keys: List of primary key columns
         table_name: Name of the table
+        skip_counts: If True, skip expensive count operations
 
     Returns:
         Dictionary with validation results
     """
     log.info(f"[DQ_VALIDATION] Starting validation for {table_name}")
     validations = {}
+
+    if skip_counts:
+        log.info(f"[DQ_VALIDATION] SKIPPING detailed validations (table in SKIP_COUNT_TABLES)")
+        validations['counts_skipped'] = True
+        validations['row_count'] = -1
+        return validations
 
     # 1. Check for empty dataset
     row_count = df.count()
@@ -636,12 +812,17 @@ def _validate_data_quality(df: DataFrame, primary_keys: List[str], table_name: s
 
     log.info(f"[DQ_VALIDATION] Validation complete for {table_name}")
     return validations
-	
+
 def write_dq_metrics(df_final: DataFrame, table_name: str, primary_keys: List[str], dedupe_key: str,
-                     total_input_bytes: int, planned_output_parts: int,
-                     target_dataset_dir: str, job_id: str, load_type: str = "unknown"):
+                     total_input_bytes: int, target_dataset_dir: str, job_id: str,
+                     load_type: str = "unknown"):
     """
-    ENHANCED: Write comprehensive data quality metrics to S3.
+    Write comprehensive data quality metrics to S3.
+
+    Supports:
+    - Global disable via ENABLE_DQ_METRICS
+    - Table-level skip via SKIP_DQ_TABLES (skips ALL DQ)
+    - Table-level count skip via SKIP_COUNT_TABLES (skips only expensive counts)
 
     Args:
         df_final: Final DataFrame after all transformations
@@ -649,30 +830,59 @@ def write_dq_metrics(df_final: DataFrame, table_name: str, primary_keys: List[st
         primary_keys: List of primary key columns
         dedupe_key: Deduplication key column
         total_input_bytes: Total bytes read from source
-        planned_output_parts: Number of output partitions
         target_dataset_dir: Target S3 directory
         job_id: Job ID
         load_type: Type of load (initial_load/incremental_load)
     """
+    # Check global disable flag
     if not ENABLE_DQ_METRICS:
-        log.info(f"[DQ] Skipping DQ metrics collection (disabled)")
+        log.info(f"[DQ] Skipping ALL DQ metrics for {table_name} (globally disabled via ENABLE_DQ_METRICS=false)")
         return
 
-    log.info(f"[DQ] Writing metrics for {table_name}, load_type={load_type}")
+    # Check table-level DQ skip
+    if SKIP_DQ_FOR_TABLE:
+        log.info("="*60)
+        log.info(f"[DQ] SKIPPING ALL DQ METRICS FOR '{table_name}'")
+        log.info(f"[DQ] Table is in SKIP_DQ_TABLES list")
+        log.info("="*60)
+        return
+
+    # Check if we should skip counts but still collect basic metrics
+    skip_counts = SKIP_COUNTS_FOR_TABLE
+    if skip_counts:
+        log.info("="*60)
+        log.info(f"[DQ] SKIPPING EXPENSIVE COUNTS FOR '{table_name}'")
+        log.info(f"[DQ] Table is in SKIP_COUNT_TABLES list")
+        log.info(f"[DQ] Basic schema metrics will still be collected")
+        log.info("="*60)
+
+    log.info(f"[DQ] Writing metrics for {table_name}, load_type={load_type}, skip_counts={skip_counts}")
     run_date = datetime.utcnow().strftime("%Y%m%d")
-    row_count = df_final.count()
 
-    # Enhanced PK metrics
-    approx_pk = _approx_distinct_pk(df_final, primary_keys)
-    dup_pk_est = (row_count - approx_pk) if approx_pk is not None else None
-    pk_uniqueness_ratio = round(approx_pk / row_count, 4) if (approx_pk is not None and row_count > 0) else None
+    # Get row count - expensive operation
+    if not skip_counts:
+        row_count = df_final.count()
+        log.info(f"[DQ] Row count: {row_count}")
+    else:
+        row_count = -1  # Indicator that count was skipped
+        log.info(f"[DQ] Row count: SKIPPED (table in SKIP_COUNT_TABLES)")
 
+    # Enhanced PK metrics - also expensive
+    approx_pk = _approx_distinct_pk(df_final, primary_keys, skip_counts)
+    if approx_pk is not None and row_count > 0:
+        dup_pk_est = row_count - approx_pk
+        pk_uniqueness_ratio = round(approx_pk / row_count, 4)
+    else:
+        dup_pk_est = None
+        pk_uniqueness_ratio = None
+
+    # Schema fingerprint - cheap operation, always run
     schema_fprint = hashlib.sha256(df_final.schema.simpleString().encode("utf-8")).hexdigest()
 
-    # ENHANCED: Run validations
-    validations = _validate_data_quality(df_final, primary_keys, table_name)
+    # Run validations with skip_counts flag
+    validations = _validate_data_quality(df_final, primary_keys, table_name, skip_counts)
 
-    # Append 1-row run summary with ENHANCED metrics
+    # Append 1-row run summary
     summary = Row(
         table=table_name.upper(),
         job_id=int(job_id),
@@ -682,20 +892,22 @@ def write_dq_metrics(df_final: DataFrame, table_name: str, primary_keys: List[st
         approx_distinct_pk=(int(approx_pk) if approx_pk is not None else None),
         duplicate_pk_est=(int(dup_pk_est) if dup_pk_est is not None else None),
         pk_uniqueness_ratio=pk_uniqueness_ratio,
-        null_pk_count=validations.get('null_primary_keys', 0),
-        null_pk_percentage=validations.get('null_pk_percentage', 0.0),
+        null_pk_count=validations.get('null_primary_keys', -1 if skip_counts else 0),
+        null_pk_percentage=validations.get('null_pk_percentage', -1.0 if skip_counts else 0.0),
         dedupe_key=(dedupe_key or ""),
         total_input_bytes=int(total_input_bytes),
-        planned_output_parts=int(planned_output_parts),
-        avg_bytes_per_part=int(total_input_bytes / planned_output_parts) if planned_output_parts > 0 else 0,
         schema_fingerprint=schema_fprint,
-        all_null_columns=",".join(validations.get('all_null_columns', [])),
-        op_distribution=str(validations.get('op_distribution', {})),
+        all_null_columns=",".join(validations.get('all_null_columns', [])) if not skip_counts else "SKIPPED",
+        op_distribution=str(validations.get('op_distribution', {})) if not skip_counts else "SKIPPED",
         target_dataset_dir=target_dataset_dir,
-        processing_timestamp=datetime.utcnow().isoformat()
+        processing_timestamp=datetime.utcnow().isoformat(),
+        counts_skipped=skip_counts
     )
 
-    log.info(f"[DQ] Writing summary metrics: rows={row_count}, distinct_pk={approx_pk}, duplicates={dup_pk_est}")
+    if not skip_counts:
+        log.info(f"[DQ] Writing summary metrics: rows={row_count}, distinct_pk={approx_pk}, duplicates={dup_pk_est}")
+    else:
+        log.info(f"[DQ] Writing summary metrics: schema_fingerprint={schema_fprint[:16]}..., counts=SKIPPED")
 
     # Define explicit schema to avoid inference issues
     summary_schema = StructType([
@@ -711,13 +923,12 @@ def write_dq_metrics(df_final: DataFrame, table_name: str, primary_keys: List[st
         StructField("null_pk_percentage", DoubleType(), False),
         StructField("dedupe_key", StringType(), False),
         StructField("total_input_bytes", LongType(), False),
-        StructField("planned_output_parts", LongType(), False),
-        StructField("avg_bytes_per_part", LongType(), False),
         StructField("schema_fingerprint", StringType(), False),
         StructField("all_null_columns", StringType(), False),
         StructField("op_distribution", StringType(), False),
         StructField("target_dataset_dir", StringType(), False),
         StructField("processing_timestamp", StringType(), False),
+        StructField("counts_skipped", BooleanType(), False),
     ])
 
     try:
@@ -728,7 +939,7 @@ def write_dq_metrics(df_final: DataFrame, table_name: str, primary_keys: List[st
         log.error(f"[DQ] Failed to write summary metrics: {e}")
         log.warning(f"[DQ] Continuing without DQ summary metrics")
 
-    # ENHANCED column profile with additional metrics
+    # Column profile - pass skip_counts flag
     col_schema = StructType([
         StructField("table", StringType(), False),
         StructField("job_id", LongType(), False),
@@ -744,7 +955,7 @@ def write_dq_metrics(df_final: DataFrame, table_name: str, primary_keys: List[st
         StructField("max_value", StringType(), True),
     ])
 
-    col_rows = _collect_column_metrics(df_final)
+    col_rows = _collect_column_metrics(df_final, skip_counts)
 
     try:
         col_df = spark.createDataFrame([Row(table=table_name.upper(), job_id=int(job_id), run_date=run_date, **r)
@@ -973,15 +1184,25 @@ def deduplicate_by_date_column(df: DataFrame, primary_keys: List[str], dedupe_ke
         log.warning(f"[DEDUPE] Column '{dedupe_key}' not found in DataFrame, skipping deduplication")
         return df
 
-    initial_count = df.count()
-    log.info(f"[DEDUPE] Deduplicating on PK={primary_keys}, dedupe_key={dedupe_key}, initial_rows={initial_count}")
+    # Count before - but respect SKIP_COUNTS_FOR_TABLE
+    if not SKIP_COUNTS_FOR_TABLE:
+        initial_count = df.count()
+        log.info(f"[DEDUPE] Deduplicating on PK={primary_keys}, dedupe_key={dedupe_key}, initial_rows={initial_count}")
+    else:
+        log.info(f"[DEDUPE] Deduplicating on PK={primary_keys}, dedupe_key={dedupe_key}")
+        log.info(f"[DEDUPE] SKIPPING initial row count (table in SKIP_COUNT_TABLES)")
 
     w = Window.partitionBy(*primary_keys).orderBy(F.col(dedupe_key).desc())
     df_deduped = df.withColumn("row_number", F.row_number().over(w)).filter(F.col("row_number")==1).drop("row_number")
 
-    final_count = df_deduped.count()
-    removed = initial_count - final_count
-    log.info(f"[DEDUPE] Removed {removed} duplicate rows, final_rows={final_count}")
+    # Count after - but respect SKIP_COUNTS_FOR_TABLE
+    if not SKIP_COUNTS_FOR_TABLE:
+        final_count = df_deduped.count()
+        removed = initial_count - final_count
+        log.info(f"[DEDUPE] Removed {removed} duplicate rows, final_rows={final_count}")
+    else:
+        log.info(f"[DEDUPE] SKIPPING final row count (table in SKIP_COUNT_TABLES)")
+        log.info(f"[DEDUPE] Deduplication complete (counts skipped)")
 
     return df_deduped
 
@@ -1013,7 +1234,7 @@ def cleanup_temp_directory(temp_dir: str):
         log.info(f"[CLEANUP] Temp directory deleted: {temp_dir}")
     except Exception as e:
         log.warning(f"[CLEANUP] Failed to delete temp directory (non-fatal): {e}")
-        
+
 def fetch_potential_filepaths(pcdb_conn, job_id: str, table: str) -> List[str]:
     """
     Query process control DB for potential input file paths for this job and table.
@@ -1152,36 +1373,94 @@ def _estimate_total_input_bytes(filepaths: List[str]) -> int:
 
     log.info(f"[SIZING] Total input: {total:,} bytes ({total/1e9:.2f} GB), errors={errors}")
     return total
-	
-def _compute_out_parts(total_bytes: int, df: DataFrame = None) -> int:
+
+# ------------------------------
+# Write Helper Function
+# ------------------------------
+def write_dataframe_to_parquet(df: DataFrame, target_path: str, partition_col: Optional[str] = None):
     """
-    Compute optimal number of output partitions based on total input size.
-    Target: ~128 MiB per partition for better parallelism.
+    Write DataFrame to parquet with optional partitioning.
+
+    - For partitioned tables: uses repartition(partition_col) + partitionBy(partition_col)
+    - For non-partitioned tables: writes directly without repartition (fastest)
 
     Args:
-        total_bytes: Total input size in bytes
-        df: Optional DataFrame to get current partition count
+        df: DataFrame to write
+        target_path: S3 path to write to
+        partition_col: Optional partition column name
+    """
+    if partition_col:
+        if partition_col not in df.columns:
+            log.error(f"[WRITE] Partition column '{partition_col}' not found in DataFrame!")
+            log.error(f"[WRITE] Available columns: {df.columns}")
+            raise ValueError(f"Partition column '{partition_col}' not found in DataFrame")
+
+        log.info(f"[WRITE] Writing PARTITIONED by '{partition_col}' to {target_path}")
+        log.info(f"[WRITE] Using repartition('{partition_col}') + partitionBy('{partition_col}')")
+
+        (df
+           .repartition(partition_col)
+           .write.mode("overwrite")
+           .partitionBy(partition_col)
+           .option("parquet.block.size", 128 * 1024 * 1024)
+           .option("parquet.page.size", 1 * 1024 * 1024)
+           .option("parquet.compression", "snappy")
+           .parquet(target_path))
+    else:
+        log.info(f"[WRITE] Writing NON-PARTITIONED to {target_path}")
+        log.info(f"[WRITE] No repartition (fastest write)")
+
+        (df
+           .write.mode("overwrite")
+           .option("parquet.block.size", 128 * 1024 * 1024)
+           .option("parquet.page.size", 1 * 1024 * 1024)
+           .option("parquet.compression", "snappy")
+           .parquet(target_path))
+
+    log.info(f"[WRITE] Write completed successfully")
+    
+#------------------------------
+# Read Target Data Helper
+# ------------------------------
+def read_target_dataframe(target_path: str, partition_col: Optional[str] = None) -> Optional[DataFrame]:
+    """
+    Read existing target data, handling both partitioned and non-partitioned tables.
+
+    For partitioned tables: Uses basePath option to preserve partition columns
+    For non-partitioned tables: Standard parquet read
+
+    Args:
+        target_path: S3 path to read from
+        partition_col: Optional partition column name (if table is partitioned)
 
     Returns:
-        Number of output partitions (minimum 4, maximum MAX_OUTPUT_PARTS)
+        DataFrame if target exists, None otherwise
     """
-    # Target smaller files for better parallelism (128 MB instead of 1 GB)
-    TARGET_FILE_BYTES = 128 * 1024 * 1024  # 128 MiB per file
+    try:
+        if partition_col:
+            # For partitioned tables, use basePath to preserve partition column values
+            log.info(f"[READ_TARGET] Reading PARTITIONED table with basePath={target_path}")
+            df = spark.read \
+                .option("basePath", target_path) \
+                .option("pathGlobFilter", "*.parquet") \
+                .parquet(target_path)
 
-    if total_bytes <= 0:
-        # If we can't estimate bytes, use DataFrame partition count or default
-        if df is not None:
-            current_partitions = df.rdd.getNumPartitions()
-            parts = max(4, min(MAX_OUTPUT_PARTS, current_partitions))
-            log.info(f"[SIZING] Using DataFrame partition count: {parts}")
-            return parts
-        return 4  # Default minimum for parallelism
+            # Verify partition column exists after read
+            if partition_col not in df.columns:
+                log.warning(f"[READ_TARGET] Partition column '{partition_col}' not found after read!")
+                log.warning(f"[READ_TARGET] Available columns: {df.columns}")
+        else:
+            # For non-partitioned tables, standard read
+            log.info(f"[READ_TARGET] Reading NON-PARTITIONED table from {target_path}")
+            df = spark.read \
+                .option("pathGlobFilter", "*.parquet") \
+                .parquet(target_path)
 
-    n = math.ceil(total_bytes / TARGET_FILE_BYTES)
-    parts = max(4, min(MAX_OUTPUT_PARTS, n))  # Minimum 4 partitions for parallelism
+        return df
 
-    log.info(f"[SIZING] Input: {total_bytes / 1e6:.1f} MB → Output: {parts} partitions (~{TARGET_FILE_BYTES / 1e6:.0f} MB each)")
-    return parts
+    except Exception as e:
+        log.warning(f"[READ_TARGET] Failed to read target: {e}")
+        return None
 
 # ------------------------------
 # Initial load
@@ -1190,7 +1469,7 @@ def perform_initial_load(filepaths: List[str], target_dataset_dir: str, schema_s
                         table_name: str, job_id: str) -> Tuple[int, str]:
     """
     Perform initial load: read source parquet, add Op='I', apply schema, write to target.
-    NO CDC write for initial load - Postgres staging queries Final Zone directly.
+    Also creates empty CDC table structure for Glue Crawler Discovery with 1900-01-01 partition.
 
     Args:
         filepaths: List of source parquet file paths
@@ -1204,6 +1483,13 @@ def perform_initial_load(filepaths: List[str], target_dataset_dir: str, schema_s
     """
     log.info(f"[INITIAL_LOAD] Starting initial load for {table_name}")
     log.info(f"[INITIAL_LOAD] Reading {len(filepaths)} source files")
+
+    # Get partition column for this table (uses global PARTITION_COL)
+    partition_col = PARTITION_COL
+    if partition_col:
+        log.info(f"[INITIAL_LOAD] Table will be PARTITIONED by '{partition_col}'")
+    else:
+        log.info(f"[INITIAL_LOAD] Table will NOT be partitioned")
 
     try:
         schema_json = read_json_from_s3(schema_s3_path)
@@ -1235,8 +1521,14 @@ def perform_initial_load(filepaths: List[str], target_dataset_dir: str, schema_s
             raise RuntimeError(f"[INITIAL_LOAD] No matching columns found between source and schema!")
 
         df = df_raw.select(*columns_to_select)
-        initial_count = df.count()
-        log.info(f"[INITIAL_LOAD] Read {initial_count} rows from source")
+
+        # Count - respect SKIP_COUNTS_FOR_TABLE
+        if not SKIP_COUNTS_FOR_TABLE:
+            initial_count = df.count()
+            log.info(f"[INITIAL_LOAD] Read {initial_count} rows from source")
+        else:
+            log.info(f"[INITIAL_LOAD] SKIPPING source row count (table in SKIP_COUNT_TABLES)")
+            initial_count = -1
 
         # Normalize column names to lowercase
         df = df.toDF(*[c.lower() for c in df.columns])
@@ -1249,8 +1541,9 @@ def perform_initial_load(filepaths: List[str], target_dataset_dir: str, schema_s
         # Only deduplicate if we have primary keys
         if has_primary_key:
             df = deduplicate_by_date_column(df, primary_keys_lower, dedupe_key_lower)
-            dedupe_count = df.count()
-            log.info(f"[INITIAL_LOAD] After deduplication: {dedupe_count} rows (removed {initial_count - dedupe_count} duplicates)")
+            if not SKIP_COUNTS_FOR_TABLE:
+                dedupe_count = df.count()
+                log.info(f"[INITIAL_LOAD] After deduplication: {dedupe_count} rows (removed {initial_count - dedupe_count} duplicates)")
         else:
             log.info("[INITIAL_LOAD] Skipping deduplication (no primary keys)")
 
@@ -1286,29 +1579,36 @@ def perform_initial_load(filepaths: List[str], target_dataset_dir: str, schema_s
 
         log.info(f"[INITIAL_LOAD] Final columns to write: {df.columns}")
 
+        # Estimate input bytes for DQ metrics
         total_in_bytes = _estimate_total_input_bytes(filepaths)
-        out_parts = _compute_out_parts(total_in_bytes)
 
-        log.info(f"[INITIAL_LOAD] Writing to Final Zone: {target_dataset_dir} with {out_parts} partitions")
-        (df.repartition(out_parts)
-           .write.mode("overwrite")
-           .option("parquet.block.size", 128 * 1024 * 1024)
-           .option("parquet.page.size", 1 * 1024 * 1024)
-           .option("parquet.compression", "snappy")
-           .parquet(target_dataset_dir))
+        # Write using helper function (handles partitioning)
+        write_dataframe_to_parquet(df, target_dataset_dir, partition_col)
+        
+        # ========== CREATE EMPTY CDC TABLE FOR GLUE CRAWLER ==========
+        log.info("[INITIAL_LOAD] Creating empty CDC table structure for Glue Crawler discovery")
+        create_empty_cdc_table(df, TARGET_CDC_DIR, table_name)
+        # =============================================================
 
         log.info("[INITIAL_LOAD] Write completed, collecting metrics")
         write_dq_metrics(
             df_final=df, table_name=table_name,
             primary_keys=primary_keys_lower,
             dedupe_key=(dedupe_key_lower or ""), total_input_bytes=total_in_bytes,
-            planned_output_parts=out_parts, target_dataset_dir=target_dataset_dir,
+            target_dataset_dir=target_dataset_dir,
             job_id=job_id, load_type="initial_load"
         )
 
-        final_count = df.count()
+        # Final count for audit - this is required for the audit table
+        if not SKIP_COUNTS_FOR_TABLE:
+            final_count = df.count()
+        else:
+            log.info(f"[INITIAL_LOAD] SKIPPING final count for audit (table in SKIP_COUNT_TABLES)")
+            final_count = -1  # Indicate count was skipped
+
         log.info(f"[INITIAL_LOAD] Successfully completed: {final_count} records with 'op' column")
         log.info(f"[INITIAL_LOAD] NOTE: For Postgres staging initial load, query Final Zone directly: {target_dataset_dir}")
+        log.info(f"[INITIAL_LOAD] Empty CDC table created at : {TARGET_CDC_DIR}")
         return final_count, "Complete"
 
     except Exception as e:
@@ -1337,6 +1637,13 @@ def merge_parquet_files(filepaths: List[str], target_dataset_dir: str, schema_s3
     """
     log.info(f"[MERGE] Starting incremental merge for {table_name}")
     log.info(f"[MERGE] Reading {len(filepaths)} source files")
+
+    # Get partition column for this table (uses global PARTITION_COL)
+    partition_col = PARTITION_COL
+    if partition_col:
+        log.info(f"[MERGE] Table will be PARTITIONED by '{partition_col}'")
+    else:
+        log.info(f"[MERGE] Table will NOT be partitioned")
 
     temp_dir = None  # Track temp directory for cleanup
 
@@ -1367,8 +1674,14 @@ def merge_parquet_files(filepaths: List[str], target_dataset_dir: str, schema_s3
         log.info(f"[MERGE] Selecting columns from source: {columns_to_select}")
 
         df_source = df_raw.select(*columns_to_select)
-        initial_count = df_source.count()
-        log.info(f"[MERGE] Read {initial_count} source rows (before deduplication)")
+
+        # Count source - respect SKIP_COUNTS_FOR_TABLE
+        if not SKIP_COUNTS_FOR_TABLE:
+            initial_count = df_source.count()
+            log.info(f"[MERGE] Read {initial_count} source rows (before deduplication)")
+        else:
+            log.info(f"[MERGE] SKIPPING source row count (table in SKIP_COUNT_TABLES)")
+            initial_count = -1
 
         # Normalize column names to lowercase
         df_source = df_source.toDF(*[c.lower() for c in df_source.columns])
@@ -1385,8 +1698,9 @@ def merge_parquet_files(filepaths: List[str], target_dataset_dir: str, schema_s3
         # ========== STEP 1: DEDUPLICATE SOURCE DATA ==========
         if has_primary_key and dedupe_key_lower:
             df_source = deduplicate_by_date_column(df_source, primary_keys_lower, dedupe_key_lower)
-            dedupe_count = df_source.count()
-            log.info(f"[MERGE] After deduplication: {dedupe_count} rows (removed {initial_count - dedupe_count} duplicates)")
+            if not SKIP_COUNTS_FOR_TABLE:
+                dedupe_count = df_source.count()
+                log.info(f"[MERGE] After deduplication: {dedupe_count} rows (removed {initial_count - dedupe_count} duplicates)")
         else:
             log.info("[MERGE] Skipping deduplication (no primary keys or dedupe_key)")
         # =====================================================
@@ -1413,8 +1727,9 @@ def merge_parquet_files(filepaths: List[str], target_dataset_dir: str, schema_s3
             raise RuntimeError("[MERGE] CRITICAL: 'op' column missing after processing!")
         # ================================================
 
-        source_count = df_source.count()
-        if source_count == 0:
+        # Check if source has data (use head instead of count for performance)
+        source_head = df_source.head(1)
+        if not source_head or len(source_head) == 0:
             log.info("[MERGE] No source rows after filtering, exiting")
             return 0, "Complete"
 
@@ -1428,9 +1743,12 @@ def merge_parquet_files(filepaths: List[str], target_dataset_dir: str, schema_s3
             log.warning(f"[MERGE] Falling back to current date for dart_filedate: {dart_filedate}")
 
         # Log op distribution before CDC write
-        op_dist = df_source.groupBy("op").count().collect()
-        op_summary = {row["op"]: row["count"] for row in op_dist}
-        log.info(f"[MERGE] CDC op distribution (deduplicated): {op_summary}")
+        if not SKIP_COUNTS_FOR_TABLE:
+            op_dist = df_source.groupBy("op").count().collect()
+            op_summary = {row["op"]: row["count"] for row in op_dist}
+            log.info(f"[MERGE] CDC op distribution (deduplicated): {op_summary}")
+        else:
+            log.info(f"[MERGE] SKIPPING op distribution count (table in SKIP_COUNT_TABLES)")
 
         write_cdc_changes(df_source, table_name, TARGET_CDC_DIR, dart_filedate)
         log.info(f"[MERGE] CDC write complete. For Postgres staging incremental, query: {TARGET_CDC_DIR}")
@@ -1442,17 +1760,17 @@ def merge_parquet_files(filepaths: List[str], target_dataset_dir: str, schema_s3
             log.info("[MERGE] APPEND-ONLY mode: appending non-delete records to Final Zone")
 
             df_source_non_deletes = df_source.filter(F.col("op") != "D")
-            non_delete_count = df_source_non_deletes.count()
-            log.info(f"[MERGE] Non-delete records for Final Zone: {non_delete_count}")
 
-            try:
-                # Read existing target data
-                df_target_raw = spark.read \
-                    .option("pathGlobFilter", "*.parquet") \
-                    .option("recursiveFileLookup", "false") \
-                    .option("ignoreCorruptFiles", "true") \
-                    .option("ignoreMissingFiles", "true") \
-                    .parquet(target_dataset_dir)
+            if not SKIP_COUNTS_FOR_TABLE:
+                non_delete_count = df_source_non_deletes.count()
+                log.info(f"[MERGE] Non-delete records for Final Zone: {non_delete_count}")
+            else:
+                log.info(f"[MERGE] SKIPPING non-delete count (table in SKIP_COUNT_TABLES)")
+
+            # Try to read existing target using helper function
+            df_target_raw = read_target_dataframe(target_dataset_dir, partition_col)
+
+            if df_target_raw is not None:
 
                 # CRITICAL: Write to temp, read back, then checkpoint to fully materialize
                 temp_dir = f"s3://{TARGET_BUCKET}/{TARGET_PREFIX}/_temp/{table_name}_{uuid.uuid4().hex}/"
@@ -1464,19 +1782,27 @@ def merge_parquet_files(filepaths: List[str], target_dataset_dir: str, schema_s3
                 df_target = spark.read.parquet(temp_dir)
                 df_target = df_target.localCheckpoint(eager=True)
 
-                target_count = df_target.count()
-                log.info(f"[MERGE] Existing Final Zone has {target_count} rows (checkpointed)")
+                # Check if target has data
+                target_head = df_target.head(1)
+                target_exists = target_head is not None and len(target_head) > 0
 
-                if target_count > 0:
+                if not SKIP_COUNTS_FOR_TABLE:
+                    target_count = df_target.count()
+                    log.info(f"[MERGE] Existing Final Zone has {target_count} rows (checkpointed)")
+                else:
+                    log.info(f"[MERGE] SKIPPING target count (table in SKIP_COUNT_TABLES)")
+                    log.info(f"[MERGE] Existing Final Zone found (count skipped)")
+
+                if target_exists:
                     df_target = convert_data_types(df_target, data_types_lower)
                     df_final = df_target.unionByName(df_source_non_deletes, allowMissingColumns=True)
-                    log.info(f"[MERGE] Appended {non_delete_count} rows to existing {target_count} rows")
+                    log.info(f"[MERGE] Appended new rows to existing data")
                 else:
                     log.info("[MERGE] Final Zone is empty, using source non-deletes as baseline")
                     df_final = df_source_non_deletes
 
-            except Exception as e:
-                log.warning(f"[MERGE] Final Zone not found: {e} → creating new dataset")
+            else:
+                log.warning(f"[MERGE] Final Zone not found → creating new dataset")
                 df_final = df_source_non_deletes
                 df_final, _, _ = verify_and_add_missing_columns(df_final, columns_lower_list, primary_keys_lower)
                 df_final = convert_data_types(df_final, data_types_lower)
@@ -1486,21 +1812,25 @@ def merge_parquet_files(filepaths: List[str], target_dataset_dir: str, schema_s3
             log.info(f"[MERGE] UPSERT mode with primary keys: {primary_keys_lower}")
 
             affected_keys = df_source.select(*primary_keys_lower).distinct()
-            affected_count = affected_keys.count()
-            log.info(f"[MERGE] Affected keys: {affected_count}")
 
-            if affected_count == 0:
-                log.info("[MERGE] No affected keys, exiting")
-                return 0, "Complete"
+            if not SKIP_COUNTS_FOR_TABLE:
+                affected_count = affected_keys.count()
+                log.info(f"[MERGE] Affected keys: {affected_count}")
+                if affected_count == 0:
+                    log.info("[MERGE] No affected keys, exiting")
+                    return 0, "Complete"
+            else:
+                log.info(f"[MERGE] SKIPPING affected keys count (table in SKIP_COUNT_TABLES)")
+                # Check if any affected keys exist
+                affected_head = affected_keys.head(1)
+                if not affected_head or len(affected_head) == 0:
+                    log.info("[MERGE] No affected keys, exiting")
+                    return 0, "Complete"
 
-            try:
-                # Read existing target data
-                df_target_raw = spark.read \
-                    .option("pathGlobFilter", "*.parquet") \
-                    .option("recursiveFileLookup", "false") \
-                    .option("ignoreCorruptFiles", "true") \
-                    .option("ignoreMissingFiles", "true") \
-                    .parquet(target_dataset_dir)
+            # Try to read existing target using helper function
+            df_target_raw = read_target_dataframe(target_dataset_dir, partition_col)
+
+            if df_target_raw is not None:
 
                 # CRITICAL: Write to temp, read back, then checkpoint to fully materialize
                 temp_dir = f"s3://{TARGET_BUCKET}/{TARGET_PREFIX}/_temp/{table_name}_{uuid.uuid4().hex}/"
@@ -1512,21 +1842,44 @@ def merge_parquet_files(filepaths: List[str], target_dataset_dir: str, schema_s3
                 df_target = spark.read.parquet(temp_dir)
                 df_target = df_target.localCheckpoint(eager=True)
 
-                target_count = df_target.count()
-                log.info(f"[MERGE] Existing Final Zone has {target_count} rows (checkpointed)")
+                # Check if target has data
+                target_head = df_target.head(1)
+                target_exists = target_head is not None and len(target_head) > 0
 
-                if target_count > 0:
+                if not SKIP_COUNTS_FOR_TABLE:
+                    target_count = df_target.count()
+                    log.info(f"[MERGE] Existing Final Zone has {target_count} rows (checkpointed)")
+                else:
+                    log.info(f"[MERGE] SKIPPING target count (table in SKIP_COUNT_TABLES)")
+                    log.info(f"[MERGE] Existing Final Zone found (count skipped)")
+
+                if target_exists:
                     df_target = convert_data_types(df_target, data_types_lower)
+
+                    # Log target columns for debugging
+                    log.info(f"[MERGE] Target columns after read: {df_target.columns}")
+                    if partition_col and partition_col not in df_target.columns:
+                        log.error(f"[MERGE] CRITICAL: Partition column '{partition_col}' missing from target!")
+                        log.error(f"[MERGE] This will cause data loss. Check read_target_dataframe logic.")
 
                     # Preserve rows not affected by this merge
                     df_target_preserved = df_target.join(affected_keys, on=primary_keys_lower, how="left_anti")
-                    preserved_count = df_target_preserved.count()
+
+                    if not SKIP_COUNTS_FOR_TABLE:
+                        preserved_count = df_target_preserved.count()
+                        log.info(f"[MERGE] Preserved {preserved_count} existing rows (not affected by this merge)")
+                    else:
+                        log.info(f"[MERGE] SKIPPING preserved row count (table in SKIP_COUNT_TABLES)")
 
                     # Get non-delete operations from source for Final Zone
                     df_source_updates = df_source.filter(F.col("op") != "D")
-                    updates_count = df_source_updates.count()
 
-                    log.info(f"[MERGE] Preserved {preserved_count} existing rows, merging {updates_count} updates (excluding deletes)")
+                    if not SKIP_COUNTS_FOR_TABLE:
+                        updates_count = df_source_updates.count()
+                        log.info(f"[MERGE] Adding {updates_count} updates (excluding deletes)")
+                    else:
+                        log.info(f"[MERGE] SKIPPING updates count (table in SKIP_COUNT_TABLES)")
+
                     df_final = df_target_preserved.unionByName(df_source_updates, allowMissingColumns=True)
                 else:
                     log.info("[MERGE] Final Zone is empty, using source non-deletes as baseline")
@@ -1534,28 +1887,29 @@ def merge_parquet_files(filepaths: List[str], target_dataset_dir: str, schema_s3
                     df_final, _, _ = verify_and_add_missing_columns(df_final, columns_lower_list, primary_keys_lower)
                     df_final = convert_data_types(df_final, data_types_lower)
 
-            except Exception as e:
-                log.warning(f"[MERGE] Final Zone not found: {e} → creating new dataset")
+            else:
+                log.warning(f"[MERGE] Final Zone not found → creating new dataset")
                 df_final = df_source.filter(F.col("op") != "D")
                 df_final, _, _ = verify_and_add_missing_columns(df_final, columns_lower_list, primary_keys_lower)
                 df_final = convert_data_types(df_final, data_types_lower)
         # ====================================================================
 
         # ========== STEP 5: WRITE TO FINAL ZONE ==========
+        # Estimate input bytes for DQ metrics
         total_in_bytes = _estimate_total_input_bytes(filepaths)
-        out_parts = _compute_out_parts(total_in_bytes, df_final)
 
-        # Log partition info for debugging
-        current_partitions = df_final.rdd.getNumPartitions()
-        log.info(f"[MERGE] Current partitions: {current_partitions}, Target partitions: {out_parts}")
-        log.info(f"[MERGE] Writing Final Zone to {target_dataset_dir} with {out_parts} partitions")
+        log.info(f"[MERGE] Writing Final Zone to {target_dataset_dir}")
 
-        (df_final.repartition(out_parts)
-           .write.mode("overwrite")
-           .option("parquet.block.size", 128 * 1024 * 1024)
-           .option("parquet.page.size", 1 * 1024 * 1024)
-           .option("parquet.compression", "snappy")
-           .parquet(target_dataset_dir))
+        # Log final columns for debugging
+        log.info(f"[MERGE] Final DataFrame columns: {df_final.columns}")
+        if partition_col:
+            if partition_col in df_final.columns:
+                log.info(f"[MERGE] Partition column '{partition_col}' present in final DataFrame")
+            else:
+                log.error(f"[MERGE] Partition column '{partition_col}' MISSING from final DataFrame!")
+
+        # Write using helper function (handles partitioning)
+        write_dataframe_to_parquet(df_final, target_dataset_dir, partition_col)
 
         # Clean up temp directory after successful write
         if temp_dir:
@@ -1565,12 +1919,19 @@ def merge_parquet_files(filepaths: List[str], target_dataset_dir: str, schema_s3
         write_dq_metrics(
             df_final=df_final, table_name=table_name,
             primary_keys=primary_keys_lower, dedupe_key=(dedupe_key_lower or ""),
-            total_input_bytes=total_in_bytes, planned_output_parts=out_parts,
+            total_input_bytes=total_in_bytes,
             target_dataset_dir=target_dataset_dir, job_id=JOB_ID, load_type="incremental_load"
         )
 
-        final_count = df_final.count()
-        log.info(f"[MERGE] Successfully completed: {final_count} records in Final Zone (excludes deletes)")
+        # Final count for audit - this is required
+        if not SKIP_COUNTS_FOR_TABLE:
+            final_count = df_final.count()
+            log.info(f"[MERGE] Successfully completed: {final_count} records in Final Zone (excludes deletes)")
+        else:
+            log.info(f"[MERGE] SKIPPING final count for audit (table in SKIP_COUNT_TABLES)")
+            final_count = -1  # Indicate count was skipped
+            log.info(f"[MERGE] Successfully completed: Final Zone written (count skipped)")
+
         return final_count, "Complete"
 
     except Exception as e:
@@ -1579,7 +1940,7 @@ def merge_parquet_files(filepaths: List[str], target_dataset_dir: str, schema_s3
             cleanup_temp_directory(temp_dir)
         log.error(f"[MERGE] Failed with error: {str(e)}")
         raise
-    
+
 # ------------------------------
 # MAIN
 # ------------------------------
@@ -1624,7 +1985,7 @@ if __name__ == "__main__":
 
         if load_type == "initial_load":
             log.info("[MAIN] Executing INITIAL LOAD flow")
-            log.info("[MAIN] NOTE: No CDC write for initial load - Postgres staging queries Final Zone directly")
+            log.info("[MAIN] NOTE: Empty CDC table will be created for Glue Crawler discovery")
             file_count, status = perform_initial_load(filepaths, TARGET_DATASET_DIR, SCHEMA_S3_PATH, TABLE, JOB_ID)
         else:
             log.info("[MAIN] Executing INCREMENTAL MERGE flow")
@@ -1637,8 +1998,7 @@ if __name__ == "__main__":
         log.info("="*80)
         log.info(f"[MAIN] Job completed successfully: status={status}, records={file_count}")
         log.info(f"[MAIN] Final Zone: {TARGET_DATASET_DIR}")
-        if load_type == "incremental_load":
-            log.info(f"[MAIN] CDC Zone: {TARGET_CDC_DIR}")
+        log.info(f"[MAIN] CDC Zone: {TARGET_CDC_DIR}")
         log.info("="*80)
         job.commit()
 

@@ -10,7 +10,7 @@ from sns_topics import sns_topics
 
 
 REGION = os.getenv("AWS_REGION")
-#SNS_ARN = "arn:aws:sns:us-east-1:253490756794:FSA-PROD-CARS"
+#SNS_ARN = "arn:aws:sns:us-east-1:241533156429:FSA-CERT-CNSV"
 
 
 def handler(event, context):
@@ -65,7 +65,7 @@ def handler(event, context):
     # iterate over input to extract and process all errors    
     counter = 1
     #sf_name = event.get('SfName', '')
-    sf_name = 'FSA-PROD-Cars-S3Landing-to-S3Final-Raw-DM'
+    sf_name = 'FSA-CERT-CNSV-Cntr-Maint-RAW-DM-Step2'
     all_fails = ''
 
     if isinstance(event, list):
@@ -91,7 +91,7 @@ def handler(event, context):
         response = sns_client.publish(
             TopicArn = SNS_ARN,
             Message = sns_msg,
-            Subject= 'FSA-PROD-CARS-RAW-DM-NOTIFICATIONS'
+            Subject= 'FSA-CERT-CNSV-Cntr-Maint-RAW-DM-NOTIFICATIONS'
         )
         
         

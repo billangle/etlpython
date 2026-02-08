@@ -1,3 +1,24 @@
+INSERT INTO sql_farm_rcd_stg.yr_arc_plc_ptcp_elct
+(yr_arc_plc_ptcp_elct_id
+, farm_yr_id
+, crop_id
+, arc_plc_elct_chc_id
+, pgm_abr
+, fsa_crop_cd
+, fsa_crop_type_cd
+, farm_nbr
+, st_fsa_cd
+, cnty_fsa_cd
+, pgm_yr
+, data_stat_cd
+, cre_dt
+, cre_user_nm
+, last_chg_dt
+, last_chg_user_nm
+, cdc_oper_cd
+, load_dt
+, data_src_nm
+, cdc_dt)
 SELECT
 farc.year_arc_plc_participation_election_identifier
 ,farc.farm_year_identifier

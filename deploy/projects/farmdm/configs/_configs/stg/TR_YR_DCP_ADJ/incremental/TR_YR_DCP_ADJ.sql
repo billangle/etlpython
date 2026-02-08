@@ -1,3 +1,7 @@
+INSERT INTO sql_farm_rcd_stg.tr_yr_dcp_adj
+(tr_yr_adj_id, tr_yr_dcp_id, tr_yr_adj_type_cd, tr_yr_adj_rsn_cd, aft_adj_val, bef_adj_val, prnt_tbl_phy_nm,
+ farm_nbr, tr_nbr, st_fsa_cd, cnty_fsa_cd, pgm_yr, data_stat_cd, cre_dt, last_chg_dt, last_chg_user_nm, hash_dif,
+ cdc_oper_cd, load_dt, data_src_nm, cdc_dt)
 SELECT distinct TRACT_YEAR_ADJUSTMENT.TRACT_YEAR_ADJUSTMENT_IDENTIFIER AS TR_YR_ADJ_ID,
 TRACT_YEAR_ADJUSTMENT.TRACT_YEAR_DCP_IDENTIFIER AS TR_YR_DCP_ID,
 TRACT_YEAR_ADJUSTMENT.TRACT_YEAR_ADJUSTMENT_TYPE_CODE AS TR_YR_ADJ_TYPE_CD,

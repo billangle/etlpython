@@ -1,3 +1,8 @@
+INSERT INTO sql_farm_rcd_stg.farm_rcon
+(farm_rcon_id, rcon_id, prnt_farm_yr_id, rslt_farm_yr_id, prnt_farm_nbr, 
+prnt_st_fsa_cd, prnt_cnty_fsa_cd, rslt_farm_nbr, rslt_st_fsa_cd, rslt_cnty_fsa_cd, 
+pgm_yr, data_stat_cd, cre_dt, last_chg_dt, last_chg_user_nm, 
+hash_dif, cdc_oper_cd, load_dt, data_src_nm, cdc_dt)
 SELECT DISTINCT
     fr.farm_reconstitution_identifier,
     fr.reconstitution_identifier,

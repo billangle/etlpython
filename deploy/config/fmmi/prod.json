@@ -118,15 +118,15 @@
             "JobParameters": {
               "--JOB_NAME": "FSA-PROD-FMMI-S3-STG-ODS-parquet",
               "--SecretId": "FSA-PROD-secrets",
-              "--datalake-formats": "c108-prod-fpacfsa-landing-zone",
               "--bucket_name": "c108-prod-fpacfsa-landing-zone",
               "--env": "prod",
-              "--enable-job-insights": "fmmi/fmmi_ocfo_files",
               "--job_type": "BOTH",
-              "--enable-job-insights": "c108-prod-fpacfsa-final-zone",
               "--ods_folder_name": "fmmi_ods",
               "--stg_bucket_name": "c108-prod-fpacfsa-cleansed-zone",
-              "--stg_folder_name": "fmmi_stg"
+              "--stg_folder_name": "fmmi_stg",
+              "--folder_name": "fmmi/fmmi_ocfo_files",
+              "--ods_bucket_name": "c108-dev-fpacfsa-final-zone"
+
             }
       }
     }

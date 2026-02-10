@@ -135,12 +135,16 @@ class SQLFS:
         #added more changes here to fix case sensitivity issues when reading s3 bucket
 
         layer_upper = layer.upper()
+
+        if layer_upper == "DM":
+            layer_folder = self._resolve_dm_folder(table_name)
         
         # Resolve layer folder case (EDV, EBV, DM)
-        layer_folder = self._resolve_s3_path_case(
-            f"{self.base_prefix}/",
-            self.layer_folders.get(layer_upper, layer_upper)
-        )
+        else:
+            layer_folder = self._resolve_s3_path_case(
+                f"{self.base_prefix}/",
+                self.layer_folders.get(layer_upper, layer_upper)
+            )
         
         # Resolve table folder case
         table_folder = self._resolve_s3_path_case(
@@ -149,6 +153,9 @@ class SQLFS:
         )
         
         prefix = f"{self.base_prefix}/{layer_folder}/{table_folder}/"
+
+
+
         return self._read_ordered_sqls(prefix, start_date, end_date)
 
     def _read_sql_file(self, key: str, start_date: str, end_date: str = None) -> Optional[str]:
@@ -237,6 +244,36 @@ class SQLFS:
 
         raise FileNotFoundError(
             f"Could not resolve S3 casing for '{target}' under '{prefix}'"
+        )
+    
+    def _resolve_dm_folder(self, table_name: str) -> str:
+        resp = self.s3_client.list_objects_v2(
+            Bucket=self.bucket,
+            Delimiter="/"
+        )
+
+        dm_folders = [
+            p["Prefix"].rstrip("/")
+            for p in resp.get("CommonPrefixes", [])
+            if p["Prefix"].rstrip("/").endswith("_DM")
+        ]
+
+        for dm in dm_folders:
+            table_prefix = f"{dm}/{table_name.upper()}/"
+            full_path = f"s3://{self.bucket}/{table_prefix}"
+            print(full_path)
+
+            check = self.s3_client.list_objects_v2(
+                Bucket=self.bucket,
+                Prefix=table_prefix,
+                MaxKeys=1
+            )
+
+            if "Contents" in check:
+                return dm
+
+        raise FileNotFoundError(
+            f"No DM folder found for table {table_name}"
         )
 
     def _substitute_parameters(self, sql_content: str, start_date: str, end_date: str = None) -> str:

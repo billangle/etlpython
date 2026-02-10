@@ -1,0 +1,812 @@
+# deploy/projects/cnsv/deploy_maint.py
+from __future__ import annotations
+
+import json
+import re
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import boto3
+
+from common.aws_common import (
+    ensure_bucket_exists,
+    ensure_glue_job,
+    ensure_state_machine,
+    ensure_lambda,
+    GlueJobSpec,
+    StateMachineSpec,
+    LambdaSpec,
+)
+
+# --------------------------------------------------------------------------------------
+# Safe parsers (match working deploy_base.py pattern)
+# --------------------------------------------------------------------------------------
+
+def _as_bool(v: Any, default: Optional[bool] = None) -> Optional[bool]:
+    if v is None:
+        return default
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, (int, float)):
+        return bool(v)
+    if isinstance(v, str):
+        s = v.strip().lower()
+        if s in ("true", "1", "yes", "y", "on"):
+            return True
+        if s in ("false", "0", "no", "n", "off"):
+            return False
+    return default
+
+
+def _as_int(v: Any, default: int) -> int:
+    if v is None or v == "":
+        return default
+    try:
+        return int(str(v).strip())
+    except Exception:
+        return default
+
+
+def _as_str(v: Any, default: str = "") -> str:
+    if v is None:
+        return default
+    s = str(v)
+    return s if s.strip() else default
+
+
+def _as_dict(v: Any) -> Dict[str, Any]:
+    return v if isinstance(v, dict) else {}
+
+
+def _as_str_dict(v: Any) -> Dict[str, str]:
+    if not isinstance(v, dict):
+        return {}
+    out: Dict[str, str] = {}
+    for k, val in v.items():
+        if k is None:
+            continue
+        ks = str(k).strip()
+        if not ks:
+            continue
+        out[ks] = "" if val is None else str(val)
+    return out
+
+
+def _as_str_list(v: Any) -> List[str]:
+    if not isinstance(v, list):
+        return []
+    out: List[str] = []
+    for item in v:
+        if isinstance(item, str) and item.strip():
+            out.append(item.strip())
+    return out
+
+
+# --------------------------------------------------------------------------------------
+# GlueConfig helpers (match working deploy_base.py pattern)
+# --------------------------------------------------------------------------------------
+
+def _script_stem(p: Path) -> str:
+    return p.name[:-3] if p.name.lower().endswith(".py") else p.name
+
+
+def _parse_glue_config_array(cfg: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    root = cfg.get("GlueConfig")
+    if not isinstance(root, list) or not root:
+        return {}
+
+    out: Dict[str, Dict[str, Any]] = {}
+    for item in root:
+        if not isinstance(item, dict) or not item:
+            continue
+        for k, v in item.items():
+            if isinstance(k, str) and k.strip() and isinstance(v, dict):
+                out[k.strip()] = v
+    return out
+
+
+def _glue_config_for_script(cfg: Dict[str, Any], script_stem_name: str) -> Dict[str, Any]:
+    m = _parse_glue_config_array(cfg)
+    return m.get(script_stem_name, {}) if m else {}
+
+
+def _parse_connection_names(glue_job_params: Dict[str, Any]) -> List[str]:
+    conns = glue_job_params.get("Connections") or []
+    if not isinstance(conns, list):
+        return []
+    out: List[str] = []
+    for c in conns:
+        if not isinstance(c, dict):
+            continue
+        n = c.get("ConnectionName")
+        if isinstance(n, str) and n.strip():
+            out.append(n.strip())
+
+    seen = set()
+    deduped: List[str] = []
+    for n in out:
+        if n in seen:
+            continue
+        seen.add(n)
+        deduped.append(n)
+    return deduped
+
+
+def _merge_glue_default_args(base_args: Dict[str, Any], glue_job_params: Dict[str, Any]) -> Dict[str, str]:
+    out: Dict[str, Any] = dict(base_args or {})
+
+    spark_ui_path = glue_job_params.get("SparkUILogsPath")
+    if spark_ui_path:
+        out["--enable-spark-ui"] = "true"
+        out["--spark-event-logs-path"] = str(spark_ui_path)
+
+    if _as_bool(glue_job_params.get("GenerateMetrics"), default=False) is True:
+        out["--enable-metrics"] = "true"
+
+    bmk = _as_bool(glue_job_params.get("EnableJobBookmarks"), default=None)
+    if bmk is True:
+        out["--job-bookmark-option"] = "job-bookmark-enable"
+    elif bmk is False:
+        out["--job-bookmark-option"] = "job-bookmark-disable"
+
+    if str(glue_job_params.get("JobObservabilityMetrics", "")).strip().upper() == "ENABLED":
+        out["--enable-observability-metrics"] = "true"
+
+    if str(glue_job_params.get("JobContinuousLogging", "")).strip().upper() == "ENABLED":
+        out["--enable-continuous-cloudwatch-log"] = "true"
+
+    temp_path = glue_job_params.get("TemporaryPath")
+    if temp_path:
+        out["--TempDir"] = str(temp_path)
+
+    if _as_bool(glue_job_params.get("UseGlueDataCatalogAsTheHiveMetastore"), default=False) is True:
+        out["--enable-glue-datacatalog"] = "true"
+
+    ref_files = glue_job_params.get("ReferencedFilesS3Path")
+    if ref_files:
+        out["--extra-files"] = str(ref_files)
+
+    extra_py = glue_job_params.get("AdditionalPythonModulesS3Path")
+    if extra_py:
+        out["--extra-py-files"] = str(extra_py)
+
+    python_lib_path = _as_str(glue_job_params.get("PythonLibraryPath"), default="")
+    if python_lib_path and "--extra-py-files" not in out:
+        out["--extra-py-files"] = python_lib_path
+
+    job_params = glue_job_params.get("JobParameters") or {}
+    if isinstance(job_params, dict):
+        for k, v in job_params.items():
+            out[str(k)] = "" if v is None else str(v)
+
+    return {str(k): str(v) for k, v in out.items()}
+
+
+# --------------------------------------------------------------------------------------
+# Script naming (match working deploy_base.py pattern)
+# --------------------------------------------------------------------------------------
+
+def _strip_known_script_prefixes(filename: str) -> str:
+    name = Path(filename).name
+    if name.startswith("FSA-"):
+        parts = name.split("-", 2)
+        if len(parts) == 3:
+            name = parts[2]
+    return name
+
+
+def _s3_script_key(prefix: str, deploy_env: str, project: str, local_filename: str) -> str:
+    dep = (deploy_env or "").strip()
+    proj = (project or "").strip()
+    if not dep or not proj:
+        raise RuntimeError("deploy_env and project are required for Glue script naming")
+
+    suffix = _strip_known_script_prefixes(local_filename)
+    final_name = f"FSA-{dep}-{proj}-{suffix}"
+    return f"{prefix}glue/{final_name}"
+
+
+def _find_best_script(glue_root: Path, wanted_stem: str) -> Path:
+    """
+    Find the best matching script under ./glue.
+    Tries:
+      - exact '<wanted_stem>.py'
+      - case-insensitive match
+      - normalized match (Cntr-Maint vs cntr_maint, etc)
+    """
+    if not glue_root.exists():
+        raise FileNotFoundError(f"Missing glue directory: {glue_root}")
+
+    candidates = [p for p in glue_root.iterdir() if p.is_file() and p.suffix.lower() == ".py"]
+    if not candidates:
+        raise FileNotFoundError(f"No .py scripts found under: {glue_root}")
+
+    exact = glue_root / f"{wanted_stem}.py"
+    if exact.exists():
+        return exact
+
+    low = f"{wanted_stem}.py".lower()
+    for p in candidates:
+        if p.name.lower() == low:
+            return p
+
+    def norm(s: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
+
+    target = norm(wanted_stem)
+    for p in candidates:
+        if norm(p.stem) == target:
+            return p
+
+    raise FileNotFoundError(
+        f"Could not find Glue script for '{wanted_stem}' under {glue_root}. "
+        f"Found: {[p.name for p in candidates]}"
+    )
+
+
+# --------------------------------------------------------------------------------------
+# ASL loader (PARAM ASL ONLY for this deployer)
+# --------------------------------------------------------------------------------------
+
+_PARAM_ASL_FILES = [
+    "Cntr-Maint-Incremental-to-S3Landing.param.asl.json",
+    "Cntr-Maint-S3Landing-to-S3Final-Raw-DM.param.asl.json",
+    "Cntr-Maint-Process-Control-Update.param.asl.json",
+    "Cntr-Maint-Main.param.asl.json",
+]
+
+
+def _load_asl_file(project_dir: Path, filename: str) -> Dict[str, Any]:
+    p = project_dir / "states" / filename
+    if not p.exists():
+        raise FileNotFoundError(f"Missing ASL file: {p}")
+    obj = json.loads(p.read_text(encoding="utf-8"))
+    if not isinstance(obj, dict) or not obj:
+        raise RuntimeError(f"ASL file did not parse to a JSON object: {p}")
+    return obj
+
+
+# --------------------------------------------------------------------------------------
+# Naming
+# --------------------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class Names:
+    prefix: str
+
+    # Glue jobs (maint only)
+    landing_glue_job: str
+    raw_dm_glue_job: str
+
+    # State machines (maint only)
+    sm_incremental_to_s3landing: str
+    sm_s3landing_to_s3final_raw_dm: str
+    sm_process_control_update: str
+    sm_main: str
+
+    # Lambdas (maint only) - DO NOT MODIFY SUFFIXES
+    fn_get_incremental_tables: str
+    fn_raw_dm_etl_workflow_update: str
+    fn_raw_dm_sns_publish_errors: str
+    fn_job_logging_end: str
+    fn_validation_check: str
+    fn_sns_publish_validations_report: str
+
+    # Crawler names (maint)
+    crawler_final_zone: str
+    crawler_cdc: str
+
+
+def build_names(deploy_env: str, project: str) -> Names:
+    dep = (deploy_env or "").strip()
+    proj = (project or "").strip()
+    if not dep:
+        raise RuntimeError("Missing required cfg['deployEnv']")
+    if not proj:
+        raise RuntimeError("Missing required cfg['project']")
+
+    prefix = f"FSA-{dep}-{proj}"
+
+    # IMPORTANT:
+    # - Do NOT “fix” or truncate names.
+    # - Use the exact suffixes you already have deployed/working.
+    return Names(
+        prefix=prefix,
+        landing_glue_job=f"{prefix}-Cntr-Maint-LandingFiles",
+        raw_dm_glue_job=f"{prefix}-Cntr-Maint-Raw-DM",
+        sm_incremental_to_s3landing=f"{prefix}-Cntr-Maint-Incremental-to-S3Landing",
+        sm_s3landing_to_s3final_raw_dm=f"{prefix}-Cntr-Maint-S3Landing-to-S3Final-Raw-DM",
+        sm_process_control_update=f"{prefix}-Cntr-Maint-Process-Control-Update",
+        sm_main=f"{prefix}-Cntr-Maint-Main",
+        fn_get_incremental_tables=f"{prefix}-Cntr-Maint-get-incremental-tables",
+        fn_raw_dm_etl_workflow_update=f"{prefix}-Cntr-Maint-RAW-DM-etl-workflow-update-data-pplnjob",
+        fn_raw_dm_sns_publish_errors=f"{prefix}-Cntr-Maint-RAW-DM-sns-publish-step-function-errors",
+        fn_job_logging_end=f"{prefix}-Cntr-Maint-Job-Logging-End",
+        fn_validation_check=f"{prefix}-Cntr-Maint-validation-check",
+        fn_sns_publish_validations_report=f"{prefix}-Cntr-Maint-sns-publish-validations-report",
+        crawler_final_zone=f"{prefix}-Cntr-Maint Final Zone Crawler",
+        crawler_cdc=f"{prefix}-Cntr-Maint CDC Crawler",
+    )
+
+
+# --------------------------------------------------------------------------------------
+# Lambda directory resolution (match deploy_base behavior: ./lambda)
+# --------------------------------------------------------------------------------------
+
+def _find_lambda_dir(lambda_root: Path, expected_suffix: str) -> Path:
+    if not lambda_root.exists():
+        raise FileNotFoundError(f"Missing lambda root dir: {lambda_root}")
+
+    dirs = [p for p in lambda_root.iterdir() if p.is_dir()]
+    if not dirs:
+        raise FileNotFoundError(f"No lambda directories found under: {lambda_root}")
+
+    # exact match
+    for d in dirs:
+        if d.name == expected_suffix:
+            return d
+
+    # case-insensitive match
+    low = expected_suffix.lower()
+    for d in dirs:
+        if d.name.lower() == low:
+            return d
+
+    # normalized match
+    def norm(s: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
+
+    target = norm(expected_suffix)
+    for d in dirs:
+        if norm(d.name) == target:
+            return d
+
+    # suffix match
+    for d in dirs:
+        if d.name.lower().endswith(low):
+            return d
+
+    raise RuntimeError(f"Lambda dir not found for: {expected_suffix}")
+
+
+# --------------------------------------------------------------------------------------
+# ASL rewrite (IN MEMORY) – fix hardcoded FSA-CERT-* strings and inject real Lambda ARNs
+# --------------------------------------------------------------------------------------
+
+_LAMBDA_ARN_RE = re.compile(r"^arn:aws:lambda:[^:]+:\d{12}:function:[A-Za-z0-9-_]+(?::[A-Za-z0-9-_]+)?$")
+
+
+def _deep_fix_lambda_resources(obj: Any, lambda_arns: Dict[str, str]) -> Any:
+    """
+    Fix two patterns:
+      1) Task.Resource is a direct Lambda ARN (bad if it points to old account/name)
+      2) Task.Resource is states:::lambda:invoke and Parameters.FunctionName contains a direct Lambda ARN
+    We replace to the *actual* deployed ARN by matching the function-name suffix.
+    """
+    # Build suffix index: function name -> arn, plus suffixes for matching.
+    # Example: FSA-DEV7-CNSV-Cntr-Maint-get-incremental-tables -> arn...
+    name_to_arn = dict(lambda_arns)
+
+    # Also match by “tail suffix” (e.g. get-incremental-tables)
+    suffix_to_arn: Dict[str, str] = {}
+    for fn, arn in name_to_arn.items():
+        tail = fn.split("-", 2)[-1] if fn.startswith("FSA-") else fn
+        # Better tail: last token group after project prefix isn't reliable; use known suffixes too.
+        # We’ll add a few matching aids:
+        suffix_to_arn[fn] = arn
+        suffix_to_arn[tail] = arn
+        if "-Cntr-Maint-" in fn:
+            suffix_to_arn[fn.split("-Cntr-Maint-", 1)[1]] = arn
+
+    def _extract_fn_name_from_arn(arn: str) -> str:
+        # arn:aws:lambda:REGION:ACCT:function:NAME[:alias]
+        try:
+            return arn.split(":function:", 1)[1]
+        except Exception:
+            return ""
+
+    def _best_replacement_for_lambda_arn(old_arn: str) -> Optional[str]:
+        fn = _extract_fn_name_from_arn(old_arn)
+        if not fn:
+            return None
+        # Try exact
+        if fn in suffix_to_arn:
+            return suffix_to_arn[fn]
+        # Try stripping alias
+        fn_no_alias = fn.split(":", 1)[0]
+        if fn_no_alias in suffix_to_arn:
+            return suffix_to_arn[fn_no_alias]
+        # Try known suffix match
+        for key, arn in suffix_to_arn.items():
+            if fn_no_alias.endswith(key):
+                return arn
+        return None
+
+    if isinstance(obj, dict):
+        # Task: direct lambda arn
+        if obj.get("Type") == "Task" and isinstance(obj.get("Resource"), str):
+            r = obj["Resource"]
+
+            # Direct lambda ARN
+            if _LAMBDA_ARN_RE.match(r):
+                repl = _best_replacement_for_lambda_arn(r)
+                if repl:
+                    obj["Resource"] = repl
+
+            # Service integration lambda:invoke with Parameters.FunctionName
+            if r == "arn:aws:states:::lambda:invoke":
+                params = obj.get("Parameters")
+                if isinstance(params, dict):
+                    fn_name = params.get("FunctionName")
+                    if isinstance(fn_name, str) and _LAMBDA_ARN_RE.match(fn_name):
+                        repl = _best_replacement_for_lambda_arn(fn_name)
+                        if repl:
+                            params["FunctionName"] = repl
+
+        # Recurse all keys
+        for k, v in list(obj.items()):
+            obj[k] = _deep_fix_lambda_resources(v, lambda_arns)
+        return obj
+
+    if isinstance(obj, list):
+        return [_deep_fix_lambda_resources(v, lambda_arns) for v in obj]
+
+    return obj
+
+
+def _rewrite_asl_in_memory(
+    asl: Dict[str, Any],
+    *,
+    names: Names,
+    lambda_arns: Dict[str, str],
+) -> Dict[str, Any]:
+    """
+    1) Global string replacements to remove FSA-CERT-Cnsv-* that exist inside the ASL (state names, crawler names, etc)
+    2) Targeted replacements for Lambda Task Resources / FunctionName fields to ensure schema passes
+    """
+    # Best-effort cleanup for legacy state/crawler names embedded in ASL
+    legacy_variants = [
+        "FSA-CERT-Cnsv-Cntr-Maint",
+        "FSA-CERT-CNSV-Cntr-Maint",
+        "FSA-CERT-Cnsv",
+        "FSA-CERT-CNSV",
+    ]
+
+    # Replace legacy prefixes with the correct one (string-level so state keys get fixed too)
+    raw = json.dumps(asl)
+    for old in legacy_variants:
+        if old.endswith("-Cntr-Maint"):
+            raw = raw.replace(old, f"{names.prefix}-Cntr-Maint")
+        else:
+            raw = raw.replace(old, names.prefix)
+
+    # Ensure crawler names align to our computed names (these appear as strings in your ASL)
+    raw = raw.replace("Cntr-Maint Final Zone Crawler", "Cntr-Maint Final Zone Crawler")
+    raw = raw.replace("Cntr-Maint CDC Crawler", "Cntr-Maint CDC Crawler")
+
+    rewritten = json.loads(raw)
+
+    # Now fix Lambda resource ARNs to the actual deployed ARNs (this fixes your current error)
+    rewritten = _deep_fix_lambda_resources(rewritten, lambda_arns)
+
+    return rewritten
+
+
+# --------------------------------------------------------------------------------------
+# Deploy
+# --------------------------------------------------------------------------------------
+
+def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
+    """
+    CNSV Maint deployer (DEPLOYER #2):
+
+    Deploy ONLY the resources used by the 4 maint parameterized state machines:
+      - Cntr-Maint-Incremental-to-S3Landing.param.asl.json
+      - Cntr-Maint-S3Landing-to-S3Final-Raw-DM.param.asl.json
+      - Cntr-Maint-Process-Control-Update.param.asl.json
+      - Cntr-Maint-Main.param.asl.json
+
+    Names MUST come from cfg.deployEnv + cfg.project (no hardcoded FSA-CERT-*).
+    ASL JSON MUST be modified in-memory BEFORE deployment.
+    Lambda ARNs MUST be injected so Task.Resource passes Step Functions schema validation.
+    """
+    deploy_env = cfg["deployEnv"]
+    project = cfg["project"]
+    names = build_names(deploy_env, project)
+
+    # Artifacts
+    artifacts = cfg.get("artifacts") or {}
+    artifact_bucket = _as_str(artifacts.get("artifactBucket"))
+    prefix = _as_str(artifacts.get("prefix")).rstrip("/") + "/"
+    if not artifact_bucket:
+        raise RuntimeError("Missing required cfg.artifacts.artifactBucket")
+    if prefix == "/":
+        prefix = ""
+
+    # strparams required values (no hardcoding)
+    strparams = cfg.get("strparams") or {}
+    landing_bucket = _as_str(strparams.get("landingBucketNameParam"))
+    clean_bucket = _as_str(strparams.get("cleanBucketNameParam"))
+    final_bucket = _as_str(strparams.get("finalBucketNameParam"))
+    sns_topic_arn = _as_str(strparams.get("snsArnParam"))
+
+    # Role selection: prefer etlRoleArnParam; fallback to lambdaRoleArnParam (matches your working standard)
+    etl_role_arn = _as_str(strparams.get("etlRoleArnParam")) or _as_str(strparams.get("lambdaRoleArnParam"))
+    glue_job_role_arn = _as_str(strparams.get("glueJobRoleArnParam"))
+
+    # Optional folders
+    landing_folder = _as_str(strparams.get("landingFolderNameParam"))
+    stg_folder = _as_str(strparams.get("stgFolderNameParam"))
+    ods_folder = _as_str(strparams.get("odsFolderNameParam"))
+
+    missing: List[str] = []
+    if not landing_bucket:
+        missing.append("strparams.landingBucketNameParam")
+    if not clean_bucket:
+        missing.append("strparams.cleanBucketNameParam")
+    if not final_bucket:
+        missing.append("strparams.finalBucketNameParam")
+    if not sns_topic_arn:
+        missing.append("strparams.snsArnParam")
+    if not etl_role_arn:
+        missing.append("strparams.etlRoleArnParam (preferred) or strparams.lambdaRoleArnParam")
+    if not glue_job_role_arn:
+        missing.append("strparams.glueJobRoleArnParam")
+    if missing:
+        raise RuntimeError("Missing required config keys: " + ", ".join(missing))
+
+    # Step function role
+    sfn_role_arn = _as_str((cfg.get("stepFunctions") or {}).get("roleArn"))
+    if not sfn_role_arn:
+        raise RuntimeError("Missing required cfg.stepFunctions.roleArn")
+
+    # Local paths
+    project_dir = Path(__file__).resolve().parent
+    glue_root = project_dir / "glue"
+    lambda_root = project_dir / "lambda"   # IMPORTANT: lambda (not lambdas)
+    states_root = project_dir / "states"
+    if not states_root.exists():
+        raise FileNotFoundError(f"Missing states directory: {states_root}")
+
+    # --- Load ASL (param) ---
+    raw_asls: Dict[str, Dict[str, Any]] = {}
+    for fn in _PARAM_ASL_FILES:
+        raw_asls[fn] = _load_asl_file(project_dir, fn)
+
+    # --- Glue scripts (maint only) ---
+    landing_script_local = _find_best_script(glue_root, "Cntr-Maint-LandingFiles")
+    raw_dm_script_local = _find_best_script(glue_root, "Cntr-Maint-Raw-DM")
+
+    landing_params = _glue_config_for_script(cfg, _script_stem(landing_script_local))
+    raw_dm_params = _glue_config_for_script(cfg, _script_stem(raw_dm_script_local))
+
+    def _defaults(p: Dict[str, Any], default_worker: str) -> Dict[str, Any]:
+        return {
+            "GlueVersion": _as_str(p.get("GlueVersion"), "4.0"),
+            "WorkerType": _as_str(p.get("WorkerType"), default_worker),
+            "NumberOfWorkers": _as_int(p.get("NumberOfWorkers"), 2),
+            "TimeoutMinutes": _as_int(p.get("TimeoutMinutes"), 60),
+            "MaxRetries": _as_int(p.get("MaxRetries"), 0),
+            "MaxConcurrency": _as_int(p.get("MaxConcurrency"), 1),
+        }
+
+    landing_d = _defaults(landing_params, default_worker="G.1X")
+    raw_dm_d = _defaults(raw_dm_params, default_worker="G.1X")
+
+    glue_default_base = cfg.get("glueDefaultArgs") or {}
+    landing_default_args = _merge_glue_default_args(glue_default_base, landing_params)
+    raw_dm_default_args = _merge_glue_default_args(glue_default_base, raw_dm_params)
+
+    def _set_if_missing(args: Dict[str, str], k: str, v: str) -> None:
+        if k not in args and v:
+            args[k] = v
+
+    for args in (landing_default_args, raw_dm_default_args):
+        _set_if_missing(args, "--env", str(deploy_env))
+        _set_if_missing(args, "--landing_bucket", landing_bucket)
+        _set_if_missing(args, "--clean_bucket", clean_bucket)
+        _set_if_missing(args, "--final_bucket", final_bucket)
+        _set_if_missing(args, "--sns_topic_arn", sns_topic_arn)
+        _set_if_missing(args, "--landing_folder", landing_folder)
+        _set_if_missing(args, "--stg_folder", stg_folder)
+        _set_if_missing(args, "--ods_folder", ods_folder)
+
+    landing_conns = _parse_connection_names(landing_params)
+    raw_dm_conns = _parse_connection_names(raw_dm_params)
+
+    # --- Lambda config (maint) ---
+    lambdas_cfg = _as_dict(cfg.get("lambdas") or cfg.get("lambda") or {})
+    shared_layers = _as_str_list(lambdas_cfg.get("layers"))
+    shared_env = _as_str_dict(lambdas_cfg.get("environment"))
+    shared_runtime = _as_str(lambdas_cfg.get("runtime"), "python3.11")
+    shared_timeout = _as_int(lambdas_cfg.get("timeoutSeconds"), 30)
+    shared_memory = _as_int(lambdas_cfg.get("memoryMb"), 256)
+
+    vpc_cfg = _as_dict(lambdas_cfg.get("vpcConfig"))
+    subnet_ids = _as_str_list(vpc_cfg.get("subnetIds"))
+    security_group_ids = _as_str_list(vpc_cfg.get("securityGroupIds"))
+
+    # --- Clients ---
+    session = boto3.Session(region_name=region)
+    s3 = session.client("s3")
+    glue = session.client("glue")
+    sfn = session.client("stepfunctions")
+    lam = session.client("lambda")
+
+    ensure_bucket_exists(s3, artifact_bucket, region)
+
+    # Script S3 keys (renamed with FSA-<env>-<proj>- prefix)
+    landing_script_s3_key = _s3_script_key(prefix, deploy_env, project, landing_script_local.name)
+    raw_dm_script_s3_key = _s3_script_key(prefix, deploy_env, project, raw_dm_script_local.name)
+
+    # --- Glue jobs (maint only) ---
+    ensure_glue_job(
+        glue,
+        s3,
+        GlueJobSpec(
+            name=names.landing_glue_job,
+            role_arn=glue_job_role_arn,
+            script_local_path=str(landing_script_local),
+            script_s3_bucket=artifact_bucket,
+            script_s3_key=landing_script_s3_key,
+            default_args=landing_default_args,
+            glue_version=str(landing_d["GlueVersion"]),
+            worker_type=str(landing_d["WorkerType"]),
+            number_of_workers=int(landing_d["NumberOfWorkers"]),
+            timeout_minutes=int(landing_d["TimeoutMinutes"]),
+            max_retries=int(landing_d["MaxRetries"]),
+            max_concurrency=int(landing_d["MaxConcurrency"]),
+            connection_names=landing_conns,
+        ),
+    )
+
+    ensure_glue_job(
+        glue,
+        s3,
+        GlueJobSpec(
+            name=names.raw_dm_glue_job,
+            role_arn=glue_job_role_arn,
+            script_local_path=str(raw_dm_script_local),
+            script_s3_bucket=artifact_bucket,
+            script_s3_key=raw_dm_script_s3_key,
+            default_args=raw_dm_default_args,
+            glue_version=str(raw_dm_d["GlueVersion"]),
+            worker_type=str(raw_dm_d["WorkerType"]),
+            number_of_workers=int(raw_dm_d["NumberOfWorkers"]),
+            timeout_minutes=int(raw_dm_d["TimeoutMinutes"]),
+            max_retries=int(raw_dm_d["MaxRetries"]),
+            max_concurrency=int(raw_dm_d["MaxConcurrency"]),
+            connection_names=raw_dm_conns,
+        ),
+    )
+
+    # --- Lambdas (maint only; DO NOT MODIFY NAMES) ---
+    required_lambdas: List[Tuple[str, str]] = [
+        (names.fn_get_incremental_tables, "get-incremental-tables"),
+        (names.fn_raw_dm_etl_workflow_update, "RAW-DM-etl-workflow-update-data-pplnjob"),
+        (names.fn_raw_dm_sns_publish_errors, "RAW-DM-sns-publish-step-function-errors"),
+        (names.fn_job_logging_end, "Job-Logging-End"),
+        (names.fn_validation_check, "validation-check"),
+        (names.fn_sns_publish_validations_report, "sns-publish-validations-report"),
+    ]
+
+    lambda_arns: Dict[str, str] = {}
+    for fn_name, suffix in required_lambdas:
+        src_dir = _find_lambda_dir(lambda_root, suffix)
+        handler_file = src_dir / "lambda_function.py"
+        if not handler_file.exists():
+            raise FileNotFoundError(f"Lambda dir {src_dir} missing lambda_function.py")
+
+        spec = LambdaSpec(
+            name=fn_name,
+            role_arn=etl_role_arn,
+            handler="lambda_function.handler",
+            runtime=shared_runtime,
+            source_dir=str(src_dir),
+            env=dict(shared_env),
+            layers=list(shared_layers),
+            timeout=shared_timeout,
+            memory=shared_memory,
+            subnet_ids=subnet_ids if subnet_ids else None,
+            security_group_ids=security_group_ids if security_group_ids else None,
+        )
+        lambda_arns[fn_name] = ensure_lambda(lam, spec)
+
+    # --- Rewrite ASL in memory (fix hardcoded FSA-CERT-* and inject real Lambda ARNs) ---
+    defn_incremental = _rewrite_asl_in_memory(
+        raw_asls["Cntr-Maint-Incremental-to-S3Landing.param.asl.json"],
+        names=names,
+        lambda_arns=lambda_arns,
+    )
+    defn_s3landing = _rewrite_asl_in_memory(
+        raw_asls["Cntr-Maint-S3Landing-to-S3Final-Raw-DM.param.asl.json"],
+        names=names,
+        lambda_arns=lambda_arns,
+    )
+    defn_pc = _rewrite_asl_in_memory(
+        raw_asls["Cntr-Maint-Process-Control-Update.param.asl.json"],
+        names=names,
+        lambda_arns=lambda_arns,
+    )
+    defn_main = _rewrite_asl_in_memory(
+        raw_asls["Cntr-Maint-Main.param.asl.json"],
+        names=names,
+        lambda_arns=lambda_arns,
+    )
+
+    # --- State machines (maint only) ---
+    sm_incremental_arn = ensure_state_machine(
+        sfn,
+        StateMachineSpec(
+            name=names.sm_incremental_to_s3landing,
+            role_arn=sfn_role_arn,
+            definition=defn_incremental,
+        ),
+    )
+    sm_s3landing_arn = ensure_state_machine(
+        sfn,
+        StateMachineSpec(
+            name=names.sm_s3landing_to_s3final_raw_dm,
+            role_arn=sfn_role_arn,
+            definition=defn_s3landing,
+        ),
+    )
+    sm_pc_arn = ensure_state_machine(
+        sfn,
+        StateMachineSpec(
+            name=names.sm_process_control_update,
+            role_arn=sfn_role_arn,
+            definition=defn_pc,
+        ),
+    )
+    sm_main_arn = ensure_state_machine(
+        sfn,
+        StateMachineSpec(
+            name=names.sm_main,
+            role_arn=sfn_role_arn,
+            definition=defn_main,
+        ),
+    )
+
+    # --- Summary (flat, human-usable like deploy_base) ---
+    return {
+        "deploy_env": str(deploy_env),
+        "project": str(project),
+        "artifact_bucket": artifact_bucket,
+        "artifact_prefix": prefix,
+        "landing_bucket_from_config": landing_bucket,
+        "clean_bucket_from_config": clean_bucket,
+        "final_bucket_from_config": final_bucket,
+        "sns_topic_arn_from_config": sns_topic_arn,
+        "etl_role_arn_used_for_lambdas": etl_role_arn,
+        "glue_job_role_arn_used": glue_job_role_arn,
+        "glue_job_landing_name": names.landing_glue_job,
+        "glue_job_raw_dm_name": names.raw_dm_glue_job,
+        "glue_landing_script_s3_key": landing_script_s3_key,
+        "glue_raw_dm_script_s3_key": raw_dm_script_s3_key,
+        "glue_config_used_for_landing": "yes" if bool(landing_params) else "no",
+        "glue_config_used_for_raw_dm": "yes" if bool(raw_dm_params) else "no",
+        "lambda_get_incremental_tables_name": names.fn_get_incremental_tables,
+        "lambda_get_incremental_tables_arn": lambda_arns.get(names.fn_get_incremental_tables, ""),
+        "lambda_raw_dm_etl_workflow_update_name": names.fn_raw_dm_etl_workflow_update,
+        "lambda_raw_dm_etl_workflow_update_arn": lambda_arns.get(names.fn_raw_dm_etl_workflow_update, ""),
+        "lambda_raw_dm_sns_publish_errors_name": names.fn_raw_dm_sns_publish_errors,
+        "lambda_raw_dm_sns_publish_errors_arn": lambda_arns.get(names.fn_raw_dm_sns_publish_errors, ""),
+        "lambda_job_logging_end_name": names.fn_job_logging_end,
+        "lambda_job_logging_end_arn": lambda_arns.get(names.fn_job_logging_end, ""),
+        "lambda_validation_check_name": names.fn_validation_check,
+        "lambda_validation_check_arn": lambda_arns.get(names.fn_validation_check, ""),
+        "lambda_sns_publish_validations_report_name": names.fn_sns_publish_validations_report,
+        "lambda_sns_publish_validations_report_arn": lambda_arns.get(names.fn_sns_publish_validations_report, ""),
+        "crawler_final_zone_name": names.crawler_final_zone,
+        "crawler_cdc_name": names.crawler_cdc,
+        "state_machine_incremental_to_s3landing_name": names.sm_incremental_to_s3landing,
+        "state_machine_incremental_to_s3landing_arn": sm_incremental_arn,
+        "state_machine_s3landing_to_s3final_raw_dm_name": names.sm_s3landing_to_s3final_raw_dm,
+        "state_machine_s3landing_to_s3final_raw_dm_arn": sm_s3landing_arn,
+        "state_machine_process_control_update_name": names.sm_process_control_update,
+        "state_machine_process_control_update_arn": sm_pc_arn,
+        "state_machine_main_name": names.sm_main,
+        "state_machine_main_arn": sm_main_arn,
+    }

@@ -1,0 +1,120 @@
+{
+  "Comment": "CNSV Main orchestrator (parameterized child state machines + lambdas + S3 locations)",
+  "StartAt": "RunIncrementalToS3Landing",
+  "States": {
+    "RunIncrementalToS3Landing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn.$": "$.incremental_to_s3landing_sm_arn",
+        "Input": {
+          "env.$": "$.env",
+          "landing_glue_job_name.$": "$.landing_glue_job_name",
+          "job_id_bucket.$": "$.job_id_bucket",
+          "job_id_key.$": "$.job_id_key"
+        }
+      },
+      "ResultPath": "$",
+      "ResultSelector": {
+        "FileList.$": "$.Output.JobId.FileList",
+        "JobId.$": "$.Output.JobId.JobId",
+        "noFiles.$": "$.Output.JobId.noFiles"
+      },
+      "Next": "BranchOnNoFiles",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "Notify"
+        }
+      ]
+    },
+    "BranchOnNoFiles": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.noFiles",
+          "BooleanEquals": true,
+          "Next": "Notify"
+        }
+      ],
+      "Default": "RunS3LandingToS3FinalRawDM"
+    },
+    "RunS3LandingToS3FinalRawDM": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn.$": "$.s3landing_to_s3final_raw_dm_sm_arn",
+        "Input": {
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+          "JobId.$": "$.JobId",
+          "FileList.$": "$.FileList",
+          "env.$": "$.env",
+          "raw_dm_glue_job_name.$": "$.raw_dm_glue_job_name",
+          "get_incremental_tables_fn_arn.$": "$.get_incremental_tables_fn_arn",
+          "raw_dm_etl_workflow_update_fn_arn.$": "$.raw_dm_etl_workflow_update_fn_arn",
+          "raw_dm_sns_publish_errors_fn_arn.$": "$.raw_dm_sns_publish_errors_fn_arn",
+          "final_zone_crawler_name.$": "$.final_zone_crawler_name",
+          "cdc_crawler_name.$": "$.cdc_crawler_name",
+          "postgres_prcs_ctrl_dbname.$": "$.postgres_prcs_ctrl_dbname",
+          "region_name.$": "$.region_name",
+          "secret_name.$": "$.secret_name",
+          "target_bucket.$": "$.target_bucket"
+        }
+      },
+      "ResultPath": "$.raw_dm_result",
+      "Next": "UpdateProcessControl",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "Notify"
+        }
+      ]
+    },
+    "UpdateProcessControl": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn.$": "$.process_control_update_sm_arn",
+        "Input": {
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+          "JobId.$": "$.JobId",
+          "env.$": "$.env",
+          "job_logging_end_fn_arn.$": "$.job_logging_end_fn_arn",
+          "validation_check_fn_arn.$": "$.validation_check_fn_arn"
+        }
+      },
+      "ResultPath": "$.process_control_result",
+      "Next": "Notify",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "Notify"
+        }
+      ]
+    },
+    "Notify": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName.$": "$.sns_publish_validations_report_fn_arn",
+        "Payload": {
+          "env.$": "$.env",
+          "JobId.$": "$.JobId",
+          "files.$": "$.FileList",
+          "noFiles.$": "$.noFiles",
+          "error.$": "$.error"
+        }
+      },
+      "End": true
+    }
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "StartAt": "Pymts-Incremental-to-S3Landing",
+  "States": {
+    "Pymts-Incremental-to-S3Landing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "Input": {
+          "Bucket": "c108-cert-fpacfsa-landing-zone",
+          "Key": "conservation_payments/etl-jobs/job_id.json"
+        },
+        "StateMachineArn.$": "$.incremental_to_s3landing_sm_arn"
+      },
+      "ResultSelector": {
+        "JobId.$": "$.Output.JobId.JobId",
+        "noFiles.$": "$.Output.JobId.noFiles",
+        "FileList.$": "$.Output.JobId.FileList"
+      },
+      "ResultPath": "$",
+      "Next": "BranchOnNoFiles"
+    },
+    "BranchOnNoFiles": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.noFiles",
+          "BooleanEquals": true,
+          "Next": "Notify"
+        }
+      ],
+      "Default": "Update Cnsv-Cons-Pymts RAW-DM"
+    },
+    "Update Cnsv-Cons-Pymts RAW-DM": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "Input": {
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+          "JobId.$": "$.JobId",
+          "step_seq_nbr": "2",
+          "SfName.$": "$.s3landing_to_s3final_raw_dm_sm_name"
+        },
+        "StateMachineArn.$": "$.s3landing_to_s3final_raw_dm_sm_arn"
+      },
+      "ResultPath": null,
+      "Next": "Update Process Control"
+    },
+    "Update Process Control": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "Input": {
+          "JobId.$": "$.JobId",
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id"
+        },
+        "StateMachineArn.$": "$.process_control_update_sm_arn"
+      },
+      "ResultPath": null,
+      "Next": "Notify"
+    },
+    "Notify": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "Payload": {
+          "JobId.$": "$.JobId",
+          "noFiles.$": "$.noFiles",
+          "files.$": "$.FileList"
+        },
+        "FunctionName.$": "$.sns_publish_validations_report_fn_arn"
+      },
+      "End": true
+    }
+  }
+}

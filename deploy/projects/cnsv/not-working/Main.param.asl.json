@@ -1,0 +1,101 @@
+{
+  "StartAt": "FSA-CERT-Cnsv-Incremental-to-S3Landing",
+  "States": {
+    "FSA-CERT-Cnsv-Incremental-to-S3Landing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn.$": "$.incremental_to_s3landing_sfn_arn",
+        "Input": {
+          "Bucket.$": "$.job_id_bucket",
+          "Key.$": "$.job_id_key",
+          "env.$": "$.env",
+          "region.$": "$.region",
+          "secret_id.$": "$.secret_id",
+          "job_id_prefix.$": "$.job_id_prefix",
+          "source_prefix.$": "$.source_prefix",
+          "pipeline_name.$": "$.pipeline_name",
+          "landing_glue_job_name.$": "$.landing_glue_job_name"
+        }
+      },
+      "ResultSelector": {
+        "JobId.$": "$.Output.JobId.JobId",
+        "noFiles.$": "$.Output.JobId.noFiles",
+        "FileList.$": "$.Output.JobId.FileList"
+      },
+      "ResultPath": "$",
+      "Next": "BranchOnNoFiles"
+    },
+    "BranchOnNoFiles": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.noFiles",
+          "BooleanEquals": true,
+          "Next": "Notify"
+        }
+      ],
+      "Default": "Update CNSV RAW-DM"
+    },
+    "Update CNSV RAW-DM": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn.$": "$.s3landing_to_s3final_raw_dm_sfn_arn",
+        "Input": {
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+          "JobId.$": "$.JobId",
+          "SfName.$": "$.s3landing_to_s3final_raw_dm_sfn_name",
+          "step_seq_nbr.$": "$.step_seq_nbr",
+          "env.$": "$.env",
+          "region.$": "$.region",
+          "secret_id.$": "$.secret_id",
+          "target_bucket.$": "$.final_bucket",
+          "target_prefix.$": "$.target_prefix",
+          "source_prefix.$": "$.source_prefix",
+          "postgres_prcs_ctrl_dbname.$": "$.postgres_prcs_ctrl_dbname",
+          "map_max_concurrency.$": "$.map_max_concurrency",
+          "enable_dq_metrics.$": "$.enable_dq_metrics",
+          "skip_count_tables.$": "$.skip_count_tables",
+          "skip_dq_tables.$": "$.skip_dq_tables",
+          "get_incremental_tables_lambda_arn.$": "$.get_incremental_tables_lambda_arn",
+          "raw_dm_glue_job_name.$": "$.raw_dm_glue_job_name",
+          "raw_dm_error_lambda_arn.$": "$.raw_dm_error_lambda_arn",
+          "raw_dm_update_lambda_arn.$": "$.raw_dm_update_lambda_arn",
+          "final_crawler_name.$": "$.final_crawler_name",
+          "cdc_crawler_name.$": "$.cdc_crawler_name"
+        }
+      },
+      "ResultPath": "$.ProcessControlResult",
+      "Next": "Update Process Control"
+    },
+    "Update Process Control": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn.$": "$.process_control_update_sfn_arn",
+        "Input": {
+          "JobId.$": "$.JobId",
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+          "job_logging_end_lambda_arn.$": "$.job_logging_end_lambda_arn",
+          "validation_check_lambda_arn.$": "$.validation_check_lambda_arn"
+        }
+      },
+      "ResultPath": "$.ProcessControlResult",
+      "Next": "Notify"
+    },
+    "Notify": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName.$": "$.sns_publish_validations_report_lambda_arn",
+        "Payload": {
+          "JobId.$": "$.JobId",
+          "noFiles.$": "$.noFiles",
+          "files.$": "$.FileList"
+        }
+      },
+      "End": true
+    }
+  }
+}

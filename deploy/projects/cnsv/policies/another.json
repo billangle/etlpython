@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowStartAndMonitorChildStateMachines",
+      "Effect": "Allow",
+      "Action": [
+        "states:StartExecution",
+        "states:DescribeExecution",
+        "states:StopExecution"
+      ],
+      "Resource": [
+       "*"
+      ]
+    },
+    {
+      "Sid": "AllowInvokeNotifyLambda",
+      "Effect": "Allow",
+      "Action": "lambda:InvokeFunction",
+      "Resource": "*"
+    }
+  ]
+}

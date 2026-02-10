@@ -1,0 +1,67 @@
+{
+  "Comment": "Child Step Function for Step 1 - Calls Glue Job and passes JobId",
+  "StartAt": "Ingest CNSV Incremental data to S3 Landing",
+  "States": {
+    "Ingest CNSV Incremental data to S3 Landing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName.$": "$.landing_glue_job_name",
+        "Arguments": {
+          "--env.$": "$.env",
+          "--region_name.$": "$.region",
+          "--secret_name.$": "$.secret_id",
+          "--DestinationBucket.$": "$.job_id_bucket",
+          "--DestinationPrefix.$": "$.job_id_prefix",
+          "--SourcePrefix.$": "$.source_prefix",
+          "--PipelineName.$": "$.pipeline_name"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Glue.ServiceException",
+            "Glue.AWSGlueException",
+            "Glue.SdkClientException",
+            "Glue.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "BackoffRate": 2,
+          "MaxAttempts": 9
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "HandleError"
+        }
+      ],
+      "Next": "Get Job ID from S3"
+    },
+    "Get Job ID from S3": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:s3:getObject",
+      "Parameters": {
+        "Bucket.$": "$.job_id_bucket",
+        "Key.$": "$.job_id_key"
+      },
+      "ResultSelector": {
+        "JobId.$": "States.StringToJson($.Body)"
+      },
+      "Next": "Pass Job ID To Parent"
+    },
+    "Pass Job ID To Parent": {
+      "Type": "Pass",
+      "ResultPath": "$.Payload",
+      "OutputPath": "$.Payload",
+      "End": true
+    },
+    "HandleError": {
+      "Type": "Fail",
+      "Error": "GlueJobFailed",
+      "Cause": "The Glue job failed."
+    }
+  }
+}

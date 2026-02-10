@@ -1,0 +1,226 @@
+{
+  "Comment": "FSA-CERT-Cnsv-S3Landing-to-S3Final-Raw-DM",
+  "StartAt": "Get Incremental Table list From S3",
+  "States": {
+    "Get Incremental Table list From S3": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName.$": "$.get_incremental_tables_lambda_arn",
+        "Payload": {
+          "JobId.$": "$.JobId",
+          "SfName.$": "$.SfName"
+        }
+      },
+      "ResultPath": "$.incremental_tables",
+      "Next": "CNSV Tables"
+    },
+    "CNSV Tables": {
+      "Type": "Pass",
+      "Next": "Map",
+      "Parameters": {
+        "JobId.$": "$.JobId",
+        "SfName.$": "$.SfName",
+        "tables.$": "$.incremental_tables.tables",
+        "Target.$": "$.target_prefix"
+      },
+      "ResultPath": "$.input"
+    },
+    "Map": {
+      "Type": "Map",
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "INLINE"
+        },
+        "StartAt": "Pass (1)",
+        "States": {
+          "Pass (1)": {
+            "Type": "Pass",
+            "Next": "Move to Final Zone",
+            "ResultPath": "$.output",
+            "Parameters": {
+              "JobId.$": "$.JobId",
+              "table.$": "$.app_name.tablename",
+              "Target.$": "$.Target"
+            }
+          },
+          "Move to Final Zone": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+            "Parameters": {
+              "Arguments": {
+                "--JobId.$": "States.Format('{}', $.JobId)",
+                "--TableName.$": "$.output.table",
+                "--env.$": "$.env",
+                "--postgres_prcs_ctrl_dbname.$": "$.postgres_prcs_ctrl_dbname",
+                "--region_name.$": "$.region",
+                "--secret_name.$": "$.secret_id",
+                "--target_bucket.$": "$.target_bucket",
+                "--target_prefix.$": "$.target_prefix",
+                "--source_prefix.$": "$.source_prefix",
+                "--ENABLE_DQ_METRICS.$": "$.enable_dq_metrics",
+                "--SKIP_COUNT_TABLES.$": "$.skip_count_tables",
+                "--SKIP_DQ_TABLES.$": "$.skip_dq_tables"
+              },
+              "JobName.$": "$.raw_dm_glue_job_name"
+            },
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "SNS Lambda RAW DM",
+                "ResultPath": "$.Error"
+              }
+            ],
+            "End": true
+          },
+          "SNS Lambda RAW DM": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "FunctionName.$": "$.raw_dm_error_lambda_arn",
+              "Payload.$": "$"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Pass",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "Pass"
+              }
+            ]
+          },
+          "Pass": {
+            "Type": "Pass",
+            "ResultPath": "$.status",
+            "Result": "Error",
+            "End": true
+          }
+        }
+      },
+      "Next": "data_ppl_job_update RAW DM",
+      "ItemsPath": "$.input.tables",
+      "ItemSelector": {
+        "JobId.$": "$.JobId",
+        "app_name.$": "$$.Map.Item.Value",
+        "Target.$": "$.input.Target",
+        "env.$": "$.env",
+        "region.$": "$.region",
+        "secret_id.$": "$.secret_id",
+        "target_bucket.$": "$.target_bucket",
+        "target_prefix.$": "$.target_prefix",
+        "source_prefix.$": "$.source_prefix",
+        "postgres_prcs_ctrl_dbname.$": "$.postgres_prcs_ctrl_dbname",
+        "enable_dq_metrics.$": "$.enable_dq_metrics",
+        "skip_count_tables.$": "$.skip_count_tables",
+        "skip_dq_tables.$": "$.skip_dq_tables",
+        "raw_dm_glue_job_name.$": "$.raw_dm_glue_job_name",
+        "raw_dm_error_lambda_arn.$": "$.raw_dm_error_lambda_arn",
+        "map_max_concurrency.$": "$.map_max_concurrency"
+      },
+      "ResultPath": "$.MapOut",
+      "MaxConcurrency.$": "$.map_max_concurrency"
+    },
+    "data_ppl_job_update RAW DM": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName.$": "$.raw_dm_update_lambda_arn",
+        "Payload.$": "$"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "BackoffRate": 2,
+          "MaxAttempts": 3
+        }
+      ],
+      "ResultPath": "$.Update",
+      "Next": "Run Both Crawlers"
+    },
+    "Run Both Crawlers": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "FSA-CERT-CNSV Final Zone Crawler",
+          "States": {
+            "FSA-CERT-CNSV Final Zone Crawler": {
+              "Type": "Task",
+              "Parameters": {
+                "Name.$": "$.final_crawler_name"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+              "ResultPath": null,
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "ResultPath": null,
+                  "Next": "Final Crawler Failed"
+                }
+              ]
+            },
+            "Final Crawler Failed": {
+              "Type": "Pass",
+              "Result": "Failed",
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "FSA-CERT-CNSV CDC Crawler",
+          "States": {
+            "FSA-CERT-CNSV CDC Crawler": {
+              "Type": "Task",
+              "Parameters": {
+                "Name.$": "$.cdc_crawler_name"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+              "ResultPath": null,
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "ResultPath": null,
+                  "Next": "CDC Crawler Failed"
+                }
+              ]
+            },
+            "CDC Crawler Failed": {
+              "Type": "Pass",
+              "Result": "Failed",
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": null,
+      "End": true
+    }
+  }
+}

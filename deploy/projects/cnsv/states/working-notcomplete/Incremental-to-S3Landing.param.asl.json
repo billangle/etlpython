@@ -1,0 +1,61 @@
+{
+  "Comment": "Incremental-to-S3Landing (parameterized Glue job + S3 JobId location)",
+  "StartAt": "RunLandingGlue",
+  "States": {
+    "RunLandingGlue": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName.$": "$.landing_glue_job_name",
+        "Arguments": {
+          "--env.$": "$.env"
+        }
+      },
+      "Next": "GetJobIdFromS3",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "HandleError"
+        }
+      ],
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Glue.ServiceException",
+            "Glue.AWSGlueException",
+            "Glue.SdkClientException",
+            "Glue.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 9,
+          "BackoffRate": 2
+        }
+      ]
+    },
+    "GetJobIdFromS3": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:s3:getObject",
+      "Parameters": {
+        "Bucket.$": "$.job_id_bucket",
+        "Key.$": "$.job_id_key"
+      },
+      "ResultSelector": {
+        "JobId.$": "States.StringToJson($.Body)"
+      },
+      "Next": "PassJobIdToParent"
+    },
+    "PassJobIdToParent": {
+      "Type": "Pass",
+      "End": true,
+      "ResultPath": "$.JobId",
+      "Parameters": {
+        "JobId.$": "$.JobId.JobId"
+      }
+    },
+    "HandleError": {
+      "Type": "Fail"
+    }
+  }
+}

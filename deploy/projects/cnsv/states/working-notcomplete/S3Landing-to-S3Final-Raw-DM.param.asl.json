@@ -1,0 +1,220 @@
+{
+  "Comment": "S3Landing-to-S3Final-Raw-DM (parameterized lambda + glue + crawler names)",
+  "StartAt": "GetIncrementalTableList",
+  "States": {
+    "GetIncrementalTableList": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName.$": "$.get_incremental_tables_fn_arn",
+        "Payload.$": "$"
+      },
+      "OutputPath": "$.Payload",
+      "Next": "CNSVTables"
+    },
+    "CNSVTables": {
+      "Type": "Pass",
+      "Parameters": {
+        "JobId.$": "$.JobId",
+        "tables.$": "$.tables",
+        "Target.$": "$.Target",
+        "env.$": "$.env",
+        "raw_dm_glue_job_name.$": "$.raw_dm_glue_job_name",
+        "postgres_prcs_ctrl_dbname.$": "$.postgres_prcs_ctrl_dbname",
+        "region_name.$": "$.region_name",
+        "secret_name.$": "$.secret_name",
+        "target_bucket.$": "$.target_bucket",
+        "raw_dm_sns_publish_errors_fn_arn.$": "$.raw_dm_sns_publish_errors_fn_arn",
+        "raw_dm_etl_workflow_update_fn_arn.$": "$.raw_dm_etl_workflow_update_fn_arn",
+        "final_zone_crawler_name.$": "$.final_zone_crawler_name",
+        "cdc_crawler_name.$": "$.cdc_crawler_name"
+      },
+      "ResultPath": "$.input",
+      "Next": "MoveTables"
+    },
+    "MoveTables": {
+      "Type": "Map",
+      "ItemsPath": "$.input.tables",
+      "MaxConcurrency": 12,
+      "ItemSelector": {
+        "JobId.$": "$.input.JobId",
+        "Target.$": "$.input.Target",
+        "env.$": "$.input.env",
+        "raw_dm_glue_job_name.$": "$.input.raw_dm_glue_job_name",
+        "postgres_prcs_ctrl_dbname.$": "$.input.postgres_prcs_ctrl_dbname",
+        "region_name.$": "$.input.region_name",
+        "secret_name.$": "$.input.secret_name",
+        "target_bucket.$": "$.input.target_bucket",
+        "raw_dm_sns_publish_errors_fn_arn.$": "$.input.raw_dm_sns_publish_errors_fn_arn",
+        "app_name.$": "$$.Map.Item.Value"
+      },
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "INLINE"
+        },
+        "StartAt": "Prep",
+        "States": {
+          "Prep": {
+            "Type": "Pass",
+            "Parameters": {
+              "JobId.$": "$.JobId",
+              "Target.$": "$.Target",
+              "table.$": "$.app_name.tablename"
+            },
+            "ResultPath": "$.output",
+            "Next": "RunRawDMGlue"
+          },
+          "RunRawDMGlue": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+            "Parameters": {
+              "JobName.$": "$.raw_dm_glue_job_name",
+              "Arguments": {
+                "--JobId.$": "States.Format('{}', $.JobId)",
+                "--TableName.$": "$.output.table",
+                "--env.$": "$.env",
+                "--postgres_prcs_ctrl_dbname.$": "$.postgres_prcs_ctrl_dbname",
+                "--region_name.$": "$.region_name",
+                "--secret_name.$": "$.secret_name",
+                "--target_bucket.$": "$.target_bucket",
+                "--target_prefix.$": "$.Target"
+              }
+            },
+            "End": true,
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "ResultPath": "$.Error",
+                "Next": "PublishRawDMError"
+              }
+            ]
+          },
+          "PublishRawDMError": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "FunctionName.$": "$.raw_dm_sns_publish_errors_fn_arn",
+              "Payload.$": "$"
+            },
+            "Next": "Done",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "Done"
+              }
+            ],
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ]
+          },
+          "Done": {
+            "Type": "Pass",
+            "End": true
+          }
+        }
+      },
+      "ResultPath": "$.MapOut",
+      "Next": "UpdateWorkflow"
+    },
+    "UpdateWorkflow": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName.$": "$.raw_dm_etl_workflow_update_fn_arn",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.Update",
+      "Next": "RunCrawlers",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ]
+    },
+    "RunCrawlers": {
+      "Type": "Parallel",
+      "ResultPath": null,
+      "Branches": [
+        {
+          "StartAt": "RunFinalZoneCrawler",
+          "States": {
+            "RunFinalZoneCrawler": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+              "Parameters": {
+                "Name.$": "$.final_zone_crawler_name"
+              },
+              "ResultPath": null,
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "ResultPath": null,
+                  "Next": "FinalCrawlerFailed"
+                }
+              ]
+            },
+            "FinalCrawlerFailed": {
+              "Type": "Pass",
+              "Result": "Failed",
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "RunCdcCrawler",
+          "States": {
+            "RunCdcCrawler": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+              "Parameters": {
+                "Name.$": "$.cdc_crawler_name"
+              },
+              "ResultPath": null,
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "ResultPath": null,
+                  "Next": "CdcCrawlerFailed"
+                }
+              ]
+            },
+            "CdcCrawlerFailed": {
+              "Type": "Pass",
+              "Result": "Failed",
+              "End": true
+            }
+          }
+        }
+      ],
+      "End": true
+    }
+  }
+}

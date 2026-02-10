@@ -1,0 +1,52 @@
+{
+  "Comment": "CNSV Process Control Update (parameterized lambdas)",
+  "StartAt": "JobLoggingEnd",
+  "States": {
+    "JobLoggingEnd": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName.$": "$.job_logging_end_fn_arn",
+        "Payload.$": "$"
+      },
+      "OutputPath": "$.Payload",
+      "Next": "ValidationCheck",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ]
+    },
+    "ValidationCheck": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName.$": "$.validation_check_fn_arn",
+        "Payload.$": "$"
+      },
+      "OutputPath": "$.Payload",
+      "End": true,
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ]
+    }
+  }
+}

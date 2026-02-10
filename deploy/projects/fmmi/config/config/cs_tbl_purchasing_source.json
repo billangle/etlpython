@@ -1,0 +1,30 @@
+{
+  "databaseName": "fmmi",
+  "tableName": "FMMI.FSA.PURCH",
+  "location": "s3://c108-dev-fpacfsa-landing-zone/fmmi/fmmi_ocfo_files/",
+  "schema": [
+    { "Name": "purchase_requ_no", "Type": "varchar(10)" },
+    { "Name": "item_no_of_purch_req", "Type": "int" },
+    { "Name": "material", "Type": "varchar(18)" },
+    { "Name": "material_group", "Type": "varchar(9)" },
+    { "Name": "plant", "Type": "varchar(4)" },
+    { "Name": "purchasing_org", "Type": "varchar(4)" },
+    { "Name": "purchasing_group", "Type": "varchar(3)" },
+    { "Name": "storage_location", "Type": "varchar(4)" },
+    { "Name": "vendor", "Type": "varchar(10)" },
+    { "Name": "funds_center", "Type": "varchar(10)" },
+    { "Name": "financial_management_area", "Type": "varchar(4)" },
+    { "Name": "fund", "Type": "varchar(20)" },
+    { "Name": "purchasing_document_type", "Type": "varchar(4)" },
+    { "Name": "unit_of_measure", "Type": "varchar(3)" },
+    { "Name": "last_changed_on", "Type": "varchar(20)" },
+    { "Name": "created_by", "Type": "varchar(12)" },
+    { "Name": "commitment_item", "Type": "varchar(24)" },
+    { "Name": "requisition_date", "Type": "varchar(20)" },
+    { "Name": "requisition_tracking_number", "Type": "varchar(20)" },
+    { "Name": "purchasing_document_no", "Type": "varchar(10)" },
+    { "Name": "purchase_order_item_no", "Type": "int" },
+    { "Name": "header_total_count", "Type": "varchar(10)" }
+  ],
+  "partitionKeys": []
+}

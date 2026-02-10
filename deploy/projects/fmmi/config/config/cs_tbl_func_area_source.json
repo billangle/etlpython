@@ -1,0 +1,12 @@
+{
+  "databaseName": "fmmi",
+  "tableName": "FMMI.FSA.MD_FUNCAREA",
+  "location": "s3://c108-dev-fpacfsa-landing-zone/fmmi/fmmi_ocfo_files/",
+  "schema": [
+    { "Name": "functional_area", "Type": "varchar(16)" },
+    { "Name": "language_key", "Type": "varchar(1)" },
+    { "Name": "medium_text", "Type": "varchar(55)" },
+    { "Name": "header_total_count", "Type": "varchar(10)" }
+  ],
+  "partitionKeys": []
+}

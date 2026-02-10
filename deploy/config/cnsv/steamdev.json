@@ -1,5 +1,5 @@
 {
-  "deployEnv": "D22",
+  "deployEnv": "DEV7",
   "project": "CNSV",
   "region": "us-east-1",
   "bucketRegion": "us-east-1",

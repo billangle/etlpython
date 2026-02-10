@@ -1,0 +1,30 @@
+{
+  "databaseName": "fmmi",
+  "tableName": "FMMI.FSA.SYSASSURANCE",
+  "location": "s3://c108-dev-fpacfsa-landing-zone/fmmi/fmmi_ocfo_files/",
+  "schema": [
+    { "Name": "fiscal_year_variant", "Type": "varchar(2)" },
+    { "Name": "fiscal_year_period", "Type": "int" },
+    { "Name": "fiscal_year", "Type": "int" },
+    { "Name": "posting_period", "Type": "int" },
+    { "Name": "financial_management_area", "Type": "varchar(4)" },
+    { "Name": "fund", "Type": "varchar(20)" },
+    { "Name": "pu_budget_id", "Type": "varchar(10)" },
+    { "Name": "created_on_date", "Type": "varchar(20)" },
+    { "Name": "business_area", "Type": "varchar(4)" },
+    { "Name": "gl_account", "Type": "varchar(10)" },
+    { "Name": "chart_of_accounts", "Type": "varchar(4)" },
+    { "Name": "fg_credit", "Type": "decimal(17,2)" },
+    { "Name": "fg_credit_ind", "Type": "varchar(1)" },
+    { "Name": "fg_debit", "Type": "decimal(17,2)" },
+    { "Name": "fg_debit_ind", "Type": "varchar(1)" },
+    { "Name": "currency", "Type": "varchar(20)" },
+    { "Name": "recordmode", "Type": "varchar(1)" },
+    { "Name": "header_total_count", "Type": "varchar(10)" },
+    { "Name": "header_total_debit", "Type": "decimal(17,2)" },
+    { "Name": "header_total_credit", "Type": "decimal(17,2)" },
+    { "Name": "date_stamp", "Type": "date" },
+    { "Name": "time_stamp", "Type": "varchar(20)" }
+  ],
+  "partitionKeys": []
+}

@@ -45,10 +45,10 @@
   },
   "configUpload": {
     "functionName": "FSA-FPACDEV-UploadConfig",
-    "sourceDir": "fmmi",
+    "sourceDir": "config",
     "inputBucket": "fsa-dev-ops",
     "inputPrefix": "input/zips",
-    "outputBucket": "c108-dev-fpacfsa-final-zone",
+    "outputBucket": "c108-dev-fpacfsa-landing-zone",
     "outputPrefix": "fmmi",
     "minExpectedObjects": 2,
     "debug": true

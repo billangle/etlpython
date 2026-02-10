@@ -1,0 +1,13 @@
+{
+  "databaseName": "fmmi",
+  "tableName": "CS_TBL_FUNDED_PROGRAM",
+  "location": "s3://c108-dev-fpacfsa-final-zone/fmmi/fmmi_stg/cs_tbl_funded_program/",
+  "schema": [
+    { "Name": "financial_management_area", "Type": "varchar(4)" },
+    { "Name": "funded_program", "Type": "varchar(24)" },
+    { "Name": "short_text", "Type": "varchar(35)" },
+    { "Name": "long_text", "Type": "varchar(75)" },
+    { "Name": "header_total_count", "Type": "varchar(10)" }
+  ],
+  "partitionKeys": []
+}

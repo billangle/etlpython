@@ -1,0 +1,11 @@
+{
+  "databaseName": "fmmi",
+  "tableName": "FMMI.FSA.MD_WBS",
+  "location": "s3://c108-dev-fpacfsa-landing-zone/fmmi/fmmi_ocfo_files/",
+  "schema": [
+    { "Name": "work_breakdown_str_elemt", "Type": "varchar(24)" },
+    { "Name": "medium_text", "Type": "varchar(55)" },
+    { "Name": "header_total_count", "Type": "varchar(10)" }
+  ],
+  "partitionKeys": []
+}

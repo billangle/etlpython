@@ -1,18 +1,26 @@
-import sys, json, boto3, traceback
+####################################################################################################### 
+# Developer Name: Mahender Vulupala
+# Date: 01/29/2026
+# Script Name: FSA-()-FMMI-S3-STG-ODS-parquet
+#    - Process the files from s3:landing/fmmi/fmmi files to cleansed/S3:fmmi/fmmi_stg/ 
+#    - Process the data to s3:finalzone/fmmi/fmmi_ods from /fmmi_stg/ 
+#    - with using transformation & reconciliation checks 
+#######################################################################################################
+
+import sys, json, boto3, traceback, logging
 from datetime import datetime
 from awsglue.context import GlueContext
 from awsglue.job import Job
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
-from functools import reduce
 from pyspark.sql import functions as F
 from pyspark.sql.types import (
     StructType, StructField, StringType, IntegerType, LongType,
     DoubleType, DecimalType, DateType, TimestampType, NullType
 )
-
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType
 
+# ---------------- SCHEMAS FOR GL/SA TMP ----------------
 schema_gl = StructType([
     StructField("fiscal_year", StringType()),
     StructField("business_area", StringType()),
@@ -41,17 +49,19 @@ args = getResolvedOptions(sys.argv, [
     "ods_bucket_name", "ods_folder_name"
 ])
 
-# Extract bucket/folder variables
+env = args["env"]
+job_type = args["job_type"].upper() if args.get("job_type") else "BOTH"
+
 landing_bucket = args["bucket_name"]
-landing_prefix = args["folder_name"]
-
+landing_prefix = args["folder_name"]          # e.g. fmmi/fmmi_ocfo_files
 stg_bucket = args["stg_bucket_name"]
-stg_prefix = args["stg_folder_name"]
-
+stg_prefix = args["stg_folder_name"]          # e.g. fmmi_stg  (DO NOT include "fmmi/")
 ods_bucket = args["ods_bucket_name"]
-ods_prefix = args["ods_folder_name"]
+ods_prefix = args["ods_folder_name"]          # e.g. fmmi_ods  (DO NOT include "fmmi/")
 
-# ---- optional args ----
+config_prefix = "fmmi/config"
+
+# ---- optional args from sys.argv ----
 run_date = None
 raw_file_names = None
 
@@ -61,12 +71,137 @@ if "--run_date" in sys.argv:
 if "--file_name" in sys.argv:
     raw_file_names = sys.argv[sys.argv.index("--file_name") + 1].strip() or None
 
-# ---------------- ODS NAME MAP ----------------
-ods_name_map = {
-    # your mappings here
+# ---------------- TABLE MAP (SINGLE SOURCE OF TRUTH) ----------------
+TABLE_MAP = {
+    "FMMI.FSA.MD.CMMITEM": {
+        "ods": "CS_TBL_CMMT_ITEM",
+        "json": "cs_tbl_cmmt_item",
+        "mode": "reload",
+        "audit_id": 1
+    },
+    "FMMI.FSA.CMMT": {
+        "ods": "CS_TBL_COMMITMENT",
+        "json": "cs_tbl_commitment",
+        "mode": "append",
+        "audit_id": 2
+    },
+    "FMMI.FSA.MD_COSTCTR": {
+        "ods": "CS_TBL_COST_CENTER",
+        "json": "cs_tbl_cost_center",
+        "mode": "reload",
+        "audit_id": 3
+    },
+    "FMMI.FSA.MD_CUSTOMER": {
+        "ods": "CS_TBL_CUSTOMER",
+        "json": "cs_tbl_customer",
+        "mode": "reload",
+        "audit_id": 4
+    },
+    "FMMI.FSA.MD_FUNCAREA": {
+        "ods": "CS_TBL_FUNC_AREA",
+        "json": "cs_tbl_func_area",
+        "mode": "reload",
+        "audit_id": 5
+    },
+    "FMMI.FSA.MD_FUND": {
+        "ods": "CS_TBL_FUND",
+        "json": "cs_tbl_fund",
+        "mode": "reload",
+        "audit_id": 6
+    },
+    "FMMI.FSA.FUNDEDPRG": {
+        "ods": "CS_TBL_FUNDED_PROGRAM",
+        "json": "cs_tbl_funded_program",
+        "mode": "reload",
+        "audit_id": 8
+    },
+    "FMMI.FSA.MD_FUNDCTR": {
+        "ods": "CS_TBL_FUND_CENTER",
+        "json": "cs_tbl_fund_center",
+        "mode": "reload",
+        "audit_id": 7,
+        "special": "fund_center"
+    },
+    "FMMI.FSA.MD_GLACCT": {
+        "ods": "CS_TBL_GL_ACCOUNT",
+        "json": "cs_tbl_gl_account",
+        "mode": "reload",
+        "audit_id": 10
+    },
+    "FMMI.FSA.MD.VENDOR": {
+        "ods": "CS_TBL_VENDOR",
+        "json": "cs_tbl_vendor",
+        "mode": "reload",
+        "audit_id": 21
+    },
+    "FMMI.FSA.MD_WBS": {
+        "ods": "CS_TBL_WBS",
+        "json": "cs_tbl_wbs",
+        "mode": "reload",
+        "audit_id": 22
+    },
+    "FMMI.FSA.GLITEM": {
+        "ods": "CS_TBL_GL",
+        "json": "cs_tbl_gl",
+        "mode": "append",
+        "audit_id": 9,
+        "special": "gl"
+    },
+    "FMMI.FSA.SYSASSURANCE": {
+        "ods": "CS_TBL_SYSTEM_ASSURANCE",
+        "json": "cs_tbl_system_assurance",
+        "mode": "append",
+        "audit_id": 19,
+        "special": "sa"
+    },
+    "FMMI.FSA.INV_DIS": {
+        "ods": "CS_TBL_INVOICE_DIS",
+        "json": "cs_tbl_invoice_dis",
+        "mode": "append",
+        "audit_id": 11
+    },
+    "FMMI.FSA.MATDOC": {
+        "ods": "CS_TBL_MATERIAL_DOC",
+        "json": "cs_tbl_material_doc",
+        "mode": "append",
+        "audit_id": 12
+    },
+    "FMMI.FSA.PAYROLL": {
+        "ods": "CS_TBL_PAYROLL",
+        "json": "cs_tbl_payroll",
+        "mode": "append",
+        "audit_id": 11
+    },
+    "FMMI.FSA_POHEAD": {
+        "ods": "CS_TBL_PO_HEADER",
+        "json": "cs_tbl_po_header",
+        "mode": "append",
+        "audit_id": 14
+    },
+    "FMMI.FSA_POITEM": {
+        "ods": "CS_TBL_PO_ITEM",
+        "json": "cs_tbl_po_item",
+        "mode": "append",
+        "audit_id": 15
+    },
+    "FMMI.FSA.PURCH": {
+        "ods": "CS_TBL_PURCHASING",
+        "json": "cs_tbl_purchasing",
+        "mode": "append",
+        "audit_id": 16
+    }
 }
 
-# ---------------- HELPERS FOR TABLE NAMES / FILTERING ----------------
+FILE_TO_JSON = {k: v["json"] for k, v in TABLE_MAP.items()}
+ods_name_map = {k: v["ods"] for k, v in TABLE_MAP.items()}
+AUD_ID_MAP = {v["ods"]: v["audit_id"] for v in TABLE_MAP.values()}
+reload_tables = {k for k, v in TABLE_MAP.items() if v["mode"].lower() == "reload"}
+append_tables = {k for k, v in TABLE_MAP.items() if v["mode"].lower() == "append"}
+
+gl_table = "FMMI.FSA.GLITEM"
+sa_table = "FMMI.FSA.SYSASSURANCE"
+
+# ---------------- HELPERS ----------------
 def derive_table_name(file_name: str) -> str:
     base = file_name.split("/")[-1].replace(".csv", "")
     if "_" in base:
@@ -83,75 +218,16 @@ def normalize_table_name(raw_name: str) -> str:
 def get_landing_date():
     prefix = f"{landing_prefix}/"
     paginator = s3_client.get_paginator("list_objects_v2")
-
     date_folders = set()
-
     for page in paginator.paginate(Bucket=landing_bucket, Prefix=prefix, Delimiter="/"):
         for cp in page.get("CommonPrefixes", []):
             folder = cp["Prefix"].rstrip("/").split("/")[-1]
             if folder.isdigit():
                 date_folders.add(folder)
-
     if not date_folders:
         raise Exception("[STG] No landing date folders found")
+    return max(date_folders)
 
-    latest_date = max(date_folders)
-    return latest_date
-
-# ---------------- DETERMINE FILE MODE ----------------
-if raw_file_names is None:
-    file_names = []
-    single_tables = set()
-else:
-    file_names = [f.strip() for f in raw_file_names.split(",") if f.strip()]
-    single_tables = {normalize_table_name(derive_table_name(f)) for f in file_names}
-
-# ---------------- END OF BLOCK ----------------
-
-def ensure_schema(df):
-    """
-    Ensures:
-    - header row is removed
-    - if no data rows remain, returns an EMPTY DataFrame with the same schema
-    """
-    # Remove header row
-    df = skip_first_row(df)
-
-    # If no data rows remain, return empty DF with same schema
-    if df.count() == 0:
-        logger.info("[ensure_schema] No data rows found. Returning EMPTY DataFrame with schema only.")
-        return spark.createDataFrame([], df.schema)
-
-    return df
-
-def should_process_ods(table_name: str, landing_date: str) -> bool:
-    """
-    table_name is NORMALIZED (e.g. 'FMMI_FSA_POHEAD').
-    Skip if that load_date partition already exists in ODS.
-    """
-    if not landing_date:
-        return True
-
-    prefix = f"fmmi/{ods_prefix}/{table_name}/load_date={landing_date}/"
-    if s3_prefix_exists(ods_bucket, prefix):
-        logger.info(f"[ODS] Skipping table={table_name} because load_date={landing_date} already exists.")
-        return False
-
-    return True
-
-# ---- required args ----
-env = args["env"]
-job_type = args["job_type"].upper()
-landing_bucket = args["bucket_name"]
-landing_prefix = args["folder_name"]
-stg_bucket = args["stg_bucket_name"]
-stg_prefix = args["stg_folder_name"]
-ods_bucket = args["ods_bucket_name"]
-ods_prefix = args["ods_folder_name"]
-
-s3_client = boto3.client("s3")
-
-# ---------------- AUTO-DETECT LATEST RUN DATE ----------------
 def detect_latest_run_date():
     prefix = f"{landing_prefix}/"
     print(f"[AUTO] Detecting latest run_date under s3://{landing_bucket}/{prefix}")
@@ -166,7 +242,6 @@ def detect_latest_run_date():
     print(f"[AUTO] Latest detected run_date = {latest}")
     return latest
 
-# ---------------- AUTO-DETECT DATE FROM FILE NAME ----------------
 def extract_date_from_filename(name):
     base = name.replace(".csv", "")
     parts = base.split("_")
@@ -174,150 +249,6 @@ def extract_date_from_filename(name):
         return parts[-1]
     return None
 
-# ---------------- RUN DATE RESOLUTION ----------------
-if file_names and run_date is None:
-    run_date = extract_date_from_filename(file_names[0])
-
-    print(f"[AUTO] Extracted run_date={run_date} from file_name={file_names}")
-
-if run_date is None:
-    run_date = detect_latest_run_date()
-
-# ---------------- CONTINUE WITH NORMAL JOB SETUP ----------------
-load_bat_id = int(datetime.now().strftime("%Y%m%d%H%M%S"))
-
-sc = SparkContext()
-glueContext = GlueContext(sc)
-spark = glueContext.spark_session
-logger = glueContext.get_logger()
-import logging
-spark.sparkContext.setLogLevel("ERROR")
-logging.getLogger("boto3").setLevel(logging.WARNING)
-logging.getLogger("botocore").setLevel(logging.WARNING)
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-
-# 4. Silence py4j spam (Java gateway)
-logging.getLogger("py4j").setLevel(logging.ERROR)
-
-
-logger.info(f"[DEBUG] landing_bucket={landing_bucket}")
-logger.info(f"[DEBUG] landing_prefix={landing_prefix}")
-logger.info(f"[DEBUG] run_date={run_date}")
-logger.info(f"[DEBUG] scanning path = s3://{landing_bucket}/{landing_prefix}/{run_date}/")
-
-job = Job(glueContext)
-job.init(args["JOB_NAME"], args)
-
-logger.info(f"[JOB] Started job={args['JOB_NAME']} env={env} job_type={job_type} run_date={run_date} file_names={file_names} load_bat_id={load_bat_id}")
-
-config_prefix = "fmmi/config"
-
-# ---------------- FILE → JSON BASE MAP ----------------
-FILE_TO_JSON = {
-    "FMMI.FSA.CMMT": "cs_tbl_commitment",
-    "FMMI.FSA.MD.CMMITEM": "cs_tbl_cmmt_item",
-    "FMMI.FSA.MD_COSTCTR": "cs_tbl_cost_center",
-    "FMMI.FSA.MD_CUSTOMER": "cs_tbl_customer",
-    "FMMI.FSA.MD_FUNCAREA": "cs_tbl_func_area",
-    "FMMI.FSA.MD_FUND": "cs_tbl_fund",
-    "FMMI.FSA.FUNDEDPRG": "cs_tbl_funded_program",
-    "FMMI.FSA.MD_GLACCT": "cs_tbl_gl_account",
-    "FMMI.FSA.INV_DIS": "cs_tbl_invoice_dis",
-    "FMMI.FSA.MATDOC": "cs_tbl_material_doc",
-    "FMMI.FSA.PAYROLL": "cs_tbl_payroll",
-    "FMMI.FSA_POHEAD": "cs_tbl_po_header",
-    "FMMI.FSA_POITEM": "cs_tbl_po_item",
-    "FMMI.FSA.PURCH": "cs_tbl_purchasing",
-    "FMMI.FSA.MD.VENDOR": "cs_tbl_vendor",
-    "FMMI.FSA.MD_WBS": "cs_tbl_wbs",
-    "FMMI.FSA.MD_FUNDCTR": "cs_tbl_fund_center",
-    "FMMI.FSA.GLITEM": "cs_tbl_gl",
-    "FMMI.FSA.SYSASSURANCE": "cs_tbl_system_assurance"
-}
-
-# ---------------- ODS TABLE NAME MAP ----------------
-ods_name_map = {
-    "FMMI.FSA.CMMT": "CS_TBL_COMMITMENT",
-    "FMMI.FSA.MD.CMMITEM": "CS_TBL_CMMT_ITEM",
-    "FMMI.FSA.MD_COSTCTR": "CS_TBL_COST_CENTER",
-    "FMMI.FSA.MD_CUSTOMER": "CS_TBL_CUSTOMER",
-    "FMMI.FSA.MD_FUNCAREA": "CS_TBL_FUNC_AREA",
-    "FMMI.FSA.MD_FUND": "CS_TBL_FUND",
-    "FMMI.FSA.FUNDEDPRG": "CS_TBL_FUNDED_PROGRAM",
-    "FMMI.FSA.MD_GLACCT": "CS_TBL_GL_ACCOUNT",
-    "FMMI.FSA.INV_DIS": "CS_TBL_INVOICE_DIS",
-    "FMMI.FSA.MATDOC": "CS_TBL_MATERIAL_DOC",
-    "FMMI.FSA.PAYROLL": "CS_TBL_PAYROLL",
-    "FMMI.FSA_POHEAD": "CS_TBL_PO_HEADER",
-    "FMMI.FSA_POITEM": "CS_TBL_PO_ITEM",
-    "FMMI.FSA.PURCH": "CS_TBL_PURCHASING",
-    "FMMI.FSA.MD.VENDOR": "CS_TBL_VENDOR",
-    "FMMI.FSA.MD_WBS": "CS_TBL_WBS",
-    "FMMI.FSA.MD_FUNDCTR": "CS_TBL_FUND_CENTER",
-    "FMMI.FSA.GLITEM": "CS_TBL_GL",
-    "FMMI.FSA.SYSASSURANCE": "CS_TBL_SYSTEM_ASSURANCE",
-}
-
-def map_ods_name(stg_table_name):
-    json_base = FILE_TO_JSON.get(stg_table_name)
-    if not json_base:
-        logger.error(f"[ODS] No JSON mapping found for table={stg_table_name}")
-        return stg_table_name
-    return json_base.upper()
-
-# ---------------- AUDIT ID MAP (PER ODS TABLE) ----------------
-AUD_ID_MAP = {
-    "CS_TBL_CMMT_ITEM": 1,
-    "CS_TBL_COMMITMENT": 2,
-    "CS_TBL_COST_CENTER": 3,
-    "CS_TBL_CUSTOMER": 4,
-    "CS_TBL_FUNC_AREA": 5,
-    "CS_TBL_FUND": 6,
-    "CS_TBL_FUND_CENTER": 7,
-    "CS_TBL_FUNDED_PROGRAM": 8,
-    "CS_TBL_GL": 9,
-    "CS_TBL_GL_ACCOUNT": 10,
-    "CS_TBL_INVOICE_DIS": 11,
-    "CS_TBL_PAYROLL": 11,
-    "CS_TBL_MATERIAL_DOC": 12,
-    "CS_TBL_PO_HEADER": 14,
-    "CS_TBL_PO_ITEM": 15,
-    "CS_TBL_PURCHASING": 16,
-    "CS_TBL_SYSTEM_ASSURANCE": 19,
-    "CS_TBL_VENDOR": 21,
-    "CS_TBL_WBS": 22
-}
-
-# ---------------- RELOAD / APPEND CONFIG ----------------
-reload_tables = {
-    "FMMI.FSA.MD.CMMITEM",
-    "FMMI.FSA.MD_COSTCTR",
-    "FMMI.FSA.MD_CUSTOMER",
-    "FMMI.FSA.MD_FUNCAREA",
-    "FMMI.FSA.MD_FUND",
-    "FMMI.FSA.FUNDEDPRG",
-    "FMMI.FSA.MD_FUNDCTR",
-    "FMMI.FSA.MD_GLACCT",
-    "FMMI.FSA.MD.VENDOR",
-    "FMMI.FSA.MD_WBS"
-}
-
-append_tables = {
-    "FMMI.FSA.CMMT",
-    "FMMI.FSA.GLITEM",
-    "FMMI.FSA.INV_DIS",
-    "FMMI.FSA.MATDOC",
-    "FMMI.FSA.PAYROLL",
-    "FMMI.FSA_POHEAD",
-    "FMMI.FSA_POITEM",
-    "FMMI.FSA.PURCH",
-    "FMMI.FSA.SYSASSURANCE"
-}
-
-gl_table = "FMMI.FSA.GLITEM"
-sa_table = "FMMI.FSA.SYSASSURANCE"
-
-# ---------------- HELPERS ----------------
 def json_to_spark_schema(json_schema):
     fields = []
     for col in json_schema["schema"]:
@@ -349,69 +280,49 @@ def load_json_from_s3(bucket, key):
 def delete_s3_prefix(bucket, prefix):
     s3 = boto3.resource("s3")
     bucket_obj = s3.Bucket(bucket)
-
     try:
         objs = list(bucket_obj.objects.filter(Prefix=prefix))
         if not objs:
-            # Nothing to delete — this is normal
             logger.info(f"[S3] No objects found under prefix {prefix}. Nothing to delete.")
             return
-
         logger.info(f"[S3] Deleting {len(objs)} objects under prefix {prefix}")
         bucket_obj.objects.filter(Prefix=prefix).delete()
-
     except Exception as e:
-        # Only log the error — do NOT stop ODS
         logger.warn(f"[S3] Warning while deleting prefix {prefix}: {e}")
 
-# ---------------- LATEST FILE PER TABLE (AUTO MODE) ----------------
 def list_latest_fmmi_files():
     logger.info("[STG] Determining latest file per table (auto mode)")
-
     prefix = f"{landing_prefix}/"
     paginator = s3_client.get_paginator("list_objects_v2")
-
     date_folders = set()
-
     for page in paginator.paginate(Bucket=landing_bucket, Prefix=prefix, Delimiter="/"):
         for cp in page.get("CommonPrefixes", []):
             folder = cp["Prefix"].rstrip("/").split("/")[-1]
             if folder.isdigit():
                 date_folders.add(folder)
-
     if not date_folders:
         logger.info("[STG] No date folders found")
         return [], None
-
     latest_date = max(date_folders)
     logger.info(f"[STG] Latest date folder detected: {latest_date}")
-
     base_prefix = f"{landing_prefix}/{latest_date}/"
     logger.info(f"[STG] Scanning landing prefix: s3://{landing_bucket}/{base_prefix}")
-
     latest_per_table = {}
-
     for page in paginator.paginate(Bucket=landing_bucket, Prefix=base_prefix):
         for obj in page.get("Contents", []):
             key = obj["Key"]
             file_name = key.split("/")[-1]
-
             if not file_name.lower().endswith(".csv"):
                 continue
-
             base = file_name.replace(".csv", "")
             name_part, _ = base.rsplit("_", 1)
             table_name = name_part
-
             last_modified = obj["LastModified"]
-
             if table_name not in latest_per_table or last_modified > latest_per_table[table_name][0]:
                 latest_per_table[table_name] = (last_modified, key)
-
     auto_files = [v[1] for v in latest_per_table.values()]
     return auto_files, latest_date
 
-# ---------------- FUND CENTER LOGIC ----------------
 def transform_fund_center(df):
     logger.info("[ODS][FUND_CENTER] Applying fund center transformation")
     df = df.withColumn(
@@ -423,7 +334,6 @@ def transform_fund_center(df):
                F.trim(F.expr("substr(medium_text, 1, instr(medium_text, '-')-1)")))
          .otherwise(F.trim(F.col("medium_text")))
     )
-
     df = df.withColumn(
         "ofc_nm",
         F.when(F.col("funds_center").isNull(), F.lit(None))
@@ -441,13 +351,11 @@ def transform_fund_center(df):
          )
          .otherwise(F.concat(F.trim(F.col("medium_text")), F.lit(" STO")))
     )
-
     logger.info("[ODS][FUND_CENTER] Fund center transformation complete")
     return df
 
-# ---------------- AUDIT COLUMNS (STG & ODS) ----------------
 def add_audit_columns(df, src_table_name):
-    ods_name = map_ods_name(src_table_name)
+    ods_name = ods_name_map.get(src_table_name, normalize_table_name(src_table_name))
     aud_id = AUD_ID_MAP.get(ods_name)
     logger.info(f"[AUDIT] Adding audit columns for src_table={src_table_name} ods_table={ods_name} aud_id={aud_id}")
     return (df
@@ -458,19 +366,83 @@ def add_audit_columns(df, src_table_name):
         .withColumn("load_bat_id", F.lit(load_bat_id))
     )
 
+def skip_first_row(df):
+    return (
+        df.withColumn("_row_id", F.monotonically_increasing_id())
+          .filter(F.col("_row_id") != 0)
+          .drop("_row_id")
+    )
+
+def read_stg_parquet(stg_name):
+    path = f"s3://{stg_bucket}/fmmi/{stg_prefix}/{stg_name}/"
+    try:
+        return spark.read.parquet(path)
+    except Exception:
+        logger.warn(f"[STG] Missing STG folder: {path}. Returning empty DataFrame.")
+        return spark.createDataFrame([], StructType([]))
+
+def read_ods_if_exists(mapped):
+    path = f"s3://{ods_bucket}/fmmi/{ods_prefix}/{mapped}"
+    logger.info(f"[ODS] Checking existing ODS data at {path}")
+    try:
+        return spark.read.parquet(path)
+    except Exception:
+        logger.info(f"[ODS] No existing ODS data for table={mapped}")
+        return None
+
+def write_ods_table(table_name, df, landing_date):
+    output_path = f"s3://{ods_bucket}/fmmi/{ods_prefix}/{table_name}/load_date={landing_date}"
+    df.repartition(1).write.mode("overwrite").parquet(output_path)
+    logger.info(f"[ODS] Wrote table={table_name} partition={landing_date} to {output_path}")
+
+# ---------------- DETERMINE FILE MODE ----------------
+if raw_file_names is None:
+    file_names = []
+    single_tables = set()
+else:
+    file_names = [f.strip() for f in raw_file_names.split(",") if f.strip()]
+    single_tables = {normalize_table_name(derive_table_name(f)) for f in file_names}
+
+# ---------------- RUN DATE RESOLUTION ----------------
+if file_names and run_date is None:
+    run_date = extract_date_from_filename(file_names[0])
+    print(f"[AUTO] Extracted run_date={run_date} from file_name={file_names}")
+
+if run_date is None:
+    run_date = detect_latest_run_date()
+
+# ---------------- SPARK / GLUE INIT ----------------
+load_bat_id = int(datetime.now().strftime("%Y%m%d%H%M%S"))
+
+sc = SparkContext()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+logger = glueContext.get_logger()
+
+spark.sparkContext.setLogLevel("ERROR")
+logging.getLogger("boto3").setLevel(logging.WARNING)
+logging.getLogger("botocore").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("py4j").setLevel(logging.ERROR)
+
+logger.info(f"[DEBUG] landing_bucket={landing_bucket}")
+logger.info(f"[DEBUG] landing_prefix={landing_prefix}")
+logger.info(f"[DEBUG] run_date={run_date}")
+logger.info(f"[DEBUG] scanning path = s3://{landing_bucket}/{landing_prefix}/{run_date}/")
+
+job = Job(glueContext)
+job.init(args["JOB_NAME"], args)
+
+logger.info(f"[JOB] Started job={args['JOB_NAME']} env={env} job_type={job_type} run_date={run_date} file_names={file_names} load_bat_id={load_bat_id}")
+
 # ---------------- STG LOGIC ----------------
 def run_stg():
     global landing_date
-
     logger.info(f"[DEBUG] file_names={file_names}")
     logger.info(f"[DEBUG] single_tables={single_tables}")
     logger.info(f"[DEBUG] FILE_TO_JSON keys={list(FILE_TO_JSON.keys())}")
 
-    # ---------------------------------------------------------
-    # CLEAR STG ZONE FOR ALLOWED TABLES ONLY
-    # ---------------------------------------------------------
     logger.info("[STG] Clearing STG zone for allowed tables only")
-
     for raw_table in FILE_TO_JSON.keys():
         stg_table = normalize_table_name(raw_table)
         stg_prefix_path = f"fmmi/{stg_prefix}/{stg_table}/"
@@ -478,18 +450,14 @@ def run_stg():
 
     logger.info("[STG] Starting STG processing")
 
-    # ---------------------------------------------------------
     # SINGLE-FILE / MULTI-FILE MODE
-    # ---------------------------------------------------------
     if single_tables:
         logger.info(f"[STG] SINGLE-FILE MODE enabled. Tables={single_tables}")
-
         for f in file_names:
             file_name = f.split("/")[-1]
             raw_table_name = derive_table_name(file_name)
             table_name = normalize_table_name(raw_table_name)
 
-            # Determine landing_date
             if run_date:
                 landing_date = run_date
             else:
@@ -498,7 +466,6 @@ def run_stg():
             key = f"{landing_prefix}/{landing_date}/{file_name}"
             logger.info(f"[STG] Processing key={key} landing_date={landing_date}")
 
-            # Skip if not in FILE_TO_JSON
             if raw_table_name not in FILE_TO_JSON:
                 logger.info(f"[STG] Skipping table={raw_table_name} (not in FILE_TO_JSON)")
                 continue
@@ -507,17 +474,12 @@ def run_stg():
             source_json_key = f"{config_prefix}/{json_base}_source.json"
             target_json_key = f"{config_prefix}/{json_base}_target.json"
 
-            # ---- NEW: safe JSON loading ----
             try:
                 source_json = load_json_from_s3(landing_bucket, source_json_key)
                 target_json = load_json_from_s3(landing_bucket, target_json_key)
             except Exception as e:
-                logger.error(
-                    f"[STG] Missing source/target JSON for table={raw_table_name} "
-                    f"(base={json_base}). Skipping. Error: {e}"
-                )
+                logger.error(f"[STG] Missing source/target JSON for table={raw_table_name} (base={json_base}). Skipping. Error: {e}")
                 continue
-            # --------------------------------
 
             source_schema = json_to_spark_schema(source_json)
 
@@ -549,13 +511,9 @@ def run_stg():
         logger.info("[STG] STG processing complete (single-file mode)")
         return
 
-    # ---------------------------------------------------------
     # AUTO MODE
-    # ---------------------------------------------------------
     logger.info("[STG] AUTO MODE enabled. Loading all latest files.")
-
     auto_files, latest_date = list_latest_fmmi_files()
-
     if not auto_files:
         logger.info("[STG] No landing files found in AUTO MODE.")
         return
@@ -578,17 +536,12 @@ def run_stg():
         source_json_key = f"{config_prefix}/{json_base}_source.json"
         target_json_key = f"{config_prefix}/{json_base}_target.json"
 
-        # ---- NEW: safe JSON loading ----
         try:
             source_json = load_json_from_s3(landing_bucket, source_json_key)
             target_json = load_json_from_s3(landing_bucket, target_json_key)
         except Exception as e:
-            logger.error(
-                f"[STG] Missing source/target JSON for table={raw_table_name} "
-                f"(base={json_base}). Skipping. Error: {e}"
-            )
+            logger.error(f"[STG] Missing source/target JSON for table={raw_table_name} (base={json_base}). Skipping. Error: {e}")
             continue
-        # --------------------------------
 
         source_schema = json_to_spark_schema(source_json)
 
@@ -619,101 +572,28 @@ def run_stg():
     logger.info(f"[STG] Stored landing_date for ODS = {landing_date}")
     logger.info("[STG] AUTO MODE STG processing complete")
 
-# ---------------- ODS HELPERS ----------------
-def read_stg_parquet(stg_name):
-    path = f"s3://{stg_bucket}/fmmi/fmmi_stg/{stg_name}/"
-    try:
-        return spark.read.parquet(path)
-    except Exception as e:
-        logger.warn(f"[STG] Missing STG folder: {path}. Returning empty DataFrame.")
-        return spark.createDataFrame([], StructType([]))
-
-def read_ods_if_exists(mapped):
-    path = f"s3://{ods_bucket}/fmmi/{ods_prefix}/{mapped}"
-    logger.info(f"[ODS] Checking existing ODS data at {path}")
-    try:
-        return spark.read.parquet(path)
-    except Exception:
-        logger.info(f"[ODS] No existing ODS data for table={mapped}")
-        return None
-
-def skip_first_row(df):
-    """
-    Removes the first row of the DataFrame by using a monotonically increasing id.
-    This guarantees the header row is removed regardless of content.
-    """
-    return (
-        df.withColumn("_row_id", F.monotonically_increasing_id())
-          .filter(F.col("_row_id") != 0)
-          .drop("_row_id")
-    )
-
-def delete_ods_partition(table_name, run_date):
-    mapped = map_ods_name(table_name)
-    prefix = f"fmmi/{ods_prefix}/{mapped}/cre_dt={run_date}"
-
-    logger.info(f"[ODS] Deleting same-day partition: s3://{ods_bucket}/{prefix}")
-
-    paginator = s3_client.get_paginator("list_objects_v2")
-    to_delete = []
-
-    for page in paginator.paginate(Bucket=ods_bucket, Prefix=prefix):
-        for obj in page.get("Contents", []):
-            to_delete.append({"Key": obj["Key"]})
-            if len(to_delete) == 1000:
-                s3_client.delete_objects(Bucket=ods_bucket, Delete={"Objects": to_delete})
-                to_delete = []
-
-    if to_delete:
-        s3_client.delete_objects(Bucket=ods_bucket, Delete={"Objects": to_delete})
-
-# ---------------- NEW ODS WRITER (REQUIRED) ----------------
-
-def write_ods_table(table_name, df, landing_date):
-    """
-    Writes a Spark DataFrame to ODS in partitioned parquet format.
-    Partition: load_date=YYYYMMDD
-    """
-    output_path = f"s3://{ods_bucket}/fmmi/{ods_prefix}/{table_name}/load_date={landing_date}"
-
-    df.repartition(1).write \
-        .mode("overwrite") \
-        .parquet(output_path)
-
-    logger.info(f"[ODS] Wrote table={table_name} partition={landing_date} to {output_path}")
-    
 # ---------------- ODS LOGIC ----------------
-
 def run_ods():
     logger.info("[ODS] Starting ODS processing")
 
-    # Use landing_date from STG
     landing_date = globals().get("landing_date")
     if not landing_date:
         landing_date = get_landing_date()
 
     logger.info(f"[ODS] Using landing_date={landing_date}")
 
-    from datetime import datetime
     systemdate = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # ---------------------------------------------------------
-    # SUCCESS / FAILURE COUNTERS FOR 17 NORMAL TABLES
-    # ---------------------------------------------------------
     success_count = 0
     failure_count = 0
     success_tables = []
     failed_tables = []
 
-    # Row counts and ODS table name mapping
-    landing_row_count = {}     # source table -> landing/STG row count
-    ods_row_count = {}         # source table -> ODS row count (or "Skipped")
-    ods_table_name_map = {}    # source table -> ODS table name
-    # ---------------------------------------------------------
-# PRE-SCAN STG TO DETECT WHICH TABLES EXIST
-# ---------------------------------------------------------
     landing_row_count = {}
+    ods_row_count = {}
+    ods_table_name_map = {}
 
+    # PRE-SCAN STG
     for t in list(reload_tables) + list(append_tables):
         stg_name = normalize_table_name(t)
         try:
@@ -722,151 +602,108 @@ def run_ods():
         except Exception:
             landing_row_count[t] = 0
 
-    # ---------------------------------------------------------
     # 1. RELOAD TABLES
-    # ---------------------------------------------------------
     logger.info("[ODS] Starting RELOAD tables")
-
     for t in reload_tables:
-
-        if landing_row_count.get(t, 0) == 0: 
-            logger.info(f"[ODS] Skipping reload for missing table={t}") 
+        if landing_row_count.get(t, 0) == 0:
+            logger.info(f"[ODS] Skipping reload for missing table={t}")
             continue
         if t not in FILE_TO_JSON:
             logger.info(f"[ODS] Skipping reload for table={t} (not in FILE_TO_JSON)")
             continue
-
         try:
             logger.info(f"[ODS] Reload table={t}")
-
             stg_name = normalize_table_name(t)
             df = read_stg_parquet(stg_name)
-
             before_count = df.count()
             logger.info(f"[ODS][RELOAD] STG row count for table={t}: {before_count}")
-
             landing_row_count[t] = before_count
-
             if before_count == 0:
                 df = spark.createDataFrame([], df.schema)
-
             ods_table_name = ods_name_map.get(t, normalize_table_name(t))
             ods_table_name_map[t] = ods_table_name
-
             base_prefix = f"fmmi/{ods_prefix}/{ods_table_name}"
             delete_s3_prefix(ods_bucket, base_prefix)
-
             write_ods_table(ods_table_name, df, landing_date)
-
             logger.info(f"[ODS][RELOAD] Wrote table={ods_table_name} with row count={before_count}")
-
             ods_row_count[t] = before_count
             success_count += 1
             success_tables.append(t)
-
         except Exception as e:
             logger.error(f"[ODS][WARN] Reload failed for table={t}: {e}")
             logger.error(traceback.format_exc())
             failure_count += 1
             failed_tables.append(t)
             ods_row_count[t] = "Failed"
-    # ---------------------------------------------------------
+
     # 4. FUND CENTER TRANSFORM (RELOAD ONLY)
-    # ---------------------------------------------------------
     logger.info("[ODS][FUNDCTR] Starting Fund Center transform block")
-
     fundctr_key = "FMMI.FSA.MD_FUNDCTR"
-
     if fundctr_key in FILE_TO_JSON:
-        try:
-            stg_name = normalize_table_name(fundctr_key)
-            df = read_stg_parquet(stg_name)
-
-            before_count = df.count()
-            logger.info(f"[ODS][FUNDCTR] Row count BEFORE transform: {before_count}")
-
-            if before_count == 0:
-                logger.info("[ODS][FUNDCTR] STG is empty. Writing empty schema.")
-                df = spark.createDataFrame([], df.schema)
-
-            required_cols = {"funds_center", "medium_text"}
-            df_cols = set([c.lower() for c in df.columns])
-
-            missing = required_cols - df_cols
-            if missing:
-                logger.error(f"[ODS][FUNDCTR] Missing required columns: {missing}")
-                logger.error("[ODS][FUNDCTR] Skipping Fund Center transform due to schema mismatch.")
+        # *** FIX: only touch ODS when STG has data for Fund Center in this run ***
+        if landing_row_count.get(fundctr_key, 0) == 0:
+            logger.info("[ODS][FUNDCTR] No STG data detected for Fund Center; existing ODS data will be left untouched.")
+        else:
+            try:
+                stg_name = normalize_table_name(fundctr_key)
+                df = read_stg_parquet(stg_name)
+                before_count = df.count()
+                logger.info(f"[ODS][FUNDCTR] Row count BEFORE transform: {before_count}")
+                if before_count == 0:
+                    logger.info("[ODS][FUNDCTR] STG is empty. Writing empty schema.")
+                    df = spark.createDataFrame([], df.schema)
+                required_cols = {"funds_center", "medium_text"}
+                df_cols = set([c.lower() for c in df.columns])
+                missing = required_cols - df_cols
                 ods_table_name = ods_name_map.get(fundctr_key, normalize_table_name(fundctr_key))
-                partition_prefix = f"fmmi/{ods_prefix}/{ods_table_name}/load_date={landing_date}"
-                delete_s3_prefix(ods_bucket, partition_prefix)
-                write_ods_table(ods_table_name, df, landing_date)
-                pass
+                if missing:
+                    logger.error(f"[ODS][FUNDCTR] Missing required columns: {missing}")
+                    logger.error("[ODS][FUNDCTR] Skipping Fund Center transform due to schema mismatch.")
+                    partition_prefix = f"fmmi/{ods_prefix}/{ods_table_name}/load_date={landing_date}"
+                    delete_s3_prefix(ods_bucket, partition_prefix)
+                    write_ods_table(ods_table_name, df, landing_date)
+                else:
+                    df = transform_fund_center(df)
+                    after_count = df.count()
+                    logger.info(f"[ODS][FUNDCTR] Row count AFTER transform: {after_count}")
+                    partition_prefix = f"fmmi/{ods_prefix}/{ods_table_name}/load_date={landing_date}"
+                    delete_s3_prefix(ods_bucket, partition_prefix)
+                    write_ods_table(ods_table_name, df, landing_date)
+                    logger.info("[ODS][FUNDCTR] Fund Center transform complete")
+            except Exception as e:
+                logger.error(f"[ODS][FUNDCTR] Processing failed: {e}")
+                logger.error(traceback.format_exc())
 
-            df = transform_fund_center(df)
-
-            after_count = df.count()
-            logger.info(f"[ODS][FUNDCTR] Row count AFTER transform: {after_count}")
-
-            ods_table_name = ods_name_map.get(fundctr_key, normalize_table_name(fundctr_key))
-
-            partition_prefix = f"fmmi/{ods_prefix}/{ods_table_name}/load_date={landing_date}"
-            delete_s3_prefix(ods_bucket, partition_prefix)
-
-            write_ods_table(ods_table_name, df, landing_date)
-
-            logger.info("[ODS][FUNDCTR] Fund Center transform complete")
-
-        except Exception as e:
-            logger.error(f"[ODS][FUNDCTR] Processing failed: {e}")
-            logger.error(traceback.format_exc())
-
-    # ---------------------------------------------------------
     # 2. APPEND TABLES
-    # ---------------------------------------------------------
     logger.info("[ODS] Starting APPEND tables")
-
     for t in append_tables:
-
         if landing_row_count.get(t, 0) == 0:
-            logger.info(f"[ODS] Skipping append for missing table={t}") 
+            logger.info(f"[ODS] Skipping append for missing table={t}")
             continue
-        # DO NOT COUNT GL/SA HERE
-        if t in ("FMMI.FSA.GLITEM", "FMMI.FSA.SYSASSURANCE"):
+        if t in (gl_table, sa_table):
             logger.info(f"[ODS] Skipping GL/SA in append counter loop: {t}")
             continue
-
         if t not in FILE_TO_JSON:
             logger.info(f"[ODS] Skipping append for table={t} (not in FILE_TO_JSON)")
             continue
-
         try:
             logger.info(f"[ODS] Append table={t}")
-
             stg_name = normalize_table_name(t)
             df = read_stg_parquet(stg_name)
-
             before_count = df.count()
             logger.info(f"[ODS][APPEND] STG row count for table={t}: {before_count}")
-
             landing_row_count[t] = before_count
-
             if before_count == 0:
                 df = spark.createDataFrame([], df.schema)
-
             ods_table_name = ods_name_map.get(t, normalize_table_name(t))
             ods_table_name_map[t] = ods_table_name
-
             partition_prefix = f"fmmi/{ods_prefix}/{ods_table_name}/load_date={landing_date}"
             delete_s3_prefix(ods_bucket, partition_prefix)
-
             write_ods_table(ods_table_name, df, landing_date)
-
             logger.info(f"[ODS][APPEND] Wrote table={ods_table_name} partition={landing_date} with row count={before_count}")
-
             ods_row_count[t] = before_count
             success_count += 1
             success_tables.append(t)
-
         except Exception as e:
             logger.error(f"[ODS][WARN] Append failed for table={t}: {e}")
             logger.error(traceback.format_exc())
@@ -874,23 +711,15 @@ def run_ods():
             failed_tables.append(t)
             ods_row_count[t] = "Failed"
 
-    # ---------------------------------------------------------
-    # 3. GL/SA RECONCILIATION (SEPARATE FLOW)
-    # ---------------------------------------------------------
+    # 3. GL/SA RECONCILIATION
     logger.info("[ODS][GL/SA] Starting GL/SA reconciliation block")
-
-    gl_table = "FMMI.FSA.GLITEM"
-    sa_table = "FMMI.FSA.SYSASSURANCE"
-
     gl_stg = normalize_table_name(gl_table)
     sa_stg = normalize_table_name(sa_table)
-
     gl_df = None
     sa_df = None
     gl_count = 0
     sa_count = 0
 
-    # Try to read GL STG
     try:
         gl_df = read_stg_parquet(gl_stg)
         gl_count = gl_df.count()
@@ -899,7 +728,6 @@ def run_ods():
         gl_df = None
         gl_count = 0
 
-    # Try to read SA STG
     try:
         sa_df = read_stg_parquet(sa_stg)
         sa_count = sa_df.count()
@@ -914,7 +742,6 @@ def run_ods():
     landing_row_count[gl_table] = gl_count
     landing_row_count[sa_table] = sa_count
 
-    # Build TMP tables
     if gl_df is not None and gl_count > 0:
         gl_df = gl_df.toDF(*[c.lower() for c in gl_df.columns])
         tmp_gl = gl_df.select(
@@ -933,12 +760,10 @@ def run_ods():
     else:
         tmp_sa = spark.createDataFrame([], schema_sa)
 
-    # Reload TMP tables
     try:
         delete_s3_prefix(ods_bucket, f"fmmi/{ods_prefix}/TMP_GL")
     except:
         pass
-
     try:
         delete_s3_prefix(ods_bucket, f"fmmi/{ods_prefix}/TMP_SA")
     except:
@@ -950,7 +775,6 @@ def run_ods():
     logger.info(f"[ODS][GL/SA] Reloaded TMP_GL with row count={tmp_gl.count()}")
     logger.info(f"[ODS][GL/SA] Reloaded TMP_SA with row count={tmp_sa.count()}")
 
-    # CASE: Missing files → skip main loads
     if gl_count == 0 or sa_count == 0:
         logger.error(f"FMMI ODS - Either GL Or SA files did not received on {systemdate}")
         logger.info("[ODS][GL/SA] Skipping GL/SA reconciliation and main ODS loads due to missing file(s).")
@@ -958,12 +782,10 @@ def run_ods():
         ods_row_count[sa_table] = "Skipped"
         ods_table_name_map[gl_table] = ods_name_map.get(gl_table, gl_stg)
         ods_table_name_map[sa_table] = ods_name_map.get(sa_table, sa_stg)
-
+        diff_cnt = None
     else:
-        # Reconciliation diff count
         tmp_gl.createOrReplaceTempView("TMP_GL")
         tmp_sa.createOrReplaceTempView("TMP_SA")
-
         diff_cnt = spark.sql("""
             SELECT COUNT(*) diff_cnt FROM (
                 (SELECT fiscal_year, business_area, fiscal_year_period,
@@ -986,7 +808,6 @@ def run_ods():
 
         logger.info(f"[ODS][GL/SA] diff_cnt={diff_cnt}")
 
-        # Grouped summaries by FY, BA, Period
         gl_grouped = tmp_gl.groupBy(
             "fiscal_year", "business_area", "fiscal_year_period"
         ).agg(
@@ -1007,147 +828,86 @@ def run_ods():
         if diff_cnt == 0:
             gl_ods = ods_name_map.get(gl_table, gl_stg)
             sa_ods = ods_name_map.get(sa_table, sa_stg)
-
             ods_table_name_map[gl_table] = gl_ods
             ods_table_name_map[sa_table] = sa_ods
-
             try:
                 delete_s3_prefix(ods_bucket, f"fmmi/{ods_prefix}/{gl_ods}/load_date={landing_date}")
             except:
                 pass
-
             try:
                 delete_s3_prefix(ods_bucket, f"fmmi/{ods_prefix}/{sa_ods}/load_date={landing_date}")
             except:
                 pass
-
             write_ods_table(gl_ods, gl_df, landing_date)
             write_ods_table(sa_ods, sa_df, landing_date)
-
             ods_row_count[gl_table] = gl_count
             ods_row_count[sa_table] = sa_count
-
             logger.info(f"FMMI ODS - GL & SA Table Load Completed Successfully on {systemdate}")
             logger.info(f"GL/SA Reconciliation Successful (diff_cnt = {diff_cnt})")
-
-            logger.info("GL Summary (FY | BA | Period | Debit | Credit):")
-            for r in gl_rows:
-                logger.info(
-                    f"{r['fiscal_year']} | {r['business_area']} | {r['fiscal_year_period']} | "
-                    f"{r['gl_debit']} | {r['gl_credit']}"
-                )
-
-            logger.info("SA Summary (FY | BA | Period | Debit | Credit):")
-            for r in sa_rows:
-                logger.info(
-                    f"{r['fiscal_year']} | {r['business_area']} | {r['fiscal_year_period']} | "
-                    f"{r['sa_debit']} | {r['sa_credit']}"
-                )
-
         else:
             ods_table_name_map[gl_table] = ods_name_map.get(gl_table, gl_stg)
             ods_table_name_map[sa_table] = ods_name_map.get(sa_table, sa_stg)
             ods_row_count[gl_table] = "Skipped"
             ods_row_count[sa_table] = "Skipped"
-
             logger.error(f"The FMMI_ODS - SA & GL load process aborted on {systemdate}")
             logger.error(f"GL/SA Reconciliation FAILED (diff_cnt = {diff_cnt})")
 
-            logger.error("GL Summary (FY | BA | Period | Debit | Credit):")
-            for r in gl_rows:
-                logger.error(
-                    f"{r['fiscal_year']} | {r['business_area']} | {r['fiscal_year_period']} | "
-                    f"{r['gl_debit']} | {r['gl_credit']}"
-                )
-
-            logger.error("SA Summary (FY | BA | Period | Debit | Credit):")
-            for r in sa_rows:
-                logger.error(
-                    f"{r['fiscal_year']} | {r['business_area']} | {r['fiscal_year_period']} | "
-                    f"{r['sa_debit']} | {r['sa_credit']}"
-                )
-
-    # ---------------------------------------------------------
-    # FINAL SUMMARY MESSAGE FOR 17 NORMAL TABLES
-    # ---------------------------------------------------------
+    # FINAL SUMMARY
     success_tables_str = ", ".join(success_tables) if success_tables else "None"
     failed_tables_str = ", ".join(failed_tables) if failed_tables else "None"
-
     logger.info(
         f"FMMI_ODS : {success_count} Tables ({success_tables_str}) ran successfully "
         f"and {failure_count} Tables failed ({failed_tables_str}) on {systemdate}"
     )
 
-    # Row counts (Landing vs ODS) for all normal tables + GL/SA
     logger.info("Row Counts (Landing vs ODS):")
-
-    # Normal 17 tables
     for tbl in success_tables + failed_tables:
         land = landing_row_count.get(tbl, "N/A")
         ods = ods_row_count.get(tbl, "N/A")
         ods_tbl = ods_table_name_map.get(tbl, "N/A")
         logger.info(f"{tbl} → Landing Rows: {land} | FMMI_ODS.{ods_tbl} Rows: {ods}")
 
-    # GL/SA
     for tbl in (gl_table, sa_table):
         land = landing_row_count.get(tbl, "N/A")
         ods = ods_row_count.get(tbl, "N/A")
         ods_tbl = ods_table_name_map.get(tbl, "N/A")
         logger.info(f"{tbl} → Landing Rows: {land} | FMMI_ODS.{ods_tbl} Rows: {ods}")
 
-        logger.info("[ODS] ODS processing complete")
+    logger.info("[ODS] ODS processing complete")
 
-        from datetime import datetime
-        from pyspark.sql.functions import lit
-
-        logger.info("[FINAL] Refreshing GL_SUMMARY table...")
-
+    # GL_SUMMARY REFRESH
+    from pyspark.sql.functions import lit
     try:
-        # Load SQL from /config
+        logger.info("[FINAL] Refreshing GL_SUMMARY table...")
         sql_key = f"{config_prefix}/gl_summary_refresh.sql"
         sql_text = s3_client.get_object(
-        Bucket=landing_bucket, Key=sql_key)["Body"].read().decode("utf-8")
+            Bucket=landing_bucket, Key=sql_key)["Body"].read().decode("utf-8")
 
-    # ---------------------------------------------------------
-    # Register ODS parquet tables as SQL views (REQUIRED)
-    # ---------------------------------------------------------
         gl_path = f"s3://{ods_bucket}/fmmi/{ods_prefix}/CS_TBL_GL"
         fc_path = f"s3://{ods_bucket}/fmmi/{ods_prefix}/CS_TBL_FUND_CENTER"
         cm_path = f"s3://{ods_bucket}/fmmi/{ods_prefix}/CS_TBL_CMMT_ITEM"
 
-        gl_df = spark.read.parquet(gl_path)
+        gl_df2 = spark.read.parquet(gl_path)
         fc_df = spark.read.parquet(fc_path)
         cm_df = spark.read.parquet(cm_path)
 
-        gl_df.createOrReplaceTempView("cs_tbl_gl")
+        gl_df2.createOrReplaceTempView("cs_tbl_gl")
         fc_df.createOrReplaceTempView("cs_tbl_fund_center")
         cm_df.createOrReplaceTempView("cs_tbl_cmmt_item")
 
-    # ---------------------------------------------------------
-    # Execute SQL using Spark (AFTER views exist)
-    # ---------------------------------------------------------
         gl_summary_df = spark.sql(sql_text)
-
-    # Generate system date (YYYYMMDD)
         system_date = datetime.now().strftime("%Y%m%d")
-
-    # Remove any existing load_date column
         if "load_date" in gl_summary_df.columns:
             gl_summary_df = gl_summary_df.drop("load_date")
-
-    # Add ONLY the system date load_date column
         gl_summary_df = gl_summary_df.withColumn("load_date", lit(system_date))
-
-    # Overwrite GL_SUMMARY in ODS (NO PARTITIONING)
         delete_s3_prefix(ods_bucket, f"fmmi/{ods_prefix}/GL_SUMMARY")
         path = f"s3://{ods_bucket}/fmmi/{ods_prefix}/GL_SUMMARY/"
         gl_summary_df.write.mode("overwrite").parquet(path)
-
         logger.info("[FINAL] GL_SUMMARY table refreshed successfully.")
-
     except Exception as e:
         logger.error(f"[FINAL] Failed to refresh GL_SUMMARY: {e}")
 
+    # RESULT MESSAGE
     expected_tables = list(reload_tables) + list(append_tables)
     missing_tables = [t for t in expected_tables if landing_row_count.get(t, 0) == 0]
     failed_tables = [t for t in failed_tables if t not in missing_tables]
@@ -1155,10 +915,9 @@ def run_ods():
 
     try:
         requested_files_missing = (
-        file_names and
-        all(tbl not in landing_row_count for tbl in single_tables)
+            file_names and
+            all(tbl not in landing_row_count for tbl in single_tables)
         )
-
         no_files_received = (
             len(success_tables) == 0 and
             (
@@ -1166,7 +925,6 @@ def run_ods():
                 or requested_files_missing
             )
         )
-
         if no_files_received or all_missing:
             result_message = {
                 "status": "NO_FILES",
@@ -1178,7 +936,6 @@ def run_ods():
                 "sa_count": sa_count,
                 "gl_sa_status": "NO_DATA"
             }
-
         elif len(success_tables) == 0 and len(failed_tables) > 0:
             result_message = {
                 "status": "FAILED",
@@ -1189,10 +946,10 @@ def run_ods():
                 "gl_count": gl_count,
                 "sa_count": sa_count,
                 "gl_sa_status": (
-                "FILES_MISSING" if gl_count == 0 or sa_count == 0 else "MISMATCH - The FMMI_ODS-SA & GL load process aborted"
+                    "FILES_MISSING" if gl_count == 0 or sa_count == 0
+                    else "MISMATCH - The FMMI_ODS-SA & GL load process aborted"
                 )
             }
-
         else:
             result_message = {
                 "status": "SUCCESS" if failure_count == 0 and len(success_tables) > 0 else "PARTIAL",
@@ -1203,12 +960,12 @@ def run_ods():
                 "gl_count": gl_count,
                 "sa_count": sa_count,
                 "gl_sa_status": (
-                    "MATCH-The FMMI_ODS-SA & GL are in sync" if gl_count > 0 and sa_count > 0 and diff_cnt == 0
+                    "MATCH-The FMMI_ODS-SA & GL are in sync"
+                    if gl_count > 0 and sa_count > 0 and diff_cnt == 0
                     else "FILES_MISSING" if gl_count == 0 or sa_count == 0
                     else "MISMATCH - The FMMI_ODS-SA & GL load process aborted"
                 )
             }
-
     except Exception as e:
         result_message = {
             "status": "FAILED",
@@ -1221,24 +978,14 @@ def run_ods():
 try:
     if job_type == "STG":
         logger.info("[JOB] Running STG only")
-        logger.info("[DEBUG] ENTERED1 run_stg()")
         run_stg()
-        logger.info("[DEBUG] completed1 run_stg()")
     elif job_type == "ODS":
         logger.info("[JOB] Running ODS only")
-        logger.info("[DEBUG] ENTERED1 run_ods()")
         run_ods()
-        logger.info("[DEBUG] completed1 run_ods()")
-    elif job_type == "BOTH":
+    else:  # BOTH or anything else defaults to BOTH
         logger.info("[JOB] Running STG then ODS")
-        logger.info("[DEBUG] ENTERED2 run_stg()")
         run_stg()
-        logger.info("[DEBUG] completed2 run_stg()")
-        logger.info("[DEBUG] ENTERED2 run_ods()")
         run_ods()
-        logger.info("[DEBUG] completed2 run_ods()")
-    else:
-        raise ValueError(f"Invalid job_type: {job_type}")
 
     logger.info("[JOB] Job completed successfully")
     job.commit()

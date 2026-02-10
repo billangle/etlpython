@@ -1,0 +1,14 @@
+{
+  "databaseName": "fmmi",
+  "tableName": "CS_TBL_FUND",
+  "location": "s3://c108-dev-fpacfsa-final-zone/fmmi/fmmi_stg/cs_tbl_fund/",
+  "schema": [
+    { "Name": "financial_management_area", "Type": "varchar(4)" },
+    { "Name": "fund", "Type": "varchar(20)" },
+    { "Name": "language_key", "Type": "varchar(1)" },
+    { "Name": "short_text", "Type": "varchar(35)" },
+    { "Name": "medium_text", "Type": "varchar(55)" },
+    { "Name": "header_total_count", "Type": "varchar(10)" }
+  ],
+  "partitionKeys": []
+}

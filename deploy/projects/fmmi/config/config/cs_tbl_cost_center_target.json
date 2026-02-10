@@ -1,0 +1,14 @@
+{
+  "databaseName": "fmmi",
+  "tableName": "CS_TBL_COST_CENTER",
+  "location": "s3://c108-dev-fpacfsa-final-zone/fmmi/fmmi_stg/cs_tbl_cost_center/",
+  "schema": [
+    { "Name": "controlling_area", "Type": "varchar(4)" },
+    { "Name": "cost_center", "Type": "varchar(10)" },
+    { "Name": "language_key", "Type": "varchar(1)" },
+    { "Name": "short_text", "Type": "varchar(35)" },
+    { "Name": "long_text", "Type": "varchar(75)" },
+    { "Name": "header_total_count", "Type": "varchar(10)" }
+  ],
+  "partitionKeys": []
+}

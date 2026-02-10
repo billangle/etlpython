@@ -64,7 +64,7 @@ def get_environment_config(env: str) -> dict:
             "redshift_tmp_bucket": f"c108-{env_lower}-fpacfsa-final-zone",
         },
         "prod": {
-            "rs_catalog_connection": f"FSA-{env_upper}-redshift-conn",
+            "rs_catalog_connection": f"FSA-{env_upper}-redshift-conn-115",
             "arn_role": "arn:aws:iam::253490756794:role/FSA_Redshift_Role",
             "secret_name": f"FSA-{env_upper}-secrets",
             "jdbc_url": "jdbc:redshift://disc-fsa-prod-redshift.co7jv5kzm7ac.us-east-1.redshift.amazonaws.com:5439/redshift_db",

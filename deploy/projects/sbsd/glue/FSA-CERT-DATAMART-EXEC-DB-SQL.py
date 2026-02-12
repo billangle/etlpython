@@ -137,7 +137,7 @@ class SQLFS:
         layer_upper = layer.upper()
 
         if layer_upper == "DM":
-            layer_folder = self._resolve_dm_folder(table_name)
+            layer_folder = "PYMT_DM"
         
         # Resolve layer folder case (EDV, EBV, DM)
         else:

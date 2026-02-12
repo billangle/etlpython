@@ -54,7 +54,7 @@ SELECT DISTINCT
     fpy.farm_identifier AS farm_id,
     f.farm_number AS farm_nbr,
     '' AS hash_dif,
-    cpy.cdc_oper_cd AS cdc_oper_cd,
+    fpy.cdc_oper_cd AS cdc_oper_cd,
     CAST(current_date AS date) AS load_dt,
     'SQL_FARM_RCD' AS data_src_nm,
     fpy.cdc_dt AS cdc_dt,

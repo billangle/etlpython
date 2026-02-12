@@ -20,10 +20,10 @@ SELECT DISTINCT
     fr.last_change_date,
     fr.last_change_user_name,
     ''  as hash_dif,
-	cdc_oper_cd as cdc_oper_cd,
+	fr.cdc_oper_cd as cdc_oper_cd,
 	CAST(current_date as date) as load_dt,
 	'SAP/CRM' as data_src_nm,
-	cdc_dt as cdc_dt
+	fr.cdc_dt as cdc_dt
 FROM
     farm_records_reporting.farm_reconstitution fr
 inner join farm_records_reporting.farm_year fy 

@@ -45,10 +45,10 @@ cfyd.creation_date,
 cfyd.last_change_date,
 cfyd.last_change_user_name,
 '' AS hash_dif,
-cdc_oper_cd AS cdc_oper_cd,
+cfyd.cdc_oper_cd AS cdc_oper_cd,
 CURRENT_DATE - 1,
 'SQL_FARM_RCD',
-cdc_dt
+cfyd.cdc_dt
 FROM farm_records_reporting.crop_farm_year_dcp cfyd
 JOIN farm_records_reporting.crop c ON c.crop_identifier = cfyd.crop_identifier
 JOIN farm_records_reporting.farm_year_dcp fyd ON fyd.farm_year_dcp_identifier = cfyd.farm_year_dcp_identifier

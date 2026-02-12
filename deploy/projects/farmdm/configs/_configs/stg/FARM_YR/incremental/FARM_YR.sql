@@ -17,10 +17,10 @@ select  distinct fy.farm_year_identifier as farm_yr_id,
         f.last_change_user_name as last_chg_user_nm,
 		fy.version_number as ver_nbr,
 		''  as hash_dif,
-		cdc_oper_cd as cdc_oper_cd,
+		fy.cdc_oper_cd as cdc_oper_cd,
 		CAST(current_date as date) as load_dt,
 		'SAP/CRM' as data_src_nm,
-		cdc_dt as cdc_dt,
+		fy.cdc_dt as cdc_dt,
 		--fy.arc_plc_elg_dter_id as arc_plc_elg_dter_id,
 		fy.arc_plc_eligibility_determination_code as arc_plc_elg_dter_cd		
 from farm_records_reporting.farm_year fy

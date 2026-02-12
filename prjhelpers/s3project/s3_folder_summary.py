@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 """
 Generate a Markdown README-style S3 folder size report
-including AWS account metadata.
-
-Output:
-    project-sizes-<bucket>.md
+sorted by folder size (largest first).
 """
 
 import argparse
@@ -40,6 +37,13 @@ def generate_markdown(bucket, counts, sizes, account, arn, region):
 
     timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
 
+    # 🔥 SORT BY SIZE (largest first)
+    sorted_folders = sorted(
+        counts.keys(),
+        key=lambda f: sizes[f],
+        reverse=True
+    )
+
     md = []
 
     md.append(f"# S3 Bucket Size Report — `{bucket}`\n")
@@ -54,11 +58,11 @@ def generate_markdown(bucket, counts, sizes, account, arn, region):
     md.append(f"- Total objects: **{total_files:,}**")
     md.append(f"- Total storage: **{human_size(total_bytes)}**\n")
 
-    md.append("## Folder Breakdown\n")
+    md.append("## Folder Breakdown (Largest First)\n")
     md.append("| Folder | Files | Size (Bytes) | Size |")
     md.append("|--------|------:|-------------:|------|")
 
-    for folder in sorted(counts):
+    for folder in sorted_folders:
         md.append(
             f"| {folder} | {counts[folder]:,} | {sizes[folder]:,} | {human_size(sizes[folder])} |"
         )
@@ -74,7 +78,6 @@ def summarize_bucket(bucket):
     region = session.region_name or "default"
 
     s3 = session.client("s3")
-
     paginator = s3.get_paginator("list_objects_v2")
 
     counts = defaultdict(int)

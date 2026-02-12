@@ -1,0 +1,81 @@
+python3 delete_old_s3_objects_all_buckets.py   --days 60   --ignore-bucket cdk   --ignore-bucket dms   --ignore-bucket cdo   --ignore-bucket aws
+
+
+Scanning buckets for objects older than 60 days...
+
+Skipping bucket: aws-athena-query-results-241533156429-us-east-1
+Skipping bucket: aws-glue-assets-241533156429-us-east-1
+
+Bucket: c108-cert-fpacfsa-cleansed-zone
+  Found 50339 old objects (1.82 TB)
+
+Bucket: c108-cert-fpacfsa-cleansed-zone-we
+  No old objects found.
+
+Bucket: c108-cert-fpacfsa-crm-stg
+  Found 12 old objects (5.45 KB)
+
+Bucket: c108-cert-fpacfsa-final-zone
+  Found 134180 old objects (3.47 TB)
+
+Bucket: c108-cert-fpacfsa-landing-scripts
+  No old objects found.
+
+Bucket: c108-cert-fpacfsa-landing-zone
+  Found 250670 old objects (24.62 TB)
+
+Bucket: c108-cert-fpacfsa-landing-zone-we
+  Found 2678 old objects (1.16 TB)
+
+Bucket: c108-cert-fpacfsa-quarentine-zone
+  No old objects found.
+
+Bucket: c108-cert-fpacfsa-retrieval-zone-we
+  Found 170 old objects (98.49 GB)
+
+Bucket: c108-dev-fpacfsa-cleansed-zone
+  Found 115125 old objects (1.24 TB)
+
+Bucket: c108-dev-fpacfsa-cleansed-zone-we
+  Found 1 old objects (2.34 KB)
+
+Bucket: c108-dev-fpacfsa-crm-stg
+  Found 773 old objects (1.30 GB)
+
+Bucket: c108-dev-fpacfsa-final-zone
+  Found 183408 old objects (2.15 TB)
+
+Bucket: c108-dev-fpacfsa-landing-zone
+
+
+  Found 890342 old objects (8.19 TB)
+
+Bucket: c108-dev-fpacfsa-landing-zone-we
+  Found 5 old objects (8.30 KB)
+
+Bucket: c108-dev-fpacfsa-quarentine-zone
+  No old objects found.
+
+Bucket: c108-dev-fpacfsa-redshift-audit-logs
+  Found 78 old objects (4.98 MB)
+
+Bucket: c108-dev-fpacfsa-retrieval-zone-we
+  No old objects found.
+Skipping bucket: cdo-fsa-dev-databricks-glue-ext
+Skipping bucket: dms-vqgxzfabr5deteas263pd7b5ha
+Skipping bucket: dms-xj7eqjo5pbbkhaa2t4lad24ale
+
+Bucket: fsa-dev-devops
+  Found 2435 old objects (55.48 MB)
+
+Bucket: fsa-dev-ops
+  No old objects found.
+
+===== SUMMARY =====
+Candidates: 1630216
+Space: 42.75 TB
+Deleted: 0
+Errors: 0
+===================
+
+DRY RUN — nothing deleted.

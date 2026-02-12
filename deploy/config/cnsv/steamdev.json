@@ -45,7 +45,7 @@
   },
   "configUpload": {
     "functionName": "FSA-steam-dev-UploadConfig",
-    "sourceDir": "cnsv",
+    "sourceDir": "configs",
     "inputBucket": "dev-cars-artifacts",
     "inputPrefix": "input/zips",
     "outputBucket": "punkdev-fpacfsa-final-zone",

@@ -1,6 +1,6 @@
 {
   "deployEnv": "FPACDEV",
-  "project": "FMMI",
+  "project": "CNSV",
   "region": "us-east-1",
   "bucketRegion": "us-east-1",
 
@@ -35,7 +35,7 @@
 
   "artifacts": {
     "artifactBucket": "fsa-dev-ops",
-    "prefix": "fmmi/"
+    "prefix": "cnsv/"
   },
 
   "stepFunctions": {
@@ -45,11 +45,11 @@
   },
   "configUpload": {
     "functionName": "FSA-FPACDEV-UploadConfig",
-    "sourceDir": "fmmi",
+    "sourceDir": "configs",
     "inputBucket": "fsa-dev-ops",
     "inputPrefix": "input/zips",
     "outputBucket": "c108-dev-fpacfsa-final-zone",
-    "outputPrefix": "fmmi",
+    "outputPrefix": "cnsv",
     "minExpectedObjects": 2,
     "debug": true
   },

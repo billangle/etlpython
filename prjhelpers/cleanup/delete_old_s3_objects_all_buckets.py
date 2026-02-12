@@ -20,12 +20,13 @@ python delete_old_s3_objects_all_buckets.py \
   --ignore-bucket cdk \
   --ignore-bucket dart    
 
-python delete_old_s3_objects_all_buckets.py \                    
+python3 delete_old_s3_objects_all_buckets.py \
   --days 90 \
   --ignore-bucket cdk \
   --ignore-bucket dms \
-  --ignore-bucket cdo \   
-  --ignore-bucket aws 
+  --ignore-bucket cdo \
+  --ignore-bucket aws
+
 """
 
 import argparse

@@ -77,6 +77,7 @@ if [ -z "${CURL_TIMEOUT_SECONDS:-}" ]; then CURL_TIMEOUT_SECONDS="30"; fi
 if [ -z "${DEBUG:-}" ]; then DEBUG="true"; fi
 if [ -z "${HEADER:-}" ]; then HEADER="false"; fi
 if [ -z "${TO_QUEUE:-}" ]; then TO_QUEUE="true"; fi
+if [ -z "${ENV:-}" ]; then ENV="CERT"; fi
 
 export FILE_PATTERN ECHO_FOLDER ECHO_SUBFOLDER PIPELINE
 export MIN_SIZE_BYTES VERIFY_TLS CURL_TIMEOUT_SECONDS DEBUG HEADER TO_QUEUE

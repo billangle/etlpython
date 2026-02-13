@@ -35,8 +35,8 @@ rvw_cplt_dt,
 rvw_nm,
 agi_900k_pymt_pgm_ind,
 src_cre_dt,
-src_last_chg_dt
---dart_etl_last_chg_dt
+src_last_chg_dt,
+dart_etl_last_chg_dt
 )
 Select /*+ parallel(24) */
 DV.CRE_DT,
@@ -74,7 +74,8 @@ DV.RVW_CPLT_DT,
 DV.RVW_NM,
 DV.AGI_900K_PYMT_PGM_IND,
 DV.SRC_CRE_DT,
-DV.SRC_LAST_CHG_DT 
+DV.SRC_LAST_CHG_DT,
+TO_TIMESTAMP('{ETL_START_DATE}', 'YYYY-MM-DD HH24:MI:SS.FF') DART_ETL_LAST_CHG_DT
 -- MD5(DV.SBSD_PRD_STRT_YR||'~~'||DV.LTD_PYMT_PGM_DURB_ID) BUS_KEY,
 --  /*used by DS job to detect multiple BK records (for single AK field, no hashing required) */
 --  ('SBSD_PRD_STRT_YR:'||DV.SBSD_PRD_STRT_YR||'~~'||'LTD_PYMT_PGM_DURB_ID:'||DV.LTD_PYMT_PGM_DURB_ID) BUS_KEY_ERR

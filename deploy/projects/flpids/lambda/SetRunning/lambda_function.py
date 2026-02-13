@@ -79,6 +79,5 @@ def lambda_handler(event, context):
         "step": event.get("step"),
         "header": event.get("header"),
         "to_queue": event.get("to_queue"),
-        "env": event.get("env"),
     }
 

@@ -12,7 +12,7 @@ set -euo pipefail
 # Overrides (optional):
 #   AWS_REGION, FUNCTION_NAME, FTPS_PORT, LAMBDA_ARN,
 #   DDB_TABLE_NAME, DDB_PROJECT_GSI_NAME,
-#   SECRET_ID, STEP, ENV,
+#   SECRET_ID, STEP,
 #   FILE_PATTERN, ECHO_FOLDER, ECHO_SUBFOLDER, PIPELINE,
 #   MIN_SIZE_BYTES, VERIFY_TLS, CURL_TIMEOUT_SECONDS, DEBUG, HEADER, TO_QUEUE,
 #   RESP_FILE
@@ -30,7 +30,6 @@ set -euo pipefail
 JENKINS_JOB_NAME="FSA-PROD-DART-ECHO-FETCH-FLPIDSRPT"
 PROJECT_NAME="${JENKINS_JOB_NAME#*ECHO-FETCH-}"
 : "${STEP:=FSA-PROD-DART-ECHO-FETCH-FLPIDSRPT}"
-: "${ENV:=CERT}"
 export PROJECT_NAME
 
 # Defaults (regex can contain braces, so avoid shell parameter default syntax with embedded braces)
@@ -48,7 +47,7 @@ if [ -z "${TO_QUEUE:-}" ]; then TO_QUEUE="true"; fi
 
 export FILE_PATTERN ECHO_FOLDER ECHO_SUBFOLDER PIPELINE
 export MIN_SIZE_BYTES VERIFY_TLS CURL_TIMEOUT_SECONDS DEBUG HEADER TO_QUEUE
-export AWS_REGION FUNCTION_NAME FTPS_PORT DDB_TABLE_NAME DDB_PROJECT_GSI_NAME SECRET_ID LAMBDA_ARN STEP ENV
+export AWS_REGION FUNCTION_NAME FTPS_PORT DDB_TABLE_NAME DDB_PROJECT_GSI_NAME SECRET_ID LAMBDA_ARN STEP
 
 PAYLOAD_FILE="$(mktemp /tmp/dynacheckfile-payload.XXXXXX.json)"
 RESP_FILE="${RESP_FILE:-response.json}"
@@ -67,7 +66,6 @@ payload = {
   "secret_id": os.environ.get("SECRET_ID", ""),
   "lambda_arn": os.environ.get("LAMBDA_ARN", ""),
   "step": os.environ.get("STEP", ""),
-  "env": os.environ.get("ENV", ""),
   "ftps_port": int(os.environ.get("FTPS_PORT", "21")),
   "min_size_bytes": int(os.environ.get("MIN_SIZE_BYTES", "1")),
   "verify_tls": (os.environ.get("VERIFY_TLS", "false").lower() == "true"),

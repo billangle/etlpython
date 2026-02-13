@@ -81,7 +81,6 @@ class FsaFileChecksStateMachineBuilder:
                             "step.$": "$.setRunning.Payload.step",
                             "header.$": "$.setRunning.Payload.header",
                             "to_queue.$": "$.setRunning.Payload.to_queue",
-                            "env.$": "$.setRunning.Payload.env",
 
                             # optional: pass through the chosen lambda arn for logging/auditing
                             "lambda_arn.$": "$.setRunning.Payload.lambda_arn",

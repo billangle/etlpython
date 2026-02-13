@@ -7,7 +7,7 @@ pipeline {
     SECRET_ID    = 'FSA-CERT-Secrets'
 
     // requested overrides
-    FUNCTION_NAME = 'FSA-dev-FpacFLPIDS-DynaCheckFile'
+    FUNCTION_NAME = 'FSA-dev-FpacFLPIDSCHK-DynaCheckFile'
     FTPS_PORT     = '990'
     LAMBDA_ARN    = 'arn:aws:lambda:us-east-1:241533156429:function:FSA-CERT-DART-ECHO-FETCH'
   }

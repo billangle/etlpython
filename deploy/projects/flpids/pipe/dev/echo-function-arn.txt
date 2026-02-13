@@ -24,8 +24,6 @@ pipeline {
         withAWS(credentials: 'disc_fsafpac', region: "${env.AWS_REGION}") {
           script {
             def secret = sh(script: "aws secretsmanager get-secret-value --secret-id ${env.SECRET_NAME} --query 'SecretString' --output text --no-verify-ssl", returnStdout: true).trim()
-            def parsedSecret = readJSON text: secret
-            LAMBDA_FUNCTION_NAME = parsedSecret.flpidsload_cert_lambda
           }
         }
       }

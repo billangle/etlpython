@@ -8,6 +8,7 @@
 #######################################################################################################
 
 import sys, json, boto3, traceback, logging
+import time
 from datetime import datetime
 from awsglue.context import GlueContext
 from awsglue.job import Job
@@ -390,10 +391,30 @@ def read_ods_if_exists(mapped):
         logger.info(f"[ODS] No existing ODS data for table={mapped}")
         return None
 
-def write_ods_table(table_name, df, landing_date):
+def write_ods_table(table_name, df, landing_date, mode="overwrite"):
     output_path = f"s3://{ods_bucket}/fmmi/{ods_prefix}/{table_name}/load_date={landing_date}"
-    df.repartition(1).write.mode("overwrite").parquet(output_path)
-    logger.info(f"[ODS] Wrote table={table_name} partition={landing_date} to {output_path}")
+    (
+        df
+        .repartition(1)
+        .write
+        .mode(mode)
+        .parquet(output_path)
+    )
+    logger.info(
+        f"[ODS] Wrote table={table_name} partition={landing_date} "
+        f"to {output_path} with mode={mode}"
+    )
+
+def safe_read_stg(stg_name, retries=3, delay=3):
+    for _ in range(retries):
+        try:
+            df = read_stg_parquet(stg_name)
+            df.count()  # force materialization
+            return df
+        except Exception as e:
+            logger.warning(f"[STG] Retry reading {stg_name}: {e}")
+            time.sleep(delay)
+    return None
 
 # ---------------- DETERMINE FILE MODE ----------------
 if raw_file_names is None:
@@ -596,10 +617,12 @@ def run_ods():
     # PRE-SCAN STG
     for t in list(reload_tables) + list(append_tables):
         stg_name = normalize_table_name(t)
+
         try:
-            df = read_stg_parquet(stg_name)
-            landing_row_count[t] = df.count()
-        except Exception:
+            df = safe_read_stg(stg_name)
+            landing_row_count[t] = df.count() if df else 0
+        except Exception as e:
+            logger.warning(f"[STG] Failed to read {stg_name}: {e}")
             landing_row_count[t] = 0
 
     # 1. RELOAD TABLES
@@ -698,8 +721,8 @@ def run_ods():
             ods_table_name = ods_name_map.get(t, normalize_table_name(t))
             ods_table_name_map[t] = ods_table_name
             partition_prefix = f"fmmi/{ods_prefix}/{ods_table_name}/load_date={landing_date}"
-            delete_s3_prefix(ods_bucket, partition_prefix)
-            write_ods_table(ods_table_name, df, landing_date)
+
+            write_ods_table(ods_table_name, df, landing_date, mode="append")
             logger.info(f"[ODS][APPEND] Wrote table={ods_table_name} partition={landing_date} with row count={before_count}")
             ods_row_count[t] = before_count
             success_count += 1
@@ -830,16 +853,10 @@ def run_ods():
             sa_ods = ods_name_map.get(sa_table, sa_stg)
             ods_table_name_map[gl_table] = gl_ods
             ods_table_name_map[sa_table] = sa_ods
-            try:
-                delete_s3_prefix(ods_bucket, f"fmmi/{ods_prefix}/{gl_ods}/load_date={landing_date}")
-            except:
-                pass
-            try:
-                delete_s3_prefix(ods_bucket, f"fmmi/{ods_prefix}/{sa_ods}/load_date={landing_date}")
-            except:
-                pass
-            write_ods_table(gl_ods, gl_df, landing_date)
-            write_ods_table(sa_ods, sa_df, landing_date)
+
+            write_ods_table(gl_ods, gl_df, landing_date, mode="append")
+            write_ods_table(sa_ods, sa_df, landing_date, mode="append")
+
             ods_row_count[gl_table] = gl_count
             ods_row_count[sa_table] = sa_count
             logger.info(f"FMMI ODS - GL & SA Table Load Completed Successfully on {systemdate}")
@@ -902,45 +919,49 @@ def run_ods():
         gl_summary_df = gl_summary_df.withColumn("load_date", lit(system_date))
         delete_s3_prefix(ods_bucket, f"fmmi/{ods_prefix}/GL_SUMMARY")
         path = f"s3://{ods_bucket}/fmmi/{ods_prefix}/GL_SUMMARY/"
-        gl_summary_df.write.mode("overwrite").parquet(path)
+        #gl_summary_df = gl_summary_df.withColumn("load_date", lit(system_date))
+        gl_summary_df \
+            .repartition(40) \
+            .write \
+            .mode("overwrite") \
+            .partitionBy("load_date") \
+            .parquet(path)
+
         logger.info("[FINAL] GL_SUMMARY table refreshed successfully.")
     except Exception as e:
         logger.error(f"[FINAL] Failed to refresh GL_SUMMARY: {e}")
 
     # RESULT MESSAGE
+    # ---------------- RESULT MESSAGE ----------------
     expected_tables = list(reload_tables) + list(append_tables)
-    missing_tables = [t for t in expected_tables if landing_row_count.get(t, 0) == 0]
+
+    missing_tables = [
+        t for t in expected_tables
+        if landing_row_count.get(t, 0) == 0 and t not in success_tables
+    ]
+
     failed_tables = [t for t in failed_tables if t not in missing_tables]
+
     all_missing = len(missing_tables) == len(expected_tables)
 
     try:
-        requested_files_missing = (
-            file_names and
-            all(tbl not in landing_row_count for tbl in single_tables)
-        )
-        no_files_received = (
-            len(success_tables) == 0 and
-            (
-                all((v == 0 or v == "N/A" or v is None) for v in landing_row_count.values())
-                or requested_files_missing
-            )
-        )
-        if no_files_received or all_missing:
+        if all_missing:
             result_message = {
                 "status": "NO_FILES",
                 "landing_date": landing_date,
-                "success_tables": [],
+                "success_tables": success_tables,
                 "missing_tables": missing_tables,
                 "failed_tables": ["NONE"],
                 "gl_count": gl_count,
                 "sa_count": sa_count,
                 "gl_sa_status": "NO_DATA"
             }
-        elif len(success_tables) == 0 and len(failed_tables) > 0:
+
+        elif failure_count > 0 and len(success_tables) == 0:
             result_message = {
                 "status": "FAILED",
                 "landing_date": landing_date,
-                "success_tables": [],
+                "success_tables": success_tables,
                 "missing_tables": missing_tables,
                 "failed_tables": ["ALL_FAILED"],
                 "gl_count": gl_count,
@@ -950,9 +971,10 @@ def run_ods():
                     else "MISMATCH - The FMMI_ODS-SA & GL load process aborted"
                 )
             }
+
         else:
             result_message = {
-                "status": "SUCCESS" if failure_count == 0 and len(success_tables) > 0 else "PARTIAL",
+                "status": "SUCCESS" if failure_count == 0 else "PARTIAL",
                 "landing_date": landing_date,
                 "success_tables": success_tables,
                 "missing_tables": missing_tables,
@@ -966,6 +988,7 @@ def run_ods():
                     else "MISMATCH - The FMMI_ODS-SA & GL load process aborted"
                 )
             }
+
     except Exception as e:
         result_message = {
             "status": "FAILED",

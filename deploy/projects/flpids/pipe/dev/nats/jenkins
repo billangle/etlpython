@@ -1,35 +1,31 @@
 pipeline {
-  agent {
-    any {
-      reuseNode true
-    }
-  }
+  agent any
 
   environment {
     AWS_REGION = 'us-east-1'
+    // keep both names; script uses SECRET_ID
     SECRET_NAME = 'FSA-CERT-Secrets'
+    SECRET_ID   = 'FSA-CERT-Secrets'
 
-    // Overrides you requested
+    // your requested overrides
     FUNCTION_NAME = 'FSA-dev-FpacFLPIDS-DynaCheckFile'
     FTPS_PORT     = '990'
     LAMBDA_ARN    = 'arn:aws:lambda:us-east-1:241533156429:function:FSA-CERT-DART-ECHO-FETCH'
-
-    // Keep SECRET_ID aligned with your script's default variable name
-    SECRET_ID     = 'FSA-CERT-Secrets'
   }
 
   stages {
-
     stage('Get Secrets') {
       steps {
         withAWS(credentials: 'disc_fsafpac', region: "${env.AWS_REGION}") {
-          script {
-            def secret = sh(
-              script: "aws secretsmanager get-secret-value --secret-id ${env.SECRET_NAME} --query 'SecretString' --output text --no-verify-ssl",
-              returnStdout: true
-            ).trim()
-            echo "Fetched secret string (not printed). Length=${secret.length()}"
-          }
+          sh '''#!/usr/bin/env bash
+set -euo pipefail
+aws secretsmanager get-secret-value \
+  --secret-id "${SECRET_NAME}" \
+  --query 'SecretString' \
+  --output text \
+  --no-verify-ssl >/dev/null
+echo "Secrets fetched (not printed)."
+'''
         }
       }
     }
@@ -37,7 +33,11 @@ pipeline {
     stage('Invoke Lambda Function') {
       steps {
         withAWS(credentials: 'disc_fsafpac', region: "${env.AWS_REGION}") {
-          sh label: 'Invoke DynaCheckFile Lambda', script: '''#!/bin/sh
+          sh '''#!/usr/bin/env bash
+set -euo pipefail
+
+cat > invoke_dynacheck.sh <<'EOF'
+#!/usr/bin/env bash
 set -euo pipefail
 
 # ----------------------------
@@ -45,8 +45,6 @@ set -euo pipefail
 #   FSA-steam-dev-FpacFLPIDS-DynaCheckFile
 #
 # Jenkins Job: FSA-PROD-DART-ECHO-FETCH-FLPIDS-NATS
-#
-# Works on macOS + Amazon CloudShell (POSIX sh).
 #
 # Overrides (optional):
 #   AWS_REGION, FUNCTION_NAME, FTPS_PORT, LAMBDA_ARN,
@@ -92,10 +90,8 @@ PAYLOAD_FILE="$(mktemp /tmp/dynacheckfile-payload.XXXXXX.json)"
 RESP_FILE="${RESP_FILE:-response.json}"
 trap 'rm -f "$PAYLOAD_FILE"' EXIT
 
-# Build JSON payload using python3 for proper JSON escaping (POSIX-safe)
 python3 - <<'PY' > "$PAYLOAD_FILE"
 import os, json
-
 payload = {
   "file_pattern": os.environ.get("FILE_PATTERN", ""),
   "echo_folder": os.environ.get("ECHO_FOLDER", ""),
@@ -144,6 +140,10 @@ echo "Response written to ${RESP_FILE}"
 echo "----"
 cat "${RESP_FILE}"
 echo
+EOF
+
+chmod +x invoke_dynacheck.sh
+./invoke_dynacheck.sh
 '''
         }
       }

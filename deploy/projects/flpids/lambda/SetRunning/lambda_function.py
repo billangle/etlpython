@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timezone
+import json
 
 import boto3
 
@@ -42,8 +43,7 @@ def lambda_handler(event, context):
 
     ts = _now_iso()
 
-    if debug:
-        print(f"[DEBUG] Updating DynamoDB {table_name} jobId={job_id} project={project} => RUNNING")
+   
 
     resp = table.update_item(
         Key={"jobId": job_id, "project": project},
@@ -61,9 +61,23 @@ def lambda_handler(event, context):
     )
 
     attrs = resp.get("Attributes") or {}
+    event = attrs.get("event", {}) or {}
+
     return {
         "jobId": job_id,
         "project": project,
         "status": attrs.get("status", "RUNNING"),
         "updatedAt": attrs.get("updatedAt", ts),
+
+        # pulled from event map
+        "pipeline": event.get("pipeline"),
+        "echo_folder": event.get("echo_folder"),
+        "project_name": event.get("project_name"),
+        "file_pattern": event.get("file_pattern"),
+        "echo_subfolder": event.get("echo_subfolder"),
+        "lambda_arn": event.get("lambda_arn"),
+        "step": event.get("step"),
+        "header": event.get("header"),
+        "to_queue": event.get("to_queue"),
     }
+

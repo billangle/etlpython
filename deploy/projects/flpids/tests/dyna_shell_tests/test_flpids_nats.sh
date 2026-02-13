@@ -10,17 +10,18 @@ set -euo pipefail
 # Works on macOS + Amazon CloudShell (POSIX sh).
 #
 # Overrides (optional):
-#   AWS_REGION, FUNCTION_NAME, FTPS_PORT,
+#   AWS_REGION, FUNCTION_NAME, FTPS_PORT, LAMBDA_ARN,
 #   DDB_TABLE_NAME, DDB_PROJECT_GSI_NAME,
-#   SECRET_ID,
+#   SECRET_ID, STEP,
 #   FILE_PATTERN, ECHO_FOLDER, ECHO_SUBFOLDER, PIPELINE,
-#   MIN_SIZE_BYTES, VERIFY_TLS, CURL_TIMEOUT_SECONDS, DEBUG,
+#   MIN_SIZE_BYTES, VERIFY_TLS, CURL_TIMEOUT_SECONDS, DEBUG, HEADER, TO_QUEUE,
 #   RESP_FILE
 # ----------------------------
 
 : "${AWS_REGION:=us-east-1}"
 : "${FUNCTION_NAME:=FSA-steam-dev-FpacFLPIDS-DynaCheckFile}"
 : "${FTPS_PORT:=21}"
+: "${LAMBDA_ARN:=arn:aws:lambda:us-east-1:335965711887:function:FSA-steam-dev-FpacFLPIDS-TransferFile}"
 
 : "${DDB_TABLE_NAME:=FSA-FileChecks}"
 : "${DDB_PROJECT_GSI_NAME:=project_gsi_name}"
@@ -28,6 +29,7 @@ set -euo pipefail
 
 JENKINS_JOB_NAME="FSA-PROD-DART-ECHO-FETCH-FLPIDS-NATS"
 PROJECT_NAME="${JENKINS_JOB_NAME#*ECHO-FETCH-}"
+: "${STEP:=FSA-PROD-DART-ECHO-FETCH-FLPIDS-NATS}"
 export PROJECT_NAME
 
 # Defaults (regex can contain braces, so avoid shell parameter default syntax with embedded braces)
@@ -40,10 +42,12 @@ if [ -z "${MIN_SIZE_BYTES:-}" ]; then MIN_SIZE_BYTES="1"; fi
 if [ -z "${VERIFY_TLS:-}" ]; then VERIFY_TLS="false"; fi
 if [ -z "${CURL_TIMEOUT_SECONDS:-}" ]; then CURL_TIMEOUT_SECONDS="30"; fi
 if [ -z "${DEBUG:-}" ]; then DEBUG="true"; fi
+if [ -z "${HEADER:-}" ]; then HEADER="false"; fi
+if [ -z "${TO_QUEUE:-}" ]; then TO_QUEUE="true"; fi
 
 export FILE_PATTERN ECHO_FOLDER ECHO_SUBFOLDER PIPELINE
-export MIN_SIZE_BYTES VERIFY_TLS CURL_TIMEOUT_SECONDS DEBUG
-export AWS_REGION FUNCTION_NAME FTPS_PORT DDB_TABLE_NAME DDB_PROJECT_GSI_NAME SECRET_ID
+export MIN_SIZE_BYTES VERIFY_TLS CURL_TIMEOUT_SECONDS DEBUG HEADER TO_QUEUE
+export AWS_REGION FUNCTION_NAME FTPS_PORT DDB_TABLE_NAME DDB_PROJECT_GSI_NAME SECRET_ID LAMBDA_ARN STEP
 
 PAYLOAD_FILE="$(mktemp /tmp/dynacheckfile-payload.XXXXXX.json)"
 RESP_FILE="${RESP_FILE:-response.json}"
@@ -60,11 +64,15 @@ payload = {
   "pipeline": os.environ.get("PIPELINE", ""),
   "project_name": os.environ.get("PROJECT_NAME", ""),
   "secret_id": os.environ.get("SECRET_ID", ""),
+  "lambda_arn": os.environ.get("LAMBDA_ARN", ""),
+  "step": os.environ.get("STEP", ""),
   "ftps_port": int(os.environ.get("FTPS_PORT", "21")),
   "min_size_bytes": int(os.environ.get("MIN_SIZE_BYTES", "1")),
   "verify_tls": (os.environ.get("VERIFY_TLS", "false").lower() == "true"),
   "curl_timeout_seconds": int(os.environ.get("CURL_TIMEOUT_SECONDS", "30")),
   "debug": (os.environ.get("DEBUG", "true").lower() == "true"),
+  "header": (os.environ.get("HEADER", "false").lower() == "true"),
+  "to_queue": (os.environ.get("TO_QUEUE", "true").lower() == "true"),
   "dynamodb": {
     "table_name": os.environ.get("DDB_TABLE_NAME", ""),
     "partition_key": "jobId",

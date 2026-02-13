@@ -7,7 +7,7 @@ from typing import Any, Dict
 @dataclass(frozen=True)
 class FsaFileChecksStateMachineInputs:
     set_running_lambda_arn: str
-    transfer_file_lambda_arn: str
+    transfer_file_lambda_arn: str  # kept for backward compatibility / defaults
     finalize_job_lambda_arn: str
 
 
@@ -19,6 +19,10 @@ class FsaFileChecksStateMachineBuilder:
       - DynamoDB Streams via EventBridge Pipes can deliver a batch (array) even with batchSize=1.
       - We add an UnwrapRecord Pass state that converts [ {...} ] -> {...}
         so downstream JSONPaths like $.jobId work reliably.
+
+    Change included:
+      - SetRunning returns: pipeline, echo_folder, project_name, file_pattern, echo_subfolder, lambda_arn
+      - TransferFile runs the Lambda defined at runtime: $.setRunning.Payload.lambda_arn
     """
 
     @staticmethod
@@ -47,22 +51,39 @@ class FsaFileChecksStateMachineBuilder:
                     },
                     "ResultPath": "$.setRunning",
                     "OutputPath": "$",
-                    "Next": "TransferFile",
+                    "Next": "TransferAndProcessFile",
                 },
-                "TransferFile": {
+                "TransferAndProcessFile": {
                     "Type": "Task",
                     "Resource": "arn:aws:states:::lambda:invoke",
                     "Parameters": {
-                        "FunctionName": inputs.transfer_file_lambda_arn,
+                        # ✅ runtime-selected Lambda ARN (returned by SetRunning)
+                        "FunctionName.$": "$.setRunning.Payload.lambda_arn",
                         "Payload": {
+                            # base context (from the original event)
                             "jobId.$": "$.jobId",
                             "project.$": "$.project",
                             "table_name.$": "$.table_name",
                             "bucket.$": "$.bucket",
+                            "debug.$": "$.debug",
+
+                            # connection settings (top-level in your current event)
                             "secret_id.$": "$.secret_id",
                             "verify_tls.$": "$.verify_tls",
                             "timeout_seconds.$": "$.timeout_seconds",
-                            "debug.$": "$.debug",
+
+                            # returned by SetRunning.Payload
+                            "pipeline.$": "$.setRunning.Payload.pipeline",
+                            "echo_folder.$": "$.setRunning.Payload.echo_folder",
+                            "project_name.$": "$.setRunning.Payload.project_name",
+                            "file_pattern.$": "$.setRunning.Payload.file_pattern",
+                            "echo_subfolder.$": "$.setRunning.Payload.echo_subfolder",
+                            "step.$": "$.setRunning.Payload.step",
+                            "header.$": "$.setRunning.Payload.header",
+                            "to_queue.$": "$.setRunning.Payload.to_queue",
+
+                            # optional: pass through the chosen lambda arn for logging/auditing
+                            "lambda_arn.$": "$.setRunning.Payload.lambda_arn",
                         },
                     },
                     "ResultPath": "$.transfer",

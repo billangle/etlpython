@@ -202,8 +202,8 @@ FROM        (
                                                                                     WHERE       SRC_WL_VLT_TYPE_CD = '112'  
                                                                                         AND     FS.FARM_TR_L_ID = WLVS.FARM_TR_L_ID 
                                                                                         AND     FS.PGM_YR = WLVS.PGM_YR 
-                                                                                        AND     cast(WLVS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
-                                                                                        AND     cast(WLVS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
+                                                                                        AND     cast(WLVS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
+                                                                                        AND     cast(WLVS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
                                                                                         AND     coalesce(WLVS.DATA_STAT_CD, '') <> 'D' 
                                                                                 ) 
                                                                                 ,0 
@@ -216,8 +216,8 @@ FROM        (
                                                                                     WHERE       SRC_WL_VLT_TYPE_CD = '113' 
                                                                                         AND     FS.FARM_TR_L_ID = WLVS.FARM_TR_L_ID 
                                                                                         AND     FS.PGM_YR = WLVS.PGM_YR  
-                                                                                        AND     cast(WLVS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
-                                                                                        AND     cast(WLVS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
+                                                                                        AND     cast(WLVS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
+                                                                                        AND     cast(WLVS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
                                                                                         AND     coalesce(WLVS.DATA_STAT_CD, '') <> 'D' 
                                                                                 ) 
                                                                                 ,0 
@@ -230,8 +230,8 @@ FROM        (
                                                                                     WHERE       SRC_WL_VLT_TYPE_CD = '116' 
                                                                                         AND     FS.FARM_TR_L_ID = WLVS.FARM_TR_L_ID 
                                                                                         AND     FS.PGM_YR = WLVS.PGM_YR 
-                                                                                        AND     cast(WLVS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
-                                                                                        AND     cast(WLVS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
+                                                                                        AND     cast(WLVS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
+                                                                                        AND     cast(WLVS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
                                                                                         AND     coalesce(WLVS.DATA_STAT_CD, '') <> 'D' 
                                                                                 ) 
                                                                                 ,0 
@@ -272,9 +272,9 @@ FROM        (
 																	FROM (SELECT DISTINCT FARM_TR_L_ID INCR_DR_ID, PGM_YR
 																	                   FROM EDV.FARM_TR_YR_LS
 																	                  WHERE     cast (DATA_EFF_STRT_DT as date) <=
-																	                            TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD')
+																	                            TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD')
 																	                        AND cast (DATA_EFF_END_DT as date) =
-																	                            TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD')
+																	                            TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD')
 																	                 UNION
 																					 
 																	                 SELECT
@@ -295,9 +295,9 @@ FROM        (
 																	                            coalesce (TR_HS.TR_H_ID,
 																	                                 '6de912369edfb89b50859d8f305e4f72')
 																	                        AND cast (TR_HS.DATA_EFF_STRT_DT as date) <=
-																	                            TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD')
+																	                            TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD')
 																	                        AND cast (TR_HS.DATA_EFF_END_DT as date) =
-																	                            TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD')
+																	                            TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD')
 																	                 UNION
 																	                                  SELECT
 																	                        DISTINCT
@@ -311,9 +311,9 @@ FROM        (
 																	                            TR_YR_DCP_LS.FARM_TR_L_ID
 																	                        AND FARM_TR_YR_LS.PGM_YR = TR_YR_DCP_LS.PGM_YR
 																	                        AND (   cast (TR_YR_DCP_LS.DATA_EFF_STRT_DT as date) <=
-																	                                TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD')
+																	                                TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD')
 																	                             OR cast (TR_YR_DCP_LS.DATA_EFF_END_DT as date) =
-																	                                TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD'))
+																	                                TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD'))
 																	                 UNION
 																	                                  SELECT
 																	                        DISTINCT
@@ -323,9 +323,9 @@ FROM        (
 																	                  WHERE     FARM_TR_YR_LS.SRC_HEL_TR_CD =
 																	                            HEL_TR_RS.DMN_VAL_ID
 																	                        AND (   cast (HEL_TR_RS.DATA_EFF_STRT_DT as date) <=
-																	                                TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD')
+																	                                TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD')
 																	                             OR cast (HEL_TR_RS.DATA_EFF_END_DT as date) =
-																	                                TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD'))
+																	                                TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD'))
 																	                 UNION
 																	                                 SELECT
 																	                        DISTINCT
@@ -336,9 +336,9 @@ FROM        (
 																	                            TR_YR_WL_VLT_LS.FARM_TR_L_ID
 																	                        AND FARM_TR_YR_LS.PGM_YR = TR_YR_WL_VLT_LS.PGM_YR
 																	                        AND (   cast (TR_YR_WL_VLT_LS.DATA_EFF_STRT_DT as date) <=
-																	                                TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD')
+																	                                TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD')
 																	                             OR cast (TR_YR_WL_VLT_LS.DATA_EFF_END_DT as date) =
-																	                                TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD'))
+																	                                TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD'))
 																	                 UNION
 																	                                  SELECT
 																	                        DISTINCT
@@ -348,9 +348,9 @@ FROM        (
 																	                  WHERE     FARM_TR_YR_LS.SRC_WL_PRES_CD =
 																	                            WL_PRES_RS.DMN_VAL_ID
 																	                        AND (   cast (WL_PRES_RS.DATA_EFF_STRT_DT as date) <=
-																	                                TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD')
+																	                                TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD')
 																	                             OR cast (WL_PRES_RS.DATA_EFF_END_DT as date) =
-																	                                TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD'))
+																	                                TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD'))
 																	                 UNION
 																	                                 SELECT
 																	                        DISTINCT
@@ -371,9 +371,9 @@ FROM        (
 																	                        AND LOC_AREA_MRT_SRC_RS.LOC_AREA_MRT_CD_SRC_ACRO =
 																	                            'FSA'
 																	                        AND (   cast (LOC_AREA_MRT_SRC_RS.DATA_EFF_STRT_DT as date) <=
-																	                                TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD')
+																	                                TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD')
 																	                             OR cast (LOC_AREA_MRT_SRC_RS.DATA_EFF_END_DT as date) =
-																	                                TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD'))
+																	                                TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD'))
 																	                 UNION
 																	                                  SELECT
 																	                        DISTINCT
@@ -400,9 +400,9 @@ FROM        (
 																	                        AND LOC_AREA_MRT_SRC_RS.LOC_AREA_MRT_CD_SRC_ACRO =
 																	                            'FSA'
 																	                        AND (   cast (LOC_AREA_MRT_SRC_RS.DATA_EFF_STRT_DT as date) <=
-																	                                TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD')
+																	                                TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD')
 																	                             OR cast (LOC_AREA_MRT_SRC_RS.DATA_EFF_END_DT as date) =
-																	                                TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD'))
+																	                                TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD'))
 																	                 UNION
 																	                 SELECT
 																	                        DISTINCT
@@ -418,100 +418,100 @@ FROM        (
 																	                            coalesce (FARM_TR_YR_LS.FARM_YR_ID, -1)
 																	                        AND (   (   cast (
 																	                                        ARC_PLC_ELG_DTER_RS.DATA_EFF_STRT_DT as date) <=
-																	                                    TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD')
+																	                                    TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD')
 																	                                 OR cast (
 																	                                        ARC_PLC_ELG_DTER_RS.DATA_EFF_END_DT as date) =
-																	                                    TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD'))
+																	                                    TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD'))
 																	                             OR (   cast (FARM_YR_HS.DATA_EFF_STRT_DT as date) <=
-																	                                    TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD')
-																	                                 OR cast (FARM_YR_HS.DATA_EFF_END_DT as date) = TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD')))) sub_1)TMP 
+																	                                    TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD')
+																	                                 OR cast (FARM_YR_HS.DATA_EFF_END_DT as date) = TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD')))) sub_1)TMP 
 																	                                 ON (FS.FARM_TR_L_ID = TMP.INCR_DR_ID AND FS.PGM_YR = TMP.PGM_YR
-								  AND cast(FS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-								  AND cast(FS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
+								  AND cast(FS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+								  AND cast(FS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
 								  )
 								  LEFT JOIN EDV.FARM_TR_L FT ON (coalesce(FS.FARM_TR_L_ID,'6bb61e3b7bce0931da574d19d1d82c88') = FT.FARM_TR_L_ID) 
 								  LEFT JOIN EDV.FARM_H FH ON (coalesce(FT.FARM_H_ID,'baf6dd71fe45fe2f5c1c0e6724d514fd') = FH.FARM_H_ID) 
 								  LEFT JOIN CMN_DIM_DM_STG.FARM_DIM FD ON (
 								      FH.DURB_ID = coalesce(FD.FARM_DURB_ID,-1) 
-								      AND cast(FD.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-								      AND cast(FD.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+								      AND cast(FD.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+								      AND cast(FD.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
 								  ) 
 								  LEFT JOIN EDV.LOC_AREA_MRT_SRC_RS LAS_ADM ON (coalesce(LAS_ADM.CTRY_DIV_MRT_CD,'--') = FH.ST_FSA_CD AND  coalesce(LAS_ADM.LOC_AREA_MRT_CD,'--') = FH.CNTY_FSA_CD AND LAS_ADM.LOC_AREA_MRT_CD_SRC_ACRO = 'FSA'
-								   AND cast(LAS_ADM.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-								  AND cast(LAS_ADM.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') ) 
+								   AND cast(LAS_ADM.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+								  AND cast(LAS_ADM.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') ) 
 								  
 								  LEFT JOIN EDV.LOC_AREA_RH LAH_ADM ON (coalesce(LAS_ADM.LOC_AREA_CAT_NM, 'NULL IN SOURCE') = LAH_ADM.LOC_AREA_CAT_NM AND coalesce(LAS_ADM.LOC_AREA_NM, 'NULL IN SOURCE') = LAH_ADM.LOC_AREA_NM AND coalesce(LAS_ADM.CTRY_DIV_NM, 'NULL IN SOURCE') = LAH_ADM.CTRY_DIV_NM AND LAS_ADM.LOC_AREA_MRT_CD_SRC_ACRO = 'FSA') 
 								  LEFT JOIN CMN_DIM_DM_STG.FSA_ST_CNTY_DIM FSD_ADM ON (
 								      LAH_ADM.DURB_ID = coalesce(FSD_ADM.FSA_ST_CNTY_DURB_ID,-1) 
-								      AND cast(FSD_ADM.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-								      AND cast(FSD_ADM.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+								      AND cast(FSD_ADM.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+								      AND cast(FSD_ADM.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
 								  ) 
 								  LEFT JOIN EDV.TR_H TRH ON (coalesce(FT.TR_H_ID,'6de912369edfb89b50859d8f305e4f72') = TRH.TR_H_ID) 
 								  LEFT JOIN CMN_DIM_DM_STG.TR_DIM TD ON (
 								      TRH.DURB_ID = coalesce(TD.TR_DURB_ID,-1) 
-								      AND cast(TD.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-								      AND cast(TD.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+								      AND cast(TD.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+								      AND cast(TD.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
 								  ) 
 								  LEFT JOIN EDV.TR_HS TRS ON (TRH.TR_H_ID = coalesce(TRS.TR_H_ID,'6de912369edfb89b50859d8f305e4f72')
-								   AND cast(TRS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-								      AND cast(TRS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')) 
+								   AND cast(TRS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+								      AND cast(TRS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')) 
 								  LEFT JOIN CMN_DIM_DM_STG.CONG_DIST_DIM CDS ON (
 								      TRS.LOC_ST_FSA_CD = coalesce(CDS.ST_FSA_CD,'--') 
 								      AND TRS.CONG_DIST_CD = CDS.CONG_DIST_CD 
-								      AND cast(CDS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-								      AND cast(CDS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+								      AND cast(CDS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+								      AND cast(CDS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
 								  )  
 								  LEFT JOIN EDV.LOC_AREA_MRT_SRC_RS LAS_LOC ON ( TRS.LOC_ST_FSA_CD = LAS_LOC.CTRY_DIV_MRT_CD AND TRS.LOC_CNTY_FSA_CD = LAS_LOC.LOC_AREA_MRT_CD AND LAS_LOC.LOC_AREA_MRT_CD_SRC_ACRO = 'FSA' 
-								  AND cast(LAS_LOC.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-								  AND cast(LAS_LOC.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+								  AND cast(LAS_LOC.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+								  AND cast(LAS_LOC.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
 								  ) 
 								  
 								  
 								  LEFT JOIN EDV.LOC_AREA_RH LAH_LOC ON ( coalesce(LAS_LOC.LOC_AREA_CAT_NM, 'NULL IN SOURCE') = LAH_LOC.LOC_AREA_CAT_NM AND coalesce(LAS_LOC.LOC_AREA_NM, 'NULL IN SOURCE') = LAH_LOC.LOC_AREA_NM AND coalesce(LAS_LOC.CTRY_DIV_NM, 'NULL IN SOURCE') = LAH_LOC.CTRY_DIV_NM AND LAS_LOC.LOC_AREA_MRT_CD_SRC_ACRO = 'FSA' ) 
 								  LEFT JOIN CMN_DIM_DM_STG.FSA_ST_CNTY_DIM FSD_LOC ON ( 
 								      LAH_LOC.DURB_ID = coalesce(FSD_LOC.FSA_ST_CNTY_DURB_ID,-1) 
-								      AND cast(FSD_LOC.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-								      AND cast(FSD_LOC.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+								      AND cast(FSD_LOC.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+								      AND cast(FSD_LOC.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
 								  ) 
 								  LEFT JOIN EDV.TR_YR_DCP_LS TR ON ( FS.FARM_TR_L_ID = coalesce(TR.FARM_TR_L_ID,'6bb61e3b7bce0931da574d19d1d82c88') AND FS.PGM_YR = TR.PGM_YR 
-								  AND cast(TR.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-								  AND cast(TR.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+								  AND cast(TR.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+								  AND cast(TR.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
 								  ) 
 								  
 								  
 								  LEFT JOIN EDV.HEL_TR_RS HS ON (FS.SRC_HEL_TR_CD = HS.DMN_VAL_ID
-								    AND cast(HS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-								  AND cast(HS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+								    AND cast(HS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+								  AND cast(HS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
 								  ) 
 								  LEFT JOIN EDV.HEL_TR_RH HH ON (coalesce(HS.HEL_TR_CD,'NULL IN SOURCE') = HH.HEL_TR_CD) 
 								  LEFT JOIN FARM_DM_STG.HEL_TR_DIM HD ON (
 								      HH.DURB_ID = HD.HEL_TR_DURB_ID 
-								      AND cast(HD.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-								      AND cast(HD.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+								      AND cast(HD.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+								      AND cast(HD.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
 								  ) 
 								  
 								  LEFT JOIN EDV.TR_YR_WL_VLT_LS WLVS ON ( FS.FARM_TR_L_ID = WLVS.FARM_TR_L_ID AND FS.PGM_YR = WLVS.PGM_YR
-								  AND cast(WLVS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-								      AND cast(WLVS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') ) 
+								  AND cast(WLVS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+								      AND cast(WLVS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') ) 
 								  LEFT JOIN EDV.WL_PRES_RS WLS ON (FS.SRC_WL_PRES_CD = WLS.DMN_VAL_ID 
-								    AND cast(WLS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-								    AND cast(WLS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') ) 
+								    AND cast(WLS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+								    AND cast(WLS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') ) 
 								  
 								  LEFT JOIN EDV.WL_PRES_RH WLH ON (coalesce(WLS.WL_PRES_CD,'NULL IN SOURCE') = WLH.WL_PRES_CD)  
 								  LEFT JOIN FARM_DM_STG.WL_PRES_DIM WLD ON (
 								      WLH.DURB_ID = coalesce(WLD.WL_PRES_DURB_ID,-1) 
-								      AND cast(WLD.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-								      AND cast(WLD.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+								      AND cast(WLD.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+								      AND cast(WLD.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
 								  )  
 								  
 								  LEFT JOIN EDV.FARM_YR_HS FYHS ON (coalesce(FS.FARM_YR_ID, -1) = FYHS.FARM_YR_ID
-								  AND cast(FYHS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-								  AND cast(FYHS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+								  AND cast(FYHS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+								  AND cast(FYHS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
 								  ) 
 								  LEFT JOIN EDV.ARC_PLC_ELG_DTER_RH APEDRH ON (coalesce(FYHS.ARC_PLC_ELG_DTER_CD, '[NULL IN SOURCE]') = APEDRH.ARC_PLC_ELG_DTER_CD) 
 								  LEFT JOIN EDV.ARC_PLC_ELG_DTER_RS APEDRS ON (APEDRH.ARC_PLC_ELG_DTER_CD = coalesce(APEDRS.ARC_PLC_ELG_DTER_CD, '[NULL IN SOURCE]')
-								  AND cast(APEDRS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-								  AND cast(APEDRS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+								  AND cast(APEDRS.DATA_EFF_STRT_DT as date) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+								  AND cast(APEDRS.DATA_EFF_END_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
 								  ) 
 								  LEFT JOIN FARM_DM_STG.ARC_PLC_ELG_DTER_DIM APED_DIM ON (
 								      APEDRH.DURB_ID = APED_DIM.ARC_PLC_ELG_DTER_DURB_ID 
@@ -523,17 +523,17 @@ FROM        (
                                                 WHERE       SRC_RANK = 1 
                                             ) sub_2
                             ) DM_1 
-                WHERE       coalesce(FS_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
-                    AND     coalesce(LAS_ADM_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
-                    AND     coalesce(TRS_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
-                    AND     coalesce(LAS_LOC_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
-                    AND     coalesce(TR_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
-                    AND     coalesce(HS_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
-                    AND     coalesce(WLVS_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
-                    AND     coalesce(WLS_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-                    AND     coalesce(FYHS_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
+                WHERE       coalesce(FS_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
+                    AND     coalesce(LAS_ADM_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
+                    AND     coalesce(TRS_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
+                    AND     coalesce(LAS_LOC_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
+                    AND     coalesce(TR_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
+                    AND     coalesce(HS_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
+                    AND     coalesce(WLVS_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
+                    AND     coalesce(WLS_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+                    AND     coalesce(FYHS_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
                      
-                    AND     coalesce(APEDRS_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
+                    AND     coalesce(APEDRS_DATA_EFF_STRT_DT,TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
             ) DM 
 WHERE       DM.ROW_NUM_PART = 1
 )

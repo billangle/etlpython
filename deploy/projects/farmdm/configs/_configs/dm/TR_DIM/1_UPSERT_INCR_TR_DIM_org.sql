@@ -5,13 +5,13 @@ with upsert_data as
     
     SELECT /*+ parallel(4) */ distinct TR_H_ID incr_dr_id
 FROM EDV.TR_H
-Where trunc((TR_H.LOAD_DT)-1) = TO_TIMESTAMP ('{V_CDC_DT}', 'YYYY-MM-DD')
+Where trunc((TR_H.LOAD_DT)-1) = TO_TIMESTAMP ('{ETL_DATE}', 'YYYY-MM-DD')
 UNION
     
     SELECT      /*+ parallel(4) */ distinct TR_H_ID incr_dr_id
     FROM        EDV.TR_HS
-    WHERE       trunc(TR_HS.DATA_EFF_STRT_DT) =  TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
-        AND     trunc(TR_HS.DATA_EFF_END_DT) >  TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+    WHERE       trunc(TR_HS.DATA_EFF_STRT_DT) =  TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
+        AND     trunc(TR_HS.DATA_EFF_END_DT) >  TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
     
     UNION
     
@@ -21,8 +21,8 @@ UNION
     SELECT      /*+ parallel(4) */ distinct  TR_H_ID incr_dr_id
     FROM        EDV.LOC_AREA_MRT_SRC_RS, EDV.TR_H
     WHERE       (
-                    trunc(LOC_AREA_MRT_SRC_RS.DATA_EFF_STRT_DT) =  TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
-                    OR trunc(LOC_AREA_MRT_SRC_RS.DATA_EFF_END_DT) =   TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+                    trunc(LOC_AREA_MRT_SRC_RS.DATA_EFF_STRT_DT) =  TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
+                    OR trunc(LOC_AREA_MRT_SRC_RS.DATA_EFF_END_DT) =   TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
                 )
         AND     LOC_AREA_MRT_SRC_RS.CTRY_DIV_MRT_CD = TR_H.ST_FSA_CD
         AND     LOC_AREA_MRT_SRC_RS.LOC_AREA_MRT_CD = TR_H.CNTY_FSA_CD
@@ -36,8 +36,8 @@ UNION
     SELECT      /*+ parallel(4) */ distinct  TR_H_ID incr_dr_id
     FROM        EDV.LOC_AREA_MRT_SRC_RS, EDV.TR_HS
     WHERE       (
-                    trunc(LOC_AREA_MRT_SRC_RS.DATA_EFF_STRT_DT) =  TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
-                    OR trunc(LOC_AREA_MRT_SRC_RS.DATA_EFF_END_DT) =   TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+                    trunc(LOC_AREA_MRT_SRC_RS.DATA_EFF_STRT_DT) =  TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
+                    OR trunc(LOC_AREA_MRT_SRC_RS.DATA_EFF_END_DT) =   TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
                 )
         AND     LOC_AREA_MRT_SRC_RS.CTRY_DIV_MRT_CD = NVL(TR_HS.LOC_ST_FSA_CD,'--')
         AND     LOC_AREA_MRT_SRC_RS.LOC_AREA_MRT_CD = NVL(TR_HS.LOC_CNTY_FSA_CD,'--')
@@ -51,8 +51,8 @@ UNION
     SELECT  /*+ parallel(4) */ distinct  TR_H_ID incr_dr_id
     FROM    CMN_DIM_DM.CONG_DIST_DIM, EDV.TR_HS
     WHERE   (
-                trunc(CMN_DIM_DM.CONG_DIST_DIM.DATA_EFF_STRT_DT) =  TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
-                OR trunc(CMN_DIM_DM.CONG_DIST_DIM.DATA_EFF_END_DT) =   TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+                trunc(CMN_DIM_DM.CONG_DIST_DIM.DATA_EFF_STRT_DT) =  TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
+                OR trunc(CMN_DIM_DM.CONG_DIST_DIM.DATA_EFF_END_DT) =   TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
             )
         AND ( NVL(TR_HS.CONG_DIST_CD,'--') = NVL(CMN_DIM_DM.CONG_DIST_DIM.CONG_DIST_CD,'--') )
 
@@ -64,8 +64,8 @@ UNION
     SELECT      /*+ parallel(4) */ distinct  TR_H_ID incr_dr_id
     FROM        EDV.WL_CERT_CPLT_RS, EDV.TR_HS
     WHERE       (
-                    trunc(WL_CERT_CPLT_RS.DATA_EFF_STRT_DT) =  TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
-                    OR trunc(WL_CERT_CPLT_RS.DATA_EFF_END_DT) =   TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+                    trunc(WL_CERT_CPLT_RS.DATA_EFF_STRT_DT) =  TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
+                    OR trunc(WL_CERT_CPLT_RS.DATA_EFF_END_DT) =   TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
                 )
         AND     ( NVL(TR_HS.SRC_WL_CERT_CPLT_CD,-1) = NVL(WL_CERT_CPLT_RS.DMN_VAL_ID,-1) )
 )
@@ -144,15 +144,15 @@ From        (
                             LEFT JOIN CMN_DIM_DM.CONG_DIST_DIM CDS ON ( THS.LOC_ST_FSA_CD = NVL(CDS.ST_FSA_CD,'--')
                                                     AND NVL(THS.CONG_DIST_CD,'--') = NVL(CDS.CONG_DIST_CD,'--') 
                                                     AND TRUNC(CDS.DATA_EFF_END_DT) = TO_TIMESTAMP('9999-12-31','YYYY-MM-DD')
-                                                    AND TRUNC(CDS.DATA_EFF_STRT_DT) {=  TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD'))
+                                                    AND TRUNC(CDS.DATA_EFF_STRT_DT) {=  TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD'))
                                                     AND CUR_RCD_IND = 1
                             LEFT JOIN EDV.WL_CERT_CPLT_RS WLS ON ( NVL(THS.SRC_WL_CERT_CPLT_CD,-1) = NVL(WLS.DMN_VAL_ID,-1))
                 where       TH.TR_H_ID in (select incr_dr_ID FROM tab_incr_dr_ID)
-                    AND     nvl(trunc(THS.DATA_EFF_STRT_DT), TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <=  TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-                    AND     nvl(trunc(ADM.DATA_EFF_STRT_DT), TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-                    AND     nvl(trunc(LOC.DATA_EFF_STRT_DT), TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-                    AND     nvl(trunc(CDS.DATA_EFF_STRT_DT), TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
-                    AND     nvl(trunc(WLS.DATA_EFF_STRT_DT), TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+                    AND     nvl(trunc(THS.DATA_EFF_STRT_DT), TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <=  TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+                    AND     nvl(trunc(ADM.DATA_EFF_STRT_DT), TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+                    AND     nvl(trunc(LOC.DATA_EFF_STRT_DT), TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+                    AND     nvl(trunc(CDS.DATA_EFF_STRT_DT), TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
+                    AND     nvl(trunc(WLS.DATA_EFF_STRT_DT), TO_TIMESTAMP('1111-12-31','YYYY-MM-DD')) <= TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
                     AND     TH.DURB_ID IS NOT NULL
   
         ) dm

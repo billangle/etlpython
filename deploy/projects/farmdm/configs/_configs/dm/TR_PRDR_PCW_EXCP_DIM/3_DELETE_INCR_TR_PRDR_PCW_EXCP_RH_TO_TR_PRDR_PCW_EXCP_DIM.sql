@@ -1,7 +1,7 @@
 with incr_TR_PRDR_PCW_EXCP_DIM  as
          ( SELECT TR_PRDR_PCW_EXCP_CD dr_id   
             FROM  EDV.TR_PRDR_PCW_EXCP_RS
-            WHERE TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') = cast(data_eff_end_dt as date)            
+            WHERE TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') = cast(data_eff_end_dt as date)            
         )
 , del_data as (
 select 
@@ -29,8 +29,8 @@ from
     DMN_VAL_NM PCW_EXCP_NM,
     DMN_VAL_DESC PCW_EXCP_DESC
     from EDV.TR_PRDR_PCW_EXCP_RS
-    where TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') >= cast(data_eff_strt_dt as date)
-    AND TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') = cast(data_eff_end_dt as date) 
+    where TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') >= cast(data_eff_strt_dt as date)
+    AND TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') = cast(data_eff_end_dt as date) 
 ) sub_1
 ) RS
 ON (coalesce(dv_dr.TR_PRDR_PCW_EXCP_CD,'--') = coalesce(RS.PCW_EXCP_CD,'--') )

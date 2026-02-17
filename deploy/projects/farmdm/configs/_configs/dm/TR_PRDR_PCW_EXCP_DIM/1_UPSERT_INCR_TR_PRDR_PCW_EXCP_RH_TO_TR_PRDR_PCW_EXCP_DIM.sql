@@ -1,15 +1,15 @@
 with incr_TR_PRDR_PCW_EXCP_DIM  as
         ( SELECT TR_PRDR_PCW_EXCP_CD dr_id
             FROM EDV.TR_PRDR_PCW_EXCP_RH
-            WHERE   cast(LOAD_DT as date)-1 = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD')
+            WHERE   cast(LOAD_DT as date)-1 = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD')
             AND data_src_nm <> 'SYSGEN'                       
             
 			UNION            
             
 			SELECT TR_PRDR_PCW_EXCP_CD dr_id   
             FROM  EDV.TR_PRDR_PCW_EXCP_RS
-            WHERE  cast(DATA_EFF_STRT_DT as date) = TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') 
-            AND TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') < cast(data_eff_end_dt as date)            
+            WHERE  cast(DATA_EFF_STRT_DT as date) = TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') 
+            AND TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') < cast(data_eff_end_dt as date)            
         )
 , upsert_data as (
 select 
@@ -37,8 +37,8 @@ from
     DMN_VAL_NM PCW_EXCP_NM,
     DMN_VAL_DESC PCW_EXCP_DESC
     from EDV.TR_PRDR_PCW_EXCP_RS
-    where TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') >= cast(data_eff_strt_dt as date)
-    AND TO_TIMESTAMP('{V_CDC_DT}','YYYY-MM-DD') < cast(data_eff_end_dt as date) 
+    where TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') >= cast(data_eff_strt_dt as date)
+    AND TO_TIMESTAMP('{ETL_DATE}','YYYY-MM-DD') < cast(data_eff_end_dt as date) 
 ) sub_1
 ) RS
 ON (coalesce(dv_dr.TR_PRDR_PCW_EXCP_CD,'--') = coalesce(RS.PCW_EXCP_CD,'--') )

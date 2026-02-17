@@ -95,8 +95,9 @@
       "memory-size": 128,
       "timeout": 900,
       "layers": [
-        "arn:aws:lambda:us-east-1:241533156429:layer:FSA-DEV-MDART-layer:3",
-        "arn:aws:lambda:us-east-1:241533156429:layer:FSA-polars:2"
+        "arn:aws:lambda:us-east-1:241533156429:layer:FSA-MDART-layer-PROD:1",
+        "arn:aws:lambda:us-east-1:241533156429:layer:FSA-polars-PROD:1",
+        "arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2-PROD:1"
       ]
        
     }

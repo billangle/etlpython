@@ -83,6 +83,69 @@ def parse_networking(cfg: Dict[str, Any]) -> Tuple[List[str], List[str]]:
     return (subnet_ids, sg_ids)
 
 
+def parse_lambda_data_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Parse lambda-data configuration with defaults"""
+    lambda_data = cfg.get("lambda-data") or {}
+    
+    # Parse networking for lambda-data (separate from main networking)
+    subnet_ids, security_group_ids = parse_networking(lambda_data)
+    
+    # Parse environment variables
+    env_config = lambda_data.get("env") or {}
+    
+    # Parse database connections
+    db_connections = lambda_data.get("database-connections") or []
+    if not isinstance(db_connections, list):
+        db_connections = []
+    
+    # Extract security groups from database connections
+    db_security_groups = set()
+    db_env_vars = {}
+    
+    for i, db_conn in enumerate(db_connections):
+        if isinstance(db_conn, dict):
+            db_name = db_conn.get("name", f"db_{i}")
+            lambda_sg = db_conn.get("lambda-security_group")
+            db_sg = db_conn.get("db-security_group")
+            
+            # Add lambda security groups to the set
+            if lambda_sg:
+                db_security_groups.add(lambda_sg)
+            
+            # Add database connection info to environment variables
+            db_env_vars[f"DB_CONNECTION_{i}_NAME"] = db_name
+            if lambda_sg:
+                db_env_vars[f"DB_CONNECTION_{i}_LAMBDA_SG"] = lambda_sg
+            if db_sg:
+                db_env_vars[f"DB_CONNECTION_{i}_DB_SG"] = db_sg
+    
+    # Merge security groups from networking and database connections
+    all_security_groups = list(set(security_group_ids + list(db_security_groups)))
+    
+    # Parse other lambda configuration with defaults
+    memory_size = lambda_data.get("memory-size")
+    if memory_size is None or not isinstance(memory_size, int):
+        memory_size = 256  # Default AWS memory size
+    
+    timeout = lambda_data.get("timeout")
+    if timeout is None or not isinstance(timeout, int):
+        timeout = 30  # Default AWS timeout
+    
+    layers = lambda_data.get("layers") or []
+    if not isinstance(layers, list):
+        layers = []
+    
+    return {
+        "subnet_ids": subnet_ids,
+        "security_group_ids": all_security_groups,
+        "env_config": {**env_config, **db_env_vars},  # Merge env config with db connection vars
+        "database_connections": db_connections,
+        "memory_size": memory_size,
+        "timeout": timeout,
+        "layers": layers,
+    }
+
+
 def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     deploy_env = cfg["deployEnv"]
     project = cfg["project"]
@@ -294,6 +357,48 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         ),
     )
 
+    # ---- deploy lambda-data functions ----
+    lambda_data_config = parse_lambda_data_config(cfg)
+    lambda_data_root = project_dir / "lambda-data"
+    
+    # Environment variables for lambda-data functions (includes database connection info)
+    lambda_data_env = {
+        **base_env,
+        **lambda_data_config["env_config"],  # Includes env vars from lambda-data config + db connections
+    }
+    
+    # Define the 6 lambda-data functions to deploy  
+    lambda_data_functions = [
+        ("EchoFetchFlpidsLoad", f"FSA-{deploy_env}-{names.project_name}-EchoFetchFlpidsLoad"),
+        ("EchoFetchFlpidsNats", f"FSA-{deploy_env}-{names.project_name}-EchoFetchFlpidsNats"), 
+        ("EchoFetchFlpidsRpt", f"FSA-{deploy_env}-{names.project_name}-EchoFetchFlpidsRpt"),
+        ("EchoFetchFlpidsScims", f"FSA-{deploy_env}-{names.project_name}-EchoFetchFlpidsScims"),
+        ("EchoFetchRC540Monthly", f"FSA-{deploy_env}-{names.project_name}-EchoFetchRC540Monthly"),
+        ("EchoFetchRC540Weekly", f"FSA-{deploy_env}-{names.project_name}-EchoFetchRC540Weekly"),
+    ]
+    
+    lambda_data_arns = {}
+    for folder_name, function_name in lambda_data_functions:
+        arn = ensure_lambda(
+            lam,
+            LambdaSpec(
+                name=function_name,
+                role_arn=etl_lambda_role_arn,
+                handler="lambda_function.lambda_handler",
+                runtime="python3.12",
+                source_dir=str(lambda_data_root / folder_name),
+                env=lambda_data_env,
+                layers=lambda_data_config["layers"] or layers,  # Use lambda-data layers or fallback to default
+                subnet_ids=lambda_data_config["subnet_ids"],
+                security_group_ids=lambda_data_config["security_group_ids"],
+                memory=lambda_data_config["memory_size"],
+                timeout=lambda_data_config["timeout"],
+            ),
+        )
+        # Store with consistent key naming
+        key_name = folder_name.lower()
+        lambda_data_arns[f"{key_name}_lambda_arn"] = arn
+
     return {
         "checkfile_lambda_arn": checkfile_arn,
         "testfileloader_lambda_arn": testfileloader_arn,
@@ -307,4 +412,12 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         "filechecks_state_machine_arn": filechecks_sm_arn,
         "streamstartfilechecks_lambda_arn": streamstartfilechecks_arn,
         "realjobname_lambda_arn": realjobname_arn,
+        
+        # Lambda-data functions
+        "echofetchflpidsload_lambda_arn": lambda_data_arns.get("echofetchflpidsload_lambda_arn"),
+        "echofetchflpidsnats_lambda_arn": lambda_data_arns.get("echofetchflpidsnats_lambda_arn"),
+        "echofetchflpidsrpt_lambda_arn": lambda_data_arns.get("echofetchflpidsrpt_lambda_arn"),
+        "echofetchflpidsscims_lambda_arn": lambda_data_arns.get("echofetchflpidsscims_lambda_arn"),
+        "echofetchrc540monthly_lambda_arn": lambda_data_arns.get("echofetchrc540monthly_lambda_arn"),
+        "echofetchrc540weekly_lambda_arn": lambda_data_arns.get("echofetchrc540weekly_lambda_arn"),
     }

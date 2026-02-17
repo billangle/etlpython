@@ -49,7 +49,7 @@ def lambda_handler(event, context):
     s3_client = boto3.client("s3")
     meta_client = DARTDatabase.client(
         service="lambda",
-        glue_connection=f"FSA-PROD-PG-MDART", 
+        glue_connection=f"FSA-{env}-PG-MDART", 
         database="metadata_edw",
     )
     

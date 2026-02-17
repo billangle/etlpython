@@ -5,6 +5,9 @@ pipeline {
     AWS_REGION  = 'us-east-1'
     SECRET_NAME = 'FSA-CERT-Secrets'
     SECRET_ID   = 'FSA-CERT-Secrets'   // script uses SECRET_ID
+    FUNCTION_NAME = 'FSA-dev-FpacFLPIDSCHK-DynaCheckFile'
+    FTPS_PORT     = '990'
+    LAMBDA_ARN    = 'arn:aws:lambda:us-east-1:241533156429:function:FSA-dev-FpacFLPIDSCHK-EchoFetchRC540Weekly'
   }
 
   stages {

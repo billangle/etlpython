@@ -54,6 +54,51 @@
         "sg-06e3bf9b59cf6be6a",
         "sg-0906c3d7352c5889e"
       ]
+    },
+     "lambda-data": {
+        "networking": {
+        "vpcId": "vpc-05f9625eecaabbfd4",
+        "subnetIds": [
+          "subnet-0747a380ae7e7a755"
+        ],
+        "securityGroupIds": [
+          "sg-08c08369c066b61ec",
+          "sg-095cc861f7770b31a",
+          "sg-0168b401de58ea57f",
+          "sg-06e3bf9b59cf6be6a",
+          "sg-0906c3d7352c5889e"
+        ]
+      },
+      "env": {
+        "SecretId": "FSA-CERT-Secrets",
+        "SecretKey": "SecretString",
+        "env": "CERT"
+      },
+      "database-connections": [
+        {
+          "name": "disc-fsa-cert-db-pg-instance-1",
+          "lambda-security_group": "sg-095cc861f7770b31a",
+          "db-security_group": "sg-095cc861f7770b31a"
+        },
+        {
+          "name": "disc-fsa-dev-db-pg-instance-1",
+          "lambda-security_group": "sg-095cc861f7770b31a",
+          "db-security_group": "sg-095cc861f7770b31a"
+        },
+        {
+          "name": "disc-fsa-dev-db-oracle-oas",
+          "lambda-security_group":  "sg-095cc861f7770b31a",
+          "db-security_group": "sg-00c4a92e918e642d4"
+        }
+      ],
+      "ephemeral-storage-size": 512,
+      "memory-size": 128,
+      "timeout": 900,
+      "layers": [
+        "arn:aws:lambda:us-east-1:241533156429:layer:FSA-DEV-MDART-layer:3",
+        "arn:aws:lambda:us-east-1:241533156429:layer:FSA-polars:2"
+      ]
+       
     }
 
 }

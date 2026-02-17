@@ -348,7 +348,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
             name=names.streamstartfilechecks_fn,
             role_arn=etl_lambda_role_arn,
             handler="lambda_function.lambda_handler",
-            runtime="python3.12",
+            runtime="python3.11",
             source_dir=str(lambda_root / "StreamStartFileChecks"),
             env=stream_env,
             layers=layers,

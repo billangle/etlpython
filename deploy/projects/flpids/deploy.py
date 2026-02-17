@@ -379,6 +379,12 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     
     lambda_data_arns = {}
     for folder_name, function_name in lambda_data_functions:
+        # Create environment variables for this specific lambda function
+        lambda_env = {
+            **lambda_data_env,
+            "FUNCTION_NAME": function_name,  # Add the deployed function name as env var
+        }
+        
         arn = ensure_lambda(
             lam,
             LambdaSpec(
@@ -387,7 +393,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
                 handler="lambda_function.lambda_handler",
                 runtime="python3.11",
                 source_dir=str(lambda_data_root / folder_name),
-                env=lambda_data_env,
+                env=lambda_env,
                 layers=lambda_data_config["layers"] or layers,  # Use lambda-data layers or fallback to default
                 subnet_ids=lambda_data_config["subnet_ids"],
                 security_group_ids=lambda_data_config["security_group_ids"],

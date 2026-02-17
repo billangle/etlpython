@@ -53,7 +53,7 @@ def lambda_handler(event, context):
     s3_client = boto3.client("s3")
     meta_client = DARTDatabase.client(
         service="lambda",
-        glue_connection=f"FSA-{env}-PG-MDART", 
+        glue_connection=f"FSA-{env}-PG-DART114", 
         database="metadata_edw",
     )
     
@@ -116,7 +116,7 @@ def lambda_handler(event, context):
                 tgt_nm=file["target"],
                 data_eng_oper_nm="Lambda",
                 data_obj_type_nm=data_obj_type_nm,
-                data_obj_proc_rtn_nm=context.function_name,
+                data_obj_proc_rtn_nm=os.environ.get("FUNCTION_NAME", context.function_name),
                 env=env,
                 system_date=file["system_date"],
                 to_queue=to_queue,

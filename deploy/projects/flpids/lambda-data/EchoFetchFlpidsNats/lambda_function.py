@@ -177,7 +177,7 @@ def lambda_handler(event, context):
 
     env = os.environ["env"]
 
-    glue_connection_name = os.environ.get("GLUE_CONNECTION_NAME", "FSA-PROD-PG-MDART")
+    glue_connection_name = os.environ.get("GLUE_CONNECTION_NAME", f"FSA-{env}-PG-DART114")
     meta_db_name = os.environ.get("META_DB_NAME", "metadata_edw")
 
     if debug:
@@ -264,7 +264,7 @@ def lambda_handler(event, context):
                 tgt_nm=file["target"],
                 data_eng_oper_nm="Lambda",
                 data_obj_type_nm=data_obj_type_nm,
-                data_obj_proc_rtn_nm=context.function_name,
+                data_obj_proc_rtn_nm=os.environ.get("FUNCTION_NAME", context.function_name),
                 env=env,
                 system_date=file["system_date"],
                 to_queue=to_queue,

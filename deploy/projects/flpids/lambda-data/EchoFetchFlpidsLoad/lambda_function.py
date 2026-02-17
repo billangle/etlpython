@@ -47,6 +47,15 @@ def lambda_handler(event, context):
     print("Input event:\n", event)
     env = os.environ["env"]
     
+    # Debug logging for function name resolution
+    function_name_from_env = os.environ.get("FUNCTION_NAME")
+    function_name_from_context = context.function_name
+    function_name_to_use = function_name_from_env or function_name_from_context
+    
+    print(f"[DEBUG] FUNCTION_NAME env var: {function_name_from_env}")
+    print(f"[DEBUG] context.function_name: {function_name_from_context}")
+    print(f"[DEBUG] Function name to use: {function_name_to_use}")
+    
     s3_client = boto3.client("s3")
     meta_client = DARTDatabase.client(
         service="lambda",
@@ -105,6 +114,15 @@ def lambda_handler(event, context):
             else:
                 data_obj_type_nm = "Flat File"
             
+            # Debug the function name being used
+            function_name_env = os.environ.get("FUNCTION_NAME") 
+            function_name_context = context.function_name
+            function_name_final = function_name_env or function_name_context
+            
+            print(f"[DEBUG echo_file_transfer] FUNCTION_NAME env: '{function_name_env}'")
+            print(f"[DEBUG echo_file_transfer] context.function_name: '{function_name_context}'")
+            print(f"[DEBUG echo_file_transfer] Using function name: '{function_name_final}'")
+            
             with DARTSession(
                 client=meta_client,
                 job_id=context.log_stream_name,
@@ -113,7 +131,7 @@ def lambda_handler(event, context):
                 tgt_nm=file["target"],
                 data_eng_oper_nm="Lambda",
                 data_obj_type_nm=data_obj_type_nm,
-                data_obj_proc_rtn_nm=os.environ.get("FUNCTION_NAME", context.function_name),
+                data_obj_proc_rtn_nm=function_name_final,
                 env=env,
                 system_date=file["system_date"],
                 to_queue=to_queue,

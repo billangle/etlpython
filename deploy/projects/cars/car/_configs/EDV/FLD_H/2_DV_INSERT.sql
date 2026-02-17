@@ -28,9 +28,13 @@ INSERT INTO edv.FLD_H (FLD_H_ID, LOAD_DT, DATA_SRC_NM, ST_FSA_CD, CNTY_FSA_CD, F
                                                        FIELD.FLD_NBR
                                           ORDER BY FIELD.CDC_DT DESC, FIELD.LOAD_DT DESC) STG_EFF_DT_RANK
       FROM CARS_STG.FIELD
+
       WHERE FIELD.cdc_oper_cd IN ('I',
                                   'UN',
-                                  'D') ) stg
+                                  'D')
+        AND DATE (FIELD.CDC_DT) = DATE (TO_TIMESTAMP ('{ETL_START_TIMESTAMP}', 'YYYY-MM-DD HH24:MI:SS.FF'))
+        AND FIELD.LOAD_DT = TO_TIMESTAMP (TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD'), 'YYYY-MM-DD HH24:MI:SS.FF')
+
    LEFT JOIN edv.FLD_H dv ON (stg.FLD_H_ID = dv.FLD_H_ID)
    WHERE (dv.FLD_H_ID IS NULL)
      AND stg.STG_EFF_DT_RANK = 1 )

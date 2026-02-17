@@ -20,7 +20,7 @@ tract.tract_identifier AS TR_ID
 ,tract.op AS CDC_OPER_CD
 ,current_timestamp AS LOAD_DT
 ,'CARS_STG' AS DATA_SRC_NM
-,crop_acreage_report.dart_filedate AS CDC_DT
+,COALESCE(crop_acreage_report.dart_filedate, current_timestamp) AS CDC_DT
 FROM `fsa-{env}-cars-cdc`.`tract`
  LEFT JOIN  `fsa-{env}-cars`.`crop_acreage_report` ON (TRACT.crop_acreage_report_identifier = crop_acreage_report.crop_acreage_report_identifier)
 

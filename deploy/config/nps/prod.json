@@ -1,0 +1,276 @@
+{
+  "deployEnv": "PROD",
+  "project": "FWADM",
+  "region": "us-east-1",
+  "bucketRegion": "us-east-1",
+
+  "configData": {
+    "databaseName": "fwadm_dw",
+    "landingBucket": "c108-prod-fpacfsa-landing-zone",
+    "utilsPath": "dmart/fwadm_utils/utils.py"
+  },
+
+  "strparams": {
+    "glueJobRoleArnParam": "/FPAC/ETL/GlueJobRoleArn",
+    "stepFunctionRoleArnParam": "/FPAC/ETL/StepFunctionRoleArn"
+  },
+
+  "stepFunctions": {
+    "createRoleIfMissing": false,
+    "roleName": "disc-fsa-prod-stepfunction-servicerole",
+    "roleArn": "arn:aws:iam::253490756794:role/disc-fsa-prod-stepfunction-servicerole"
+  },
+
+  "sns": {
+    "topics": {
+      "FWADM_NPS": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-FWADM-NPS"
+    }
+  },
+    "configUpload": {
+    "functionName": "FSA-PROD-UploadConfig",
+    "sourceDir": "config",
+    "inputBucket": "fsa-prod-ops",
+    "inputPrefix": "input/zips",
+    "outputBucket": "c108-prod-fpacfsa-landing-zone",
+    "outputPrefix": "dmart",
+    "minExpectedObjects": 2,
+    "debug": true
+  },
+
+  "GlueConfig": [
+    {
+      "NPS_build_archive_table": {
+        "Connections": [
+          {
+            "ConnectionName": "FSA-PROD-PG-DART114",
+            "type": "JDBC",
+            "VpcId": "vpc-092b2aee3fba9e5e6",
+            "SubnetIds": "subnet-0d4691e36b391b17f",
+            "SecurityGroupIds": "sg-05e3e3fd000913769"
+          }
+        ],
+        "MaxConcurrency": "10",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "2880",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/nps/",
+        "NumberOfWorkers": "10",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+        "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--JOB_NAME": "NPS_build_archive_table",
+          "--area": "nps",
+          "--environ": "prod",
+          "--schema_name": "fwadm_dw",
+          "--force_full_rebuild": "False"
+        }
+      }
+    },
+    {
+      "payable_dim_tlincremental": {
+        "Connections": [
+          {
+            "ConnectionName": "FSA-PROD-PG-DART114",
+            "type": "JDBC",
+            "VpcId": "vpc-092b2aee3fba9e5e6",
+            "SubnetIds": "subnet-0d4691e36b391b17f",
+            "SecurityGroupIds": "sg-05e3e3fd000913769"
+          }
+        ],
+        "MaxConcurrency": "10",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "2880",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/nps/",
+        "NumberOfWorkers": "5",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+        "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--JOB_NAME": "payable_dim_tlincremental",
+          "--environ": "prod"
+        }
+      }
+    },
+    {
+      "payment_summary": {
+        "Connections": [
+          {
+            "ConnectionName": "FSA-PROD-PG-DART114",
+            "type": "JDBC",
+            "VpcId": "vpc-092b2aee3fba9e5e6",
+            "SubnetIds": "subnet-0d4691e36b391b17f",
+            "SecurityGroupIds": "sg-05e3e3fd000913769"
+          }
+        ],
+        "MaxConcurrency": "10",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "2880",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/nps/",
+        "NumberOfWorkers": "5",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+        "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--JOB_NAME": "payment_summary",
+          "--environ": "prod"
+        }
+      }
+    },
+    {
+      "payment_transaction_fact_final": {
+        "Connections": [
+          {
+            "ConnectionName": "FSA-PROD-PG-DART114",
+            "type": "JDBC",
+            "VpcId": "vpc-092b2aee3fba9e5e6",
+            "SubnetIds": "subnet-0d4691e36b391b17f",
+            "SecurityGroupIds": "sg-05e3e3fd000913769"
+          }
+        ],
+        "MaxConcurrency": "10",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "4880",
+        "WorkerType": "G.4X",
+        "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/nps/",
+        "NumberOfWorkers": "20",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+        "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--JOB_NAME": "payment_transaction_fact_final",
+          "--environ": "prod"
+        }
+      }
+    },
+    {
+      "payment_transaction_fact_part1": {
+        "Connections": [
+          {
+            "ConnectionName": "FSA-PROD-PG-DART114",
+            "type": "JDBC",
+            "VpcId": "vpc-092b2aee3fba9e5e6",
+            "SubnetIds": "subnet-0d4691e36b391b17f",
+            "SecurityGroupIds": "sg-05e3e3fd000913769"
+          }
+        ],
+        "MaxConcurrency": "10",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "2880",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/nps/",
+        "NumberOfWorkers": "10",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+        "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--JOB_NAME": "payment_transaction_fact_part1",
+          "--environ": "prod"
+        }
+      }
+    },
+    {
+      "payment_transaction_fact_part2": {
+        "Connections": [
+          {
+            "ConnectionName": "FSA-PROD-PG-DART114",
+            "type": "JDBC",
+            "VpcId": "vpc-092b2aee3fba9e5e6",
+            "SubnetIds": "subnet-0d4691e36b391b17f",
+            "SecurityGroupIds": "sg-05e3e3fd000913769"
+          }
+        ],
+        "MaxConcurrency": "10",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "2880",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/nps/",
+        "NumberOfWorkers": "10",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+        "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--JOB_NAME": "payment_transaction_fact_part2",
+          "--environ": "prod"
+        }
+      }
+    },
+    {
+      "payment_transaction_fact_part3": {
+        "Connections": [
+          {
+            "ConnectionName": "FSA-PROD-PG-DART114",
+            "type": "JDBC",
+            "VpcId": "vpc-092b2aee3fba9e5e6",
+            "SubnetIds": "subnet-0d4691e36b391b17f",
+            "SecurityGroupIds": "sg-05e3e3fd000913769"
+          }
+        ],
+        "MaxConcurrency": "10",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "2880",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/nps/",
+        "NumberOfWorkers": "10",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+        "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--JOB_NAME": "payment_transaction_fact_part3",
+          "--environ": "prod"
+        }
+      }
+    }
+  ]
+}

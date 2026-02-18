@@ -14,14 +14,14 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
-                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "JobName.$": "$.glue_jobs.NPS_build_archive_table",
                 "Arguments": {
                   "--dbtable": "qct01pybl",
                   "--area": "nps",
-                  "--environ": "dev",
+                  "--environ.$": "$.env",
                   "--schema_name": "fwadm_dw",
                   "--force_full_rebuild": "False",
-                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                  "--utils.$": "States.Format('s3://{}/dmart/fwadm_utils/utils.py', $.bucket_name)"
                 }
               },
               "Next": "Choice_qct01pybl",
@@ -50,7 +50,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::sns:publish",
               "Parameters": {
-                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "TopicArn.$": "$.sns_topics.FWADM_NPS",
                 "Message": "qct01pybl Load Failed"
               },
               "End": true,
@@ -74,14 +74,14 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
-                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "JobName.$": "$.glue_jobs.NPS_build_archive_table",
                 "Arguments": {
                   "--dbtable": "receivable_balance_detail",
                   "--area": "nrrs",
-                  "--environ": "dev",
+                  "--environ.$": "$.env",
                   "--schema_name": "fwadm_dw",
                   "--force_full_rebuild": "False",
-                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                  "--utils.$": "States.Format('s3://{}/dmart/fwadm_utils/utils.py', $.bucket_name)"
                 }
               },
               "Next": "Choice_receivable_balance_detail",
@@ -110,7 +110,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::sns:publish",
               "Parameters": {
-                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "TopicArn.$": "$.sns_topics.FWADM_NPS",
                 "Message": "receivable_balance_detail Load Failed"
               },
               "End": true,
@@ -134,14 +134,14 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
-                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "JobName.$": "$.glue_jobs.NPS_build_archive_table",
                 "Arguments": {
                   "--dbtable": "gl_transaction_queue",
                   "--area": "nrrs",
-                  "--environ": "dev",
+                  "--environ.$": "$.env",
                   "--schema_name": "fwadm_dw",
                   "--force_full_rebuild": "False",
-                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                  "--utils.$": "States.Format('s3://{}/dmart/fwadm_utils/utils.py', $.bucket_name)"
                 }
               },
               "Next": "Choice_gl_transaction_queue",
@@ -170,7 +170,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::sns:publish",
               "Parameters": {
-                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "TopicArn.$": "$.sns_topics.FWADM_NPS",
                 "Message": "gl_transaction_queue Load Failed"
               },
               "End": true,
@@ -194,14 +194,14 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
-                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "JobName.$": "$.glue_jobs.NPS_build_archive_table",
                 "Arguments": {
                   "--dbtable": "gl_transaction_queue_archive",
                   "--area": "nrrs",
-                  "--environ": "dev",
+                  "--environ.$": "$.env",
                   "--schema_name": "fwadm_dw",
                   "--force_full_rebuild": "False",
-                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                  "--utils.$": "States.Format('s3://{}/dmart/fwadm_utils/utils.py', $.bucket_name)"
                 }
               },
               "Next": "Choice_gl_transaction_queue_archive",
@@ -230,7 +230,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::sns:publish",
               "Parameters": {
-                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "TopicArn.$": "$.sns_topics.FWADM_NPS",
                 "Message": "gl_transaction_queue_archive Load Failed"
               },
               "End": true,
@@ -254,14 +254,14 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
-                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "JobName.$": "$.glue_jobs.NPS_build_archive_table",
                 "Arguments": {
                   "--dbtable": "receivable",
                   "--area": "nrrs",
-                  "--environ": "dev",
+                  "--environ.$": "$.env",
                   "--schema_name": "fwadm_dw",
                   "--force_full_rebuild": "False",
-                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                  "--utils.$": "States.Format('s3://{}/dmart/fwadm_utils/utils.py', $.bucket_name)"
                 }
               },
               "Next": "Choice_receivable",
@@ -290,7 +290,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::sns:publish",
               "Parameters": {
-                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "TopicArn.$": "$.sns_topics.FWADM_NPS",
                 "Message": "receivable Load Failed"
               },
               "End": true,
@@ -314,14 +314,14 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
-                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "JobName.$": "$.glue_jobs.NPS_build_archive_table",
                 "Arguments": {
                   "--dbtable": "qct03disb",
                   "--area": "nps",
-                  "--environ": "dev",
+                  "--environ.$": "$.env",
                   "--schema_name": "fwadm_dw",
                   "--force_full_rebuild": "False",
-                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                  "--utils.$": "States.Format('s3://{}/dmart/fwadm_utils/utils.py', $.bucket_name)"
                 }
               },
               "Next": "Choice_qct03disb",
@@ -350,7 +350,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::sns:publish",
               "Parameters": {
-                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "TopicArn.$": "$.sns_topics.FWADM_NPS",
                 "Message": "qct03disb Load Failed"
               },
               "End": true,
@@ -374,14 +374,14 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
-                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "JobName.$": "$.glue_jobs.NPS_build_archive_table",
                 "Arguments": {
                   "--dbtable": "qct36cnfrm",
                   "--area": "nps",
-                  "--environ": "dev",
+                  "--environ.$": "$.env",
                   "--schema_name": "fwadm_dw",
                   "--force_full_rebuild": "False",
-                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                  "--utils.$": "States.Format('s3://{}/dmart/fwadm_utils/utils.py', $.bucket_name)"
                 }
               },
               "Next": "Choice_qct36cnfrm",
@@ -410,7 +410,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::sns:publish",
               "Parameters": {
-                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "TopicArn.$": "$.sns_topics.FWADM_NPS",
                 "Message": "qct36cnfrm Load Failed"
               },
               "End": true,
@@ -441,14 +441,14 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
-                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "JobName.$": "$.glue_jobs.NPS_build_archive_table",
                 "Arguments": {
                   "--dbtable": "qct45senttrsryrqst",
                   "--area": "nps",
-                  "--environ": "dev",
+                  "--environ.$": "$.env",
                   "--schema_name": "fwadm_dw",
                   "--force_full_rebuild": "False",
-                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                  "--utils.$": "States.Format('s3://{}/dmart/fwadm_utils/utils.py', $.bucket_name)"
                 }
               },
               "Next": "Choice_qct45senttrsryrqst",
@@ -477,7 +477,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::sns:publish",
               "Parameters": {
-                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "TopicArn.$": "$.sns_topics.FWADM_NPS",
                 "Message": "qct45senttrsryrqst Load Failed"
               },
               "End": true,
@@ -501,14 +501,14 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
-                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "JobName.$": "$.glue_jobs.NPS_build_archive_table",
                 "Arguments": {
                   "--dbtable": "qct48_pybl_drv",
                   "--area": "nps",
-                  "--environ": "dev",
+                  "--environ.$": "$.env",
                   "--schema_name": "fwadm_dw",
                   "--force_full_rebuild": "False",
-                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                  "--utils.$": "States.Format('s3://{}/dmart/fwadm_utils/utils.py', $.bucket_name)"
                 }
               },
               "Next": "Choice_qct48_pybl_drv",
@@ -537,7 +537,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::sns:publish",
               "Parameters": {
-                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "TopicArn.$": "$.sns_topics.FWADM_NPS",
                 "Message": "qct48_pybl_drv Load Failed"
               },
               "End": true,
@@ -561,14 +561,14 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
-                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "JobName.$": "$.glue_jobs.NPS_build_archive_table",
                 "Arguments": {
                   "--dbtable": "qct27acctp",
                   "--area": "nps",
-                  "--environ": "dev",
+                  "--environ.$": "$.env",
                   "--schema_name": "fwadm_dw",
                   "--force_full_rebuild": "False",
-                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                  "--utils.$": "States.Format('s3://{}/dmart/fwadm_utils/utils.py', $.bucket_name)"
                 }
               },
               "Next": "Choice_qct27acctp",
@@ -597,7 +597,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::sns:publish",
               "Parameters": {
-                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "TopicArn.$": "$.sns_topics.FWADM_NPS",
                 "Message": "qct27acctp Load Failed"
               },
               "End": true,
@@ -621,14 +621,14 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
-                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "JobName.$": "$.glue_jobs.NPS_build_archive_table",
                 "Arguments": {
                   "--dbtable": "qct09corexref",
                   "--area": "nps",
-                  "--environ": "dev",
+                  "--environ.$": "$.env",
                   "--schema_name": "fwadm_dw",
                   "--force_full_rebuild": "False",
-                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                  "--utils.$": "States.Format('s3://{}/dmart/fwadm_utils/utils.py', $.bucket_name)"
                 }
               },
               "Next": "Choice_qct09corexref",
@@ -657,7 +657,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::sns:publish",
               "Parameters": {
-                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "TopicArn.$": "$.sns_topics.FWADM_NPS",
                 "Message": "qct09corexref Load Failed"
               },
               "End": true,
@@ -681,14 +681,14 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
-                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "JobName.$": "$.glue_jobs.NPS_build_archive_table",
                 "Arguments": {
                   "--dbtable": "qct44disbtrsryrqst",
                   "--area": "nps",
-                  "--environ": "dev",
+                  "--environ.$": "$.env",
                   "--schema_name": "fwadm_dw",
                   "--force_full_rebuild": "False",
-                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                  "--utils.$": "States.Format('s3://{}/dmart/fwadm_utils/utils.py', $.bucket_name)"
                 }
               },
               "Next": "Choice_qct44disbtrsryrqst",
@@ -717,7 +717,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::sns:publish",
               "Parameters": {
-                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "TopicArn.$": "$.sns_topics.FWADM_NPS",
                 "Message": "qct44disbtrsryrqst Load Failed"
               },
               "End": true,

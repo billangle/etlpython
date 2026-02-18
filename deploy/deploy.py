@@ -14,13 +14,14 @@ from projects.fmmi.deploy import deploy as fmmi_deploy
 from projects.cnsv.deploy_base import deploy as cnsv_deploy_base  
 from projects.cnsv.deploy_maint import deploy as snsv_deploy_maint
 from projects.cnsv.deploy_pymts import deploy as cnsv_deploy_pymts
+from projects.nps.deploy import deploy as nps_deploy
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
     ap.add_argument("--region", required=True)
-    ap.add_argument("--project-type", default="fpac", choices=["fpac","farmrec","flpids","tsthooks","cars","carsdm","sbsd","pmrds","fmmi","cnsvbase","cnsvmaint","cnsvpymts"])
+    ap.add_argument("--project-type", default="fpac", choices=["fpac","farmrec","flpids","tsthooks","cars","carsdm","sbsd","pmrds","fmmi","cnsvbase","cnsvmaint","cnsvpymts","nps"])
     args = ap.parse_args()
 
     cfg = read_json(args.config)
@@ -49,12 +50,21 @@ def main() -> int:
         summary = snsv_deploy_maint(cfg, args.region)
     elif args.project_type == "cnsvpymts":
         summary = cnsv_deploy_pymts(cfg, args.region)
+    elif args.project_type == "nps":
+        summary = nps_deploy(cfg, args.region)
     else:
         raise RuntimeError(f"Unknown project-type: {args.project_type}")
 
     print("\nDEPLOY SUMMARY")
     for k, v in summary.items():
-        print(f"  {k}: {v}")
+        if isinstance(v, dict):
+            for sk, sv in v.items():
+                print(f"  {k}.{sk}: {sv}")
+        elif isinstance(v, list):
+            for item in v:
+                print(f"  [{k}]: {item}")
+        else:
+            print(f"  {k}: {v}")
 
     return 0
 

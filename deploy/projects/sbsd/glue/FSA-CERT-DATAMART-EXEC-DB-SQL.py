@@ -825,6 +825,41 @@ def write_to_postgres(db, df, schema, table_name):
 # POSTGRES LAYER PROCESSING (EDV, EBV, DM)
 # =============================================================================
 
+#added new chunking function here
+
+def execute_insert_in_chunks(
+    db,
+    base_insert_sql: str,
+    chunk_size: int = 50000,
+    order_by: str = None
+):
+    """
+    Executes INSERT ... SELECT in chunks using LIMIT / OFFSET.
+    Assumes base_insert_sql is an INSERT INTO ... SELECT ... statement.
+    """
+
+    offset = 0
+    total_rows = 0
+
+    while True:
+        paged_sql = f"""
+        {base_insert_sql}
+        {f"ORDER BY {order_by}" if order_by else ""}
+        LIMIT {chunk_size} OFFSET {offset}
+        """
+
+        rows = db.execute(query=paged_sql, data=False, commit=True)
+
+        if rows == 0:
+            break
+
+        total_rows += rows
+        offset += chunk_size
+
+        print(f"Inserted {rows} rows (total: {total_rows})")
+
+    return total_rows
+
 def process_postgres_layer(db, run_type, sqlfs, table_name, layer, start_date, end_date):
     """
     Process PostgreSQL-based layer (EDV, EBV, DM).

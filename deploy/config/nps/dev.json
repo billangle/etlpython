@@ -18,12 +18,12 @@
   "stepFunctions": {
     "createRoleIfMissing": false,
     "roleName": "disc-fsa-dev-stepfunction-servicerole",
-    "roleArn": "arn:aws:iam::662519022378:role/disc-fsa-dev-stepfunction-servicerole"
+    "roleArn": "arn:aws:iam::241533156429:role/disc-fsa-dev-stepfunction-servicerole"
   },
 
   "sns": {
     "topics": {
-      "FWADM_NPS": "arn:aws:sns:us-east-1:662519022378:FSA-DEV-FWADM-NPS"
+      "FWADM_NPS": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-FWADM-NPS"
     }
   },
   "configUpload": {

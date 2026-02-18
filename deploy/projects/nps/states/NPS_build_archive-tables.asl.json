@@ -1,0 +1,740 @@
+{
+  "Comment": "A description of my state machine",
+  "StartAt": "First_Set",
+  "States": {
+    "First_Set": {
+      "Type": "Parallel",
+      "Next": "Second_Set",
+      "ResultPath": "$.layer1_results",
+      "Branches": [
+        {
+          "StartAt": "qct01pybl",
+          "States": {
+            "qct01pybl": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "Arguments": {
+                  "--dbtable": "qct01pybl",
+                  "--area": "nps",
+                  "--environ": "dev",
+                  "--schema_name": "fwadm_dw",
+                  "--force_full_rebuild": "False",
+                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                }
+              },
+              "Next": "Choice_qct01pybl",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Choice_qct01pybl",
+                  "ResultPath": "$.failed"
+                }
+              ]
+            },
+            "Choice_qct01pybl": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.failed",
+                  "IsPresent": true,
+                  "Next": "SNS_qct01pybl"
+                }
+              ],
+              "Default": "Pass_qct01pybl"
+            },
+            "SNS_qct01pybl": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "Message": "qct01pybl Load Failed"
+              },
+              "End": true,
+              "ResultSelector": {
+                "failed_qct01pybl": true
+              }
+            },
+            "Pass_qct01pybl": {
+              "Type": "Pass",
+              "End": true,
+              "Result": {
+                "pass_qct01pybl": true
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "receivable_balance_detail",
+          "States": {
+            "receivable_balance_detail": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "Arguments": {
+                  "--dbtable": "receivable_balance_detail",
+                  "--area": "nrrs",
+                  "--environ": "dev",
+                  "--schema_name": "fwadm_dw",
+                  "--force_full_rebuild": "False",
+                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                }
+              },
+              "Next": "Choice_receivable_balance_detail",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Choice_receivable_balance_detail",
+                  "ResultPath": "$.failed"
+                }
+              ]
+            },
+            "Choice_receivable_balance_detail": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.failed",
+                  "IsPresent": true,
+                  "Next": "SNS_receivable_balance_detail"
+                }
+              ],
+              "Default": "Pass_receivable_balance_detail"
+            },
+            "SNS_receivable_balance_detail": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "Message": "receivable_balance_detail Load Failed"
+              },
+              "End": true,
+              "ResultSelector": {
+                "failed_receivable_balance_detail": true
+              }
+            },
+            "Pass_receivable_balance_detail": {
+              "Type": "Pass",
+              "End": true,
+              "Result": {
+                "pass_receivable_balance_detail": true
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "gl_transaction_queue",
+          "States": {
+            "gl_transaction_queue": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "Arguments": {
+                  "--dbtable": "gl_transaction_queue",
+                  "--area": "nrrs",
+                  "--environ": "dev",
+                  "--schema_name": "fwadm_dw",
+                  "--force_full_rebuild": "False",
+                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                }
+              },
+              "Next": "Choice_gl_transaction_queue",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Choice_gl_transaction_queue",
+                  "ResultPath": "$.failed"
+                }
+              ]
+            },
+            "Choice_gl_transaction_queue": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.failed",
+                  "IsPresent": true,
+                  "Next": "SNS_gl_transaction_queue"
+                }
+              ],
+              "Default": "Pass_gl_transaction_queue"
+            },
+            "SNS_gl_transaction_queue": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "Message": "gl_transaction_queue Load Failed"
+              },
+              "End": true,
+              "ResultSelector": {
+                "failed_gl_transaction_queue": true
+              }
+            },
+            "Pass_gl_transaction_queue": {
+              "Type": "Pass",
+              "End": true,
+              "Result": {
+                "pass_gl_transaction_queue": true
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "gl_transaction_queue_archive",
+          "States": {
+            "gl_transaction_queue_archive": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "Arguments": {
+                  "--dbtable": "gl_transaction_queue_archive",
+                  "--area": "nrrs",
+                  "--environ": "dev",
+                  "--schema_name": "fwadm_dw",
+                  "--force_full_rebuild": "False",
+                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                }
+              },
+              "Next": "Choice_gl_transaction_queue_archive",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Choice_gl_transaction_queue_archive",
+                  "ResultPath": "$.failed"
+                }
+              ]
+            },
+            "Choice_gl_transaction_queue_archive": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.failed",
+                  "IsPresent": true,
+                  "Next": "SNS_gl_transaction_queue_archive"
+                }
+              ],
+              "Default": "Pass_gl_transaction_queue_archive"
+            },
+            "SNS_gl_transaction_queue_archive": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "Message": "gl_transaction_queue_archive Load Failed"
+              },
+              "End": true,
+              "ResultSelector": {
+                "failed_gl_transaction_queue_archive": true
+              }
+            },
+            "Pass_gl_transaction_queue_archive": {
+              "Type": "Pass",
+              "End": true,
+              "Result": {
+                "pass_gl_transaction_queue_archive": true
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "receivable",
+          "States": {
+            "receivable": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "Arguments": {
+                  "--dbtable": "receivable",
+                  "--area": "nrrs",
+                  "--environ": "dev",
+                  "--schema_name": "fwadm_dw",
+                  "--force_full_rebuild": "False",
+                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                }
+              },
+              "Next": "Choice_receivable",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Choice_receivable",
+                  "ResultPath": "$.failed"
+                }
+              ]
+            },
+            "Choice_receivable": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.failed",
+                  "IsPresent": true,
+                  "Next": "SNS_receivable"
+                }
+              ],
+              "Default": "Pass_receivable"
+            },
+            "SNS_receivable": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "Message": "receivable Load Failed"
+              },
+              "End": true,
+              "ResultSelector": {
+                "failed_receivable": true
+              }
+            },
+            "Pass_receivable": {
+              "Type": "Pass",
+              "End": true,
+              "Result": {
+                "pass_receivable": true
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "qct03disb",
+          "States": {
+            "qct03disb": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "Arguments": {
+                  "--dbtable": "qct03disb",
+                  "--area": "nps",
+                  "--environ": "dev",
+                  "--schema_name": "fwadm_dw",
+                  "--force_full_rebuild": "False",
+                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                }
+              },
+              "Next": "Choice_qct03disb",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Choice_qct03disb",
+                  "ResultPath": "$.failed"
+                }
+              ]
+            },
+            "Choice_qct03disb": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.failed",
+                  "IsPresent": true,
+                  "Next": "SNS_qct03disb"
+                }
+              ],
+              "Default": "Pass_qct03disb"
+            },
+            "SNS_qct03disb": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "Message": "qct03disb Load Failed"
+              },
+              "End": true,
+              "ResultSelector": {
+                "failed_qct03disb": true
+              }
+            },
+            "Pass_qct03disb": {
+              "Type": "Pass",
+              "End": true,
+              "Result": {
+                "pass_qct03disb": true
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "qct36cnfrm",
+          "States": {
+            "qct36cnfrm": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "Arguments": {
+                  "--dbtable": "qct36cnfrm",
+                  "--area": "nps",
+                  "--environ": "dev",
+                  "--schema_name": "fwadm_dw",
+                  "--force_full_rebuild": "False",
+                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                }
+              },
+              "Next": "Choice_qct36cnfrm",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Choice_qct36cnfrm",
+                  "ResultPath": "$.failed"
+                }
+              ]
+            },
+            "Choice_qct36cnfrm": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.failed",
+                  "IsPresent": true,
+                  "Next": "SNS_qct36cnfrm"
+                }
+              ],
+              "Default": "Pass_qct36cnfrm"
+            },
+            "SNS_qct36cnfrm": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "Message": "qct36cnfrm Load Failed"
+              },
+              "End": true,
+              "ResultSelector": {
+                "failed_qct36cnfrm": true
+              }
+            },
+            "Pass_qct36cnfrm": {
+              "Type": "Pass",
+              "End": true,
+              "Result": {
+                "pass_qct36cnfrm": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Second_Set": {
+      "Type": "Parallel",
+      "End": true,
+      "ResultPath": "$.layer2_results",
+      "Branches": [
+        {
+          "StartAt": "qct45senttrsryrqst",
+          "States": {
+            "qct45senttrsryrqst": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "Arguments": {
+                  "--dbtable": "qct45senttrsryrqst",
+                  "--area": "nps",
+                  "--environ": "dev",
+                  "--schema_name": "fwadm_dw",
+                  "--force_full_rebuild": "False",
+                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                }
+              },
+              "Next": "Choice_qct45senttrsryrqst",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Choice_qct45senttrsryrqst",
+                  "ResultPath": "$.failed"
+                }
+              ]
+            },
+            "Choice_qct45senttrsryrqst": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.failed",
+                  "IsPresent": true,
+                  "Next": "SNS_qct45senttrsryrqst"
+                }
+              ],
+              "Default": "Pass_qct45senttrsryrqst"
+            },
+            "SNS_qct45senttrsryrqst": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "Message": "qct45senttrsryrqst Load Failed"
+              },
+              "End": true,
+              "ResultSelector": {
+                "failed_qct45senttrsryrqst": true
+              }
+            },
+            "Pass_qct45senttrsryrqst": {
+              "Type": "Pass",
+              "End": true,
+              "Result": {
+                "pass_qct45senttrsryrqst": true
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "qct48_pybl_drv",
+          "States": {
+            "qct48_pybl_drv": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "Arguments": {
+                  "--dbtable": "qct48_pybl_drv",
+                  "--area": "nps",
+                  "--environ": "dev",
+                  "--schema_name": "fwadm_dw",
+                  "--force_full_rebuild": "False",
+                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                }
+              },
+              "Next": "Choice_qct48_pybl_drv",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Choice_qct48_pybl_drv",
+                  "ResultPath": "$.failed"
+                }
+              ]
+            },
+            "Choice_qct48_pybl_drv": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.failed",
+                  "IsPresent": true,
+                  "Next": "SNS_qct48_pybl_drv"
+                }
+              ],
+              "Default": "Pass_qct48_pybl_drv"
+            },
+            "SNS_qct48_pybl_drv": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "Message": "qct48_pybl_drv Load Failed"
+              },
+              "End": true,
+              "ResultSelector": {
+                "failed_qct48_pybl_drv": true
+              }
+            },
+            "Pass_qct48_pybl_drv": {
+              "Type": "Pass",
+              "End": true,
+              "Result": {
+                "pass_qct48_pybl_drv": true
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "qct27acctp",
+          "States": {
+            "qct27acctp": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "Arguments": {
+                  "--dbtable": "qct27acctp",
+                  "--area": "nps",
+                  "--environ": "dev",
+                  "--schema_name": "fwadm_dw",
+                  "--force_full_rebuild": "False",
+                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                }
+              },
+              "Next": "Choice_qct27acctp",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Choice_qct27acctp",
+                  "ResultPath": "$.failed"
+                }
+              ]
+            },
+            "Choice_qct27acctp": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.failed",
+                  "IsPresent": true,
+                  "Next": "SNS_qct27acctp"
+                }
+              ],
+              "Default": "Pass_qct27acctp"
+            },
+            "SNS_qct27acctp": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "Message": "qct27acctp Load Failed"
+              },
+              "End": true,
+              "ResultSelector": {
+                "failed_qct27acctp": true
+              }
+            },
+            "Pass_qct27acctp": {
+              "Type": "Pass",
+              "End": true,
+              "Result": {
+                "pass_qct27acctp": true
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "qct09corexref",
+          "States": {
+            "qct09corexref": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "Arguments": {
+                  "--dbtable": "qct09corexref",
+                  "--area": "nps",
+                  "--environ": "dev",
+                  "--schema_name": "fwadm_dw",
+                  "--force_full_rebuild": "False",
+                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                }
+              },
+              "Next": "Choice_qct09corexref",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Choice_qct09corexref",
+                  "ResultPath": "$.failed"
+                }
+              ]
+            },
+            "Choice_qct09corexref": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.failed",
+                  "IsPresent": true,
+                  "Next": "SNS_qct09corexref"
+                }
+              ],
+              "Default": "Pass_qct09corexref"
+            },
+            "SNS_qct09corexref": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "Message": "qct09corexref Load Failed"
+              },
+              "End": true,
+              "ResultSelector": {
+                "failed_qct09corexref": true
+              }
+            },
+            "Pass_qct09corexref": {
+              "Type": "Pass",
+              "End": true,
+              "Result": {
+                "pass_qct09corexref": true
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "qct44disbtrsryrqst",
+          "States": {
+            "qct44disbtrsryrqst": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "FSA-DEV-FWADM-NPS_build_archive_table",
+                "Arguments": {
+                  "--dbtable": "qct44disbtrsryrqst",
+                  "--area": "nps",
+                  "--environ": "dev",
+                  "--schema_name": "fwadm_dw",
+                  "--force_full_rebuild": "False",
+                  "--utils": "s3://c108-dev-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py"
+                }
+              },
+              "Next": "Choice_qct44disbtrsryrqst",
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "Choice_qct44disbtrsryrqst",
+                  "ResultPath": "$.failed"
+                }
+              ]
+            },
+            "Choice_qct44disbtrsryrqst": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.failed",
+                  "IsPresent": true,
+                  "Next": "SNS_qct44disbtrsryrqst"
+                }
+              ],
+              "Default": "Pass_qct44disbtrsryrqst"
+            },
+            "SNS_qct44disbtrsryrqst": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "arn:aws:sns:us-gov-west-1:662519022378:FSA-DEV-FWADM-NPS",
+                "Message": "qct44disbtrsryrqst Load Failed"
+              },
+              "End": true,
+              "ResultSelector": {
+                "failed_qct44disbtrsryrqst": true
+              }
+            },
+            "Pass_qct44disbtrsryrqst": {
+              "Type": "Pass",
+              "End": true,
+              "Result": {
+                "pass_qct44disbtrsryrqst": true
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

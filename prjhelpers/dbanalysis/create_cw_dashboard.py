@@ -87,13 +87,15 @@ def graph_widget(title: str, metrics: list, x: int, y: int,
                  annotations: list = None,
                  view: str = "timeSeries",
                  left_label: str = None,
-                 stat: str = "Average") -> dict:
+                 stat: str = "Average",
+                 region: str = DEFAULT_REGION) -> dict:
     props = {
         "view": view,
         "stacked": False,
         "metrics": metrics,
         "period": DEFAULT_PERIOD,
         "title": title,
+        "region": region,
     }
     if annotations:
         props["annotations"] = {"horizontal": annotations}
@@ -146,6 +148,8 @@ def build_dashboard(cluster_id: str, writer: str, reader: str,
     ns = "AWS/RDS"
     widgets = []
     y = 0
+    # Local wrapper so every graph_widget call automatically gets the correct region
+    gw = lambda **kw: graph_widget(region=region, **kw)
 
     # ── Header ──────────────────────────────────────────────────────────────
     widgets.append(text_widget(
@@ -170,7 +174,7 @@ def build_dashboard(cluster_id: str, writer: str, reader: str,
     ))
     y += 2
 
-    widgets.append(graph_widget(
+    widgets.append(gw(
         title="ACUUtilization (% of max ACU)",
         metrics=[
             metric(ns, "ACUUtilization", cluster_dim(cluster_id),
@@ -184,7 +188,7 @@ def build_dashboard(cluster_id: str, writer: str, reader: str,
         x=0, y=y, width=12, height=6,
     ))
 
-    widgets.append(graph_widget(
+    widgets.append(gw(
         title="ServerlessDatabaseCapacity (allocated ACUs)",
         metrics=[
             metric(ns, "ServerlessDatabaseCapacity", cluster_dim(cluster_id),
@@ -211,7 +215,7 @@ def build_dashboard(cluster_id: str, writer: str, reader: str,
     ))
     y += 2
 
-    widgets.append(graph_widget(
+    widgets.append(gw(
         title="VolumeReadIOPs (cluster)",
         metrics=[
             metric(ns, "VolumeReadIOPs", cluster_dim(cluster_id),
@@ -225,7 +229,7 @@ def build_dashboard(cluster_id: str, writer: str, reader: str,
         x=0, y=y, width=12, height=6,
     ))
 
-    widgets.append(graph_widget(
+    widgets.append(gw(
         title="VolumeWriteIOPs (cluster)",
         metrics=[
             metric(ns, "VolumeWriteIOPs", cluster_dim(cluster_id),
@@ -250,7 +254,7 @@ def build_dashboard(cluster_id: str, writer: str, reader: str,
     ))
     y += 2
 
-    widgets.append(graph_widget(
+    widgets.append(gw(
         title="CommitLatency — Writer vs Reader (ms)",
         metrics=[
             metric(ns, "CommitLatency", instance_dim(writer),
@@ -266,7 +270,7 @@ def build_dashboard(cluster_id: str, writer: str, reader: str,
         x=0, y=y, width=12, height=6,
     ))
 
-    widgets.append(graph_widget(
+    widgets.append(gw(
         title="SelectLatency / DMLLatency / DDLLatency — Writer (ms)",
         metrics=[
             metric(ns, "SelectLatency", instance_dim(writer),
@@ -292,7 +296,7 @@ def build_dashboard(cluster_id: str, writer: str, reader: str,
     ))
     y += 1
 
-    widgets.append(graph_widget(
+    widgets.append(gw(
         title="CPUUtilization — Writer vs Reader (%)",
         metrics=[
             metric(ns, "CPUUtilization", instance_dim(writer),
@@ -308,7 +312,7 @@ def build_dashboard(cluster_id: str, writer: str, reader: str,
         x=0, y=y, width=12, height=6,
     ))
 
-    widgets.append(graph_widget(
+    widgets.append(gw(
         title="FreeableMemory — Writer vs Reader (GB)",
         metrics=[
             metric(ns, "FreeableMemory", instance_dim(writer),
@@ -334,7 +338,7 @@ def build_dashboard(cluster_id: str, writer: str, reader: str,
     ))
     y += 2
 
-    widgets.append(graph_widget(
+    widgets.append(gw(
         title="DatabaseConnections — Writer vs Reader",
         metrics=[
             metric(ns, "DatabaseConnections", instance_dim(writer),
@@ -360,7 +364,7 @@ def build_dashboard(cluster_id: str, writer: str, reader: str,
     ))
     y += 2
 
-    widgets.append(graph_widget(
+    widgets.append(gw(
         title="BufferCacheHitRatio — Writer vs Reader (%)",
         metrics=[
             metric(ns, "BufferCacheHitRatio", instance_dim(writer),
@@ -376,7 +380,7 @@ def build_dashboard(cluster_id: str, writer: str, reader: str,
         x=0, y=y, width=12, height=6,
     ))
 
-    widgets.append(graph_widget(
+    widgets.append(gw(
         title="Read / Write Latency — Writer (ms)",
         metrics=[
             metric(ns, "ReadLatency",  instance_dim(writer),
@@ -402,7 +406,7 @@ def build_dashboard(cluster_id: str, writer: str, reader: str,
     ))
     y += 2
 
-    widgets.append(graph_widget(
+    widgets.append(gw(
         title="MaximumUsedTransactionIDs (cluster)",
         metrics=[
             metric(ns, "MaximumUsedTransactionIDs", cluster_dim(cluster_id),
@@ -416,7 +420,7 @@ def build_dashboard(cluster_id: str, writer: str, reader: str,
         x=0, y=y, width=8, height=6,
     ))
 
-    widgets.append(graph_widget(
+    widgets.append(gw(
         title="Deadlocks (cluster)",
         metrics=[
             metric(ns, "Deadlocks", cluster_dim(cluster_id),
@@ -430,7 +434,7 @@ def build_dashboard(cluster_id: str, writer: str, reader: str,
         x=8, y=y, width=8, height=6,
     ))
 
-    widgets.append(graph_widget(
+    widgets.append(gw(
         title="WAL / Replication Slot Disk Usage (cluster)",
         metrics=[
             metric(ns, "TransactionLogsDiskUsage", cluster_dim(cluster_id),
@@ -454,7 +458,7 @@ def build_dashboard(cluster_id: str, writer: str, reader: str,
     ))
     y += 1
 
-    widgets.append(graph_widget(
+    widgets.append(gw(
         title="Network Receive Throughput — Writer vs Reader (MB/s)",
         metrics=[
             metric(ns, "NetworkReceiveThroughput", instance_dim(writer),
@@ -470,7 +474,7 @@ def build_dashboard(cluster_id: str, writer: str, reader: str,
         x=0, y=y, width=12, height=6,
     ))
 
-    widgets.append(graph_widget(
+    widgets.append(gw(
         title="Network Transmit Throughput — Writer vs Reader (MB/s)",
         metrics=[
             metric(ns, "NetworkTransmitThroughput", instance_dim(writer),

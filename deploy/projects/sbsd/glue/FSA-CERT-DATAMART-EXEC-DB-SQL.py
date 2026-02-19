@@ -898,7 +898,16 @@ def process_postgres_layer(db, run_type, sqlfs, table_name, layer, start_date, e
         #if run_type == 'initial':
             #db.truncate_table(layer.lower(), table_name)
             
-        rows = db.execute(query=query, data=False, commit=True)
+        # rows = db.execute(query=query, data=False, commit=True)
+
+        #added new rows variable here
+        rows = execute_insert_in_chunks(
+        db=db,
+        base_insert_sql=query,
+        chunk_size=50000,
+        order_by="1"  # or a real PK / business key
+    )
+
         op_duration = (datetime.utcnow() - op_start).total_seconds()
 
         total_rows += rows

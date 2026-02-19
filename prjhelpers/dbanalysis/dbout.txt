@@ -1,0 +1,75 @@
+
+[1m[96m────────────────────────────────────────────────────────────────[0m
+[1m[96m  Aurora PostgreSQL Serverless v2: disc-fsa-prod-db-pg[0m
+[1m[96m────────────────────────────────────────────────────────────────[0m
+  Region   : us-east-1
+  Window   : last 120 min  (13:10 - 15:10 UTC)
+  Engine   : aurora-postgresql 15.12
+  Status   : available
+  ACU range: 0.5 - 64.0  (Serverless v2)
+  Instances: disc-fsa-prod-db-pg-instance-1, disc-fsa-prod-db-pg-instance-1-us-east-1a
+
+[1m[96m────────────────────────────────────────────────────────────────[0m
+[1m[96m  Capacity & Scaling[0m
+[1m[96m────────────────────────────────────────────────────────────────[0m
+
+  [1mACU allocation over window  (configured: 0.5 – 64.0 ACU):[0m
+    Min 49.29  /  Avg 62.05  /  Max 64.00
+
+  [91m[1m[CRIT][0m  At ≥95% of max ACU (64.0) for 85% of sample points (17/20 periods).
+           [2mQueries are queuing at the ceiling. Options:[0m
+           [2m  1. Raise max ACU above 64.0 (modify cluster).[0m
+           [2m  2. Use RDS Proxy to absorb connection bursts.[0m
+           [2m  3. Tune slow queries to reduce compute per request.[0m
+  [91m[1m[CRIT][0m  ACUUtilization                              100.00%
+             [2mNear 64 ACU ceiling -- cluster CANNOT scale further. Queries will queue. Raise max ACU or reduce peak concurrency.[0m
+
+[1m[96m────────────────────────────────────────────────────────────────[0m
+[1m[96m  Reliability -- PostgreSQL-Specific[0m
+[1m[96m────────────────────────────────────────────────────────────────[0m
+
+[1m[96m────────────────────────────────────────────────────────────────[0m
+[1m[96m  Storage I/O (Cluster)[0m
+[1m[96m────────────────────────────────────────────────────────────────[0m
+  [91m[1m[CRIT][0m  VolumeReadIOPs                              1,780,740 IOPS
+             [2mHigh read IOPS -- likely missing index or cold buffer pool after scale-down.[0m
+  [91m[1m[CRIT][0m  VolumeWriteIOPs                             4,754 IOPS
+             [2mHigh write IOPS. Check autovacuum frequency, WAL volume, and batch sizes.[0m
+
+[1m[96m────────────────────────────────────────────────────────────────[0m
+[1m[96m  Per-Instance Metrics[0m
+[1m[96m────────────────────────────────────────────────────────────────[0m
+
+  [1mInstance: disc-fsa-prod-db-pg-instance-1[0m
+
+  [2m  Query Latency[0m
+  [91m[1m[CRIT][0m  CommitLatency                               439.06 ms
+             [2mHigh COMMIT latency = I/O pressure on WAL writes or lock contention. Consider batching commits; review synchronous_commit setting.[0m
+
+  [92m[ OK ][0m  Connection saturation: 26 / ~5000 max  (1% at ~62.1 ACU)
+
+  [1mInstance: disc-fsa-prod-db-pg-instance-1-us-east-1a[0m
+
+  [2m  Query Latency[0m
+  [93m[1m[WARN][0m  CommitLatency                               12.67 ms
+             [2mHigh COMMIT latency = I/O pressure on WAL writes or lock contention. Consider batching commits; review synchronous_commit setting.[0m
+
+[1m[96m────────────────────────────────────────────────────────────────[0m
+[1m[96m  Diagnostic Summary[0m
+[1m[96m────────────────────────────────────────────────────────────────[0m
+
+  [1mFindings requiring attention:[0m
+    [91m[1m![0m  ACU utilization peaked at 100.0% -- scaling ceiling pressure
+    [91m[1m![0m  At >= 95% of 64.0 ACU max for 17/20 sample periods
+
+  [2mAurora PostgreSQL Serverless v2 key points:[0m
+  [2m  - Scale-up is fast (~seconds) but not instant: queries queue at the ACU ceiling.[0m
+  [2m  - max_connections is fixed at instance creation based on max ACU; use RDS Proxy[0m
+  [2m    to avoid 'too many connections' errors during rapid scale events.[0m
+  [2m  - Shared buffer pool does NOT persist across scale-down -- expect cold-read[0m
+  [2m    latency spikes after the cluster idles and scales back to min ACU (0.5).[0m
+  [2m  - Autovacuum runs on the writer instance. Monitor MaximumUsedTransactionIDs.[0m
+
+  Run with [1m--verbose[0m to include OK metrics.
+  Run with [1m--minutes 120[0m for a longer lookback window.
+

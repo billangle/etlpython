@@ -17,8 +17,6 @@ Parameters (Optional):
 Load Behavior:
     - initial:     Truncates target Redshift table, loads ALL data from PostgreSQL
     - incremental: No truncate, loads only records where {date_column} >= start_date
-    
-DGSprous 2026-02-18 - repartiton data to speed write.  
 """
 
 import sys
@@ -162,7 +160,8 @@ class PostgresConnection:
 class RedshiftConnection:
     """Redshift database connection for writing data."""
     
-    def __init__(self, glue_context, env: str):
+    def __init__(self, spark, glue_context, env: str):
+        self.spark = spark
         self.glue_context = glue_context
         self.env = env.lower()
         self.config = get_environment_config(env)
@@ -173,6 +172,7 @@ class RedshiftConnection:
         self.catalog_connection = self.config["rs_catalog_connection"]
         self.arn_role = self.config["arn_role"]
         self.tmp_bucket = self.config["redshift_tmp_bucket"]
+        self.jdbc_url = self.config["jdbc_url"]
     
     def _get_credentials(self) -> dict:
         secrets_client = boto3.client('secretsmanager')
@@ -184,35 +184,86 @@ class RedshiftConnection:
             "password": secret['pass_db_redshift'],
         }
     
-    def write_table(self, dynamic_frame, schema: str, table: str, truncate: bool = False):
-        """Write a DynamicFrame to Redshift."""
+    def get_target_columns(self, schema: str, table: str) -> list:
+        """
+        Get the list of columns from the target Redshift table.
+        This prevents adding extra columns during write.
+        """
+        print(f"[REDSHIFT] Getting column list for {schema}.{table}")
+        
+        query = f"""
+            (SELECT column_name 
+             FROM information_schema.columns 
+             WHERE table_schema = '{schema}' 
+               AND table_name = '{table}'
+             ORDER BY ordinal_position) as col_query
+        """
+        
+        try:
+            col_df = self.spark.read \
+                .format("jdbc") \
+                .option("url", self.jdbc_url) \
+                .option("dbtable", query) \
+                .option("user", self.credentials["user"]) \
+                .option("password", self.credentials["password"]) \
+                .option("driver", "com.amazon.redshift.jdbc42.Driver") \
+                .load()
+            
+            columns = [row["column_name"] for row in col_df.collect()]
+            print(f"[REDSHIFT] Target table has {len(columns)} columns: {columns}")
+            return columns
+            
+        except Exception as e:
+            print(f"[REDSHIFT] ERROR getting columns: {e}")
+            print(f"[REDSHIFT] Traceback: {traceback.format_exc()}")
+            raise
+    
+    def write_table(self, df, schema: str, table: str, truncate: bool = False):
+        """Write a Spark DataFrame to Redshift using JDBC (prevents auto-adding columns)."""
         full_table = f"{schema}.{table}"
-        print(f"Writing to Redshift: {full_table}")
-        print(f"Truncate before load: {truncate}")
+        print(f"[REDSHIFT] Writing to: {full_table}")
+        print(f"[REDSHIFT] Truncate before load: {truncate}")
+        print(f"[REDSHIFT] Columns to write: {df.columns}")
         
-        # Generate temp path for Redshift COPY command
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        tmp_path = f"s3://{self.tmp_bucket}/_redshift_tmp/{schema}/{table}/{timestamp}/"
-        
-        conn_options = {
-            "dbtable": full_table,
-            "database": "redshift_db",
-            "aws_iam_role": self.arn_role,
-        }
-        
-        # Add truncate preaction if requested (for initial load)
+        # Truncate if requested (for initial load)
         if truncate:
-            conn_options["preactions"] = f"TRUNCATE TABLE {full_table};"
+            print(f"[REDSHIFT] Truncating table first...")
+            self._execute_redshift_sql(f"TRUNCATE TABLE {full_table};")
         
-        # Write to Redshift
-        self.glue_context.write_dynamic_frame.from_jdbc_conf(
-            frame=dynamic_frame,
-            catalog_connection=self.catalog_connection,
-            connection_options=conn_options,
-            redshift_tmp_dir=tmp_path
+        # Write using Spark JDBC - this does NOT auto-add columns
+        row_count = df.count()
+        print(f"[REDSHIFT] Writing {row_count} rows via Spark JDBC...")
+        
+        df.write \
+            .format("jdbc") \
+            .option("url", self.jdbc_url) \
+            .option("dbtable", full_table) \
+            .option("user", self.credentials["user"]) \
+            .option("password", self.credentials["password"]) \
+            .option("driver", "com.amazon.redshift.jdbc42.Driver") \
+            .option("batchsize", 10000) \
+            .mode("append") \
+            .save()
+        
+        print(f"[REDSHIFT] Write complete to {full_table}")
+    
+    def _execute_redshift_sql(self, sql: str):
+        """Execute a SQL statement on Redshift (for TRUNCATE, etc.)."""
+        print(f"[REDSHIFT] Executing: {sql}")
+        
+        from py4j.java_gateway import java_import
+        java_import(self.spark._jvm, "java.sql.DriverManager")
+        
+        conn = self.spark._jvm.DriverManager.getConnection(
+            self.jdbc_url,
+            self.credentials["user"],
+            self.credentials["password"]
         )
-        
-        print(f"Write complete to {full_table}")
+        stmt = conn.createStatement()
+        stmt.execute(sql)
+        stmt.close()
+        conn.close()
+        print(f"[REDSHIFT] SQL executed successfully")
 
 
 # =============================================================================
@@ -342,6 +393,65 @@ def debug_df(df, label: str):
     print(f"Partition count: {df.rdd.getNumPartitions()}")
 
 
+def align_columns_to_target(source_df, target_columns: list):
+    """
+    Filter source DataFrame to only include columns that exist in target table.
+    This prevents extra columns from being added to Redshift.
+    
+    Args:
+        source_df: Source Spark DataFrame
+        target_columns: List of column names from target Redshift table
+        
+    Returns:
+        DataFrame with only the columns that exist in target
+    """
+    print(f"\n[ALIGN] Aligning source columns to target schema")
+    
+    # Get source columns (case-insensitive matching)
+    source_columns = source_df.columns
+    source_columns_lower = {c.lower(): c for c in source_columns}
+    target_columns_lower = [c.lower() for c in target_columns]
+    
+    print(f"[ALIGN] Source has {len(source_columns)} columns")
+    print(f"[ALIGN] Target has {len(target_columns)} columns")
+    
+    # Find matching columns
+    columns_to_select = []
+    missing_in_source = []
+    extra_in_source = []
+    
+    for target_col in target_columns:
+        target_col_lower = target_col.lower()
+        if target_col_lower in source_columns_lower:
+            # Use the source column name (preserve case)
+            columns_to_select.append(source_columns_lower[target_col_lower])
+        else:
+            missing_in_source.append(target_col)
+    
+    # Find columns in source but not in target (these would cause issues)
+    for source_col in source_columns:
+        if source_col.lower() not in target_columns_lower:
+            extra_in_source.append(source_col)
+    
+    print(f"[ALIGN] Columns to write: {len(columns_to_select)}")
+    
+    if missing_in_source:
+        print(f"[ALIGN] WARNING - Columns in target but not in source: {missing_in_source}")
+    
+    if extra_in_source:
+        print(f"[ALIGN] SKIPPING - These PostgreSQL columns will NOT be written (not in Redshift): {extra_in_source}")
+    
+    if not columns_to_select:
+        raise ValueError("No matching columns between source and target!")
+    
+    # Select only the matching columns
+    aligned_df = source_df.select([col(c) for c in columns_to_select])
+    
+    print(f"[ALIGN] Aligned DataFrame has {len(aligned_df.columns)} columns")
+    
+    return aligned_df
+
+
 # =============================================================================
 # MAIN
 # =============================================================================
@@ -433,6 +543,7 @@ def main():
         print("PostgreSQL connection established")
         
         rs_conn = RedshiftConnection(
+            spark=spark,
             glue_context=glue_context,
             env=env
         )
@@ -449,14 +560,26 @@ def main():
             print(f"Process control logger not available: {e}")
             pc_logger = None
         
-        # Read data from PostgreSQL based on run_type
+        # =========================================================
+        # STEP 1: Get target Redshift table columns FIRST
+        # =========================================================
+        print(f"\n[STEP 1] Getting target Redshift table columns...")
+        target_columns = rs_conn.get_target_columns(target_schema, table_name)
+        
+        if not target_columns:
+            raise ValueError(f"Target table {target_schema}.{table_name} not found or has no columns!")
+        
+        # =========================================================
+        # STEP 2: Read data from PostgreSQL
+        # =========================================================
+        print(f"\n[STEP 2] Reading from PostgreSQL...")
         if run_type == "initial":
             # Initial: Read all data
-            print(f"\nINITIAL LOAD: Reading ALL data from {source_schema}.{table_name}")
+            print(f"INITIAL LOAD: Reading ALL data from {source_schema}.{table_name}")
             source_df = pg_conn.read_table(spark, source_schema, table_name)
         else:
             # Incremental: Read filtered data using the specified date_column
-            print(f"\nINCREMENTAL LOAD: Reading data where {date_column} >= '{start_date}'")
+            print(f"INCREMENTAL LOAD: Reading data where {date_column} >= '{start_date}'")
             source_df = pg_conn.read_table_incremental(
                 spark=spark,
                 schema=source_schema,
@@ -473,20 +596,29 @@ def main():
         if total_rows == 0:
             print("No data to transfer")
         else:
-            # Debug output
-            debug_df(source_df, f"Source: {source_schema}.{table_name}")
+            # Debug output - before alignment
+            print(f"\n[DEBUG] Source columns: {source_df.columns}")
             
-            # partition count ~ number of workers.  
+            # =========================================================
+            # STEP 3: Align columns to target schema (PREVENT EXTRA COLUMNS!)
+            # =========================================================
+			
+			# partition count ~ number of workers.  
             partition_count = 10
             source_df = source_df.repartition(partition_count)
+            print(f"\n[STEP 3] Aligning columns to target schema...")
+            aligned_df = align_columns_to_target(source_df, target_columns)
             
-            # Convert to DynamicFrame for Glue write
-            dynamic_frame = DynamicFrame.fromDF(source_df, glue_context, "source_df")
+            # Debug output - after alignment
+            debug_df(aligned_df, f"Aligned: {source_schema}.{table_name}")
             
-            # Write to Redshift
-            print(f"\nWriting to Redshift: {target_schema}.{table_name}")
+            # =========================================================
+            # STEP 4: Write to Redshift (using Spark JDBC - no auto-add columns)
+            # =========================================================
+            print(f"\n[STEP 4] Writing to Redshift...")
+
             rs_conn.write_table(
-                dynamic_frame=dynamic_frame,
+                df=aligned_df,
                 schema=target_schema,
                 table=table_name,
                 truncate=truncate_target

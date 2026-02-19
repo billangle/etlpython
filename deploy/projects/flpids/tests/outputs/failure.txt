@@ -1,0 +1,135 @@
+{
+  "jobId": "a9d38940-e8f4-4fc2-95ea-95790d5c032c",
+  "project": "FLPIDS-OFCRPT",
+  "table_name": "FSA-FileChecks",
+  "bucket": "c108-prod-fpacfsa-landing-zone",
+  "secret_id": "FSA-PROD-secrets",
+  "verify_tls": false,
+  "timeout_seconds": 30,
+  "debug": true,
+  "stream": {
+    "source": "ddb-stream-lambda"
+  },
+  "setRunning": {
+    "ExecutedVersion": "$LATEST",
+    "Payload": {
+      "jobId": "a9d38940-e8f4-4fc2-95ea-95790d5c032c",
+      "project": "FLPIDS-OFCRPT",
+      "status": "RUNNING",
+      "updatedAt": "2026-02-19T19:00:16.635728+00:00",
+      "pipeline": "FLPIDS_RPT (OFC_RPT)",
+      "echo_folder": "plas",
+      "project_name": "FLPIDS-OFCRPT",
+      "file_pattern": "(officeinfo)\\.txt",
+      "echo_subfolder": "",
+      "lambda_arn": "arn:aws:lambda:us-east-1:253490756794:function:FSA-PROD-DART-ECHO-FETCH-FLPIDS-OFCRPT",
+      "step": "FLPIDS_RPT Landing Zone",
+      "header": false,
+      "to_queue": true,
+      "env": "PROD"
+    },
+    "SdkHttpMetadata": {
+      "AllHttpHeaders": {
+        "X-Amz-Executed-Version": [
+          "$LATEST"
+        ],
+        "x-amzn-Remapped-Content-Length": [
+          "0"
+        ],
+        "Connection": [
+          "keep-alive"
+        ],
+        "x-amzn-RequestId": [
+          "a565dd95-fe44-417b-8c93-de05a8013df0"
+        ],
+        "Content-Length": [
+          "487"
+        ],
+        "Date": [
+          "Thu, 19 Feb 2026 19:00:16 GMT"
+        ],
+        "X-Amzn-Trace-Id": [
+          "Root=1-69975dbc-a3a8e24963ca8cf52da8bc2c;Parent=1406fd0bc0b09bfe;Sampled=0;Lineage=2:f5ed44fa:0"
+        ],
+        "Content-Type": [
+          "application/json"
+        ]
+      },
+      "HttpHeaders": {
+        "Connection": "keep-alive",
+        "Content-Length": "487",
+        "Content-Type": "application/json",
+        "Date": "Thu, 19 Feb 2026 19:00:16 GMT",
+        "X-Amz-Executed-Version": "$LATEST",
+        "x-amzn-Remapped-Content-Length": "0",
+        "x-amzn-RequestId": "a565dd95-fe44-417b-8c93-de05a8013df0",
+        "X-Amzn-Trace-Id": "Root=1-69975dbc-a3a8e24963ca8cf52da8bc2c;Parent=1406fd0bc0b09bfe;Sampled=0;Lineage=2:f5ed44fa:0"
+      },
+      "HttpStatusCode": 200
+    },
+    "SdkResponseMetadata": {
+      "RequestId": "a565dd95-fe44-417b-8c93-de05a8013df0"
+    },
+    "StatusCode": 200
+  },
+  "transferError": {
+    "Error": "Exception",
+    "Cause": "{\"errorMessage\":\"A previous run for ofc_rpt has already been processed successfully or is currently in progress.\",\"errorType\":\"Exception\",\"requestId\":\"0aa2b649-c240-4665-8c25-5f1d8aeb4113\",\"stackTrace\":[\"  File \\\"/var/task/lambda_function.py\\\", line 194, in lambda_handler\\n    s3_uri, echo_uri = future.result()\\n\",\"  File \\\"/var/lang/lib/python3.11/concurrent/futures/_base.py\\\", line 449, in result\\n    return self.__get_result()\\n\",\"  File \\\"/var/lang/lib/python3.11/concurrent/futures/_base.py\\\", line 401, in __get_result\\n    raise self._exception\\n\",\"  File \\\"/var/lang/lib/python3.11/concurrent/futures/thread.py\\\", line 58, in run\\n    result = self.fn(*self.args, **self.kwargs)\\n\",\"  File \\\"/var/task/lambda_function.py\\\", line 112, in echo_file_transfer\\n    with DARTSession(\\n\",\"  File \\\"/opt/python/dart/session.py\\\", line 125, in __enter__\\n    raise Exception(f\\\"A previous run for {self.dataset.properties.tgt_nm} has already been processed successfully or is currently in progress.\\\")\\n\"]}"
+  },
+  "finalize": {
+    "ExecutedVersion": "$LATEST",
+    "Payload": {
+      "jobId": "a9d38940-e8f4-4fc2-95ea-95790d5c032c",
+      "project": "FLPIDS-OFCRPT",
+      "status": "ERROR",
+      "updatedAt": "2026-02-19T19:00:37.844511+00:00",
+      "error_result": {
+        "Error": "Exception",
+        "Cause": "{\"errorMessage\":\"A previous run for ofc_rpt has already been processed successfully or is currently in progress.\",\"errorType\":\"Exception\",\"requestId\":\"0aa2b649-c240-4665-8c25-5f1d8aeb4113\",\"stackTrace\":[\"  File \\\"/var/task/lambda_function.py\\\", line 194, in lambda_handler\\n    s3_uri, echo_uri = future.result()\\n\",\"  File \\\"/var/lang/lib/python3.11/concurrent/futures/_base.py\\\", line 449, in result\\n    return self.__get_result()\\n\",\"  File \\\"/var/lang/lib/python3.11/concurrent/futures/_base.py\\\", line 401, in __get_result\\n    raise self._exception\\n\",\"  File \\\"/var/lang/lib/python3.11/concurrent/futures/thread.py\\\", line 58, in run\\n    result = self.fn(*self.args, **self.kwargs)\\n\",\"  File \\\"/var/task/lambda_function.py\\\", line 112, in echo_file_transfer\\n    with DARTSession(\\n\",\"  File \\\"/opt/python/dart/session.py\\\", line 125, in __enter__\\n    raise Exception(f\\\"A previous run for {self.dataset.properties.tgt_nm} has already been processed successfully or is currently in progress.\\\")\\n\"]}"
+      }
+    },
+    "SdkHttpMetadata": {
+      "AllHttpHeaders": {
+        "X-Amz-Executed-Version": [
+          "$LATEST"
+        ],
+        "x-amzn-Remapped-Content-Length": [
+          "0"
+        ],
+        "Connection": [
+          "keep-alive"
+        ],
+        "x-amzn-RequestId": [
+          "afdc638f-e325-4e05-a50b-741af7b72cc7"
+        ],
+        "Content-Length": [
+          "1274"
+        ],
+        "Date": [
+          "Thu, 19 Feb 2026 19:00:38 GMT"
+        ],
+        "X-Amzn-Trace-Id": [
+          "Root=1-69975dbc-a3a8e24963ca8cf52da8bc2c;Parent=5b9bf3a872e405b9;Sampled=0;Lineage=2:6b75fd55:0"
+        ],
+        "Content-Type": [
+          "application/json"
+        ]
+      },
+      "HttpHeaders": {
+        "Connection": "keep-alive",
+        "Content-Length": "1274",
+        "Content-Type": "application/json",
+        "Date": "Thu, 19 Feb 2026 19:00:38 GMT",
+        "X-Amz-Executed-Version": "$LATEST",
+        "x-amzn-Remapped-Content-Length": "0",
+        "x-amzn-RequestId": "afdc638f-e325-4e05-a50b-741af7b72cc7",
+        "X-Amzn-Trace-Id": "Root=1-69975dbc-a3a8e24963ca8cf52da8bc2c;Parent=5b9bf3a872e405b9;Sampled=0;Lineage=2:6b75fd55:0"
+      },
+      "HttpStatusCode": 200
+    },
+    "SdkResponseMetadata": {
+      "RequestId": "afdc638f-e325-4e05-a50b-741af7b72cc7"
+    },
+    "StatusCode": 200
+  }
+}

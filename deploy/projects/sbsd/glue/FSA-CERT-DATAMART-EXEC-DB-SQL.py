@@ -827,38 +827,61 @@ def write_to_postgres(db, df, schema, table_name):
 
 #added new chunking function here
 
-def execute_insert_in_chunks(
-    db,
-    base_insert_sql: str,
-    chunk_size: int = 50000,
-    order_by: str = None
-):
+def execute_insert_in_chunks(db, base_insert_sql: str, chunk_size: int = 50000, order_by: str = None):
     """
-    Executes INSERT ... SELECT in chunks using LIMIT / OFFSET.
-    Assumes base_insert_sql is an INSERT INTO ... SELECT ... statement.
+    Executes INSERT ... SELECT in chunks for PostgreSQL safely.
+
+    Args:
+        db: GlueDB instance
+        base_insert_sql: full INSERT statement
+        chunk_size: number of rows per chunk
+        order_by: column(s) to order by for chunking
+    
+    Returns:
+        total_rows inserted
     """
+    # Regex to split INSERT INTO ... and SELECT ...
+    m = re.match(r"(INSERT\s+INTO\s+\S+\s*)(SELECT.*)", base_insert_sql, re.IGNORECASE | re.DOTALL)
+    if not m:
+        raise ValueError("Base SQL must be an INSERT INTO ... SELECT ... statement")
+    
+    insert_clause, select_clause = m.groups()
+
+    if not order_by:
+        raise ValueError("order_by parameter is required for chunked inserts")
 
     offset = 0
     total_rows = 0
 
     while True:
+        # Wrap the SELECT in parentheses to safely append ORDER/LIMIT/OFFSET
         paged_sql = f"""
-        {base_insert_sql}
-        {f"ORDER BY {order_by}" if order_by else ""}
-        LIMIT {chunk_size} OFFSET {offset}
+        {insert_clause} (
+            {select_clause}
+            ORDER BY {order_by}
+            LIMIT {chunk_size} OFFSET {offset}
+        )
         """
-
-        rows = db.execute(query=paged_sql, data=False, commit=True)
+        print(f"SQL being printed:{paged_sql}")
+        try:
+            rows = db.execute(query=paged_sql, data=False, commit=True)
+        except Exception as e:
+            print(f"Error executing chunk (offset {offset}): {e}")
+            print(f"SQL Preview: {paged_sql[:500]}...")
+            raise
+        print(f"SQL being printed:{paged_sql}")
 
         if rows == 0:
+            # No more rows to insert
             break
 
         total_rows += rows
         offset += chunk_size
-
         print(f"Inserted {rows} rows (total: {total_rows})")
+        print(f"SQL being printed:{paged_sql}")
 
     return total_rows
+
 
 def process_postgres_layer(db, run_type, sqlfs, table_name, layer, start_date, end_date):
     """
@@ -906,7 +929,7 @@ def process_postgres_layer(db, run_type, sqlfs, table_name, layer, start_date, e
         base_insert_sql=query,
         chunk_size=50000,
         order_by="1"  # or a real PK / business key
-    )
+        )
 
         op_duration = (datetime.utcnow() - op_start).total_seconds()
 

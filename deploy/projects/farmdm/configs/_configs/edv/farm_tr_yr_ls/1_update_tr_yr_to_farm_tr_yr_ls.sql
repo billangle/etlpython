@@ -1,0 +1,57 @@
+Merge into
+EDV.FARM_TR_YR_LS dv
+using(
+select *
+from
+( select sub.*,
+	ROW_NUMBER() OVER (PARTITION BY TR_YR_ID ORDER BY LOAD_DT desc) TR_YR_ID_RANK	
+	from
+	(
+		select DISTINCT MD5(MD5(upper(coalesce(TR_YR.ST_FSA_CD ,'--')||'~~'||coalesce(TR_YR.CNTY_FSA_CD,'--')||'~~'||coalesce(TR_YR.FARM_NBR ,'--')))||'~~'||MD5(upper(coalesce(TR_YR.ST_FSA_CD ,'--')||'~~'||coalesce(TR_YR.CNTY_FSA_CD,'--')||'~~'||coalesce(TR_YR.TR_NBR, '-1')))) as FARM_TR_L_ID,coalesce(TR_YR.TR_YR_ID, '-1') TR_YR_ID,
+		TR_YR.LOAD_DT LOAD_DT,
+		TR_YR.CDC_DT DATA_EFF_STRT_DT,
+		TR_YR.DATA_SRC_NM DATA_SRC_NM,
+		TR_YR.DATA_STAT_CD DATA_STAT_CD,
+		TR_YR.CRE_DT SRC_CRE_DT,
+		TR_YR.LAST_CHG_DT SRC_LAST_CHG_DT,
+		TR_YR.LAST_CHG_USER_NM SRC_LAST_CHG_USER_NM,
+		TR_YR.TR_ID TR_ID,TR_YR.FARM_YR_ID FARM_YR_ID,
+		TR_YR.FMLD_ACRG FMLD_ACRG,TR_YR.CPLD_ACRG CPLD_ACRG,
+		TR_YR.CRP_ACRG CRP_ACRG,TR_YR.MPL_ACRG MPL_ACRG,
+		TR_YR.WBP_ACRG WBP_ACRG,TR_YR.WRP_TR_ACRG WRP_TR_ACRG,
+		TR_YR.GRP_CPLD_ACRG GRP_CPLD_ACRG,
+		TR_YR.ST_CNSV_ACRG ST_CNSV_ACRG,
+		TR_YR.OT_CNSV_ACRG OT_CNSV_ACRG,
+		TR_YR.SUGARCANE_ACRG SGRCN_ACRG,
+		TR_YR.NAP_CROP_ACRG NAP_CROP_ACRG,
+		TR_YR.NTV_SOD_BRK_OUT_ACRG NTV_SOD_BRK_OUT_ACRG,
+		TR_YR.HEL_TR_CD SRC_HEL_TR_CD,
+		HEL_TR_RS.DMN_VAL_NM HEL_TR_NM,
+		TR_YR.WL_PRES_CD SRC_WL_PRES_CD,
+		WL_PRES_RS.DMN_VAL_NM WL_PRES_NM,
+		TR_YR.PGM_YR PGM_YR ,
+		TR_YR.EWP_TR_ACRG,
+		TR_YR.CDC_OPER_CD,
+		MD5(upper(coalesce(TR_YR.ST_FSA_CD ,'--')||'~~'||coalesce(TR_YR.CNTY_FSA_CD,'--')||'~~'||coalesce(TR_YR.FARM_NBR ,'--'))||'~~'||upper(coalesce(TR_YR.ST_FSA_CD ,'--')||'~~'||coalesce(TR_YR.CNTY_FSA_CD,'--')||'~~'||coalesce(TR_YR.TR_NBR, '-1'))||'~~'||TR_YR.TR_YR_ID||'~~'||trim(both TR_YR.DATA_STAT_CD)||'~~'||to_char(TR_YR.CRE_DT,'YYYY-MM-DD HH24:MI:SS.US')||'~~'||to_char(TR_YR.LAST_CHG_DT,'YYYY-MM-DD HH24:MI:SS.US')||'~~'||trim(both TR_YR.LAST_CHG_USER_NM)||'~~'||TR_YR.TR_ID||'~~'||TR_YR.FARM_YR_ID||'~~'||TR_YR.FMLD_ACRG||'~~'||TR_YR.CPLD_ACRG||'~~'||TR_YR.CRP_ACRG||'~~'||TR_YR.MPL_ACRG||'~~'||TR_YR.WBP_ACRG||'~~'||TR_YR.WRP_TR_ACRG||'~~'||TR_YR.GRP_CPLD_ACRG||'~~'||TR_YR.ST_CNSV_ACRG||'~~'||TR_YR.OT_CNSV_ACRG||'~~'||TR_YR.SUGARCANE_ACRG||'~~'||TR_YR.NAP_CROP_ACRG||'~~'||TR_YR.NTV_SOD_BRK_OUT_ACRG||'~~'||TR_YR.HEL_TR_CD||'~~'||trim(both HEL_TR_RS.DMN_VAL_NM)||'~~'||TR_YR.WL_PRES_CD||'~~'||trim(both WL_PRES_RS.DMN_VAL_NM)||'~~'||TR_YR.PGM_YR||'~~'||TR_YR.EWP_TR_ACRG) HASH_DIF
+		FROM SQL_FARM_RCD_STG.TR_YR 
+		LEFT JOIN(select * from EDV.HEL_TR_RS
+		where load_end_dt = TO_TIMESTAMP('9999-12-31','YYYY-MM-DD')) HEL_TR_RS 
+		ON (TR_YR.HEL_TR_CD = HEL_TR_RS.DMN_VAL_ID) 
+		LEFT JOIN(select * from EDV.WL_PRES_RS
+		where load_end_dt = TO_TIMESTAMP('9999-12-31','YYYY-MM-DD')) WL_PRES_RS 
+		ON (TR_YR.WL_PRES_CD = WL_PRES_RS.DMN_VAL_ID)
+		 where TR_YR.CDC_OPER_CD IN ('I','UN')
+		
+	) sub
+) sub1
+where sub1.TR_YR_ID_RANK = 1
+order by sub1.DATA_EFF_STRT_DT
+)
+stg
+ on ( 
+coalesce(stg.TR_YR_ID,0) = coalesce(dv.TR_YR_ID,0)
+ ) 
+WHEN MATCHED and dv.LOAD_DT <> stg.LOAD_DT and dv.LOAD_END_DT = TO_TIMESTAMP('9999-12-31','YYYY-MM-DD') and stg.HASH_DIF <> dv.HASH_DIF THEN UPDATE 
+set LOAD_END_DT = stg.LOAD_DT,
+DATA_EFF_END_DT = stg.DATA_EFF_STRT_DT
+;

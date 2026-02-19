@@ -1,0 +1,12 @@
+select
+	wl_pres_srgt_id,
+	wl_pres_durb_id,
+	cur_rcd_ind,
+	data_eff_strt_dt,
+	data_eff_end_dt,
+	cre_dt,
+	wl_pres_cd,
+	wl_pres_nm,
+	wl_pres_desc
+from
+	farm_dm_stg.wl_pres_dim;

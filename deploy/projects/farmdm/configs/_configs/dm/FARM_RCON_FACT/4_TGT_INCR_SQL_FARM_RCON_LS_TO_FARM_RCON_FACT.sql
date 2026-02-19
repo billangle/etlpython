@@ -1,0 +1,25 @@
+SELECT farm_rcon_fact_id, 
+	cre_dt, 
+	last_chg_dt, 
+	data_stat_cd, 
+	pgm_yr, 
+	fsa_st_cnty_srgt_id, 
+	fsa_st_cnty_durb_id, 
+	prnt_farm_srgt_id, 
+	prnt_farm_durb_id, 
+	rslt_farm_srgt_id, 
+	rslt_farm_durb_id, 
+	rcon_type_srgt_id, 
+	rcon_type_durb_id, 
+	rcon_seq_nbr, 
+	rcon_apvl_dt, 
+	rcon_eff_dt, 
+	rcon_init_dt, 
+	src_data_stat_cd, 
+	src_cre_dt, 
+	src_cre_user_nm, 
+	src_last_chg_dt, 
+	src_last_chg_user_nm
+FROM farm_dm_stg.farm_rcon_fact
+where farm_rcon_fact_id > 0
+order by farm_rcon_fact_id asc;

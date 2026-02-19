@@ -1,0 +1,16 @@
+Merge into
+EDV.PGM_CROP_LS dv
+using(select DISTINCT MD5(upper(coalesce(trim(both CROP.PGM_ABR), '--')) ||'~~'||upper(coalesce(trim(both CROP.FSA_CROP_CD), '--')) ||'~~'||upper(coalesce(trim(both CROP.FSA_CROP_TYPE_CD), '--')) ) as PGM_CROP_L_ID,coalesce(CROP.CROP_ID, 0) CROP_ID,CROP.LOAD_DT LOAD_DT,CROP.CDC_DT DATA_EFF_STRT_DT,CROP.DATA_SRC_NM DATA_SRC_NM,CROP.DATA_STAT_CD DATA_STAT_CD,CROP.CRE_DT SRC_CRE_DT,CROP.LAST_CHG_DT SRC_LAST_CHG_DT,CROP.LAST_CHG_USER_NM SRC_LAST_CHG_USER_NM,coalesce(CROP.PGM_ABR, '--') PGM_ABR,coalesce(CROP.FSA_CROP_CD, '--') FSA_CROP_CD,CROP.FSA_CROP_ABR FSA_CROP_ABR,CROP.FSA_CROP_NM FSA_CROP_NM,CROP.FSA_CROP_TYPE_NM FSA_CROP_TYPE_NM,coalesce(CROP.FSA_CROP_TYPE_CD, '--') FSA_CROP_TYPE_CD,CROP.DPLY_SEQ_NBR DPLY_SEQ_NBR ,
+CROP.CDC_OPER_CD,
+MD5(trim(both CROP.PGM_ABR)||'~~'||trim(both CROP.FSA_CROP_CD)||'~~'||trim(both CROP.FSA_CROP_TYPE_CD)||'~~'||CROP.CROP_ID||'~~'||trim(both CROP.DATA_STAT_CD)||'~~'||to_char(CROP.CRE_DT,'YYYY-MM-DD HH24:MI:SS.US')||'~~'||to_char(CROP.LAST_CHG_DT,'YYYY-MM-DD HH24:MI:SS.US')||'~~'||trim(both CROP.LAST_CHG_USER_NM)||'~~'||trim(both CROP.PGM_ABR)||'~~'||trim(both CROP.FSA_CROP_CD)||'~~'||trim(both CROP.FSA_CROP_ABR)||'~~'||trim(both CROP.FSA_CROP_NM)||'~~'||trim(both CROP.FSA_CROP_TYPE_NM)||'~~'||trim(both CROP.FSA_CROP_TYPE_CD)||'~~'||CROP.DPLY_SEQ_NBR) HASH_DIF
+FROM SQL_FARM_RCD_STG.CROP  CROP
+ where CROP.CDC_OPER_CD IN ('I','UN')
+order by CROP.CDC_DT)
+stg
+ on ( 
+coalesce(stg.CROP_ID,0) = coalesce(dv.CROP_ID,0)
+ ) 
+WHEN MATCHED and dv.LOAD_DT <> stg.LOAD_DT and dv.LOAD_END_DT = TO_TIMESTAMP('9999-12-31','YYYY-MM-DD') and stg.HASH_DIF <> dv.HASH_DIF THEN UPDATE 
+set LOAD_END_DT = stg.LOAD_DT,
+DATA_EFF_END_DT = stg.DATA_EFF_STRT_DT
+;

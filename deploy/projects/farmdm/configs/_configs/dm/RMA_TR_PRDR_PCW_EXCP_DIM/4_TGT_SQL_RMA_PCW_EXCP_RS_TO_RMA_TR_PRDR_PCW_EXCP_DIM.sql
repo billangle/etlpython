@@ -1,0 +1,10 @@
+select
+	rma_tr_prdr_pcw_excp_durb_id,
+	cre_dt,
+	last_chg_dt,
+	data_stat_cd,
+	rma_pcw_excp_cd,
+	rma_pcw_excp_nm,
+	rma_pcw_excp_desc
+from
+	farm_dm_stg.rma_tr_prdr_pcw_excp_dim

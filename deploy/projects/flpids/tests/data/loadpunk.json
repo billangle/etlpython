@@ -40,6 +40,36 @@
       "s3_bucket": "dev-cars-artifacts",
       "s3_key": "testdata/data/plas-in/wk.moyr540.data",
       "remote_path": "plas/in/weekly/wk.moyr540.data"
+    },
+    {
+      "s3_bucket": "dev-cars-artifacts",
+      "s3_key": "testdata/data/plas-in/officeinfo.txt",
+      "remote_path": "plas/in/officeinfo.txt"
+    },
+    {
+      "s3_bucket": "dev-cars-artifacts",
+      "s3_key": "testdata/data/plas-in/FGOBGL.TXT",
+      "remote_path": "plas/in/FGOBGL.TXT"
+    },
+    {
+      "s3_bucket": "dev-cars-artifacts",
+      "s3_key": "testdata/data/plas-in/ORGN.TXT",
+      "remote_path": "plas/in/ORGN.TXT"
+    },
+    {
+      "s3_bucket": "dev-cars-artifacts",
+      "s3_key": "testdata/data/plas-in/DVSN.TXT",
+      "remote_path": "plas/in/DVSN.TXT"
+    },
+    {
+      "s3_bucket": "dev-cars-artifacts",
+      "s3_key": "testdata/data/mrtxdb-in/weekly/CONGDIST_REPORT.20250107.csv",
+      "remote_path": "mrtxdb/in/weekly/CONGDIST_REPORT.20250107.csv"
+    },
+    {
+      "s3_bucket": "dev-cars-artifacts",
+      "s3_key": "testdata/data/mrtxdb-in/daily/CONGDIST_REPORT.20250107.csv",
+      "remote_path": "mrtxdb/in/daily/CONGDIST_REPORT.20250107.csv"
     }
   ]
 }

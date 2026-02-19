@@ -65,7 +65,7 @@ PROJECT_NAME="${JENKINS_JOB_NAME#*ECHO-FETCH-}"
 : "${ENV:=PROD}"
 export PROJECT_NAME
 
-if [ -z "${FILE_PATTERN:-}" ]; then FILE_PATTERN='(ORGN|DVSN)\.TXT'; fi
+if [ -z "${FILE_PATTERN:-}" ]; then FILE_PATTERN='(ORGN|DVSN)\\.TXT'; fi
 if [ -z "${ECHO_FOLDER:-}" ]; then ECHO_FOLDER='plas'; fi
 if [ -z "${ECHO_SUBFOLDER:-}" ]; then ECHO_SUBFOLDER=''; fi
 if [ -z "${PIPELINE:-}" ]; then PIPELINE='CAO_RPT'; fi

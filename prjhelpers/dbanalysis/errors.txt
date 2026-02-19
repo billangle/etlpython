@@ -1,0 +1,141 @@
+
+Creating/updating CloudWatch alarms (prefix: FSA-Prod-DB-Metrics)...
+  alarm: FSA-Prod-DB-Metrics-ACUUtilization-CRIT  [OK]
+  alarm: FSA-Prod-DB-Metrics-CommitLatency-CRIT  [OK]
+  alarm: FSA-Prod-DB-Metrics-VolumeReadIOPs-CRIT  [OK]
+  alarm: FSA-Prod-DB-Metrics-VolumeWriteIOPs-CRIT  [OK]
+  alarm: FSA-Prod-DB-Metrics-BufferCacheHitRatio-WARN  [OK]
+  alarm: FSA-Prod-DB-Metrics-Deadlocks-WARN  [OK]
+
+Building dashboard: FSA-Prod-DB-Metrics...
+ERROR creating dashboard: The dashboard body is invalid, there are 32 validation errors:
+[
+  {
+    "dataPath": "/widgets/3/properties",
+    "message": "The metric widget should have specified a region and a data source or an alarm annotation"
+  },
+  {
+    "dataPath": "/widgets/3/properties",
+    "message": "Should have required property 'region'"
+  },
+  {
+    "dataPath": "/widgets/4/properties",
+    "message": "The metric widget should have specified a region and a data source or an alarm annotation"
+  },
+  {
+    "dataPath": "/widgets/4/properties",
+    "message": "Should have required property 'region'"
+  },
+  {
+    "dataPath": "/widgets/6/properties",
+    "message": "The metric widget should have specified a region and a data source or an alarm annotation"
+  },
+  {
+    "dataPath": "/widgets/6/properties",
+    "message": "Should have required property 'region'"
+  },
+  {
+    "dataPath": "/widgets/7/properties",
+    "message": "The metric widget should have specified a region and a data source or an alarm annotation"
+  },
+  {
+    "dataPath": "/widgets/7/properties",
+    "message": "Should have required property 'region'"
+  },
+  {
+    "dataPath": "/widgets/9/properties",
+    "message": "The metric widget should have specified a region and a data source or an alarm annotation"
+  },
+  {
+    "dataPath": "/widgets/9/properties",
+    "message": "Should have required property 'region'"
+  },
+  {
+    "dataPath": "/widgets/10/properties",
+    "message": "The metric widget should have specified a region and a data source or an alarm annotation"
+  },
+  {
+    "dataPath": "/widgets/10/properties",
+    "message": "Should have required property 'region'"
+  },
+  {
+    "dataPath": "/widgets/12/properties",
+    "message": "The metric widget should have specified a region and a data source or an alarm annotation"
+  },
+  {
+    "dataPath": "/widgets/12/properties",
+    "message": "Should have required property 'region'"
+  },
+  {
+    "dataPath": "/widgets/13/properties",
+    "message": "The metric widget should have specified a region and a data source or an alarm annotation"
+  },
+  {
+    "dataPath": "/widgets/13/properties",
+    "message": "Should have required property 'region'"
+  },
+  {
+    "dataPath": "/widgets/15/properties",
+    "message": "The metric widget should have specified a region and a data source or an alarm annotation"
+  },
+  {
+    "dataPath": "/widgets/15/properties",
+    "message": "Should have required property 'region'"
+  },
+  {
+    "dataPath": "/widgets/17/properties",
+    "message": "The metric widget should have specified a region and a data source or an alarm annotation"
+  },
+  {
+    "dataPath": "/widgets/17/properties",
+    "message": "Should have required property 'region'"
+  },
+  {
+    "dataPath": "/widgets/18/properties",
+    "message": "The metric widget should have specified a region and a data source or an alarm annotation"
+  },
+  {
+    "dataPath": "/widgets/18/properties",
+    "message": "Should have required property 'region'"
+  },
+  {
+    "dataPath": "/widgets/20/properties",
+    "message": "The metric widget should have specified a region and a data source or an alarm annotation"
+  },
+  {
+    "dataPath": "/widgets/20/properties",
+    "message": "Should have required property 'region'"
+  },
+  {
+    "dataPath": "/widgets/21/properties",
+    "message": "The metric widget should have specified a region and a data source or an alarm annotation"
+  },
+  {
+    "dataPath": "/widgets/21/properties",
+    "message": "Should have required property 'region'"
+  },
+  {
+    "dataPath": "/widgets/22/properties",
+    "message": "The metric widget should have specified a region and a data source or an alarm annotation"
+  },
+  {
+    "dataPath": "/widgets/22/properties",
+    "message": "Should have required property 'region'"
+  },
+  {
+    "dataPath": "/widgets/24/properties",
+    "message": "The metric widget should have specified a region and a data source or an alarm annotation"
+  },
+  {
+    "dataPath": "/widgets/24/properties",
+    "message": "Should have required property 'region'"
+  },
+  {
+    "dataPath": "/widgets/25/properties",
+    "message": "The metric widget should have specified a region and a data source or an alarm annotation"
+  },
+  {
+    "dataPath": "/widgets/25/properties",
+    "message": "Should have required property 'region'"
+  }
+]

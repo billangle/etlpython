@@ -168,8 +168,11 @@ def read_json(bucket, key, edv_table_name):
     print('168: read_json')
     print(f'bucket, key, edv_table_name: \n{bucket} \n{key} \n{edv_table_name}')
     obj = s3_client.get_object(Bucket=bucket, Key=key)
+    print('171')
     file_content = obj['Body'].read().decode('utf-8')
+    print('173')
     INPUT_JSON = json.loads(file_content)
+    print('175')
     JSON_DATA = INPUT_JSON
     return JSON_DATA[edv_table_name.lower()]
 
@@ -260,8 +263,9 @@ def run_athena_insert_query (bucket_name, edv_table_name):
         # Get the datatypes for the table of interest to allow the data from the 
         # csv to be properly formatted into the pandas df
         dtypes_pd = read_json(bucket_name, pandas_datatype, edv_table_name.lower())
-        
+        print('line 263')
         pandas_df = pd.read_csv(new_csv_file_list[0], dtype=dtypes_pd)
+        print('line 265')
         
         print(f"printing df info...")
         print(pandas_df.info())

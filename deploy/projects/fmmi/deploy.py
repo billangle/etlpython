@@ -27,6 +27,7 @@ from common.aws_common import (
 class FmmiNames:
     echo_landing_glue_job: str
     stg_ods_glue_job: str
+    ora_dms_ods_glue_job: str
     fmmi_state_machine: str
     fmmi_crawler: str
     check_ods_nofiles_fn: str
@@ -49,6 +50,7 @@ def build_names(deploy_env: str, project: str) -> FmmiNames:
     return FmmiNames(
         echo_landing_glue_job=f"{prefix}-LandingFiles",
         stg_ods_glue_job=f"{prefix}-S3-STG-ODS-parquet",
+        ora_dms_ods_glue_job=f"{prefix}-Ora-DMS-ODS",
         fmmi_state_machine=f"{prefix}-CSV-STG-ODS",
         fmmi_crawler=f"{prefix}-ODS",
         check_ods_nofiles_fn=f"{prefix}-Check-ODS-NoFiles",
@@ -428,18 +430,23 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
 
     landing_script_local = glue_root / "FMMI-LandingFiles.py"
     stg_ods_script_local = glue_root / "S3-STG-ODS-parquet.py"
+    ora_dms_ods_script_local = glue_root / "Ora-DMS-ODS.py"
 
     if not landing_script_local.exists():
         raise FileNotFoundError(f"Missing Glue script: {landing_script_local}")
     if not stg_ods_script_local.exists():
         raise FileNotFoundError(f"Missing Glue script: {stg_ods_script_local}")
+    if not ora_dms_ods_script_local.exists():
+        raise FileNotFoundError(f"Missing Glue script: {ora_dms_ods_script_local}")
 
     landing_script_stem = _script_stem(landing_script_local)
     stg_ods_script_stem = _script_stem(stg_ods_script_local)
+    ora_dms_ods_script_stem = _script_stem(ora_dms_ods_script_local)
 
     # GlueConfig lookup (optional)
     landing_params = _glue_config_for_script(cfg, landing_script_stem)
     stg_ods_params = _glue_config_for_script(cfg, stg_ods_script_stem)
+    ora_dms_ods_params = _glue_config_for_script(cfg, ora_dms_ods_script_stem)
 
     def _defaults(p: Dict[str, Any], default_worker: str) -> Dict[str, Any]:
         return {
@@ -453,10 +460,12 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
 
     landing_d = _defaults(landing_params, default_worker="G.1X")
     stg_ods_d = _defaults(stg_ods_params, default_worker="G.1X")
+    ora_dms_ods_d = _defaults(ora_dms_ods_params, default_worker="G.1X")
 
     glue_default_base = cfg.get("glueDefaultArgs") or {}
     landing_default_args = _merge_glue_default_args(glue_default_base, landing_params)
     stg_ods_default_args = _merge_glue_default_args(glue_default_base, stg_ods_params)
+    ora_dms_ods_default_args = _merge_glue_default_args(glue_default_base, ora_dms_ods_params)
 
     def _set_if_missing(args: Dict[str, str], k: str, v: str) -> None:
         if k not in args and v:
@@ -474,6 +483,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
 
     landing_conns = _parse_connection_names(landing_params)
     stg_ods_conns = _parse_connection_names(stg_ods_params)
+    ora_dms_ods_conns = _parse_connection_names(ora_dms_ods_params)
 
     # Networking (optional VPC config for lambdas)
     subnet_ids, security_group_ids = parse_networking(cfg)
@@ -490,6 +500,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     # Script S3 keys (renamed with FSA-<env>-<proj>- prefix)
     landing_script_s3_key = _s3_script_key(prefix, deploy_env, project, landing_script_local.name)
     stg_ods_script_s3_key = _s3_script_key(prefix, deploy_env, project, stg_ods_script_local.name)
+    ora_dms_ods_script_s3_key = _s3_script_key(prefix, deploy_env, project, ora_dms_ods_script_local.name)
 
     # --- Glue jobs ---
     ensure_glue_job(
@@ -529,6 +540,26 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
             max_retries=int(stg_ods_d["MaxRetries"]),
             max_concurrency=int(stg_ods_d["MaxConcurrency"]),
             connection_names=stg_ods_conns,
+        ),
+    )
+
+    ensure_glue_job(
+        glue,
+        s3,
+        GlueJobSpec(
+            name=names.ora_dms_ods_glue_job,
+            role_arn=glue_job_role_arn,
+            script_local_path=str(ora_dms_ods_script_local),
+            script_s3_bucket=artifact_bucket,
+            script_s3_key=ora_dms_ods_script_s3_key,
+            default_args=ora_dms_ods_default_args,
+            glue_version=str(ora_dms_ods_d["GlueVersion"]),
+            worker_type=str(ora_dms_ods_d["WorkerType"]),
+            number_of_workers=int(ora_dms_ods_d["NumberOfWorkers"]),
+            timeout_minutes=int(ora_dms_ods_d["TimeoutMinutes"]),
+            max_retries=int(ora_dms_ods_d["MaxRetries"]),
+            max_concurrency=int(ora_dms_ods_d["MaxConcurrency"]),
+            connection_names=ora_dms_ods_conns,
         ),
     )
 
@@ -672,10 +703,13 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         # ---- Glue jobs ----
         "glue_job_landing_name": names.echo_landing_glue_job,
         "glue_job_stg_ods_name": names.stg_ods_glue_job,
+        "glue_job_ora_dms_ods_name": names.ora_dms_ods_glue_job,
         "glue_landing_script_s3_key": landing_script_s3_key,
         "glue_stg_ods_script_s3_key": stg_ods_script_s3_key,
+        "glue_ora_dms_ods_script_s3_key": ora_dms_ods_script_s3_key,
         "glue_config_used_for_landing": "yes" if bool(landing_params) else "no",
         "glue_config_used_for_stg_ods": "yes" if bool(stg_ods_params) else "no",
+        "glue_config_used_for_ora_dms_ods": "yes" if bool(ora_dms_ods_params) else "no",
 
         # ---- Lambda ARNs ----
         "check_ods_nofiles_lambda_arn": check_ods_nofiles_arn,

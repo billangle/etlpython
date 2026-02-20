@@ -438,7 +438,7 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None) -> Dict[str, Any]:
         definition,
         glue_job_name=glue_job_name,
         sns_topic_arn=sns_topic_arn,
-        environ=str(deploy_env),
+        environ=str(deploy_env).lower(),
         utils_path=utils_full,
     )
     sfn_arn = ensure_state_machine(

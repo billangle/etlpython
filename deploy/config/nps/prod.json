@@ -11,8 +11,7 @@
   },
 
   "strparams": {
-    "glueJobRoleArnParam": "/FPAC/ETL/GlueJobRoleArn",
-    "stepFunctionRoleArnParam": "/FPAC/ETL/StepFunctionRoleArn"
+    "glueJobRoleArnParam": "arn:aws:iam::253490756794:role/disc-fsa-prod-glue-servicerole"
   },
 
   "stepFunctions": {
@@ -40,21 +39,26 @@
   "GlueConfig": [
     {
       "NPS_build_archive_table": {
-        "Connections": [
-          {
-            "ConnectionName": "FSA-PROD-PG-DART114",
-            "type": "JDBC",
-            "VpcId": "vpc-092b2aee3fba9e5e6",
-            "SubnetIds": "subnet-0d4691e36b391b17f",
-            "SecurityGroupIds": "sg-05e3e3fd000913769"
-          }
-        ],
+         "Connections" : [{
+             "ConnectionName": "FSA-PROD-PG-DART115",
+             "type": "JDBC",
+             "VpcId": "vpc-092b2aee3fba9e5e6",
+             "SubnetIds": "subnet-07843ec7237c1c9f1",
+             "SecurityGroupIds": "sg-05e3e3fd000913769,sg-077ff58658f28e30f"
+             },
+             {
+             "ConnectionName": "FSA-PROD-PG-DART114",
+             "type": "JDBC",
+             "VpcId": "vpc-092b2aee3fba9e5e6",
+             "SubnetIds": "subnet-0d4691e36b391b17f",
+             "SecurityGroupIds": "sg-05e3e3fd000913769, sg-077ff58658f28e30f"
+             }] ,
         "MaxConcurrency": "10",
         "MaxRetries": "0",
         "TimeoutMinutes": "2880",
-        "WorkerType": "G.2X",
+        "WorkerType": "G.4X",
         "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/nps/",
-        "NumberOfWorkers": "10",
+        "NumberOfWorkers": "4",
         "AutomaticScalingEnabled": "true",
         "GlueVersion": "4.0",
         "JobLanguage": "python",
@@ -76,21 +80,26 @@
     },
     {
       "payable_dim_tlincremental": {
-        "Connections": [
-          {
-            "ConnectionName": "FSA-PROD-PG-DART114",
-            "type": "JDBC",
-            "VpcId": "vpc-092b2aee3fba9e5e6",
-            "SubnetIds": "subnet-0d4691e36b391b17f",
-            "SecurityGroupIds": "sg-05e3e3fd000913769"
-          }
-        ],
-        "MaxConcurrency": "10",
+         "Connections" : [{
+             "ConnectionName": "FSA-PROD-PG-DART115",
+             "type": "JDBC",
+             "VpcId": "vpc-092b2aee3fba9e5e6",
+             "SubnetIds": "subnet-07843ec7237c1c9f1",
+             "SecurityGroupIds": "sg-05e3e3fd000913769,sg-077ff58658f28e30f"
+             },
+             {
+             "ConnectionName": "FSA-PROD-PG-DART114",
+             "type": "JDBC",
+             "VpcId": "vpc-092b2aee3fba9e5e6",
+             "SubnetIds": "subnet-0d4691e36b391b17f",
+             "SecurityGroupIds": "sg-05e3e3fd000913769, sg-077ff58658f28e30f"
+             }] ,
+        "MaxConcurrency": "1",
         "MaxRetries": "0",
         "TimeoutMinutes": "2880",
-        "WorkerType": "G.2X",
+        "WorkerType": "G.4X",
         "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/nps/",
-        "NumberOfWorkers": "5",
+        "NumberOfWorkers": "4",
         "AutomaticScalingEnabled": "true",
         "GlueVersion": "4.0",
         "JobLanguage": "python",
@@ -109,19 +118,24 @@
     },
     {
       "payment_summary": {
-        "Connections": [
-          {
-            "ConnectionName": "FSA-PROD-PG-DART114",
-            "type": "JDBC",
-            "VpcId": "vpc-092b2aee3fba9e5e6",
-            "SubnetIds": "subnet-0d4691e36b391b17f",
-            "SecurityGroupIds": "sg-05e3e3fd000913769"
-          }
-        ],
-        "MaxConcurrency": "10",
+         "Connections" : [{
+             "ConnectionName": "FSA-PROD-PG-DART115",
+             "type": "JDBC",
+             "VpcId": "vpc-092b2aee3fba9e5e6",
+             "SubnetIds": "subnet-07843ec7237c1c9f1",
+             "SecurityGroupIds": "sg-05e3e3fd000913769,sg-077ff58658f28e30f"
+             },
+             {
+             "ConnectionName": "FSA-PROD-PG-DART114",
+             "type": "JDBC",
+             "VpcId": "vpc-092b2aee3fba9e5e6",
+             "SubnetIds": "subnet-0d4691e36b391b17f",
+             "SecurityGroupIds": "sg-05e3e3fd000913769, sg-077ff58658f28e30f"
+             }] ,
+        "MaxConcurrency": "1",
         "MaxRetries": "0",
         "TimeoutMinutes": "2880",
-        "WorkerType": "G.2X",
+        "WorkerType": "G.4X",
         "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/nps/",
         "NumberOfWorkers": "5",
         "AutomaticScalingEnabled": "true",
@@ -142,21 +156,26 @@
     },
     {
       "payment_transaction_fact_final": {
-        "Connections": [
-          {
-            "ConnectionName": "FSA-PROD-PG-DART114",
-            "type": "JDBC",
-            "VpcId": "vpc-092b2aee3fba9e5e6",
-            "SubnetIds": "subnet-0d4691e36b391b17f",
-            "SecurityGroupIds": "sg-05e3e3fd000913769"
-          }
-        ],
-        "MaxConcurrency": "10",
+         "Connections" : [{
+             "ConnectionName": "FSA-PROD-PG-DART115",
+             "type": "JDBC",
+             "VpcId": "vpc-092b2aee3fba9e5e6",
+             "SubnetIds": "subnet-07843ec7237c1c9f1",
+             "SecurityGroupIds": "sg-05e3e3fd000913769,sg-077ff58658f28e30f"
+             },
+             {
+             "ConnectionName": "FSA-PROD-PG-DART114",
+             "type": "JDBC",
+             "VpcId": "vpc-092b2aee3fba9e5e6",
+             "SubnetIds": "subnet-0d4691e36b391b17f",
+             "SecurityGroupIds": "sg-05e3e3fd000913769, sg-077ff58658f28e30f"
+             }] ,
+        "MaxConcurrency": "1",
         "MaxRetries": "0",
         "TimeoutMinutes": "4880",
         "WorkerType": "G.4X",
         "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/nps/",
-        "NumberOfWorkers": "20",
+        "NumberOfWorkers": "4",
         "AutomaticScalingEnabled": "true",
         "GlueVersion": "4.0",
         "JobLanguage": "python",
@@ -175,21 +194,26 @@
     },
     {
       "payment_transaction_fact_part1": {
-        "Connections": [
-          {
-            "ConnectionName": "FSA-PROD-PG-DART114",
-            "type": "JDBC",
-            "VpcId": "vpc-092b2aee3fba9e5e6",
-            "SubnetIds": "subnet-0d4691e36b391b17f",
-            "SecurityGroupIds": "sg-05e3e3fd000913769"
-          }
-        ],
-        "MaxConcurrency": "10",
+         "Connections" : [{
+             "ConnectionName": "FSA-PROD-PG-DART115",
+             "type": "JDBC",
+             "VpcId": "vpc-092b2aee3fba9e5e6",
+             "SubnetIds": "subnet-07843ec7237c1c9f1",
+             "SecurityGroupIds": "sg-05e3e3fd000913769,sg-077ff58658f28e30f"
+             },
+             {
+             "ConnectionName": "FSA-PROD-PG-DART114",
+             "type": "JDBC",
+             "VpcId": "vpc-092b2aee3fba9e5e6",
+             "SubnetIds": "subnet-0d4691e36b391b17f",
+             "SecurityGroupIds": "sg-05e3e3fd000913769, sg-077ff58658f28e30f"
+             }] ,
+        "MaxConcurrency": "1",
         "MaxRetries": "0",
         "TimeoutMinutes": "2880",
-        "WorkerType": "G.2X",
+        "WorkerType": "G.4X",
         "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/nps/",
-        "NumberOfWorkers": "10",
+        "NumberOfWorkers": "4",
         "AutomaticScalingEnabled": "true",
         "GlueVersion": "4.0",
         "JobLanguage": "python",
@@ -208,21 +232,26 @@
     },
     {
       "payment_transaction_fact_part2": {
-        "Connections": [
-          {
-            "ConnectionName": "FSA-PROD-PG-DART114",
-            "type": "JDBC",
-            "VpcId": "vpc-092b2aee3fba9e5e6",
-            "SubnetIds": "subnet-0d4691e36b391b17f",
-            "SecurityGroupIds": "sg-05e3e3fd000913769"
-          }
-        ],
-        "MaxConcurrency": "10",
+         "Connections" : [{
+             "ConnectionName": "FSA-PROD-PG-DART115",
+             "type": "JDBC",
+             "VpcId": "vpc-092b2aee3fba9e5e6",
+             "SubnetIds": "subnet-07843ec7237c1c9f1",
+             "SecurityGroupIds": "sg-05e3e3fd000913769,sg-077ff58658f28e30f"
+             },
+             {
+             "ConnectionName": "FSA-PROD-PG-DART114",
+             "type": "JDBC",
+             "VpcId": "vpc-092b2aee3fba9e5e6",
+             "SubnetIds": "subnet-0d4691e36b391b17f",
+             "SecurityGroupIds": "sg-05e3e3fd000913769, sg-077ff58658f28e30f"
+             }] ,
+        "MaxConcurrency": "1",
         "MaxRetries": "0",
         "TimeoutMinutes": "2880",
-        "WorkerType": "G.2X",
+        "WorkerType": "G.4X",
         "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/nps/",
-        "NumberOfWorkers": "10",
+        "NumberOfWorkers": "4",
         "AutomaticScalingEnabled": "true",
         "GlueVersion": "4.0",
         "JobLanguage": "python",
@@ -241,21 +270,26 @@
     },
     {
       "payment_transaction_fact_part3": {
-        "Connections": [
-          {
-            "ConnectionName": "FSA-PROD-PG-DART114",
-            "type": "JDBC",
-            "VpcId": "vpc-092b2aee3fba9e5e6",
-            "SubnetIds": "subnet-0d4691e36b391b17f",
-            "SecurityGroupIds": "sg-05e3e3fd000913769"
-          }
-        ],
-        "MaxConcurrency": "10",
+         "Connections" : [{
+             "ConnectionName": "FSA-PROD-PG-DART115",
+             "type": "JDBC",
+             "VpcId": "vpc-092b2aee3fba9e5e6",
+             "SubnetIds": "subnet-07843ec7237c1c9f1",
+             "SecurityGroupIds": "sg-05e3e3fd000913769,sg-077ff58658f28e30f"
+             },
+             {
+             "ConnectionName": "FSA-PROD-PG-DART114",
+             "type": "JDBC",
+             "VpcId": "vpc-092b2aee3fba9e5e6",
+             "SubnetIds": "subnet-0d4691e36b391b17f",
+             "SecurityGroupIds": "sg-05e3e3fd000913769, sg-077ff58658f28e30f"
+             }] ,
+        "MaxConcurrency": "1",
         "MaxRetries": "0",
         "TimeoutMinutes": "2880",
-        "WorkerType": "G.2X",
+        "WorkerType": "G.4X",
         "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/nps/",
-        "NumberOfWorkers": "10",
+        "NumberOfWorkers": "4",
         "AutomaticScalingEnabled": "true",
         "GlueVersion": "4.0",
         "JobLanguage": "python",

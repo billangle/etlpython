@@ -129,6 +129,41 @@
 
             }
       }
+    },
+     {
+     "Ora-DMS-ODS": {
+        "Connections" : [{
+            "ConnectionName": "FSA-PROD-PG-MDART-115",
+            "type": "JDBC",
+            "VpcId": "vpc-092b2aee3fba9e5e6",
+            "SubnetIds": "subnet-07843ec7237c1c9f1",
+            "SecurityGroupIds": "sg-05e3e3fd000913769"
+            }] ,
+          "MaxConcurrency": "55",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "4880",
+          "WorkerType": "G.4X",
+          "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/fmmi/",
+          "NumberOfWorkers": "20",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+          "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+              "--JOB_NAME": "FSA-FMMI-Ora-DMS-ODS",
+              "--SecretId": "FSA-PROD-secrets",
+              "--run_date": "20260215",
+              "--env": "prod",
+              "--final_bucket": "c108-dev-fpacfsa-final-zone",
+              "--landing_bucket": "c108-dev-fpacfsa-final-zone"
+            }
+      }
     }
   ],
   "crawler": {

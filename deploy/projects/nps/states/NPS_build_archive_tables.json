@@ -98,7 +98,7 @@
             "Choice_receivable_balance_detail": {
               "Type": "Choice",
               "Choices": [
-[O                {
+                 {
                   "Variable": "$.failed",
                   "IsPresent": true,
                   "Next": "SNS_receivable_balance_detail"

@@ -1,5 +1,5 @@
 {
-  "deployEnv": "PROD",
+  "deployEnv": "prod",
   "project": "FWADM",
   "region": "us-east-1",
   "bucketRegion": "us-east-1",

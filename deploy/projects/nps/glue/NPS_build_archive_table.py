@@ -93,10 +93,11 @@ s3bucket_srcode_util = 'c108-{}-fpacfsa-landing-zone'.format(environ)
 key_name = 'dmart/fwadm_utils/utils.py'
 #End block for environmental specific settings
 
-#Block for properties necessary to read from Redshift database    
+#Block for properties necessary to read from Redshift database
+logger.info(f"Secret problem debug:  {secret_name} {environ}")
 secrets_manager_client = boto3.client('secretsmanager')
 get_secret_value_response = secrets_manager_client.get_secret_value(SecretId=secret_name)
-#logger.info(f"FSA-{ENVIRON}-secrets: {get_secret_value_response}")
+logger.info(f"FSA-{ENVIRON}-secrets: {get_secret_value_response}")
 secret = json.loads(get_secret_value_response['SecretString'])
 username = secret['user_db_redshift']
 password = secret['pass_db_redshift']

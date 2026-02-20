@@ -11,27 +11,17 @@ def _now_iso() -> str:
 
 def _resolve_transfer_outcome(event: dict) -> tuple:
     """
-    Determine whether the transfer step succeeded or failed, handling both
-    development and production event shapes.
+    Determine whether the transfer step succeeded or failed.
 
-    Development shape (direct transferStatus field):
-        event["transfer"]["transferStatus"] = "SUCCESS" | "FAILURE"
-
-    Production success shape (Step Functions SDK integration wrapper):
-        event["transfer"]["StatusCode"]         = 200
-        event["transfer"]["Payload"]["statusCode"] = 200
-        event["transfer"]["Payload"]["body"]       = '"success"'
-
-    Production failure shape (Step Functions Catch block):
-        event["transferError"]["Error"]  = "Exception"
-        event["transferError"]["Cause"]  = "<JSON string with errorMessage, stackTrace>"
-        (no "transfer" key present)
+    A failure is signalled exclusively by the presence of a "transferError" key
+    in the event (set by the Step Functions Catch block).  If that key is absent
+    the transfer is considered successful regardless of the shape of any
+    "transfer" response payload.
 
     Returns:
         ("SUCCESS", {}) on success
         ("FAILURE", error_detail_dict) on failure
     """
-    # ── Production failure: Step Functions caught error ──────────────────────
     transfer_error = event.get("transferError")
     if transfer_error:
         cause_str = transfer_error.get("Cause", "")
@@ -49,45 +39,8 @@ def _resolve_transfer_outcome(event: dict) -> tuple:
             "stackTrace": stack,
         }
 
-    transfer = event.get("transfer") or {}
-
-    # ── Development shape: transferStatus field set directly ─────────────────
-    dev_status = (transfer.get("transferStatus") or "").upper()
-    if dev_status == "SUCCESS":
-        return "SUCCESS", {}
-    if dev_status == "FAILURE":
-        err = transfer.get("error") or {"message": "Transfer failed", "transfer": transfer}
-        return "FAILURE", err
-
-    # ── Production success: Step Functions SDK integration wrapper ────────────
-    # Wrapper carries StatusCode + Payload from the invoked Lambda.
-    status_code = transfer.get("StatusCode")
-    payload = transfer.get("Payload") or {}
-    payload_status = payload.get("statusCode")
-    payload_body = payload.get("body", "")
-
-    if status_code == 200 and payload_status == 200:
-        # body is a JSON-encoded string: '"success"'
-        try:
-            body_val = json.loads(payload_body) if isinstance(payload_body, str) else payload_body
-        except (json.JSONDecodeError, TypeError):
-            body_val = payload_body
-        if str(body_val).strip().lower() == "success":
-            return "SUCCESS", {}
-
-    # ── Production failure: non-200 SDK wrapper (no Catch block triggered) ───
-    if status_code is not None:
-        return "FAILURE", {
-            "error": "TransferFailed",
-            "message": (
-                f"Transfer Lambda returned StatusCode={status_code}, "
-                f"Payload.statusCode={payload_status}, body={payload_body}"
-            ),
-            "payload": payload,
-        }
-
-    # ── Unrecognised shape: treat as failure ─────────────────────────────────
-    return "FAILURE", {"message": "Unrecognized transfer response", "transfer": transfer}
+    # No error — transfer succeeded.
+    return "SUCCESS", {}
 
 
 def lambda_handler(event, context):
@@ -100,11 +53,10 @@ def lambda_handler(event, context):
         table_name  : str  -- DynamoDB table (or env TABLE_NAME)
         debug       : bool -- enable verbose logging (optional)
 
-    Transfer result is read from one of two keys depending on environment:
+    Transfer result is determined solely by the presence of "transferError":
 
-        Development  → event["transfer"]["transferStatus"] = "SUCCESS"|"FAILURE"
-        Production   → event["transfer"]      (Step Functions SDK wrapper, success)
-                       event["transferError"] (Step Functions Catch, failure)
+        No "transferError" key → SUCCESS  (regardless of payload shape)
+        "transferError" present → FAILURE (populated by Step Functions Catch block)
 
     On success:
         DynamoDB: status=COMPLETED, completedAt=now, updatedAt=now, error_result removed

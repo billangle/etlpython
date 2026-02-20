@@ -394,14 +394,6 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None) -> Dict[str, Any]:
         d = _defaults(job_params, default_worker=_as_str(job_params.get("WorkerType"), "G.1X"))
         default_args = _merge_glue_default_args(glue_default_base, job_params)
 
-        def _set_if_missing(args: Dict[str, str], k: str, v: str) -> None:
-            if k not in args and v:
-                args[k] = v
-
-        _set_if_missing(default_args, "--environ", str(deploy_env))
-        _set_if_missing(default_args, "--env", str(deploy_env))
-        _set_if_missing(default_args, "--landing_bucket", _as_str((cfg.get("configData") or {}).get("landingBucket")))
-
         conns = _parse_connection_names(job_params)
 
         script_s3_key = _s3_script_key(prefix, deploy_env, project, script.name)

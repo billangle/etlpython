@@ -1,168 +1,227 @@
 {
-  "Comment": "FMMI Echo → STG → ODS Pipeline with BOTH support (all Glue job names + S3 buckets/folders are variables)",
-  "StartAt": "RunEchoLanding",
+  "Comment": "FMMI Echo \u2192 STG/ODS Pipeline. All infrastructure values (job names, Lambda ARNs, SNS ARN, S3 buckets/folders, env) are substituted at deploy time. The only runtime inputs required are: run_date (string), and optionally file_name (string), job_type (STG|ODS|BOTH), use_existing_landing (bool).",
+  "StartAt": "SaveInput",
   "States": {
+
+    "SaveInput": {
+      "Type": "Pass",
+      "Comment": "Snapshot caller input so it survives ResultPath overwrites on subsequent Task states.",
+      "ResultPath": "$.OriginalInput",
+      "Next": "CheckSkipLanding"
+    },
+
+    "CheckSkipLanding": {
+      "Type": "Choice",
+      "Comment": "Pass use_existing_landing=true to skip the Echo Landing Glue job.",
+      "Choices": [
+        {
+          "And": [
+            { "Variable": "$.OriginalInput.use_existing_landing", "IsPresent": true },
+            { "Variable": "$.OriginalInput.use_existing_landing", "BooleanEquals": true }
+          ],
+          "Next": "CheckFileInputs"
+        }
+      ],
+      "Default": "RunEchoLanding"
+    },
+
     "RunEchoLanding": {
       "Type": "Task",
       "Resource": "arn:aws:states:::glue:startJobRun.sync",
       "Parameters": {
-        "JobName.$": "$.echo_landing_job_name",
+        "JobName": "__ECHO_LANDING_JOB_NAME__",
         "Arguments": {
-          "--env.$": "$.env",
-          "--run_date.$": "$.run_date",
-          "--file_name.$": "$.file_name",
-          "--file_names.$": "$.file_names",
-          "--bucket_name.$": "$.landing_bucket",
-          "--folder_name.$": "$.landing_folder"
+          "--env": "__ENV__",
+          "--run_date.$": "$.OriginalInput.run_date",
+          "--bucket_name": "__LANDING_BUCKET__",
+          "--folder_name": "__LANDING_FOLDER__"
         }
       },
-      "ResultPath": "$.echo_landing_result",
-      "Next": "CheckJobType",
+      "ResultPath": "$.LandingResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
       "Catch": [
         {
           "ErrorEquals": ["States.ALL"],
           "ResultPath": "$.error",
           "Next": "FailureSNS"
         }
-      ]
+      ],
+      "Next": "CheckNoFilesLambda"
     },
 
-    "CheckJobType": {
+    "CheckNoFilesLambda": {
+      "Type": "Task",
+      "Comment": "Lambda checks landing zone for a _NO_FILES sentinel key. ARN substituted at deploy time.",
+      "Resource": "__CHECK_NOFILES_LAMBDA_ARN__",
+      "ResultPath": "$.NoFilesCheck",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "FailureSNS"
+        }
+      ],
+      "Next": "CheckNoFilesChoice"
+    },
+
+    "CheckNoFilesChoice": {
       "Type": "Choice",
       "Choices": [
-        { "Variable": "$.job_type", "StringEquals": "BOTH", "Next": "RunBOTH" },
-        { "Variable": "$.job_type", "StringEquals": "STG",  "Next": "RunSTG" },
-        { "Variable": "$.job_type", "StringEquals": "ODS",  "Next": "RunODS" }
+        {
+          "Variable": "$.NoFilesCheck.no_files",
+          "BooleanEquals": true,
+          "Next": "SuccessSNS_NoFiles"
+        }
       ],
-      "Default": "RunSTG"
+      "Default": "CheckFileInputs"
     },
 
-    "RunSTG": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::glue:startJobRun.sync",
-      "Parameters": {
-        "JobName.$": "$.stg_ods_job_name",
-        "Arguments": {
-          "--job_type": "STG",
-          "--env.$": "$.env",
-          "--bucket_name.$": "$.landing_bucket",
-          "--folder_name.$": "$.landing_folder",
-          "--stg_bucket_name.$": "$.stg_bucket",
-          "--stg_folder_name.$": "$.stg_folder",
-          "--ods_bucket_name.$": "$.ods_bucket",
-          "--ods_folder_name.$": "$.ods_folder",
-          "--file_name.$": "$.file_name",
-          "--file_names.$": "$.file_names",
-          "--run_date.$": "$.run_date"
-        }
-      },
-      "ResultPath": "$.stg_result",
-      "Next": "RunODS",
-      "Catch": [
+    "CheckFileInputs": {
+      "Type": "Choice",
+      "Comment": "If file_name is present, route to single-file run; otherwise full-batch BOTH run.",
+      "Choices": [
         {
-          "ErrorEquals": ["States.ALL"],
-          "ResultPath": "$.error",
-          "Next": "FailureSNS"
+          "Variable": "$.OriginalInput.file_name",
+          "IsPresent": true,
+          "Next": "InitArgsWithFileName"
         }
-      ]
+      ],
+      "Default": "InitArgsNoFileName"
     },
 
-    "RunODS": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+    "InitArgsWithFileName": {
+      "Type": "Pass",
+      "Comment": "Single-file run. job_type must be supplied by caller (STG, ODS, or BOTH).",
       "Parameters": {
-        "JobName.$": "$.stg_ods_job_name",
+        "JobName": "__STG_ODS_JOB_NAME__",
         "Arguments": {
-          "--job_type": "ODS",
-          "--env.$": "$.env",
-          "--bucket_name.$": "$.landing_bucket",
-          "--folder_name.$": "$.landing_folder",
-          "--stg_bucket_name.$": "$.stg_bucket",
-          "--stg_folder_name.$": "$.stg_folder",
-          "--ods_bucket_name.$": "$.ods_bucket",
-          "--ods_folder_name.$": "$.ods_folder",
-          "--file_name.$": "$.file_name",
-          "--file_names.$": "$.file_names",
-          "--run_date.$": "$.run_date"
+          "--job_type.$": "$.OriginalInput.job_type",
+          "--env": "__ENV__",
+          "--bucket_name": "__LANDING_BUCKET__",
+          "--folder_name": "__LANDING_FOLDER__",
+          "--stg_bucket_name": "__STG_BUCKET__",
+          "--stg_folder_name": "__STG_FOLDER__",
+          "--ods_bucket_name": "__ODS_BUCKET__",
+          "--ods_folder_name": "__ODS_FOLDER__",
+          "--run_date.$": "$.OriginalInput.run_date",
+          "--file_name.$": "$.OriginalInput.file_name"
         }
       },
-      "ResultSelector": {
-        "landing_date.$": "$.JobRun.Output.landing_date",
-        "success_tables.$": "$.JobRun.Output.success_tables",
-        "missing_tables.$": "$.JobRun.Output.missing_tables",
-        "failed_tables.$": "$.JobRun.Output.failed_tables",
-        "gl_count.$": "$.JobRun.Output.gl_count",
-        "sa_count.$": "$.JobRun.Output.sa_count",
-        "gl_sa_status.$": "$.JobRun.Output.gl_sa_status"
-      },
-      "ResultPath": "$.ods_result",
-      "Next": "SuccessSNS",
-      "Catch": [
-        {
-          "ErrorEquals": ["States.ALL"],
-          "ResultPath": "$.error",
-          "Next": "FailureSNS"
-        }
-      ]
+      "ResultPath": "$.GlueArgs",
+      "Next": "RunGlue"
     },
 
-    "RunBOTH": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+    "InitArgsNoFileName": {
+      "Type": "Pass",
+      "Comment": "Full-batch run. job_type defaults to BOTH.",
       "Parameters": {
-        "JobName.$": "$.stg_ods_job_name",
+        "JobName": "__STG_ODS_JOB_NAME__",
         "Arguments": {
           "--job_type": "BOTH",
-          "--env.$": "$.env",
-          "--bucket_name.$": "$.landing_bucket",
-          "--folder_name.$": "$.landing_folder",
-          "--stg_bucket_name.$": "$.stg_bucket",
-          "--stg_folder_name.$": "$.stg_folder",
-          "--ods_bucket_name.$": "$.ods_bucket",
-          "--ods_folder_name.$": "$.ods_folder",
-          "--file_name.$": "$.file_name",
-          "--file_names.$": "$.file_names",
-          "--run_date.$": "$.run_date"
+          "--env": "__ENV__",
+          "--bucket_name": "__LANDING_BUCKET__",
+          "--folder_name": "__LANDING_FOLDER__",
+          "--stg_bucket_name": "__STG_BUCKET__",
+          "--stg_folder_name": "__STG_FOLDER__",
+          "--ods_bucket_name": "__ODS_BUCKET__",
+          "--ods_folder_name": "__ODS_FOLDER__",
+          "--run_date.$": "$.OriginalInput.run_date"
         }
       },
-      "ResultSelector": {
-        "landing_date.$": "$.JobRun.Output.landing_date",
-        "success_tables.$": "$.JobRun.Output.success_tables",
-        "missing_tables.$": "$.JobRun.Output.missing_tables",
-        "failed_tables.$": "$.JobRun.Output.failed_tables",
-        "gl_count.$": "$.JobRun.Output.gl_count",
-        "sa_count.$": "$.JobRun.Output.sa_count",
-        "gl_sa_status.$": "$.JobRun.Output.gl_sa_status"
+      "ResultPath": "$.GlueArgs",
+      "Next": "RunGlue"
+    },
+
+    "RunGlue": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName.$": "$.GlueArgs.JobName",
+        "Arguments.$": "$.GlueArgs.Arguments"
       },
-      "ResultPath": "$.ods_result",
-      "Next": "SuccessSNS",
+      "ResultPath": "$.GlueResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
       "Catch": [
         {
           "ErrorEquals": ["States.ALL"],
           "ResultPath": "$.error",
           "Next": "FailureSNS"
         }
-      ]
+      ],
+      "Next": "RunCrawler"
+    },
+
+    "RunCrawler": {
+      "Type": "Task",
+      "Comment": "Lambda triggers the ODS Glue crawler. ARN substituted at deploy time.",
+      "Resource": "__CRAWLER_LAMBDA_ARN__",
+      "ResultPath": "$.CrawlerResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "FailureSNS"
+        }
+      ],
+      "Next": "SuccessSNS"
+    },
+
+    "SuccessSNS_NoFiles": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "__SNS_TOPIC_ARN__",
+        "Message": {
+          "status": "SUCCESS",
+          "env": "__ENV__",
+          "message": "No files found in landing zone. Pipeline skipped.",
+          "run_date.$": "$.OriginalInput.run_date"
+        }
+      },
+      "End": true
     },
 
     "SuccessSNS": {
       "Type": "Task",
       "Resource": "arn:aws:states:::sns:publish",
       "Parameters": {
-        "TopicArn.$": "$.sns_topic_arn",
+        "TopicArn": "__SNS_TOPIC_ARN__",
         "Message": {
-          "default": {
-            "status": "SUCCESS",
-            "env.$": "$.env",
-            "run_date.$": "$.run_date",
-            "landing_date.$": "$.ods_result.landing_date",
-            "success_tables.$": "$.ods_result.success_tables",
-            "missing_tables.$": "$.ods_result.missing_tables",
-            "failed_tables.$": "$.ods_result.failed_tables",
-            "gl_count.$": "$.ods_result.gl_count",
-            "sa_count.$": "$.ods_result.sa_count",
-            "gl_sa_status.$": "$.ods_result.gl_sa_status"
-          }
+          "status": "SUCCESS",
+          "env": "__ENV__",
+          "run_date.$": "$.OriginalInput.run_date",
+          "glue_result.$": "$.GlueResult",
+          "crawler_result.$": "$.CrawlerResult"
         }
       },
       "End": true
@@ -172,17 +231,16 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::sns:publish",
       "Parameters": {
-        "TopicArn.$": "$.sns_topic_arn",
+        "TopicArn": "__SNS_TOPIC_ARN__",
         "Message": {
-          "default": {
-            "status": "FAILED",
-            "env.$": "$.env",
-            "run_date.$": "$.run_date",
-            "error.$": "$.error"
-          }
+          "status": "FAILED",
+          "env": "__ENV__",
+          "run_date.$": "$.OriginalInput.run_date",
+          "error.$": "$.error"
         }
       },
       "End": true
     }
+
   }
 }

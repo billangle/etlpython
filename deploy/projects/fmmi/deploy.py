@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import boto3
 from botocore.exceptions import ClientError
@@ -12,8 +12,10 @@ from botocore.exceptions import ClientError
 from common.aws_common import (
     ensure_bucket_exists,
     ensure_glue_job,
+    ensure_lambda,
     ensure_state_machine,
     GlueJobSpec,
+    LambdaSpec,
     StateMachineSpec,
 )
 
@@ -27,6 +29,8 @@ class FmmiNames:
     stg_ods_glue_job: str
     fmmi_state_machine: str
     fmmi_crawler: str
+    check_ods_nofiles_fn: str
+    ods_crawler_fn: str
 
 
 def build_names(deploy_env: str, project: str) -> FmmiNames:
@@ -47,7 +51,35 @@ def build_names(deploy_env: str, project: str) -> FmmiNames:
         stg_ods_glue_job=f"{prefix}-S3-STG-ODS-parquet",
         fmmi_state_machine=f"{prefix}-CSV-STG-ODS",
         fmmi_crawler=f"{prefix}-ODS",
+        check_ods_nofiles_fn=f"{prefix}-Check-ODS-NoFiles",
+        ods_crawler_fn=f"{prefix}-ODS-Crawler",
     )
+
+
+# --------------------------------------------------------------------------------------
+# Networking helpers
+# --------------------------------------------------------------------------------------
+
+def parse_networking(cfg: Dict[str, Any]) -> Tuple[List[str], List[str]]:
+    net = cfg.get("networking") or {}
+    if not isinstance(net, dict) or not net:
+        return ([], [])
+
+    subnet_ids = net.get("subnetIds") or []
+    sg_ids = net.get("securityGroupIds") or []
+
+    if not isinstance(subnet_ids, list):
+        subnet_ids = []
+    if not isinstance(sg_ids, list):
+        sg_ids = []
+
+    subnet_ids = [s.strip() for s in subnet_ids if isinstance(s, str) and s.strip()]
+    sg_ids = [s.strip() for s in sg_ids if isinstance(s, str) and s.strip()]
+
+    if not (subnet_ids and sg_ids):
+        return ([], [])
+
+    return (subnet_ids, sg_ids)
 
 
 # --------------------------------------------------------------------------------------
@@ -326,6 +358,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     """
     deploy_env = cfg["deployEnv"]
     project = cfg["project"]
+    bucket_region = cfg.get("bucketRegion") or region
     names = build_names(deploy_env, project)
 
     # Artifacts
@@ -345,10 +378,28 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     sns_topic_arn = _as_str(strparams.get("snsArnParam"))
     glue_job_role_arn = _as_str(strparams.get("glueJobRoleArnParam"))
 
-    # Optional folders
-    landing_folder = _as_str(strparams.get("landingFolderNameParam"))
-    stg_folder = _as_str(strparams.get("stgFolderNameParam"))
-    ods_folder = _as_str(strparams.get("odsFolderNameParam"))
+    # Lambda role and layers
+    etl_lambda_role_arn = _as_str(strparams.get("etlRoleArnParam"))
+    lambda_runtime = _as_str(strparams.get("lambdaRuntime"), default="python3.12")
+    layers: List[str] = []
+    third_party_layer = _as_str(strparams.get("thirdPartyLayerArnParam"))
+    custom_layer = _as_str(strparams.get("customLayerArnParam"))
+    if third_party_layer:
+        layers.append(third_party_layer)
+    if custom_layer:
+        layers.append(custom_layer)
+
+    # Optional folders — derive defaults from project name so callers don't have to set them
+    _proj_lower = project.lower()
+    landing_folder = _as_str(strparams.get("landingFolderNameParam"),
+                             default=f"{_proj_lower}/{_proj_lower}_ocfo_files")
+    stg_folder = _as_str(strparams.get("stgFolderNameParam"),
+                         default=f"{_proj_lower}_stg")
+    ods_folder = _as_str(strparams.get("odsFolderNameParam"),
+                         default=f"{_proj_lower}_ods")
+
+    # Landing prefix used by the Check-ODS-NoFiles Lambda (mirrors landing_folder by default)
+    landing_prefix = _as_str(strparams.get("landingPrefixParam"), default=landing_folder)
 
     missing: List[str] = []
     if not landing_bucket:
@@ -361,6 +412,8 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         missing.append("strparams.snsArnParam")
     if not glue_job_role_arn:
         missing.append("strparams.glueJobRoleArnParam")
+    if not etl_lambda_role_arn:
+        missing.append("strparams.etlRoleArnParam")
     if missing:
         raise RuntimeError("Missing required config keys: " + ", ".join(missing))
 
@@ -422,9 +475,13 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     landing_conns = _parse_connection_names(landing_params)
     stg_ods_conns = _parse_connection_names(stg_ods_params)
 
+    # Networking (optional VPC config for lambdas)
+    subnet_ids, security_group_ids = parse_networking(cfg)
+
     # Clients
     session = boto3.Session(region_name=region)
     s3 = session.client("s3")
+    lam = session.client("lambda")
     glue = session.client("glue")
     sfn = session.client("stepfunctions")
 
@@ -475,8 +532,81 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         ),
     )
 
+    # --- Lambda functions ---
+    base_lambda_env: Dict[str, str] = {
+        "PROJECT": project,
+        "LANDING_BUCKET": landing_bucket,
+        "BUCKET_REGION": bucket_region,
+    }
+    # Extra env vars from cfg.lambdaEnv override base values
+    base_lambda_env.update(cfg.get("lambdaEnv") or {})
+
+    check_ods_nofiles_env = {
+        **base_lambda_env,
+        "LANDING_PREFIX": landing_prefix,
+    }
+    ods_crawler_env = {
+        **base_lambda_env,
+        "CRAWLER_NAME": names.fmmi_crawler,
+    }
+
+    lambda_root = project_dir / "lambda"
+
+    check_ods_nofiles_arn = ensure_lambda(
+        lam,
+        LambdaSpec(
+            name=names.check_ods_nofiles_fn,
+            role_arn=etl_lambda_role_arn,
+            handler="lambda_function.handler",
+            runtime=lambda_runtime,
+            source_dir=str(lambda_root / "Check-FMMI_ODS-NoFiles"),
+            env=check_ods_nofiles_env,
+            layers=layers,
+            subnet_ids=subnet_ids if subnet_ids else None,
+            security_group_ids=security_group_ids if security_group_ids else None,
+        ),
+    )
+
+    ods_crawler_arn = ensure_lambda(
+        lam,
+        LambdaSpec(
+            name=names.ods_crawler_fn,
+            role_arn=etl_lambda_role_arn,
+            handler="lambda_function.handler",
+            runtime=lambda_runtime,
+            source_dir=str(lambda_root / "FMMI_ODS-Crawler"),
+            env=ods_crawler_env,
+            layers=layers,
+            subnet_ids=subnet_ids if subnet_ids else None,
+            security_group_ids=security_group_ids if security_group_ids else None,
+        ),
+    )
+
     # --- Step Function ---
-    definition = _load_asl_definition(project_dir)
+    # All infrastructure values are substituted into the ASL at deploy time.
+    # Step Functions does not support Resource.$ dynamic references, and baking
+    # values in avoids requiring any infrastructure parameters at execution time.
+    # Only runtime inputs needed when starting an execution: run_date (required),
+    # file_name (optional), job_type (optional), use_existing_landing (optional).
+    _asl_text = json.dumps(_load_asl_definition(project_dir))
+    _substitutions = {
+        "__ECHO_LANDING_JOB_NAME__": names.echo_landing_glue_job,
+        "__STG_ODS_JOB_NAME__":      names.stg_ods_glue_job,
+        "__CHECK_NOFILES_LAMBDA_ARN__": check_ods_nofiles_arn,
+        "__CRAWLER_LAMBDA_ARN__":    ods_crawler_arn,
+        "__SNS_TOPIC_ARN__":         sns_topic_arn,
+        "__ENV__":                   str(deploy_env),
+        "__LANDING_BUCKET__":        landing_bucket,
+        "__LANDING_FOLDER__":        landing_folder,
+        "__STG_BUCKET__":            clean_bucket,
+        "__STG_FOLDER__":            stg_folder,
+        "__ODS_BUCKET__":            final_bucket,
+        "__ODS_FOLDER__":            ods_folder,
+    }
+    for placeholder, value in _substitutions.items():
+        _asl_text = _asl_text.replace(placeholder, value)
+    definition = json.loads(_asl_text)
+
     sfn_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(
@@ -533,23 +663,46 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         crawler_result = "created_or_updated"
 
     return {
+        # ---- deploy metadata ----
         "deploy_env": str(deploy_env),
         "project": str(project),
         "artifact_bucket": artifact_bucket,
         "artifact_prefix": prefix,
-        "landing_bucket_from_config": landing_bucket,
-        "clean_bucket_from_config": clean_bucket,
-        "final_bucket_from_config": final_bucket,
-        "sns_topic_arn_from_config": sns_topic_arn,
+
+        # ---- Glue jobs ----
         "glue_job_landing_name": names.echo_landing_glue_job,
         "glue_job_stg_ods_name": names.stg_ods_glue_job,
         "glue_landing_script_s3_key": landing_script_s3_key,
         "glue_stg_ods_script_s3_key": stg_ods_script_s3_key,
-        "state_machine_name": names.fmmi_state_machine,
-        "state_machine_arn": sfn_arn,
         "glue_config_used_for_landing": "yes" if bool(landing_params) else "no",
         "glue_config_used_for_stg_ods": "yes" if bool(stg_ods_params) else "no",
+
+        # ---- Lambda ARNs ----
+        "check_ods_nofiles_lambda_arn": check_ods_nofiles_arn,
+        "ods_crawler_lambda_arn": ods_crawler_arn,
+
+        # ---- Step Function ----
+        "state_machine_name": names.fmmi_state_machine,
+        "state_machine_arn": sfn_arn,
+
+        # ---- Glue Crawler ----
         "crawler": crawler_result,
         "crawler_name": crawler_name_used,
         "crawler_database": crawler_db_used,
+
+        # ---- State machine execution input template (all $.xxx keys the ASL expects) ----
+        # Callers start the state machine with this as the base input, adding:
+        #   run_date, job_type (optional), file_name (optional), use_existing_landing (optional)
+        "sm_input_echo_landing_job_name": names.echo_landing_glue_job,
+        "sm_input_stg_ods_job_name": names.stg_ods_glue_job,
+        "sm_input_check_nofiles_lambda_arn": check_ods_nofiles_arn,
+        "sm_input_crawler_lambda_arn": ods_crawler_arn,
+        "sm_input_sns_topic_arn": sns_topic_arn,
+        "sm_input_env": str(deploy_env),
+        "sm_input_landing_bucket": landing_bucket,
+        "sm_input_landing_folder": landing_folder,
+        "sm_input_stg_bucket": clean_bucket,
+        "sm_input_stg_folder": stg_folder,
+        "sm_input_ods_bucket": final_bucket,
+        "sm_input_ods_folder": ods_folder,
     }

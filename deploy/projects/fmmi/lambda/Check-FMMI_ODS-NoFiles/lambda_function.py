@@ -1,12 +1,13 @@
+import os
 import boto3
 from datetime import datetime
 
 s3 = boto3.client("s3")
 
-BUCKET = "c108-dev-fpacfsa-landing-zone"
-PREFIX = "fmmi/fmmi_ocfo_files"
+BUCKET = os.environ["LANDING_BUCKET"]
+PREFIX = os.environ.get("LANDING_PREFIX", "fmmi/fmmi_ocfo_files")
 
-def lambda_handler(event, context):
+def handler(event, context):
     date_str = datetime.now().strftime("%Y%m%d")
     key = f"{PREFIX}/{date_str}/_NO_FILES"
 

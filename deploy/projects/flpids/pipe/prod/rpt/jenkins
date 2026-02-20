@@ -10,6 +10,7 @@ pipeline {
     FTPS_PORT     = '990'
     ENV           = 'PROD'
     STEP          ='flpids_rpt Landing Zone (Weekly)'
+    PIPELINE      = 'FLPIDS_RPT'
   }
 
   stages {
@@ -76,14 +77,14 @@ set -euo pipefail
 
 JENKINS_JOB_NAME="FSA-PROD-DART-ECHO-FETCH-FLPIDSRPT"
 PROJECT_NAME="${JENKINS_JOB_NAME#*ECHO-FETCH-}"
-: "${STEP:=FSA-PROD-DART-ECHO-FETCH-FLPIDSRPT}"
+STEP="flpids_rpt Landing Zone (Weekly)"
 export PROJECT_NAME
 
 # Defaults (regex can contain braces, so avoid shell parameter default syntax with embedded braces)
 if [ -z "${FILE_PATTERN:-}" ]; then FILE_PATTERN='(MFO900\\.MOYRPT\\.\\w{1,128})\\.DATA\\.(\\d{14})$'; fi
 if [ -z "${ECHO_FOLDER:-}" ]; then ECHO_FOLDER='plas'; fi
 if [ -z "${ECHO_SUBFOLDER:-}" ]; then ECHO_SUBFOLDER=''; fi
-if [ -z "${PIPELINE:-}" ]; then PIPELINE='FLPIDS_RPT'; fi
+PIPELINE='FLPIDS_RPT'
 
 if [ -z "${MIN_SIZE_BYTES:-}" ]; then MIN_SIZE_BYTES="1"; fi
 if [ -z "${VERIFY_TLS:-}" ]; then VERIFY_TLS="false"; fi

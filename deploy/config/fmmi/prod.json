@@ -125,7 +125,7 @@
               "--stg_bucket_name": "c108-prod-fpacfsa-cleansed-zone",
               "--stg_folder_name": "fmmi_stg",
               "--folder_name": "fmmi/fmmi_ocfo_files",
-              "--ods_bucket_name": "c108-dev-fpacfsa-final-zone"
+              "--ods_bucket_name": "c108-prod-fpacfsa-final-zone"
 
             }
       }
@@ -160,8 +160,8 @@
               "--SecretId": "FSA-PROD-secrets",
               "--run_date": "20260215",
               "--env": "prod",
-              "--final_bucket": "c108-dev-fpacfsa-final-zone",
-              "--landing_bucket": "c108-dev-fpacfsa-final-zone"
+              "--final_bucket": "c108-prod-fpacfsa-final-zone",
+              "--landing_bucket": "c108-prod-fpacfsa-final-zone"
             }
       }
     }

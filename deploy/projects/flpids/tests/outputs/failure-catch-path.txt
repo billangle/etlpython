@@ -1,0 +1,79 @@
+{
+  "jobId": "f3a99961-e601-4c6a-aa9e-7d8842fb2ddc",
+  "project": "FLPIDS-NATS",
+  "table_name": "FSA-FileChecks",
+  "bucket": "c108-prod-fpacfsa-landing-zone",
+  "secret_id": "FSA-PROD-secrets",
+  "verify_tls": false,
+  "timeout_seconds": 30,
+  "debug": true,
+  "stream": {
+    "source": "ddb-stream-lambda"
+  },
+  "setRunning": {
+    "ExecutedVersion": "$LATEST",
+    "Payload": {
+      "jobId": "f3a99961-e601-4c6a-aa9e-7d8842fb2ddc",
+      "project": "FLPIDS-NATS",
+      "status": "RUNNING",
+      "updatedAt": "2026-02-23T07:18:15.421795+00:00",
+      "pipeline": "FLPIDS_ODS",
+      "echo_folder": "nats",
+      "project_name": "FLPIDS-NATS",
+      "file_pattern": "^(FILE_NATS_\\w+)\\.(\\d{8})\\.csv$",
+      "echo_subfolder": "",
+      "lambda_arn": "arn:aws:lambda:us-east-1:253490756794:function:FSA-PROD-DART-ECHO-FETCH-FLPIDS-NATS",
+      "step": "FLPIDS_ODS Landing Zone",
+      "header": false,
+      "to_queue": true,
+      "env": null
+    },
+    "SdkHttpMetadata": {
+      "AllHttpHeaders": {
+        "X-Amz-Executed-Version": [
+          "$LATEST"
+        ],
+        "x-amzn-Remapped-Content-Length": [
+          "0"
+        ],
+        "Connection": [
+          "keep-alive"
+        ],
+        "x-amzn-RequestId": [
+          "c747a445-8f41-49c8-a869-033e333a3352"
+        ],
+        "Content-Length": [
+          "486"
+        ],
+        "Date": [
+          "Mon, 23 Feb 2026 07:18:15 GMT"
+        ],
+        "X-Amzn-Trace-Id": [
+          "Root=1-699bff33-fb162040f7f68cc116a612d2;Parent=343a6fead3d84591;Sampled=0;Lineage=2:f5ed44fa:0"
+        ],
+        "Content-Type": [
+          "application/json"
+        ]
+      },
+      "HttpHeaders": {
+        "Connection": "keep-alive",
+        "Content-Length": "486",
+        "Content-Type": "application/json",
+        "Date": "Mon, 23 Feb 2026 07:18:15 GMT",
+        "X-Amz-Executed-Version": "$LATEST",
+        "x-amzn-Remapped-Content-Length": "0",
+        "x-amzn-RequestId": "c747a445-8f41-49c8-a869-033e333a3352",
+        "X-Amzn-Trace-Id": "Root=1-699bff33-fb162040f7f68cc116a612d2;Parent=343a6fead3d84591;Sampled=0;Lineage=2:f5ed44fa:0"
+      },
+      "HttpStatusCode": 200
+    },
+    "SdkResponseMetadata": {
+      "RequestId": "c747a445-8f41-49c8-a869-033e333a3352"
+    },
+    "StatusCode": 200
+  },
+  "transferError": {
+    "Error": "Exception",
+    "Cause": "{\"errorMessage\":\"Dataset DOI '('FLPIDS_ODS', 'Data Mart (flpids_ods)', 'l1_cust_rvw')' does not exist.\",\"errorType\":\"Exception\",\"requestId\":\"97fd03cf-909f-4c42-9dcd-90139aa48d7d\",\"stackTrace\":[\"  File \\\"/var/task/lambda_function.py\\\", line 187, in lambda_handler\\n    s3_uri, echo_uri = future.result()\\n\",\"  File \\\"/var/lang/lib/python3.9/concurrent/futures/_base.py\\\", line 439, in result\\n    return self.__get_result()\\n\",\"  File \\\"/var/lang/lib/python3.9/concurrent/futures/_base.py\\\", line 391, in __get_result\\n    raise self._exception\\n\",\"  File \\\"/var/lang/lib/python3.9/concurrent/futures/thread.py\\\", line 58, in run\\n    result = self.fn(*self.args, **self.kwargs)\\n\",\"  File \\\"/var/task/lambda_function.py\\\", line 172, in echo_file_transfer\\n    session.complete = True\\n\",\"  File \\\"/opt/python/dart/session.py\\\", line 145, in __exit__\\n    self.queue_eligible_datasets()\\n\",\"  File \\\"/opt/python/dart/session.py\\\", line 158, in queue_eligible_datasets\\n    dataset = DARTDataset(self.client, **dataset)\\n\",\"  File \\\"/opt/python/dart/dataset.py\\\", line 17, in __init__\\n    self.properties = self.load_properties()\\n\",\"  File \\\"/opt/python/dart/dataset.py\\\", line 117, in load_properties\\n    raise Exception(f\\\"Dataset DOI '{doi}' does not exist.\\\")\\n\"]}"
+  }
+}

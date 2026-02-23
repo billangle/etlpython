@@ -1,5 +1,5 @@
 {
-  "Comment": "FMMI Echo \u2192 STG/ODS Pipeline. All infrastructure values (job names, Lambda ARNs, SNS ARN, S3 buckets/folders, env) are substituted at deploy time. Optional runtime inputs: file_name (string), job_type (STG|ODS|BOTH), use_existing_landing (bool).",
+  "Comment": "FMMI Echo \u2192 STG/ODS Pipeline. All infrastructure values (job names, Lambda ARNs, SNS ARN, S3 buckets/folders, env) are substituted at deploy time. Optional runtime input: use_existing_landing (bool).",
   "StartAt": "SaveInput",
   "States": {
 
@@ -19,7 +19,7 @@
             { "Variable": "$.OriginalInput.use_existing_landing", "IsPresent": true },
             { "Variable": "$.OriginalInput.use_existing_landing", "BooleanEquals": true }
           ],
-          "Next": "CheckFileInputs"
+          "Next": "InitArgs"
         }
       ],
       "Default": "RunEchoLanding"
@@ -31,9 +31,13 @@
       "Parameters": {
         "JobName": "__ECHO_LANDING_JOB_NAME__",
         "Arguments": {
-          "--env": "__ENV__",
-          "--bucket_name": "__LANDING_BUCKET__",
-          "--folder_name": "__LANDING_FOLDER__"
+          "--JOB_NAME": "__ECHO_LANDING_JOB_NAME__",
+          "--SecretId": "__ECHO_SECRET_ID__",
+          "--DestinationBucket": "__LANDING_BUCKET__",
+          "--DestinationPrefix": "__LANDING_FOLDER__",
+          "--EchoFolder": "fmmi",
+          "--FileNames": "FMMI.FSA*",
+          "--PipelineName": "__PIPELINE_NAME__"
         }
       },
       "ResultPath": "$.LandingResult",
@@ -87,29 +91,16 @@
           "Next": "SuccessSNS_NoFiles"
         }
       ],
-      "Default": "CheckFileInputs"
+      "Default": "InitArgs"
     },
 
-    "CheckFileInputs": {
-      "Type": "Choice",
-      "Comment": "If file_name is present, route to single-file run; otherwise full-batch BOTH run.",
-      "Choices": [
-        {
-          "Variable": "$.OriginalInput.file_name",
-          "IsPresent": true,
-          "Next": "InitArgsWithFileName"
-        }
-      ],
-      "Default": "InitArgsNoFileName"
-    },
-
-    "InitArgsWithFileName": {
+    "InitArgs": {
       "Type": "Pass",
-      "Comment": "Single-file run. job_type must be supplied by caller (STG, ODS, or BOTH).",
       "Parameters": {
         "JobName": "__STG_ODS_JOB_NAME__",
         "Arguments": {
-          "--job_type.$": "$.OriginalInput.job_type",
+          "--JOB_NAME": "__STG_ODS_JOB_NAME__",
+          "--SecretId": "__ECHO_SECRET_ID__",
           "--env": "__ENV__",
           "--bucket_name": "__LANDING_BUCKET__",
           "--folder_name": "__LANDING_FOLDER__",
@@ -117,27 +108,8 @@
           "--stg_folder_name": "__STG_FOLDER__",
           "--ods_bucket_name": "__ODS_BUCKET__",
           "--ods_folder_name": "__ODS_FOLDER__",
-          "--file_name.$": "$.OriginalInput.file_name"
-        }
-      },
-      "ResultPath": "$.GlueArgs",
-      "Next": "RunGlue"
-    },
-
-    "InitArgsNoFileName": {
-      "Type": "Pass",
-      "Comment": "Full-batch run. job_type defaults to BOTH.",
-      "Parameters": {
-        "JobName": "__STG_ODS_JOB_NAME__",
-        "Arguments": {
           "--job_type": "BOTH",
-          "--env": "__ENV__",
-          "--bucket_name": "__LANDING_BUCKET__",
-          "--folder_name": "__LANDING_FOLDER__",
-          "--stg_bucket_name": "__STG_BUCKET__",
-          "--stg_folder_name": "__STG_FOLDER__",
-          "--ods_bucket_name": "__ODS_BUCKET__",
-          "--ods_folder_name": "__ODS_FOLDER__"
+          "--PipelineName": "__PIPELINE_NAME__"
         }
       },
       "ResultPath": "$.GlueArgs",

@@ -380,6 +380,10 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     sns_topic_arn = _as_str(strparams.get("snsArnParam"))
     glue_job_role_arn = _as_str(strparams.get("glueJobRoleArnParam"))
 
+    # Echo / pipeline identifiers (baked into both Glue default args and the ASL at deploy time)
+    echo_secret_id = _as_str(strparams.get("echoSecretIdParam"))
+    pipeline_name = _as_str(strparams.get("pipelineNameParam"), default=project.lower())
+
     # Lambda role and layers
     etl_lambda_role_arn = _as_str(strparams.get("etlRoleArnParam"))
     lambda_runtime = _as_str(strparams.get("lambdaRuntime"), default="python3.12")
@@ -471,15 +475,24 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         if k not in args and v:
             args[k] = v
 
-    for args in (landing_default_args, stg_ods_default_args):
-        _set_if_missing(args, "--env", str(deploy_env))
-        _set_if_missing(args, "--landing_bucket", landing_bucket)
-        _set_if_missing(args, "--clean_bucket", clean_bucket)
-        _set_if_missing(args, "--final_bucket", final_bucket)
-        _set_if_missing(args, "--sns_topic_arn", sns_topic_arn)
-        _set_if_missing(args, "--landing_folder", landing_folder)
-        _set_if_missing(args, "--stg_folder", stg_folder)
-        _set_if_missing(args, "--ods_folder", ods_folder)
+    # Landing job default args — match FMMI-LandingFiles.py getResolvedOptions
+    _set_if_missing(landing_default_args, "--SecretId", echo_secret_id)
+    _set_if_missing(landing_default_args, "--DestinationBucket", landing_bucket)
+    _set_if_missing(landing_default_args, "--DestinationPrefix", landing_folder)
+    _set_if_missing(landing_default_args, "--EchoFolder", "fmmi")
+    _set_if_missing(landing_default_args, "--FileNames", "FMMI.FSA*")
+    _set_if_missing(landing_default_args, "--PipelineName", pipeline_name)
+
+    # STG/ODS job default args — match S3-STG-ODS-parquet.py getResolvedOptions
+    _set_if_missing(stg_ods_default_args, "--SecretId", echo_secret_id)
+    _set_if_missing(stg_ods_default_args, "--env", str(deploy_env))
+    _set_if_missing(stg_ods_default_args, "--bucket_name", landing_bucket)
+    _set_if_missing(stg_ods_default_args, "--folder_name", landing_folder)
+    _set_if_missing(stg_ods_default_args, "--stg_bucket_name", clean_bucket)
+    _set_if_missing(stg_ods_default_args, "--stg_folder_name", stg_folder)
+    _set_if_missing(stg_ods_default_args, "--ods_bucket_name", final_bucket)
+    _set_if_missing(stg_ods_default_args, "--ods_folder_name", ods_folder)
+    _set_if_missing(stg_ods_default_args, "--PipelineName", pipeline_name)
 
     landing_conns = _parse_connection_names(landing_params)
     stg_ods_conns = _parse_connection_names(stg_ods_params)
@@ -617,8 +630,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     # All infrastructure values are substituted into the ASL at deploy time.
     # Step Functions does not support Resource.$ dynamic references, and baking
     # values in avoids requiring any infrastructure parameters at execution time.
-    # Only runtime inputs needed when starting an execution: run_date (required),
-    # file_name (optional), job_type (optional), use_existing_landing (optional).
+    # Only runtime input when starting an execution: use_existing_landing (optional bool).
     _asl_text = json.dumps(_load_asl_definition(project_dir))
     _substitutions = {
         "__ECHO_LANDING_JOB_NAME__": names.echo_landing_glue_job,
@@ -633,6 +645,8 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         "__STG_FOLDER__":            stg_folder,
         "__ODS_BUCKET__":            final_bucket,
         "__ODS_FOLDER__":            ods_folder,
+        "__ECHO_SECRET_ID__":        echo_secret_id,
+        "__PIPELINE_NAME__":         pipeline_name,
     }
     for placeholder, value in _substitutions.items():
         _asl_text = _asl_text.replace(placeholder, value)
@@ -726,7 +740,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
 
         # ---- State machine execution input template (all $.xxx keys the ASL expects) ----
         # Callers start the state machine with this as the base input, adding:
-        #   run_date, job_type (optional), file_name (optional), use_existing_landing (optional)
+        #   use_existing_landing (optional)
         "sm_input_echo_landing_job_name": names.echo_landing_glue_job,
         "sm_input_stg_ods_job_name": names.stg_ods_glue_job,
         "sm_input_check_nofiles_lambda_arn": check_ods_nofiles_arn,

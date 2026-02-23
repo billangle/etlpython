@@ -29,6 +29,7 @@ class FpacNames:
     dynacheckfile_fn: str
     checkfilenotsecure_fn: str
     realjobname_fn: str
+    testfailurejob_fn: str
 
     # stream trigger lambda
     streamstartfilechecks_fn: str
@@ -53,6 +54,7 @@ def build_names(deploy_env: str, project: str) -> FpacNames:
         dynacheckfile_fn=f"{base}-DynaCheckFile",
         checkfilenotsecure_fn=f"{base}-CheckFileNotSecure",
         realjobname_fn=f"{base}-RealJobName",
+        testfailurejob_fn=f"{base}-TestFailureJob",
         streamstartfilechecks_fn=f"{base}-StreamStartFileChecks",
         setrunning_fn=f"{base}-SetRunning",
         transferfile_fn=f"{base}-TransferFile",
@@ -246,6 +248,21 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         ),
     )
 
+    testfailurejob_arn = ensure_lambda(
+        lam,
+        LambdaSpec(
+            name=names.testfailurejob_fn,
+            role_arn=etl_lambda_role_arn,
+            handler="lambda_function.lambda_handler",
+            runtime="python3.12",
+            source_dir=str(lambda_root / "TestFailureJob"),
+            env=base_env,
+            layers=layers,
+            subnet_ids=subnet_ids,
+            security_group_ids=security_group_ids,
+        ),
+    )
+
     # ---- deploy state machine ----
     sfn_role_arn = (cfg.get("stepFunctions", {}) or {}).get("roleArn") or ""
     if not sfn_role_arn:
@@ -307,4 +324,5 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         "filechecks_state_machine_arn": filechecks_sm_arn,
         "streamstartfilechecks_lambda_arn": streamstartfilechecks_arn,
         "realjobname_lambda_arn": realjobname_arn,
+        "testfailurejob_lambda_arn": testfailurejob_arn,
     }

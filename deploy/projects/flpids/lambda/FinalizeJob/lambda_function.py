@@ -9,66 +9,55 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _resolve_transfer_outcome(event: dict) -> tuple:
+def _extract_error_detail(transfer_error: dict) -> dict:
     """
-    Determine whether the transfer step succeeded or failed.
-
-    A failure is signalled exclusively by the presence of a "transferError" key
-    in the event (set by the Step Functions Catch block).  If that key is absent
-    the transfer is considered successful regardless of the shape of any
-    "transfer" response payload.
-
-    Returns:
-        ("SUCCESS", {}) on success
-        ("FAILURE", error_detail_dict) on failure
+    Parse the raw transferError dict (set by the Step Functions Catch block)
+    into a structured error detail suitable for DynamoDB storage.
     """
-    transfer_error = event.get("transferError")
-    if transfer_error:
-        cause_str = transfer_error.get("Cause", "")
-        try:
-            cause = json.loads(cause_str)
-            error_msg = cause.get("errorMessage", cause_str)
-            stack = cause.get("stackTrace", [])
-        except (json.JSONDecodeError, TypeError):
-            error_msg = cause_str
-            stack = []
-        return "FAILURE", {
-            "error": transfer_error.get("Error", "Exception"),
-            "message": error_msg,
-            "cause": cause_str,
-            "stackTrace": stack,
-        }
-
-    # No error — transfer succeeded.
-    return "SUCCESS", {}
+    cause_str = transfer_error.get("Cause", "")
+    try:
+        cause = json.loads(cause_str)
+        error_msg = cause.get("errorMessage", cause_str)
+        stack = cause.get("stackTrace", [])
+    except (json.JSONDecodeError, TypeError):
+        error_msg = cause_str
+        stack = []
+    return {
+        "error": transfer_error.get("Error", "Exception"),
+        "message": error_msg,
+        "cause": cause_str,
+        "stackTrace": stack,
+    }
 
 
 def lambda_handler(event, context):
     """
-    Step 3: finalize job status based on the transfer step output.
+    Step 3: finalize job status based on the path taken through the state machine.
 
     Input (common fields):
         jobId       : str  -- job identifier
         project     : str  -- project identifier
         table_name  : str  -- DynamoDB table (or env TABLE_NAME)
+        path        : str  -- "SUCCESS" (FinalizeJob state) or "CATCH" (FinalizeJobOnCatch state)
         debug       : bool -- enable verbose logging (optional)
 
-    Transfer result is determined solely by the presence of "transferError":
+    Outcome is driven exclusively by the "path" parameter injected by the step function:
 
-        No "transferError" key → SUCCESS  (regardless of payload shape)
-        "transferError" present → FAILURE (populated by Step Functions Catch block)
+        path == "SUCCESS" → COMPLETED  (normal FinalizeJob branch)
+        path == "CATCH"   → ERROR      (Catch branch from TransferAndProcessFile)
 
     On success:
         DynamoDB: status=COMPLETED, completedAt=now, updatedAt=now, error_result removed
 
     On failure:
-        DynamoDB: status=ERROR, updatedAt=now, error_result=<extracted detail>
+        DynamoDB: status=ERROR, updatedAt=now, error_result=<detail parsed from transferError>
     """
     debug = bool(event.get("debug", False))
 
     job_id     = event.get("jobId")
     project    = event.get("project")
     table_name = event.get("table_name") or os.environ.get("TABLE_NAME")
+    path       = event.get("path", "UNKNOWN")  # "SUCCESS" or "CATCH" set by the step function
 
     if not job_id:
         raise ValueError("Missing required input: jobId")
@@ -77,18 +66,19 @@ def lambda_handler(event, context):
     if not table_name:
         raise ValueError("Missing required input: table_name (or env TABLE_NAME)")
 
-    outcome, error_detail = _resolve_transfer_outcome(event)
+    is_success = (path == "SUCCESS")
+    error_detail = {} if is_success else _extract_error_detail(event.get("transferError", {}))
 
     if debug:
-        print(f"[DEBUG] transfer outcome={outcome} jobId={job_id} project={project}")
-        if outcome == "FAILURE":
+        print(f"[DEBUG] path={path} is_success={is_success} jobId={job_id} project={project}")
+        if not is_success:
             print(f"[DEBUG] error_detail={json.dumps(error_detail, default=str)}")
 
     ddb   = boto3.resource("dynamodb")
     table = ddb.Table(table_name)
     ts    = _now_iso()
 
-    if outcome == "SUCCESS":
+    if is_success:
         table.update_item(
             Key={"jobId": job_id, "project": project},
             UpdateExpression="SET #s = :c, #u = :u, #done = :u REMOVE #er",
@@ -100,7 +90,7 @@ def lambda_handler(event, context):
             },
             ExpressionAttributeValues={":c": "COMPLETED", ":u": ts},
         )
-        return {"jobId": job_id, "project": project, "status": "COMPLETED", "updatedAt": ts}
+        return {"jobId": job_id, "project": project, "status": "COMPLETED", "updatedAt": ts, "path": path}
 
     # Failure path
     table.update_item(
@@ -118,5 +108,6 @@ def lambda_handler(event, context):
         "project":      project,
         "status":       "ERROR",
         "updatedAt":    ts,
+        "path":         path,
         "error_result": error_detail,
     }

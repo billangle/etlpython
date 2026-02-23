@@ -1,5 +1,5 @@
 {
-  "Comment": "FMMI Pipeline with safe defaults and preserved input (PROD)",
+  "Comment": "FMMI Pipeline with safe defaults and preserved input (DEV)",
   "StartAt": "SaveInput",
   "States": {
     "SaveInput": {
@@ -24,13 +24,31 @@
           "Next": "CheckFileInputs"
         }
       ],
-      "Default": "RunEchoLanding"
+      "Default": "InitLandingArgs"
+    },
+    "InitLandingArgs": {
+      "Type": "Pass",
+      "ResultPath": "$.LandingArgs",
+      "Parameters": {
+        "JobName": "FSA-DEV-FMMI-LandingFiles",
+        "Arguments": {
+          "--JOB_NAME": "FSA-DEV-FMMI-LandingFiles",
+          "--SecretId": "FSA-DEV-secrets",
+          "--PipelineName": "fmmi",
+          "--DestinationBucket": "c108-dev-fpacfsa-landing-zone",
+          "--DestinationPrefix": "fmmi/fmmi_ocfo_files",
+          "--EchoFolder": "fmmi",
+          "--FileNames": "FMMI.FSA*"
+        }
+      },
+      "Next": "RunEchoLanding"
     },
     "RunEchoLanding": {
       "Type": "Task",
       "Resource": "arn:aws:states:::glue:startJobRun.sync",
       "Parameters": {
-        "JobName": "FSA-PROD-FMMI-LandingFiles"
+        "JobName.$": "$.LandingArgs.JobName",
+        "Arguments.$": "$.LandingArgs.Arguments"
       },
       "ResultPath": "$.LandingResult",
       "Next": "CheckNoFilesLambda",
@@ -55,7 +73,7 @@
     },
     "CheckNoFilesLambda": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-1:253490756794:function:FSA-PROD-FMMI-Check-ODS-NoFiles",
+      "Resource": "arn:aws:lambda:us-east-1:241533156429:function:Check-FMMI_ODS-NoFiles",
       "ResultPath": "$.NoFilesCheck",
       "Next": "CheckNoFilesChoice",
       "Retry": [
@@ -63,7 +81,7 @@
           "ErrorEquals": [
             "States.ALL"
           ],
-          "IntervalSeconds": 30,
+          "IntervalSeconds": 60,
           "MaxAttempts": 3,
           "BackoffRate": 2
         }
@@ -103,15 +121,18 @@
       "Type": "Pass",
       "ResultPath": "$.GlueArgs",
       "Parameters": {
-        "JobName": "FSA-PROD-FMMI-S3-STG-ODS-parquet",
+        "JobName": "FSA-DEV-FMMI-S3-STG-ODS-parquet",
         "Arguments": {
+          "--JOB_NAME": "FSA-DEV-FMMI-S3-STG-ODS-parquet",
+          "--SecretId": "FSA-DEV-secrets",
+          "--PipelineName": "fmmi",
           "--job_type.$": "$.OriginalInput.job_type",
-          "--env": "PROD",
-          "--bucket_name": "c108-prod-fpacfsa-landing-zone",
+          "--env": "dev",
+          "--bucket_name": "c108-dev-fpacfsa-landing-zone",
           "--folder_name": "fmmi/fmmi_ocfo_files",
-          "--stg_bucket_name": "c108-prod-fpacfsa-cleansed-zone",
+          "--stg_bucket_name": "c108-dev-fpacfsa-cleansed-zone",
           "--stg_folder_name": "fmmi_stg",
-          "--ods_bucket_name": "c108-prod-fpacfsa-final-zone",
+          "--ods_bucket_name": "c108-dev-fpacfsa-final-zone",
           "--ods_folder_name": "fmmi_ods",
           "--run_date.$": "$.OriginalInput.run_date",
           "--file_name.$": "$.OriginalInput.file_name"
@@ -123,15 +144,18 @@
       "Type": "Pass",
       "ResultPath": "$.GlueArgs",
       "Parameters": {
-        "JobName": "FSA-PROD-FMMI-S3-STG-ODS-parquet",
+        "JobName": "FSA-DEV-FMMI-S3-STG-ODS-parquet",
         "Arguments": {
+          "--JOB_NAME": "FSA-DEV-FMMI-S3-STG-ODS-parquet",
+          "--SecretId": "FSA-DEV-secrets",
+          "--PipelineName": "fmmi",
           "--job_type": "BOTH",
-          "--env": "PROD",
-          "--bucket_name": "c108-prod-fpacfsa-landing-zone",
+          "--env": "dev",
+          "--bucket_name": "c108-dev-fpacfsa-landing-zone",
           "--folder_name": "fmmi/fmmi_ocfo_files",
-          "--stg_bucket_name": "c108-prod-fpacfsa-cleansed-zone",
+          "--stg_bucket_name": "c108-dev-fpacfsa-cleansed-zone",
           "--stg_folder_name": "fmmi_stg",
-          "--ods_bucket_name": "c108-prod-fpacfsa-final-zone",
+          "--ods_bucket_name": "c108-dev-fpacfsa-final-zone",
           "--ods_folder_name": "fmmi_ods"
         }
       },
@@ -167,7 +191,7 @@
     },
     "RunCrawler": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-1:253490756794:function:FSA-PROD-FMMI-ODS-Crawler",
+      "Resource": "arn:aws:lambda:us-east-1:241533156429:function:FMMI_ODS-Crawler",
       "ResultPath": "$.CrawlerResult",
       "Next": "SuccessSNS",
       "Retry": [
@@ -193,10 +217,9 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::sns:publish",
       "Parameters": {
-        "TopicArn": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-FMMI",
+        "TopicArn": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-FMMI",
         "Message": {
           "status": "SUCCESS",
-          "env": "PROD",
           "message": "No files found. Pipeline skipped."
         }
       },
@@ -206,10 +229,9 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::sns:publish",
       "Parameters": {
-        "TopicArn": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-FMMI",
+        "TopicArn": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-FMMI",
         "Message": {
           "status": "SUCCESS",
-          "env": "PROD",
           "glue_result.$": "$.GlueResult"
         }
       },
@@ -219,10 +241,9 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::sns:publish",
       "Parameters": {
-        "TopicArn": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-FMMI",
+        "TopicArn": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-FMMI",
         "Message": {
           "status": "FAILED",
-          "env": "PROD",
           "error.$": "$.Error"
         }
       },

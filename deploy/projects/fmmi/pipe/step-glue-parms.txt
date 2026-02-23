@@ -1,0 +1,21 @@
+Job: FSA-DEV-FMMI-LandingFiles
+--JOB_NAME FSA-DEV-FMMI-LandingFiles
+--SecretId FSA-DEV-secrets
+--DestinationBucket c108-dev-fpacfsa-landing-zone
+--DestinationPrefix fmmi/fmmi_ocfo_files
+--EchoFolder fmmi
+--FileNames FMMI.FSA*
+--PipelineName fmmi
+ 
+job: FSA-DEV-FMMI-S3-STG-ODS-parquet
+--JOB_NAME FSA-DEV-FMMI-S3-STG-ODS-parquet
+--SecretId FSA-DEV-secrets
+--env dev
+--bucket_name c108-dev-fpacfsa-landing-zone
+--stg_bucket_name c108-dev-fpacfsa-cleansed-zone
+--ods_bucket_name c108-dev-fpacfsa-final-zone
+--folder_name fmmi/fmmi_ocfo_files
+--stg_folder_name fmmi_stg
+--ods_folder_name fmmi_ods
+--job_type BOTH
+--PipelineName fmmi

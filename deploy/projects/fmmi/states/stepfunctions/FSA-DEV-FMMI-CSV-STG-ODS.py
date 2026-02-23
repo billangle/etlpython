@@ -1,5 +1,5 @@
 {
-  "Comment": "FMMI Pipeline with safe defaults and preserved input",
+  "Comment": "FMMI Pipeline with safe defaults and preserved input (PROD)",
   "StartAt": "SaveInput",
   "States": {
     "SaveInput": {
@@ -30,7 +30,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::glue:startJobRun.sync",
       "Parameters": {
-        "JobName": "FSA-DEV-FMMI-LandingFiles"
+        "JobName": "FSA-PROD-FMMI-LandingFiles"
       },
       "ResultPath": "$.LandingResult",
       "Next": "CheckNoFilesLambda",
@@ -55,7 +55,7 @@
     },
     "CheckNoFilesLambda": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-1:241533156429:function:Check-FMMI_ODS-NoFiles",
+      "Resource": "arn:aws:lambda:us-east-1:253490756794:function:FSA-PROD-FMMI-Check-ODS-NoFiles",
       "ResultPath": "$.NoFilesCheck",
       "Next": "CheckNoFilesChoice",
       "Retry": [
@@ -103,15 +103,15 @@
       "Type": "Pass",
       "ResultPath": "$.GlueArgs",
       "Parameters": {
-        "JobName": "FSA-DEV-FMMI-S3-STG-ODS-parquet",
+        "JobName": "FSA-PROD-FMMI-S3-STG-ODS-parquet",
         "Arguments": {
           "--job_type.$": "$.OriginalInput.job_type",
-          "--env": "dev",
-          "--bucket_name": "c108-dev-fpacfsa-landing-zone",
+          "--env": "PROD",
+          "--bucket_name": "c108-prod-fpacfsa-landing-zone",
           "--folder_name": "fmmi/fmmi_ocfo_files",
-          "--stg_bucket_name": "c108-dev-fpacfsa-cleansed-zone",
+          "--stg_bucket_name": "c108-prod-fpacfsa-cleansed-zone",
           "--stg_folder_name": "fmmi_stg",
-          "--ods_bucket_name": "c108-dev-fpacfsa-final-zone",
+          "--ods_bucket_name": "c108-prod-fpacfsa-final-zone",
           "--ods_folder_name": "fmmi_ods",
           "--run_date.$": "$.OriginalInput.run_date",
           "--file_name.$": "$.OriginalInput.file_name"
@@ -123,15 +123,15 @@
       "Type": "Pass",
       "ResultPath": "$.GlueArgs",
       "Parameters": {
-        "JobName": "FSA-DEV-FMMI-S3-STG-ODS-parquet",
+        "JobName": "FSA-PROD-FMMI-S3-STG-ODS-parquet",
         "Arguments": {
           "--job_type": "BOTH",
-          "--env": "dev",
-          "--bucket_name": "c108-dev-fpacfsa-landing-zone",
+          "--env": "PROD",
+          "--bucket_name": "c108-prod-fpacfsa-landing-zone",
           "--folder_name": "fmmi/fmmi_ocfo_files",
-          "--stg_bucket_name": "c108-dev-fpacfsa-cleansed-zone",
+          "--stg_bucket_name": "c108-prod-fpacfsa-cleansed-zone",
           "--stg_folder_name": "fmmi_stg",
-          "--ods_bucket_name": "c108-dev-fpacfsa-final-zone",
+          "--ods_bucket_name": "c108-prod-fpacfsa-final-zone",
           "--ods_folder_name": "fmmi_ods"
         }
       },
@@ -167,7 +167,7 @@
     },
     "RunCrawler": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-1:241533156429:function:FMMI_ODS-Crawler",
+      "Resource": "arn:aws:lambda:us-east-1:253490756794:function:FSA-PROD-FMMI-ODS-Crawler",
       "ResultPath": "$.CrawlerResult",
       "Next": "SuccessSNS",
       "Retry": [
@@ -193,9 +193,10 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::sns:publish",
       "Parameters": {
-        "TopicArn": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-FMMI",
+        "TopicArn": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-FMMI",
         "Message": {
           "status": "SUCCESS",
+          "env": "PROD",
           "message": "No files found. Pipeline skipped."
         }
       },
@@ -205,9 +206,10 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::sns:publish",
       "Parameters": {
-        "TopicArn": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-FMMI",
+        "TopicArn": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-FMMI",
         "Message": {
           "status": "SUCCESS",
+          "env": "PROD",
           "glue_result.$": "$.GlueResult"
         }
       },
@@ -217,9 +219,10 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::sns:publish",
       "Parameters": {
-        "TopicArn": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-FMMI",
+        "TopicArn": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-FMMI",
         "Message": {
           "status": "FAILED",
+          "env": "PROD",
           "error.$": "$.Error"
         }
       },

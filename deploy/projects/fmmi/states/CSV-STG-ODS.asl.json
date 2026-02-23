@@ -1,5 +1,5 @@
 {
-  "Comment": "FMMI Echo \u2192 STG/ODS Pipeline. All infrastructure values (job names, Lambda ARNs, SNS ARN, S3 buckets/folders, env) are substituted at deploy time. The only runtime inputs required are: run_date (string), and optionally file_name (string), job_type (STG|ODS|BOTH), use_existing_landing (bool).",
+  "Comment": "FMMI Echo \u2192 STG/ODS Pipeline. All infrastructure values (job names, Lambda ARNs, SNS ARN, S3 buckets/folders, env) are substituted at deploy time. Optional runtime inputs: file_name (string), job_type (STG|ODS|BOTH), use_existing_landing (bool).",
   "StartAt": "SaveInput",
   "States": {
 
@@ -32,7 +32,6 @@
         "JobName": "__ECHO_LANDING_JOB_NAME__",
         "Arguments": {
           "--env": "__ENV__",
-          "--run_date.$": "$.OriginalInput.run_date",
           "--bucket_name": "__LANDING_BUCKET__",
           "--folder_name": "__LANDING_FOLDER__"
         }
@@ -118,7 +117,6 @@
           "--stg_folder_name": "__STG_FOLDER__",
           "--ods_bucket_name": "__ODS_BUCKET__",
           "--ods_folder_name": "__ODS_FOLDER__",
-          "--run_date.$": "$.OriginalInput.run_date",
           "--file_name.$": "$.OriginalInput.file_name"
         }
       },
@@ -139,8 +137,7 @@
           "--stg_bucket_name": "__STG_BUCKET__",
           "--stg_folder_name": "__STG_FOLDER__",
           "--ods_bucket_name": "__ODS_BUCKET__",
-          "--ods_folder_name": "__ODS_FOLDER__",
-          "--run_date.$": "$.OriginalInput.run_date"
+          "--ods_folder_name": "__ODS_FOLDER__"
         }
       },
       "ResultPath": "$.GlueArgs",
@@ -204,8 +201,7 @@
         "Message": {
           "status": "SUCCESS",
           "env": "__ENV__",
-          "message": "No files found in landing zone. Pipeline skipped.",
-          "run_date.$": "$.OriginalInput.run_date"
+          "message": "No files found in landing zone. Pipeline skipped."
         }
       },
       "End": true
@@ -219,7 +215,6 @@
         "Message": {
           "status": "SUCCESS",
           "env": "__ENV__",
-          "run_date.$": "$.OriginalInput.run_date",
           "glue_result.$": "$.GlueResult",
           "crawler_result.$": "$.CrawlerResult"
         }
@@ -235,7 +230,6 @@
         "Message": {
           "status": "FAILED",
           "env": "__ENV__",
-          "run_date.$": "$.OriginalInput.run_date",
           "error.$": "$.error"
         }
       },

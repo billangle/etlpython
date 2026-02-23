@@ -381,7 +381,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     glue_job_role_arn = _as_str(strparams.get("glueJobRoleArnParam"))
 
     # Echo / pipeline identifiers (baked into both Glue default args and the ASL at deploy time)
-    echo_secret_id = _as_str(strparams.get("echoSecretIdParam"))
+    echo_secret_id = _as_str(cfg.get("SecretId") or strparams.get("echoSecretIdParam"))
     pipeline_name = _as_str(strparams.get("pipelineNameParam"), default=project.lower())
 
     # Lambda role and layers

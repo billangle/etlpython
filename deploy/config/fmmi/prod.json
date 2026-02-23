@@ -3,6 +3,7 @@
   "project": "FMMI",
   "region": "us-east-1",
   "bucketRegion": "us-east-1",
+  "SecretId": "FSA-PROD-secrets",
 
   "configData": {
     "databaseName": "fsa-fpac-db",

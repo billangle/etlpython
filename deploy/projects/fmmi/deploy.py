@@ -30,6 +30,7 @@ class FmmiNames:
     ora_dms_ods_glue_job: str
     fmmi_state_machine: str
     fmmi_crawler: str
+    sns_topic_name: str
     check_ods_nofiles_fn: str
     ods_crawler_fn: str
 
@@ -53,6 +54,7 @@ def build_names(deploy_env: str, project: str) -> FmmiNames:
         ora_dms_ods_glue_job=f"{prefix}-Ora-DMS-ODS",
         fmmi_state_machine=f"{prefix}-CSV-STG-ODS",
         fmmi_crawler=f"{prefix}-ODS",
+        sns_topic_name=prefix,
         check_ods_nofiles_fn=f"{prefix}-Check-ODS-NoFiles",
         ods_crawler_fn=f"{prefix}-ODS-Crawler",
     )
@@ -377,7 +379,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     landing_bucket = _as_str(strparams.get("landingBucketNameParam"))
     clean_bucket = _as_str(strparams.get("cleanBucketNameParam"))
     final_bucket = _as_str(strparams.get("finalBucketNameParam"))
-    sns_topic_arn = _as_str(strparams.get("snsArnParam"))
+    sns_topic_arn = _as_str(strparams.get("snsArnParam"))  # optional — derived from names.sns_topic_name if omitted
     glue_job_role_arn = _as_str(strparams.get("glueJobRoleArnParam"))
 
     # Echo / pipeline identifiers (baked into both Glue default args and the ASL at deploy time)
@@ -414,8 +416,6 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         missing.append("strparams.cleanBucketNameParam")
     if not final_bucket:
         missing.append("strparams.finalBucketNameParam")
-    if not sns_topic_arn:
-        missing.append("strparams.snsArnParam")
     if not glue_job_role_arn:
         missing.append("strparams.glueJobRoleArnParam")
     if not etl_lambda_role_arn:
@@ -508,6 +508,11 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     glue = session.client("glue")
     sfn = session.client("stepfunctions")
 
+    # Derive SNS topic ARN from standard naming convention if not explicitly configured
+    if not sns_topic_arn:
+        account_id = session.client("sts").get_caller_identity()["Account"]
+        sns_topic_arn = f"arn:aws:sns:{region}:{account_id}:{names.sns_topic_name}"
+
     ensure_bucket_exists(s3, artifact_bucket, region)
 
     # Script S3 keys (renamed with FSA-<env>-<proj>- prefix)
@@ -576,6 +581,19 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         ),
     )
 
+    # --- Resolve crawler name early (used in lambda env var and crawler creation) ---
+    _crawler_cfg_early = cfg.get("crawler")
+    if isinstance(_crawler_cfg_early, dict) and _crawler_cfg_early:
+        _prefix_base = f"FSA-{(deploy_env or '').strip()}-{(project or '').strip()}"
+        _raw_name = _as_str(_crawler_cfg_early.get("name"))
+        crawler_name_used = (
+            _raw_name if _raw_name.startswith("FSA-")
+            else f"{_prefix_base}-{_raw_name}" if _raw_name
+            else names.fmmi_crawler
+        )
+    else:
+        crawler_name_used = names.fmmi_crawler
+
     # --- Lambda functions ---
     base_lambda_env: Dict[str, str] = {
         "PROJECT": project,
@@ -591,7 +609,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     }
     ods_crawler_env = {
         **base_lambda_env,
-        "CRAWLER_NAME": names.fmmi_crawler,
+        "CRAWLER_NAME": crawler_name_used,
     }
 
     lambda_root = project_dir / "lambda"
@@ -663,20 +681,11 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
 
     # --- OPTIONAL: Crawler ---
     crawler_result = "skipped"
-    crawler_name_used = ""
     crawler_db_used = ""
 
     crawler_cfg = cfg.get("crawler")
     if isinstance(crawler_cfg, dict) and crawler_cfg:
-        # base prefix aligns with glue + step function: FSA-<dep>-<proj>
-        prefix_base = f"FSA-{(deploy_env or '').strip()}-{(project or '').strip()}"
-
-        raw_name = _as_str(crawler_cfg.get("name"))
-        if raw_name:
-            # if user provided a full FSA-* name, accept it; otherwise suffix it
-            crawler_name_used = raw_name if raw_name.startswith("FSA-") else f"{prefix_base}-{raw_name}"
-        else:
-            crawler_name_used = names.fmmi_crawler
+        # crawler_name_used already resolved above for use in lambda env var
 
         crawler_desc = _as_str(crawler_cfg.get("description"))
         s3_targets = _build_crawler_s3_targets(crawler_cfg)
@@ -746,6 +755,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         "sm_input_check_nofiles_lambda_arn": check_ods_nofiles_arn,
         "sm_input_crawler_lambda_arn": ods_crawler_arn,
         "sm_input_sns_topic_arn": sns_topic_arn,
+        "sns_topic_name": names.sns_topic_name,
         "sm_input_env": str(deploy_env),
         "sm_input_landing_bucket": landing_bucket,
         "sm_input_landing_folder": landing_folder,

@@ -282,7 +282,7 @@ class Names:
     sm_process_control_update: str
     sm_main: str
 
-    # Lambdas (maint only) - DO NOT MODIFY SUFFIXES
+    # Lambdas (maint only)
     fn_get_incremental_tables: str
     fn_raw_dm_etl_workflow_update: str
     fn_raw_dm_sns_publish_errors: str
@@ -317,11 +317,11 @@ def build_names(deploy_env: str, project: str) -> Names:
         sm_process_control_update=f"{prefix}-Cntr-Maint-Process-Control-Update",
         sm_main=f"{prefix}-Cntr-Maint-Main",
         fn_get_incremental_tables=f"{prefix}-Cntr-Maint-get-incremental-tables",
-        fn_raw_dm_etl_workflow_update=f"{prefix}-Cntr-Maint-RAW-DM-etl-workflow-update-data-pplnjob",
-        fn_raw_dm_sns_publish_errors=f"{prefix}-Cntr-Maint-RAW-DM-sns-publish-step-function-errors",
+        fn_raw_dm_etl_workflow_update=f"{prefix}-Cntr-Maint-RAW-DM-etl-update-data-pplnjob",
+        fn_raw_dm_sns_publish_errors=f"{prefix}-Cntr-Maint-RAW-DM-sns-step-function-errors",
         fn_job_logging_end=f"{prefix}-Cntr-Maint-Job-Logging-End",
         fn_validation_check=f"{prefix}-Cntr-Maint-validation-check",
-        fn_sns_publish_validations_report=f"{prefix}-Cntr-Maint-sns-publish-validations-report",
+        fn_sns_publish_validations_report=f"{prefix}-Cntr-Maint-sns-validations-report",
         crawler_final_zone=f"{prefix}-Cntr-Maint Final Zone Crawler",
         crawler_cdc=f"{prefix}-Cntr-Maint CDC Crawler",
     )
@@ -597,14 +597,14 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         ),
     )
 
-    # --- Lambdas (maint only; DO NOT MODIFY NAMES) ---
+    # --- Lambdas (maint only) ---
     required_lambdas: List[Tuple[str, str]] = [
         (names.fn_get_incremental_tables, "get-incremental-tables"),
-        (names.fn_raw_dm_etl_workflow_update, "RAW-DM-etl-workflow-update-data-pplnjob"),
-        (names.fn_raw_dm_sns_publish_errors, "RAW-DM-sns-publish-step-function-errors"),
+        (names.fn_raw_dm_etl_workflow_update, "RAW-DM-etl-update-data-pplnjob"),
+        (names.fn_raw_dm_sns_publish_errors, "RAW-DM-sns-step-function-errors"),
         (names.fn_job_logging_end, "Job-Logging-End"),
         (names.fn_validation_check, "validation-check"),
-        (names.fn_sns_publish_validations_report, "sns-publish-validations-report"),
+        (names.fn_sns_publish_validations_report, "sns-validations-report"),
     ]
 
     lambda_arns: Dict[str, str] = {}

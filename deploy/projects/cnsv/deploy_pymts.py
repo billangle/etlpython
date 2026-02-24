@@ -281,11 +281,11 @@ def build_names(deploy_env: str, project: str) -> Names:
         sm_main=f"{prefix}-Cons-Pymts-Main",
 
         fn_get_incremental_tables=f"{prefix}-Cons-Pymts-get-incremental-tables",
-        fn_raw_dm_etl_workflow_update=f"{prefix}-Cons-Pymts-RAW-DM-etl-workflow-update-data-pplnjob",
-        fn_raw_dm_sns_publish_errors=f"{prefix}-Cons-Pymts-RAW-DM-sns-publish-step-function-errors",
+        fn_raw_dm_etl_workflow_update=f"{prefix}-Cons-Pymts-RAW-DM-etl-update-data-pplnjob",
+        fn_raw_dm_sns_publish_errors=f"{prefix}-Cons-Pymts-RAW-DM-sns-step-function-errors",
         fn_job_logging_end=f"{prefix}-Cons-Pymts-Job-Logging-End",
         fn_validation_check=f"{prefix}-Cons-Pymts-validation-check",
-        fn_sns_publish_validations_report=f"{prefix}-Cons-Pymts-sns-publish-validations-report",
+        fn_sns_publish_validations_report=f"{prefix}-Cons-Pymts-sns-validations-report",
 
         crawler_final_zone=f"{prefix}-CNSV-CONS-PYMTS",
         crawler_cdc=f"{prefix}-CNSV-CONS-PYMTS-cdc",
@@ -300,7 +300,7 @@ def _find_lambda_dir(lambda_root: Path, expected_dir_name: str) -> Path:
     """
     CNSV convention: lambda source dirs are under ./lambda and match the suffix exactly:
       - Cons-Pymts-get-incremental-tables
-      - Cons-Pymts-RAW-DM-etl-workflow-update-data-pplnjob
+      - Cons-Pymts-RAW-DM-etl-update-data-pplnjob
       - etc.
 
     We do NOT invent names; we look for what exists on disk.
@@ -530,11 +530,11 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     # --- Lambdas (directory names MUST match exactly what exists) ---
     required_lambdas: List[Tuple[str, str]] = [
         (names.fn_get_incremental_tables, "Cons-Pymts-get-incremental-tables"),
-        (names.fn_raw_dm_etl_workflow_update, "Cons-Pymts-RAW-DM-etl-workflow-update-data-pplnjob"),
-        (names.fn_raw_dm_sns_publish_errors, "Cons-Pymts-RAW-DM-sns-publish-step-function-errors"),
+        (names.fn_raw_dm_etl_workflow_update, "Cons-Pymts-RAW-DM-etl-update-data-pplnjob"),
+        (names.fn_raw_dm_sns_publish_errors, "Cons-Pymts-RAW-DM-sns-step-function-errors"),
         (names.fn_job_logging_end, "Cons-Pymts-Job-Logging-End"),
         (names.fn_validation_check, "Cons-Pymts-validation-check"),
-        (names.fn_sns_publish_validations_report, "Cons-Pymts-sns-publish-validations-report"),
+        (names.fn_sns_publish_validations_report, "Cons-Pymts-sns-validations-report"),
     ]
 
     lambda_arns: Dict[str, str] = {}

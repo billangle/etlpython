@@ -3,20 +3,11 @@
   "project": "CNSV",
   "region": "us-east-1",
   "bucketRegion": "us-east-1",
+  "secretId": "FSA-PROD-secrets",
 
   "configData": {
     "databaseName": "fsa-fpac-db",
     "dynamoTableName": "FsaFpacMetadata"
-  },
-
-  "ssm": {
-    "landingBucketNameParam": "fpacFsaLandingBucketSSMName",
-    "cleanBucketNameParam": "fpacFsaCleanBucketSSMName",
-    "finalBucketNameParam": "fpacFsaFinalBucketSSMName",
-    "glueJobRoleArnParam": "fpacFsaGlueJobRoleSSMArn",
-    "etlRoleArnParam": "fpacFsaLambdaExecuteRoleARN",
-    "thirdPartyLayerArnParam": "fpacfsaThirdPartyLayerArn",
-    "customLayerArnParam": "fpacfsaCustomLayerArn"
   },
   "strparams": {
     "landingBucketNameParam": "c108-prod-fpacfsa-landing-zone",
@@ -25,12 +16,13 @@
     "jobIdKeyParam": "cnsv/etl-jobs/job_id.json",
     "glueJobRoleArnParam": "arn:aws:iam::253490756794:role/disc-fsa-prod-glue-servicerole",
     "etlRoleArnParam": "arn:aws:iam::253490756794:role/disc-fsa-prod-lambda-servicerole",
-    "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:253490756794:layer:FSA-DEV-psycopg2-python311:1",
-    "customLayerArnParam": "arn:aws:lambda:us-east-1:253490756794:layer:FSA-polars:1"
+    "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:253490756794:layer:FSA-PROD-MDART-layer:1",
+    "customLayerArnParam": "arn:aws:lambda:us-east-1:253490756794:layer:FSA-polars:1",
+    "snsArnParam": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-CNSV"
   },
   "paths": {
-    "glueRootPath": "../src/glue/",
-    "lambdaRootPath": "../src/lambda/"
+    "glueRootPath": "glue/",
+    "lambdaRootPath": "lambda/"
   },
 
   "artifacts": {
@@ -41,7 +33,8 @@
   "stepFunctions": {
     "createRoleIfMissing": false,
     "roleName": "disc-fsa-prod-stepfunction-servicerole",
-    "roleArn": "arn:aws:iam::253490756794:role/disc-fsa-prod-stepfunction-servicerole"
+    "roleArn": "arn:aws:iam::253490756794:role/disc-fsa-prod-stepfunction-servicerole",
+    "nestedCallerRoleArn": "arn:aws:iam::253490756794:role/disc-fsa-prod-stepfunction-nestedcaller-servicerole"
   },
   "configUpload": {
     "functionName": "FSA-PROD-UploadConfig",
@@ -53,117 +46,271 @@
     "minExpectedObjects": 2,
     "debug": true
   },
-  "GlueConfig": [ 
-    { 
-      "FMMI-LandingFiles": {
-        "Connections" : [{
-            "ConnectionName": "FSA-PROD-PG-MDART-115",
-            "type": "JDBC",
-            "VpcId": "vpc-092b2aee3fba9e5e6",
-            "SubnetIds": "subnet-07843ec7237c1c9f1",
-            "SecurityGroupIds": "sg-05e3e3fd000913769"
-            }] ,
-          "MaxConcurrency": "55",
-          "MaxRetries": "0",
-          "TimeoutMinutes": "2880",
-          "WorkerType": "G.2X",
-          "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/fmmi/",
-          "NumberOfWorkers": "10",
-          "AutomaticScalingEnabled": "true",
-          "GlueVersion": "4.0",
-          "JobLanguage": "python",
-          "GenerateMetrics": "true",
-          "EnableJobBookmarks": "false",
-          "JobObservabilityMetrics": "ENABLED",
-          "JobContinuousLogging": "ENABLED",
-          "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
-          "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
-          "UseGlueDataCatalogAsTheHiveMetastore": "true",
-            "JobParameters": {
-            "--DestinationBucket": "c108-prod-fpacfsa-landing-zone",
-            "--DestinationPrefix": "fmmi/fmmi_ocfo_files",
-            "--EchoFolder": "fmmi",
-            "--FileNames": "FMMI.FSA*",
-            "--JOB_NAME": "FSA-PROD-FMMI-LandingFiles",
-            "--PipelineName": "fmmi",
-            "--SecretId": "FSA-PROD-secrets"
-          }
+  "GlueConfig": [
+    {
+      "LandingFiles": {
+        "Connections": [{ "ConnectionName": "" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "2880",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/cnsv/",
+        "NumberOfWorkers": "2",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+        "PythonLibraryPath": "",
+        "ReferencePath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--DestinationBucket": "c108-prod-fpacfsa-landing-zone",
+          "--DestinationPrefix": "cnsv/etl-jobs",
+          "--PipelineName": "cnsv",
+          "--SecretId": "FSA-PROD-secrets",
+          "--SourcePrefix": "cnsv/dbo"
+        }
       }
     },
     {
-     "S3-STG-ODS-parquet": {
-        "Connections" : [{
-            "ConnectionName": "FSA-PROD-PG-MDART-115",
-            "type": "JDBC",
-            "VpcId": "vpc-092b2aee3fba9e5e6",
-            "SubnetIds": "subnet-07843ec7237c1c9f1",
-            "SecurityGroupIds": "sg-05e3e3fd000913769"
-            }] ,
-          "MaxConcurrency": "55",
-          "MaxRetries": "0",
-          "TimeoutMinutes": "4880",
-          "WorkerType": "G.4X",
-          "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/fmmi/",
-          "NumberOfWorkers": "20",
-          "AutomaticScalingEnabled": "true",
-          "GlueVersion": "4.0",
-          "JobLanguage": "python",
-          "GenerateMetrics": "true",
-          "EnableJobBookmarks": "false",
-          "JobObservabilityMetrics": "ENABLED",
-          "JobContinuousLogging": "ENABLED",
-          "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
-          "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
-          "UseGlueDataCatalogAsTheHiveMetastore": "true",
-            "JobParameters": {
-              "--JOB_NAME": "FSA-PROD-FMMI-S3-STG-ODS-parquet",
-              "--SecretId": "FSA-PROD-secrets",
-              "--datalake-formats": "c108-prod-fpacfsa-landing-zone",
-              "--bucket_name": "c108-prod-fpacfsa-landing-zone",
-              "--env": "prod",
-              "--enable-job-insights": "fmmi/fmmi_ocfo_files",
-              "--job_type": "BOTH",
-              "--enable-job-insights": "c108-prod-fpacfsa-final-zone",
-              "--ods_folder_name": "fmmi_ods",
-              "--stg_bucket_name": "c108-prod-fpacfsa-cleansed-zone",
-              "--stg_folder_name": "fmmi_stg"
-            }
+      "Cntr-Maint-LandingFiles": {
+        "Connections": [{ "ConnectionName": "" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "2880",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/cnsv/",
+        "NumberOfWorkers": "2",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+        "PythonLibraryPath": "",
+        "ReferencePath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--DestinationBucket": "c108-prod-fpacfsa-landing-zone",
+          "--DestinationPrefix": "cnsv/etl-jobs",
+          "--PipelineName": "cnsv",
+          "--SecretId": "FSA-PROD-secrets",
+          "--SourcePrefix": "cnsv/dbo"
+        }
+      }
+    },
+    {
+      "Cons-Pymts-LandingFiles": {
+        "Connections": [{ "ConnectionName": "" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "2880",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/cnsv/",
+        "NumberOfWorkers": "2",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+        "PythonLibraryPath": "",
+        "ReferencePath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--DestinationBucket": "c108-prod-fpacfsa-landing-zone",
+          "--DestinationPrefix": "cnsv/etl-jobs",
+          "--PipelineName": "cnsv",
+          "--SecretId": "FSA-PROD-secrets",
+          "--SourcePrefix": "cnsv/dbo"
+        }
+      }
+    },
+    {
+      "Raw-DM": {
+        "Connections": [{ "ConnectionName": "" }],
+        "MaxConcurrency": "30",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "720",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/cnsv/",
+        "NumberOfWorkers": "2",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+        "PythonLibraryPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--ENABLE_DQ_METRICS": "true",
+          "--JobId": "30741",
+          "--SKIP_COUNT_TABLES": "ewt86shloc",
+          "--SKIP_DQ_TABLES": "ewt86shloc",
+          "--TableName": "ewt86shloc",
+          "--env": "prod",
+          "--extra-jars": "metadata_edw",
+          "--region_name": "us-east-1",
+          "--secret_name": "FSA-PROD-secrets",
+          "--source_prefix": "cnsv",
+          "--target_bucket": "c108-prod-fpacfsa-final-zone",
+          "--target_prefix": "cnsv"
+        }
+      }
+    },
+    {
+      "Cntr-Maint-Raw-DM": {
+        "Connections": [{ "ConnectionName": "" }],
+        "MaxConcurrency": "30",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "720",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/cnsv/",
+        "NumberOfWorkers": "2",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+        "PythonLibraryPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--ENABLE_DQ_METRICS": "true",
+          "--JobId": "30741",
+          "--SKIP_COUNT_TABLES": "ewt86shloc",
+          "--SKIP_DQ_TABLES": "ewt86shloc",
+          "--TableName": "ewt86shloc",
+          "--env": "prod",
+          "--extra-jars": "metadata_edw",
+          "--region_name": "us-east-1",
+          "--secret_name": "FSA-PROD-secrets",
+          "--source_prefix": "cnsv",
+          "--target_bucket": "c108-prod-fpacfsa-final-zone",
+          "--target_prefix": "cnsv"
+        }
+      }
+    },
+    {
+      "Cons-Pymts-Raw-DM": {
+        "Connections": [{ "ConnectionName": "" }],
+        "MaxConcurrency": "30",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "720",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/cnsv/",
+        "NumberOfWorkers": "2",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+        "PythonLibraryPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--ENABLE_DQ_METRICS": "true",
+          "--JobId": "30741",
+          "--SKIP_COUNT_TABLES": "ewt86shloc",
+          "--SKIP_DQ_TABLES": "ewt86shloc",
+          "--TableName": "ewt86shloc",
+          "--env": "prod",
+          "--extra-jars": "metadata_edw",
+          "--region_name": "us-east-1",
+          "--secret_name": "FSA-PROD-secrets",
+          "--source_prefix": "cnsv",
+          "--target_bucket": "c108-prod-fpacfsa-final-zone",
+          "--target_prefix": "cnsv"
+        }
       }
     }
   ],
-  "crawler": {
-    "name": "CRWL-ODS",
-    "description": "FMMI ODS crawler data sources (grouped by bucket)",
-    "databaseName": "fsa-prod-fmmi_ods",
-    "s3TargetsByBucket": [
-      {
-        "bucket": "c108-prod-fpacfsa-final-zone",
-        "prefixes": [
-          "fmmi/fmmi_ods/CS_TBL_CMMT_ITEM/",
-          "fmmi/fmmi_ods/CS_TBL_CUSTOMER/",
-          "fmmi/fmmi_ods/CS_TBL_FUNC_AREA/",
-          "fmmi/fmmi_ods/CS_TBL_FUND/",
-          "fmmi/fmmi_ods/CS_TBL_FUNDED_PROGRAM/",
-          "fmmi/fmmi_ods/CS_TBL_GL_ACCOUNT/",
-          "fmmi/fmmi_ods/CS_TBL_WBS/",
-          "fmmi/fmmi_ods/CS_TBL_VENDOR/",
-          "fmmi/fmmi_ods/CS_TBL_PAYROLL/",
-          "fmmi/fmmi_ods/CS_TBL_PO_HEADER/",
-          "fmmi/fmmi_ods/CS_TBL_PO_ITEM/",
-          "fmmi/fmmi_ods/CS_TBL_PURCHASING/",
-          "fmmi/fmmi_ods/CS_TBL_INVOICE_DIS/",
-          "fmmi/fmmi_ods/CS_TBL_COST_CENTER/",
-          "fmmi/fmmi_ods/CS_TBL_MATERIAL_DOC/",
-          "fmmi/fmmi_ods/CS_TBL_COMMITMENT/",
-          "fmmi/fmmi_ods/CS_TBL_FUND_CENTER/",
-          "fmmi/fmmi_ods/TMP_GL/",
-          "fmmi/fmmi_ods/TMP_SA/",
-          "fmmi/fmmi_ods/CS_TBL_GL/",
-          "fmmi/fmmi_ods/CS_TBL_SYSTEM_ASSURANCE/",
-          "fmmi/fmmi_ods/GL_SUMMARY/"
+  "crawlers": [
+    {
+      "FSA-PROD-CNSV": {
+        "name": "FSA-PROD-CNSV",
+        "description": "CNSV BASE crawler",
+        "databaseName": "FSA-PROD-cnsv",
+        "s3TargetsByBucket": [
+          {
+            "bucket": "c108-prod-fpacfsa-final-zone",
+            "prefixes": ["cnsv/"]
+          }
+        ]
+      },
+      "FSA-PROD-CNSV-cdc": {
+        "name": "FSA-PROD-CNSV-cdc",
+        "description": "CNSV BASE CDC crawler",
+        "databaseName": "FSA-PROD-cnsv-cdc",
+        "s3TargetsByBucket": [
+          {
+            "bucket": "c108-prod-fpacfsa-final-zone",
+            "prefixes": ["cnsv/_cdc/"]
+          }
+        ]
+      },
+      "FSA-PROD-CNSV-MAINT": {
+        "name": "FSA-PROD-CNSV-MAINT",
+        "description": "CNSV MAINT crawler",
+        "databaseName": "FSA-PROD-ccms",
+        "s3TargetsByBucket": [
+          {
+            "bucket": "c108-prod-fpacfsa-final-zone",
+            "prefixes": ["contract_maintenance/"]
+          }
+        ]
+      },
+      "FSA-PROD-CNSV-MAINT-cdc": {
+        "name": "FSA-PROD-CNSV-MAINT-cdc",
+        "description": "CNSV MAINT CDC crawler",
+        "databaseName": "FSA-PROD-ccms-cdc",
+        "s3TargetsByBucket": [
+          {
+            "bucket": "c108-prod-fpacfsa-final-zone",
+            "prefixes": ["contract_maintenance/_cdc/"]
+          }
+        ]
+      },
+      "FSA-PROD-CNSV-CONS-PYMTS": {
+        "name": "FSA-PROD-CNSV-CONS-PYMTS",
+        "description": "CNSV PYMTS crawler",
+        "databaseName": "FSA-PROD-ccpf",
+        "s3TargetsByBucket": [
+          {
+            "bucket": "c108-prod-fpacfsa-final-zone",
+            "prefixes": ["conservation_payments/"]
+          }
+        ]
+      },
+      "FSA-PROD-CNSV-CONS-PYMTS-cdc": {
+        "name": "FSA-PROD-CNSV-CONS-PYMTS-cdc",
+        "description": "CNSV PYMTS CDC crawler",
+        "databaseName": "FSA-PROD-ccpf-cdc",
+        "s3TargetsByBucket": [
+          {
+            "bucket": "c108-prod-fpacfsa-final-zone",
+            "prefixes": ["conservation_payments/_cdc/"]
+          }
         ]
       }
-    ]
-  }
-
+    }
+  ]
 }

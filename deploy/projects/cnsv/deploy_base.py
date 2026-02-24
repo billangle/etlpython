@@ -284,11 +284,11 @@ def build_names(deploy_env: str, project: str) -> Names:
         sm_process_control_update=f"{prefix}-Process-Control-Update",
         sm_main=f"{prefix}-Main",
         fn_get_incremental_tables=f"{prefix}-get-incremental-tables",
-        fn_raw_dm_etl_workflow_update=f"{prefix}-RAW-DM-etl-workflow-update-data-ppln-job",
-        fn_raw_dm_sns_publish_errors=f"{prefix}-RAW-DM-sns-publish-step-function-errors",
+        fn_raw_dm_etl_workflow_update=f"{prefix}-RAW-DM-etl-update-data-ppln-job",
+        fn_raw_dm_sns_publish_errors=f"{prefix}-RAW-DM-sns-step-function-errors",
         fn_job_logging_end=f"{prefix}-Job-Logging-End",
         fn_validation_check=f"{prefix}-validation-check",
-        fn_sns_publish_validations_report=f"{prefix}-sns-publish-validations-report",
+        fn_sns_publish_validations_report=f"{prefix}-sns-validations-report",
     )
 
 
@@ -558,11 +558,11 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     # --- Lambdas (BASE ONLY) ---
     required_lambdas: List[Tuple[str, str]] = [
         (names.fn_get_incremental_tables, "get-incremental-tables"),
-        (names.fn_raw_dm_etl_workflow_update, "RAW-DM-etl-workflow-update-data-ppln-job"),
-        (names.fn_raw_dm_sns_publish_errors, "RAW-DM-sns-publish-step-function-errors"),
+        (names.fn_raw_dm_etl_workflow_update, "RAW-DM-etl-update-data-ppln-job"),
+        (names.fn_raw_dm_sns_publish_errors, "RAW-DM-sns-step-function-errors"),
         (names.fn_job_logging_end, "Job-Logging-End"),
         (names.fn_validation_check, "validation-check"),
-        (names.fn_sns_publish_validations_report, "sns-publish-validations-report"),
+        (names.fn_sns_publish_validations_report, "sns-validations-report"),
     ]
 
     lambda_arns: Dict[str, str] = {}

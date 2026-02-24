@@ -67,7 +67,8 @@ def lambda_handler(event, context):
         raise ValueError("Missing required input: table_name (or env TABLE_NAME)")
 
     is_success = (path == "SUCCESS")
-    error_detail = {} if is_success else _extract_error_detail(event.get("transferError", {}))
+    raw_error = event.get("transfer", {}).get("error", {})
+    error_detail = {} if is_success else _extract_error_detail(raw_error)
 
     if debug:
         print(f"[DEBUG] path={path} is_success={is_success} jobId={job_id} project={project}")

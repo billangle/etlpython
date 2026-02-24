@@ -1,12 +1,12 @@
 {
-  "Comment": "S3Landing-to-S3Final-Raw-DM (parameterized lambda + glue + crawler names)",
+  "Comment": "S3Landing-to-S3Final-Raw-DM. All infrastructure values substituted at deploy time.",
   "StartAt": "GetIncrementalTableList",
   "States": {
     "GetIncrementalTableList": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "FunctionName.$": "$.get_incremental_tables_fn_arn",
+        "FunctionName": "__GET_INCREMENTAL_TABLES_FN_ARN__",
         "Payload.$": "$"
       },
       "OutputPath": "$.Payload",
@@ -17,17 +17,7 @@
       "Parameters": {
         "JobId.$": "$.JobId",
         "tables.$": "$.tables",
-        "Target.$": "$.Target",
-        "env.$": "$.env",
-        "raw_dm_glue_job_name.$": "$.raw_dm_glue_job_name",
-        "postgres_prcs_ctrl_dbname.$": "$.postgres_prcs_ctrl_dbname",
-        "region_name.$": "$.region_name",
-        "secret_name.$": "$.secret_name",
-        "target_bucket.$": "$.target_bucket",
-        "raw_dm_sns_publish_errors_fn_arn.$": "$.raw_dm_sns_publish_errors_fn_arn",
-        "raw_dm_etl_workflow_update_fn_arn.$": "$.raw_dm_etl_workflow_update_fn_arn",
-        "final_zone_crawler_name.$": "$.final_zone_crawler_name",
-        "cdc_crawler_name.$": "$.cdc_crawler_name"
+        "Target.$": "$.Target"
       },
       "ResultPath": "$.input",
       "Next": "MoveTables"
@@ -39,13 +29,6 @@
       "ItemSelector": {
         "JobId.$": "$.input.JobId",
         "Target.$": "$.input.Target",
-        "env.$": "$.input.env",
-        "raw_dm_glue_job_name.$": "$.input.raw_dm_glue_job_name",
-        "postgres_prcs_ctrl_dbname.$": "$.input.postgres_prcs_ctrl_dbname",
-        "region_name.$": "$.input.region_name",
-        "secret_name.$": "$.input.secret_name",
-        "target_bucket.$": "$.input.target_bucket",
-        "raw_dm_sns_publish_errors_fn_arn.$": "$.input.raw_dm_sns_publish_errors_fn_arn",
         "app_name.$": "$$.Map.Item.Value"
       },
       "ItemProcessor": {
@@ -68,15 +51,15 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::glue:startJobRun.sync",
             "Parameters": {
-              "JobName.$": "$.raw_dm_glue_job_name",
+              "JobName": "__RAW_DM_GLUE_JOB_NAME__",
               "Arguments": {
                 "--JobId.$": "States.Format('{}', $.JobId)",
                 "--TableName.$": "$.output.table",
-                "--env.$": "$.env",
-                "--postgres_prcs_ctrl_dbname.$": "$.postgres_prcs_ctrl_dbname",
-                "--region_name.$": "$.region_name",
-                "--secret_name.$": "$.secret_name",
-                "--target_bucket.$": "$.target_bucket",
+                "--env": "__ENV__",
+                "--postgres_prcs_ctrl_dbname": "__POSTGRES_PRCS_CTRL_DBNAME__",
+                "--region_name": "__REGION_NAME__",
+                "--secret_name": "__SECRET_NAME__",
+                "--target_bucket": "__TARGET_BUCKET__",
                 "--target_prefix.$": "$.Target"
               }
             },
@@ -95,7 +78,7 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::lambda:invoke",
             "Parameters": {
-              "FunctionName.$": "$.raw_dm_sns_publish_errors_fn_arn",
+              "FunctionName": "__RAW_DM_SNS_PUBLISH_ERRORS_FN_ARN__",
               "Payload.$": "$"
             },
             "Next": "Done",
@@ -134,7 +117,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "FunctionName.$": "$.raw_dm_etl_workflow_update_fn_arn",
+        "FunctionName": "__RAW_DM_ETL_WORKFLOW_UPDATE_FN_ARN__",
         "Payload.$": "$"
       },
       "ResultPath": "$.Update",
@@ -164,7 +147,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
               "Parameters": {
-                "Name.$": "$.final_zone_crawler_name"
+                "Name": "__FINAL_ZONE_CRAWLER_NAME__"
               },
               "ResultPath": null,
               "End": true,
@@ -192,7 +175,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
               "Parameters": {
-                "Name.$": "$.cdc_crawler_name"
+                "Name": "__CDC_CRAWLER_NAME__"
               },
               "ResultPath": null,
               "End": true,

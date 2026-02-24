@@ -3,6 +3,7 @@
   "project": "CNSV",
   "region": "us-east-1",
   "bucketRegion": "us-east-1",
+  "secretId": "FSA-DEV-Secrets",
 
   "configData": {
     "databaseName": "fsa-fpac-db",
@@ -22,6 +23,7 @@
     "landingBucketNameParam": "punkdev-fpacfsa-landing-zone",
     "cleanBucketNameParam": "punkdev-fpacfsa-cleansed-zone",
     "finalBucketNameParam": "punkdev-fpacfsa-final-zone",
+    "jobIdKeyParam": "cnsv/etl-jobs/job_id.json",
     "glueJobRoleArnParam": "arn:aws:iam::335965711887:role/FPACGlueCDKRole",
     "etlRoleArnParam": "arn:aws:iam::335965711887:role/FPACLambdaCDKRole",
     "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:335965711887:layer:FSA-DEV-MDART-layer:1",

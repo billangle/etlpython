@@ -22,6 +22,7 @@
     "landingBucketNameParam": "c108-dev-fpacfsa-landing-zone",
     "cleanBucketNameParam": "c108-dev-fpacfsa-cleansed-zone",
     "finalBucketNameParam": "c108-dev-fpacfsa-final-zone",
+    "jobIdKeyParam": "cnsv/etl-jobs/job_id.json",
     "glueJobRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-servicerole-glue",
     "etlRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-lambda",
     "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1",

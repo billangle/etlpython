@@ -1,14 +1,14 @@
 {
-  "Comment": "Incremental-to-S3Landing (parameterized Glue job + S3 JobId location)",
+  "Comment": "Incremental-to-S3Landing. All infrastructure values substituted at deploy time.",
   "StartAt": "RunLandingGlue",
   "States": {
     "RunLandingGlue": {
       "Type": "Task",
       "Resource": "arn:aws:states:::glue:startJobRun.sync",
       "Parameters": {
-        "JobName.$": "$.landing_glue_job_name",
+        "JobName": "__LANDING_GLUE_JOB_NAME__",
         "Arguments": {
-          "--env.$": "$.env"
+          "--env": "__ENV__"
         }
       },
       "Next": "GetJobIdFromS3",
@@ -38,8 +38,8 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:s3:getObject",
       "Parameters": {
-        "Bucket.$": "$.job_id_bucket",
-        "Key.$": "$.job_id_key"
+        "Bucket": "__JOB_ID_BUCKET__",
+        "Key": "__JOB_ID_KEY__"
       },
       "ResultSelector": {
         "JobId.$": "States.StringToJson($.Body)"

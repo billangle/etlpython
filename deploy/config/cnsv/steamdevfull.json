@@ -13,6 +13,7 @@
     "landingBucketNameParam": "punkdev-fpacfsa-landing-zone",
     "cleanBucketNameParam": "punkdev-fpacfsa-cleansed-zone",
     "finalBucketNameParam": "punkdev-fpacfsa-final-zone",
+    "jobIdKeyParam": "cnsv/etl-jobs/job_id.json",
     "glueJobRoleArnParam": "arn:aws:iam::335965711887:role/FPACGlueCDKRole",
     "etlRoleArnParam": "arn:aws:iam::335965711887:role/FPACLambdaCDKRole",
     "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:335965711887:layer:FSA-DEV-MDART-layer:1",
@@ -31,9 +32,9 @@
 
   "stepFunctions": {
   "createRoleIfMissing": false,
-  "roleName": "FSA-DEV-FPACCARS-SfnExec",
-  "roleArn": "arn:aws:iam::335965711887:role/FSA-DEV-FPACCARS-SfnExec",
-   "nestedCallerRoleArn": "arn:aws:iam::335965711887:role/FSA-DEV-FPACCARS-SfnNestedCaller"
+  "roleName": "FSA-dev-FPACCARS-SfnExec",
+  "roleArn": "arn:aws:iam::335965711887:role/FSA-dev-FPACCARS-SfnExec",
+   "nestedCallerRoleArn": "arn:aws:iam::335965711887:role/FSA-dev-FPACCARS-SfnNestedCaller"
   },
   "configUpload": {
     "functionName": "FSA-steam-dev-UploadConfig",

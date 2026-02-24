@@ -393,6 +393,24 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     stg_folder = _as_str(strparams.get("stgFolderNameParam"))
     ods_folder = _as_str(strparams.get("odsFolderNameParam"))
 
+    # Main SM deploy-time substitution values
+    job_id_bucket = _as_str(strparams.get("jobIdBucketParam") or strparams.get("landingBucketNameParam"))
+    job_id_key = _as_str(strparams.get("jobIdKeyParam"))
+    if not job_id_key:
+        # Derive from LandingFiles.DestinationPrefix — the Glue job writes to {DestinationPrefix}/job_id.json
+        _landing_dest_prefix = _as_str(
+            (_glue_config_for_script(cfg, "LandingFiles").get("JobParameters") or {}).get("--DestinationPrefix")
+        )
+        if _landing_dest_prefix:
+            job_id_key = f"{_landing_dest_prefix.rstrip('/')}/job_id.json"
+    final_zone_crawler_name = _as_str(strparams.get("finalZoneCrawlerNameParam"))
+    cdc_crawler_name = _as_str(strparams.get("cdcCrawlerNameParam"))
+    postgres_prcs_ctrl_dbname = _as_str(
+        (cfg.get("configData") or {}).get("databaseName") or strparams.get("postgresDbNameParam")
+    )
+    secret_name = _as_str(cfg.get("SecretId") or cfg.get("secretId") or strparams.get("secretNameParam"))
+    target_bucket = _as_str(strparams.get("targetBucketParam") or strparams.get("finalBucketNameParam"))
+
     missing: List[str] = []
     if not landing_bucket:
         missing.append("strparams.landingBucketNameParam")
@@ -573,12 +591,39 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
 
     # --- State machines (BASE ONLY) ---
     # IMPORTANT: names come from cfg-derived prefix ONLY.
+
+    # Shared substitutions reused across all child SMs
+    _shared_subs = {
+        "__ENV__":                                    str(deploy_env),
+        "__LANDING_GLUE_JOB_NAME__":                 names.landing_glue_job,
+        "__JOB_ID_BUCKET__":                         job_id_bucket,
+        "__JOB_ID_KEY__":                            job_id_key,
+        "__RAW_DM_GLUE_JOB_NAME__":                  names.raw_dm_glue_job,
+        "__GET_INCREMENTAL_TABLES_FN_ARN__":         lambda_arns.get(names.fn_get_incremental_tables, ""),
+        "__RAW_DM_ETL_WORKFLOW_UPDATE_FN_ARN__":     lambda_arns.get(names.fn_raw_dm_etl_workflow_update, ""),
+        "__RAW_DM_SNS_PUBLISH_ERRORS_FN_ARN__":      lambda_arns.get(names.fn_raw_dm_sns_publish_errors, ""),
+        "__JOB_LOGGING_END_FN_ARN__":               lambda_arns.get(names.fn_job_logging_end, ""),
+        "__VALIDATION_CHECK_FN_ARN__":              lambda_arns.get(names.fn_validation_check, ""),
+        "__FINAL_ZONE_CRAWLER_NAME__":               final_zone_crawler_name,
+        "__CDC_CRAWLER_NAME__":                      cdc_crawler_name,
+        "__POSTGRES_PRCS_CTRL_DBNAME__":             postgres_prcs_ctrl_dbname,
+        "__REGION_NAME__":                           region,
+        "__SECRET_NAME__":                           secret_name,
+        "__TARGET_BUCKET__":                         target_bucket,
+    }
+
+    def _substitute_asl(key: str) -> Dict[str, Any]:
+        text = json.dumps(raw_asls[key])
+        for placeholder, value in _shared_subs.items():
+            text = text.replace(placeholder, value)
+        return json.loads(text)
+
     sm_incremental_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(
             name=names.sm_incremental_to_s3landing,
             role_arn=sfn_role_arn,
-            definition=raw_asls["Incremental-to-S3Landing.param.asl.json"],
+            definition=_substitute_asl("Incremental-to-S3Landing.param.asl.json"),
         ),
     )
     sm_s3landing_arn = ensure_state_machine(
@@ -586,7 +631,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         StateMachineSpec(
             name=names.sm_s3landing_to_s3final_raw_dm,
             role_arn=sfn_role_arn,
-            definition=raw_asls["S3Landing-to-S3Final-Raw-DM.param.asl.json"],
+            definition=_substitute_asl("S3Landing-to-S3Final-Raw-DM.param.asl.json"),
         ),
     )
     sm_pc_arn = ensure_state_machine(
@@ -594,15 +639,43 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         StateMachineSpec(
             name=names.sm_process_control_update,
             role_arn=sfn_role_arn,
-            definition=raw_asls["Process-Control-Update.param.asl.json"],
+            definition=_substitute_asl("Process-Control-Update.param.asl.json"),
         ),
     )
+    # Build Main SM definition with deploy-time substitutions
+    _main_asl_text = json.dumps(raw_asls["Main.param.asl.json"])
+    _main_substitutions = {
+        "__ENV__":                                    str(deploy_env),
+        "__INCREMENTAL_TO_S3LANDING_SM_ARN__":        sm_incremental_arn,
+        "__LANDING_GLUE_JOB_NAME__":                 names.landing_glue_job,
+        "__JOB_ID_BUCKET__":                         job_id_bucket,
+        "__JOB_ID_KEY__":                            job_id_key,
+        "__S3LANDING_TO_S3FINAL_RAW_DM_SM_ARN__":    sm_s3landing_arn,
+        "__RAW_DM_GLUE_JOB_NAME__":                  names.raw_dm_glue_job,
+        "__GET_INCREMENTAL_TABLES_FN_ARN__":         lambda_arns.get(names.fn_get_incremental_tables, ""),
+        "__RAW_DM_ETL_WORKFLOW_UPDATE_FN_ARN__":     lambda_arns.get(names.fn_raw_dm_etl_workflow_update, ""),
+        "__RAW_DM_SNS_PUBLISH_ERRORS_FN_ARN__":      lambda_arns.get(names.fn_raw_dm_sns_publish_errors, ""),
+        "__FINAL_ZONE_CRAWLER_NAME__":               final_zone_crawler_name,
+        "__CDC_CRAWLER_NAME__":                      cdc_crawler_name,
+        "__POSTGRES_PRCS_CTRL_DBNAME__":             postgres_prcs_ctrl_dbname,
+        "__REGION_NAME__":                           region,
+        "__SECRET_NAME__":                           secret_name,
+        "__TARGET_BUCKET__":                         target_bucket,
+        "__PROCESS_CONTROL_UPDATE_SM_ARN__":         sm_pc_arn,
+        "__JOB_LOGGING_END_FN_ARN__":               lambda_arns.get(names.fn_job_logging_end, ""),
+        "__VALIDATION_CHECK_FN_ARN__":              lambda_arns.get(names.fn_validation_check, ""),
+        "__SNS_PUBLISH_VALIDATIONS_REPORT_FN_ARN__": lambda_arns.get(names.fn_sns_publish_validations_report, ""),
+    }
+    for _placeholder, _value in _main_substitutions.items():
+        _main_asl_text = _main_asl_text.replace(_placeholder, _value)
+    _main_definition = json.loads(_main_asl_text)
+
     sm_main_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(
             name=names.sm_main,
             role_arn=sfn_role_arn,
-            definition=raw_asls["Main.param.asl.json"],
+            definition=_main_definition,
         ),
     )
 

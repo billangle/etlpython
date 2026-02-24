@@ -1,12 +1,12 @@
 {
-  "Comment": "CNSV Process Control Update (parameterized lambdas)",
+  "Comment": "CNSV Process Control Update. All infrastructure values substituted at deploy time.",
   "StartAt": "JobLoggingEnd",
   "States": {
     "JobLoggingEnd": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "FunctionName.$": "$.job_logging_end_fn_arn",
+        "FunctionName": "__JOB_LOGGING_END_FN_ARN__",
         "Payload.$": "$"
       },
       "OutputPath": "$.Payload",
@@ -29,7 +29,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "FunctionName.$": "$.validation_check_fn_arn",
+        "FunctionName": "__VALIDATION_CHECK_FN_ARN__",
         "Payload.$": "$"
       },
       "OutputPath": "$.Payload",

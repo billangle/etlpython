@@ -1,15 +1,16 @@
 {
-  "StartAt": "Pymts-Incremental-to-S3Landing",
+  "Comment": "CNSV Cons-Pymts Main orchestrator. All infrastructure values substituted at deploy time.",
+  "StartAt": "RunIncrementalToS3Landing",
   "States": {
-    "Pymts-Incremental-to-S3Landing": {
+    "RunIncrementalToS3Landing": {
       "Type": "Task",
       "Resource": "arn:aws:states:::states:startExecution.sync:2",
       "Parameters": {
+        "StateMachineArn": "__INCREMENTAL_TO_S3LANDING_SM_ARN__",
         "Input": {
-          "Bucket": "c108-cert-fpacfsa-landing-zone",
-          "Key": "conservation_payments/etl-jobs/job_id.json"
-        },
-        "StateMachineArn.$": "$.incremental_to_s3landing_sm_arn"
+          "Bucket": "__JOB_ID_BUCKET__",
+          "Key": "__JOB_ID_KEY__"
+        }
       },
       "ResultSelector": {
         "JobId.$": "$.Output.JobId.JobId",
@@ -28,32 +29,32 @@
           "Next": "Notify"
         }
       ],
-      "Default": "Update Cnsv-Cons-Pymts RAW-DM"
+      "Default": "RunS3LandingToS3FinalRawDM"
     },
-    "Update Cnsv-Cons-Pymts RAW-DM": {
+    "RunS3LandingToS3FinalRawDM": {
       "Type": "Task",
       "Resource": "arn:aws:states:::states:startExecution.sync:2",
       "Parameters": {
+        "StateMachineArn": "__S3LANDING_TO_S3FINAL_RAW_DM_SM_ARN__",
         "Input": {
           "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
           "JobId.$": "$.JobId",
           "step_seq_nbr": "2",
-          "SfName.$": "$.s3landing_to_s3final_raw_dm_sm_name"
-        },
-        "StateMachineArn.$": "$.s3landing_to_s3final_raw_dm_sm_arn"
+          "SfName": "__S3LANDING_TO_S3FINAL_RAW_DM_SM_NAME__"
+        }
       },
       "ResultPath": null,
-      "Next": "Update Process Control"
+      "Next": "UpdateProcessControl"
     },
-    "Update Process Control": {
+    "UpdateProcessControl": {
       "Type": "Task",
       "Resource": "arn:aws:states:::states:startExecution.sync:2",
       "Parameters": {
+        "StateMachineArn": "__PROCESS_CONTROL_UPDATE_SM_ARN__",
         "Input": {
           "JobId.$": "$.JobId",
           "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id"
-        },
-        "StateMachineArn.$": "$.process_control_update_sm_arn"
+        }
       },
       "ResultPath": null,
       "Next": "Notify"
@@ -62,12 +63,12 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
+        "FunctionName": "__SNS_PUBLISH_VALIDATIONS_REPORT_FN_ARN__",
         "Payload": {
           "JobId.$": "$.JobId",
           "noFiles.$": "$.noFiles",
           "files.$": "$.FileList"
-        },
-        "FunctionName.$": "$.sns_publish_validations_report_fn_arn"
+        }
       },
       "End": true
     }

@@ -2,13 +2,11 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import boto3
-from botocore.exceptions import ClientError
 
 from common.aws_common import (
     ensure_bucket_exists,
@@ -256,8 +254,9 @@ class Names:
     fn_validation_check: str
     fn_sns_publish_validations_report: str
 
-    # Crawler (optional)
-    crawler_default: str
+    # Crawlers
+    crawler_final_zone: str
+    crawler_cdc: str
 
 
 def build_names(deploy_env: str, project: str) -> Names:
@@ -288,7 +287,8 @@ def build_names(deploy_env: str, project: str) -> Names:
         fn_validation_check=f"{prefix}-Cons-Pymts-validation-check",
         fn_sns_publish_validations_report=f"{prefix}-Cons-Pymts-sns-publish-validations-report",
 
-        crawler_default=f"{prefix}-Cons-Pymts-ODS",
+        crawler_final_zone=f"{prefix}-CNSV-CONS-PYMTS",
+        crawler_cdc=f"{prefix}-CNSV-CONS-PYMTS-cdc",
     )
 
 
@@ -325,107 +325,6 @@ def _find_lambda_dir(lambda_root: Path, expected_dir_name: str) -> Path:
 
     raise RuntimeError(f"Lambda dir not found for: {expected_dir_name}. Found: {[d.name for d in dirs]}")
 
-
-# --------------------------------------------------------------------------------------
-# Crawler helpers (same role behavior as your working examples)
-# --------------------------------------------------------------------------------------
-
-def _build_crawler_s3_targets(crawler_cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
-    out: List[Dict[str, Any]] = []
-    groups = crawler_cfg.get("s3TargetsByBucket")
-    if not isinstance(groups, list):
-        return out
-
-    for g in groups:
-        if not isinstance(g, dict):
-            continue
-        bucket = _as_str(g.get("bucket"))
-        prefixes = g.get("prefixes")
-        if not bucket or not isinstance(prefixes, list):
-            continue
-        for p in prefixes:
-            pref = _as_str(p)
-            if not pref:
-                continue
-            if pref.startswith("/"):
-                pref = pref[1:]
-            out.append({"Path": f"s3://{bucket}/{pref}"})
-    return out
-
-
-def ensure_glue_crawler(
-    glue_client,
-    *,
-    name: str,
-    role_arn: str,
-    database_name: str,
-    s3_targets: List[Dict[str, Any]],
-    description: str = "",
-    recrawl_behavior: str = "CRAWL_EVERYTHING",
-) -> str:
-    if not s3_targets:
-        raise RuntimeError("Crawler requested but no S3 targets were provided.")
-
-    try:
-        glue_client.get_crawler(Name=name)
-        exists = True
-    except ClientError as e:
-        code = e.response.get("Error", {}).get("Code", "")
-        if code in ("EntityNotFoundException", "CrawlerNotFoundException"):
-            exists = False
-        else:
-            raise
-
-    params = {
-        "Name": name,
-        "Role": role_arn,
-        "DatabaseName": database_name,
-        "Description": description or "",
-        "Targets": {"S3Targets": s3_targets},
-        "RecrawlPolicy": {"RecrawlBehavior": recrawl_behavior},
-        "SchemaChangePolicy": {
-            "UpdateBehavior": "UPDATE_IN_DATABASE",
-            "DeleteBehavior": "DEPRECATE_IN_DATABASE",
-        },
-    }
-
-    if exists:
-        glue_client.update_crawler(**params)
-    else:
-        glue_client.create_crawler(**params)
-
-    return name
-
-
-# --------------------------------------------------------------------------------------
-# Definition binding (convert $.<var> placeholders to real ARNs/names in-memory)
-# --------------------------------------------------------------------------------------
-
-_JSONPATH_RE = re.compile(r"^\$\.(?P<key>[A-Za-z0-9_]+)$")
-
-
-def _bind_placeholders(node: Any, bindings: Dict[str, str]) -> Any:
-    """
-    Walk any JSON (dict/list/scalar). For dict keys ending with '.$' and values like '$.foo',
-    if 'foo' is in bindings, rewrite to key without '.$' and literal value bindings['foo'].
-    """
-    if isinstance(node, list):
-        return [_bind_placeholders(x, bindings) for x in node]
-
-    if isinstance(node, dict):
-        out: Dict[str, Any] = {}
-        for k, v in node.items():
-            if isinstance(k, str) and k.endswith(".$") and isinstance(v, str):
-                m = _JSONPATH_RE.match(v.strip())
-                if m:
-                    key = m.group("key")
-                    if key in bindings and bindings[key]:
-                        out[k[:-2]] = bindings[key]
-                        continue
-            out[k] = _bind_placeholders(v, bindings)
-        return out
-
-    return node
 
 
 # --------------------------------------------------------------------------------------
@@ -469,6 +368,22 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     landing_folder = _as_str(strparams.get("landingFolderNameParam"))
     stg_folder = _as_str(strparams.get("stgFolderNameParam"))
     ods_folder = _as_str(strparams.get("odsFolderNameParam"))
+    secret_name = _as_str(cfg.get("SecretId") or cfg.get("secretId") or strparams.get("secretNameParam"))
+    postgres_prcs_ctrl_dbname = _as_str(
+        (cfg.get("configData") or {}).get("databaseName") or strparams.get("postgresDbNameParam")
+    )
+    cons_pymts_job_id_key = _as_str(strparams.get("consPymtsJobIdKeyParam"))
+    if not cons_pymts_job_id_key:
+        _cp_dest_prefix = _as_str(
+            (_glue_config_for_script(cfg, "Cons-Pymts-LandingFiles").get("JobParameters") or {}).get("--DestinationPrefix")
+        )
+        if _cp_dest_prefix:
+            cons_pymts_job_id_key = f"{_cp_dest_prefix.rstrip('/')}/job_id.json"
+        else:
+            cons_pymts_job_id_key = "conservation_payments/etl-jobs/job_id.json"
+    target_prefix = _as_str(strparams.get("consPymtsTargetPrefixParam"), default="conservation_payments")
+    final_zone_crawler_name = _as_str(strparams.get("consPymtsFinalZoneCrawlerNameParam"), default=names.crawler_final_zone)
+    cdc_crawler_name = _as_str(strparams.get("consPymtsCdcCrawlerNameParam"), default=names.crawler_cdc)
 
     missing: List[str] = []
     if not landing_bucket:
@@ -644,116 +559,81 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         )
         lambda_arns[fn_name] = ensure_lambda(lam, spec)
 
-    # --- OPTIONAL: Crawler ---
-    crawler_result = "skipped"
-    crawler_name_used = ""
-    crawler_db_used = ""
-
-    crawler_cfg = cfg.get("crawler")
-    if isinstance(crawler_cfg, dict) and crawler_cfg:
-        prefix_base = f"FSA-{(deploy_env or '').strip()}-{(project or '').strip()}"
-
-        raw_name = _as_str(crawler_cfg.get("name"))
-        if raw_name:
-            crawler_name_used = raw_name if raw_name.startswith("FSA-") else f"{prefix_base}-{raw_name}"
-        else:
-            crawler_name_used = names.crawler_default
-
-        crawler_desc = _as_str(crawler_cfg.get("description"))
-        s3_targets = _build_crawler_s3_targets(crawler_cfg)
-
-        crawler_db_used = _as_str(crawler_cfg.get("databaseName")) or _as_str((_as_dict(cfg.get("configData")).get("databaseName")))
-        if not crawler_db_used:
-            raise RuntimeError("crawler.databaseName (preferred) or cfg.configData.databaseName is required when crawler is enabled")
-
-        # Role behavior: use the same permissions as Glue jobs by default
-        crawler_role_arn = _as_str(crawler_cfg.get("roleArn")) or glue_job_role_arn
-
-        ensure_glue_crawler(
-            glue,
-            name=crawler_name_used,
-            role_arn=crawler_role_arn,
-            database_name=crawler_db_used,
-            s3_targets=s3_targets,
-            description=crawler_desc,
-            recrawl_behavior=_as_str(crawler_cfg.get("recrawlBehavior"), "CRAWL_EVERYTHING"),
-        )
-        crawler_result = "created_or_updated"
-
-    # --- Bind definitions in memory ---
-    # We intentionally do NOT keep any hardcoded names/ARNs in files.
-    bindings: Dict[str, str] = {
-        # lambdas
-        "get_incremental_tables_fn_arn": lambda_arns[names.fn_get_incremental_tables],
-        "raw_dm_etl_workflow_update_fn_arn": lambda_arns[names.fn_raw_dm_etl_workflow_update],
-        "raw_dm_sns_publish_errors_fn_arn": lambda_arns[names.fn_raw_dm_sns_publish_errors],
-        "job_logging_end_fn_arn": lambda_arns[names.fn_job_logging_end],
-        "validation_check_fn_arn": lambda_arns[names.fn_validation_check],
-        "sns_publish_validations_report_fn_arn": lambda_arns[names.fn_sns_publish_validations_report],
-        # glue job names
-        "landing_glue_job_name": names.landing_glue_job,
-        "raw_dm_glue_job_name": names.raw_dm_glue_job,
-        # sns
-        "sns_topic_arn": sns_topic_arn,
-        # crawler
-        "crawler_name": crawler_name_used,
+    # --- State machines (pymts only) using deploy-time substitution ---
+    _shared_subs = {
+        "__ENV__":                                    str(deploy_env),
+        "__LANDING_GLUE_JOB_NAME__":                 names.landing_glue_job,
+        "__RAW_DM_GLUE_JOB_NAME__":                  names.raw_dm_glue_job,
+        "__JOB_ID_BUCKET__":                         landing_bucket,
+        "__JOB_ID_KEY__":                            cons_pymts_job_id_key,
+        "__TARGET_PREFIX__":                         target_prefix,
+        "__GET_INCREMENTAL_TABLES_FN_ARN__":         lambda_arns.get(names.fn_get_incremental_tables, ""),
+        "__RAW_DM_ETL_WORKFLOW_UPDATE_FN_ARN__":     lambda_arns.get(names.fn_raw_dm_etl_workflow_update, ""),
+        "__RAW_DM_SNS_PUBLISH_ERRORS_FN_ARN__":      lambda_arns.get(names.fn_raw_dm_sns_publish_errors, ""),
+        "__JOB_LOGGING_END_FN_ARN__":                lambda_arns.get(names.fn_job_logging_end, ""),
+        "__VALIDATION_CHECK_FN_ARN__":               lambda_arns.get(names.fn_validation_check, ""),
+        "__SNS_PUBLISH_VALIDATIONS_REPORT_FN_ARN__": lambda_arns.get(names.fn_sns_publish_validations_report, ""),
+        "__FINAL_ZONE_CRAWLER_NAME__":               final_zone_crawler_name,
+        "__CDC_CRAWLER_NAME__":                      cdc_crawler_name,
+        "__POSTGRES_PRCS_CTRL_DBNAME__":             postgres_prcs_ctrl_dbname,
+        "__REGION_NAME__":                           region,
+        "__SECRET_NAME__":                           secret_name,
+        "__TARGET_BUCKET__":                         final_bucket,
     }
 
-    # Names sometimes passed to lambdas as metadata (no hardcoding in ASL files)
-    bindings["incremental_to_s3landing_sm_name"] = names.sm_incremental_to_s3landing
-    bindings["s3landing_to_s3final_raw_dm_sm_name"] = names.sm_s3landing_to_s3final_raw_dm
-    bindings["process_control_update_sm_name"] = names.sm_process_control_update
+    def _substitute_asl(key: str) -> Dict[str, Any]:
+        text = json.dumps(raw_asls[key])
+        for placeholder, value in _shared_subs.items():
+            text = text.replace(placeholder, value or "")
+        return json.loads(text)
 
-    # Optional configData bindings (if present, they will be substituted into the ASL in-memory)
-    config_data = _as_dict(cfg.get("configData"))
-    secret_name = _as_str(config_data.get("secretName"))
-    if secret_name:
-        bindings["secret_name"] = secret_name
-
-    prcs_ctrl_db = _as_str(config_data.get("postgres_prcs_ctrl_dbname"))
-    if prcs_ctrl_db:
-        bindings["postgres_prcs_ctrl_dbname"] = prcs_ctrl_db
-
-    def _bound(filename: str) -> Dict[str, Any]:
-        return _bind_placeholders(raw_asls[filename], bindings)
-
-    # Create child SMs first (main references them)
+    # Incremental SM — also inject landing Glue job Arguments from config
+    _defn_incremental = _substitute_asl("Cons-Pymts-Incremental-to-S3Landing.param.asl.json")
+    _landing_job_args = dict(landing_params.get("JobParameters") or {})
+    if _landing_job_args:
+        try:
+            _defn_incremental["States"]["IngestIncrementalDataToS3Landing"]["Parameters"]["Arguments"] = _landing_job_args
+        except (KeyError, TypeError):
+            pass
     sm_incremental_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(
             name=names.sm_incremental_to_s3landing,
             role_arn=sfn_role_arn,
-            definition=_bound("Cons-Pymts-Incremental-to-S3Landing.param.asl.json"),
+            definition=_defn_incremental,
         ),
     )
-    bindings["incremental_to_s3landing_sm_arn"] = sm_incremental_arn
-
     sm_s3landing_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(
             name=names.sm_s3landing_to_s3final_raw_dm,
             role_arn=sfn_role_arn,
-            definition=_bound("Cons-Pymts-S3Landing-to-S3Final-Raw-DM.param.asl.json"),
+            definition=_substitute_asl("Cons-Pymts-S3Landing-to-S3Final-Raw-DM.param.asl.json"),
         ),
     )
-    bindings["s3landing_to_s3final_raw_dm_sm_arn"] = sm_s3landing_arn
-
     sm_pc_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(
             name=names.sm_process_control_update,
             role_arn=sfn_role_arn,
-            definition=_bound("Cons-Pymts-Process-Control-Update.param.asl.json"),
+            definition=_substitute_asl("Cons-Pymts-Process-Control-Update.param.asl.json"),
         ),
     )
-    bindings["process_control_update_sm_arn"] = sm_pc_arn
-
+    # Main SM needs child SM ARNs and name — substitute after child SMs are deployed
+    _main_subs = dict(_shared_subs)
+    _main_subs["__INCREMENTAL_TO_S3LANDING_SM_ARN__"] = sm_incremental_arn
+    _main_subs["__S3LANDING_TO_S3FINAL_RAW_DM_SM_ARN__"] = sm_s3landing_arn
+    _main_subs["__S3LANDING_TO_S3FINAL_RAW_DM_SM_NAME__"] = names.sm_s3landing_to_s3final_raw_dm
+    _main_subs["__PROCESS_CONTROL_UPDATE_SM_ARN__"] = sm_pc_arn
+    _main_asl_text = json.dumps(raw_asls["Cons-Pymts-Main.param.asl.json"])
+    for _p, _v in _main_subs.items():
+        _main_asl_text = _main_asl_text.replace(_p, _v or "")
     sm_main_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(
             name=names.sm_main,
             role_arn=sfn_role_arn,
-            definition=_bind_placeholders(raw_asls["Cons-Pymts-Main.param.asl.json"], bindings),
+            definition=json.loads(_main_asl_text),
         ),
     )
 
@@ -787,9 +667,6 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         "lambda_validation_check_arn": lambda_arns.get(names.fn_validation_check, ""),
         "lambda_sns_publish_validations_report_name": names.fn_sns_publish_validations_report,
         "lambda_sns_publish_validations_report_arn": lambda_arns.get(names.fn_sns_publish_validations_report, ""),
-        "crawler": crawler_result,
-        "crawler_name": crawler_name_used,
-        "crawler_database": crawler_db_used,
         "state_machine_incremental_to_s3landing_name": names.sm_incremental_to_s3landing,
         "state_machine_incremental_to_s3landing_arn": sm_incremental_arn,
         "state_machine_s3landing_to_s3final_raw_dm_name": names.sm_s3landing_to_s3final_raw_dm,

@@ -1,12 +1,12 @@
 {
-  "Comment": "Child Step Function for Step 1 - Calls Glue Job and passes JobId",
-  "StartAt": "Ingest CNSV CNTR MAINT Incremental data to S3 Landing",
+  "Comment": "Cntr-Maint Incremental-to-S3Landing. All infrastructure values substituted at deploy time.",
+  "StartAt": "IngestIncrementalDataToS3Landing",
   "States": {
-    "Ingest CNSV CNTR MAINT Incremental data to S3 Landing": {
+    "IngestIncrementalDataToS3Landing": {
       "Type": "Task",
       "Resource": "arn:aws:states:::glue:startJobRun.sync",
       "Parameters": {
-        "JobName.$": "$.landing_glue_job_name"
+        "JobName": "__LANDING_GLUE_JOB_NAME__"
       },
       "Retry": [
         {
@@ -29,21 +29,21 @@
           "Next": "HandleError"
         }
       ],
-      "Next": "Get Job ID from S3"
+      "Next": "GetJobIdFromS3"
     },
-    "Get Job ID from S3": {
+    "GetJobIdFromS3": {
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:s3:getObject",
       "Parameters": {
-        "Bucket": "c108-cert-fpacfsa-landing-zone",
-        "Key": "contract_maintenance/etl-jobs/job_id.json"
+        "Bucket": "__JOB_ID_BUCKET__",
+        "Key": "__JOB_ID_KEY__"
       },
       "ResultSelector": {
         "JobId.$": "States.StringToJson($.Body)"
       },
-      "Next": "Pass Job ID To Parent"
+      "Next": "PassJobIdToParent"
     },
-    "Pass Job ID To Parent": {
+    "PassJobIdToParent": {
       "Type": "Pass",
       "ResultPath": "$.Payload",
       "OutputPath": "$.Payload",

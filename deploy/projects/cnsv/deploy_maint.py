@@ -184,8 +184,15 @@ def _merge_glue_default_args(base_args: Dict[str, Any], glue_job_params: Dict[st
 
 
 # --------------------------------------------------------------------------------------
-# Script naming (match working deploy_base.py pattern)
+# Naming
 # --------------------------------------------------------------------------------------
+    name = Path(filename).name
+    if name.startswith("FSA-"):
+        parts = name.split("-", 2)
+        if len(parts) == 3:
+            name = parts[2]
+    return name
+
 
 def _strip_known_script_prefixes(filename: str) -> str:
     name = Path(filename).name
@@ -248,16 +255,6 @@ def _find_best_script(glue_root: Path, wanted_stem: str) -> Path:
 # --------------------------------------------------------------------------------------
 # ASL loader (PARAM ASL ONLY for this deployer)
 # --------------------------------------------------------------------------------------
-
-_PARAM_ASL_FILES = [
-    "Cntr-Maint-Incremental-to-S3Landing.param.asl.json",
-    "Cntr-Maint-S3Landing-to-S3Final-Raw-DM.param.asl.json",
-    "Cntr-Maint-Process-Control-Update.param.asl.json",
-    "Cntr-Maint-Main.param.asl.json",
-]
-
-
-def _load_asl_file(project_dir: Path, filename: str) -> Dict[str, Any]:
     p = project_dir / "states" / filename
     if not p.exists():
         raise FileNotFoundError(f"Missing ASL file: {p}")
@@ -371,127 +368,28 @@ def _find_lambda_dir(lambda_root: Path, expected_suffix: str) -> Path:
 
 
 # --------------------------------------------------------------------------------------
-# ASL rewrite (IN MEMORY) – fix hardcoded FSA-CERT-* strings and inject real Lambda ARNs
+# ASL files (param only)
 # --------------------------------------------------------------------------------------
 
-_LAMBDA_ARN_RE = re.compile(r"^arn:aws:lambda:[^:]+:\d{12}:function:[A-Za-z0-9-_]+(?::[A-Za-z0-9-_]+)?$")
+_PARAM_ASL_FILES = [
+    "Cntr-Maint-Incremental-to-S3Landing.param.asl.json",
+    "Cntr-Maint-S3Landing-to-S3Final-Raw-DM.param.asl.json",
+    "Cntr-Maint-Process-Control-Update.param.asl.json",
+    "Cntr-Maint-Main.param.asl.json",
+]
 
 
-def _deep_fix_lambda_resources(obj: Any, lambda_arns: Dict[str, str]) -> Any:
+def _load_asl_file(project_dir: Path, filename: str) -> Dict[str, Any]:
     """
-    Fix two patterns:
-      1) Task.Resource is a direct Lambda ARN (bad if it points to old account/name)
-      2) Task.Resource is states:::lambda:invoke and Parameters.FunctionName contains a direct Lambda ARN
-    We replace to the *actual* deployed ARN by matching the function-name suffix.
+    Load a parameterized ASL file (*.param.asl.json) from the states/ directory.
     """
-    # Build suffix index: function name -> arn, plus suffixes for matching.
-    # Example: FSA-DEV7-CNSV-Cntr-Maint-get-incremental-tables -> arn...
-    name_to_arn = dict(lambda_arns)
-
-    # Also match by “tail suffix” (e.g. get-incremental-tables)
-    suffix_to_arn: Dict[str, str] = {}
-    for fn, arn in name_to_arn.items():
-        tail = fn.split("-", 2)[-1] if fn.startswith("FSA-") else fn
-        # Better tail: last token group after project prefix isn't reliable; use known suffixes too.
-        # We’ll add a few matching aids:
-        suffix_to_arn[fn] = arn
-        suffix_to_arn[tail] = arn
-        if "-Cntr-Maint-" in fn:
-            suffix_to_arn[fn.split("-Cntr-Maint-", 1)[1]] = arn
-
-    def _extract_fn_name_from_arn(arn: str) -> str:
-        # arn:aws:lambda:REGION:ACCT:function:NAME[:alias]
-        try:
-            return arn.split(":function:", 1)[1]
-        except Exception:
-            return ""
-
-    def _best_replacement_for_lambda_arn(old_arn: str) -> Optional[str]:
-        fn = _extract_fn_name_from_arn(old_arn)
-        if not fn:
-            return None
-        # Try exact
-        if fn in suffix_to_arn:
-            return suffix_to_arn[fn]
-        # Try stripping alias
-        fn_no_alias = fn.split(":", 1)[0]
-        if fn_no_alias in suffix_to_arn:
-            return suffix_to_arn[fn_no_alias]
-        # Try known suffix match
-        for key, arn in suffix_to_arn.items():
-            if fn_no_alias.endswith(key):
-                return arn
-        return None
-
-    if isinstance(obj, dict):
-        # Task: direct lambda arn
-        if obj.get("Type") == "Task" and isinstance(obj.get("Resource"), str):
-            r = obj["Resource"]
-
-            # Direct lambda ARN
-            if _LAMBDA_ARN_RE.match(r):
-                repl = _best_replacement_for_lambda_arn(r)
-                if repl:
-                    obj["Resource"] = repl
-
-            # Service integration lambda:invoke with Parameters.FunctionName
-            if r == "arn:aws:states:::lambda:invoke":
-                params = obj.get("Parameters")
-                if isinstance(params, dict):
-                    fn_name = params.get("FunctionName")
-                    if isinstance(fn_name, str) and _LAMBDA_ARN_RE.match(fn_name):
-                        repl = _best_replacement_for_lambda_arn(fn_name)
-                        if repl:
-                            params["FunctionName"] = repl
-
-        # Recurse all keys
-        for k, v in list(obj.items()):
-            obj[k] = _deep_fix_lambda_resources(v, lambda_arns)
-        return obj
-
-    if isinstance(obj, list):
-        return [_deep_fix_lambda_resources(v, lambda_arns) for v in obj]
-
+    p = project_dir / "states" / filename
+    if not p.exists():
+        raise FileNotFoundError(f"Missing ASL file: {p}")
+    obj = json.loads(p.read_text(encoding="utf-8"))
+    if not isinstance(obj, dict) or not obj:
+        raise RuntimeError(f"ASL file did not parse to a JSON object: {p}")
     return obj
-
-
-def _rewrite_asl_in_memory(
-    asl: Dict[str, Any],
-    *,
-    names: Names,
-    lambda_arns: Dict[str, str],
-) -> Dict[str, Any]:
-    """
-    1) Global string replacements to remove FSA-CERT-Cnsv-* that exist inside the ASL (state names, crawler names, etc)
-    2) Targeted replacements for Lambda Task Resources / FunctionName fields to ensure schema passes
-    """
-    # Best-effort cleanup for legacy state/crawler names embedded in ASL
-    legacy_variants = [
-        "FSA-CERT-Cnsv-Cntr-Maint",
-        "FSA-CERT-CNSV-Cntr-Maint",
-        "FSA-CERT-Cnsv",
-        "FSA-CERT-CNSV",
-    ]
-
-    # Replace legacy prefixes with the correct one (string-level so state keys get fixed too)
-    raw = json.dumps(asl)
-    for old in legacy_variants:
-        if old.endswith("-Cntr-Maint"):
-            raw = raw.replace(old, f"{names.prefix}-Cntr-Maint")
-        else:
-            raw = raw.replace(old, names.prefix)
-
-    # Ensure crawler names align to our computed names (these appear as strings in your ASL)
-    raw = raw.replace("Cntr-Maint Final Zone Crawler", "Cntr-Maint Final Zone Crawler")
-    raw = raw.replace("Cntr-Maint CDC Crawler", "Cntr-Maint CDC Crawler")
-
-    rewritten = json.loads(raw)
-
-    # Now fix Lambda resource ARNs to the actual deployed ARNs (this fixes your current error)
-    rewritten = _deep_fix_lambda_resources(rewritten, lambda_arns)
-
-    return rewritten
-
 
 # --------------------------------------------------------------------------------------
 # Deploy
@@ -539,6 +437,24 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     landing_folder = _as_str(strparams.get("landingFolderNameParam"))
     stg_folder = _as_str(strparams.get("stgFolderNameParam"))
     ods_folder = _as_str(strparams.get("odsFolderNameParam"))
+
+    # Cntr-Maint specific deploy-time substitution values
+    secret_name = _as_str(cfg.get("SecretId") or cfg.get("secretId") or strparams.get("secretNameParam"))
+    postgres_prcs_ctrl_dbname = _as_str(
+        (cfg.get("configData") or {}).get("databaseName") or strparams.get("postgresDbNameParam")
+    )
+    cntr_maint_job_id_key = _as_str(strparams.get("cntrMaintJobIdKeyParam"))
+    if not cntr_maint_job_id_key:
+        _cm_dest_prefix = _as_str(
+            (_glue_config_for_script(cfg, "Cntr-Maint-LandingFiles").get("JobParameters") or {}).get("--DestinationPrefix")
+        )
+        if _cm_dest_prefix:
+            cntr_maint_job_id_key = f"{_cm_dest_prefix.rstrip('/')}/job_id.json"
+        else:
+            cntr_maint_job_id_key = "contract_maintenance/etl-jobs/job_id.json"
+    target_prefix = _as_str(strparams.get("cntrMaintTargetPrefixParam"), default="contract_maintenance")
+    final_zone_crawler_name = _as_str(strparams.get("cntrMaintFinalZoneCrawlerNameParam"), default=names.crawler_final_zone)
+    cdc_crawler_name = _as_str(strparams.get("cntrMaintCdcCrawlerNameParam"), default=names.crawler_cdc)
 
     missing: List[str] = []
     if not landing_bucket:
@@ -713,35 +629,48 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         )
         lambda_arns[fn_name] = ensure_lambda(lam, spec)
 
-    # --- Rewrite ASL in memory (fix hardcoded FSA-CERT-* and inject real Lambda ARNs) ---
-    defn_incremental = _rewrite_asl_in_memory(
-        raw_asls["Cntr-Maint-Incremental-to-S3Landing.param.asl.json"],
-        names=names,
-        lambda_arns=lambda_arns,
-    )
-    defn_s3landing = _rewrite_asl_in_memory(
-        raw_asls["Cntr-Maint-S3Landing-to-S3Final-Raw-DM.param.asl.json"],
-        names=names,
-        lambda_arns=lambda_arns,
-    )
-    defn_pc = _rewrite_asl_in_memory(
-        raw_asls["Cntr-Maint-Process-Control-Update.param.asl.json"],
-        names=names,
-        lambda_arns=lambda_arns,
-    )
-    defn_main = _rewrite_asl_in_memory(
-        raw_asls["Cntr-Maint-Main.param.asl.json"],
-        names=names,
-        lambda_arns=lambda_arns,
-    )
+    # --- State machines (maint only) using deploy-time substitution ---
+    _shared_subs = {
+        "__ENV__":                                    str(deploy_env),
+        "__LANDING_GLUE_JOB_NAME__":                 names.landing_glue_job,
+        "__RAW_DM_GLUE_JOB_NAME__":                  names.raw_dm_glue_job,
+        "__JOB_ID_BUCKET__":                         landing_bucket,
+        "__JOB_ID_KEY__":                            cntr_maint_job_id_key,
+        "__TARGET_PREFIX__":                         target_prefix,
+        "__GET_INCREMENTAL_TABLES_FN_ARN__":         lambda_arns.get(names.fn_get_incremental_tables, ""),
+        "__RAW_DM_ETL_WORKFLOW_UPDATE_FN_ARN__":     lambda_arns.get(names.fn_raw_dm_etl_workflow_update, ""),
+        "__RAW_DM_SNS_PUBLISH_ERRORS_FN_ARN__":      lambda_arns.get(names.fn_raw_dm_sns_publish_errors, ""),
+        "__JOB_LOGGING_END_FN_ARN__":               lambda_arns.get(names.fn_job_logging_end, ""),
+        "__VALIDATION_CHECK_FN_ARN__":              lambda_arns.get(names.fn_validation_check, ""),
+        "__SNS_PUBLISH_VALIDATIONS_REPORT_FN_ARN__": lambda_arns.get(names.fn_sns_publish_validations_report, ""),
+        "__FINAL_ZONE_CRAWLER_NAME__":               final_zone_crawler_name,
+        "__CDC_CRAWLER_NAME__":                      cdc_crawler_name,
+        "__POSTGRES_PRCS_CTRL_DBNAME__":             postgres_prcs_ctrl_dbname,
+        "__REGION_NAME__":                           region,
+        "__SECRET_NAME__":                           secret_name,
+        "__TARGET_BUCKET__":                         final_bucket,
+    }
+
+    def _substitute_asl(key: str) -> Dict[str, Any]:
+        text = json.dumps(raw_asls[key])
+        for placeholder, value in _shared_subs.items():
+            text = text.replace(placeholder, value)
+        return json.loads(text)
 
     # --- State machines (maint only) ---
+    _defn_incremental = _substitute_asl("Cntr-Maint-Incremental-to-S3Landing.param.asl.json")
+    _landing_job_args = dict(landing_params.get("JobParameters") or {})
+    if _landing_job_args:
+        try:
+            _defn_incremental["States"]["IngestIncrementalDataToS3Landing"]["Parameters"]["Arguments"] = _landing_job_args
+        except (KeyError, TypeError):
+            pass
     sm_incremental_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(
             name=names.sm_incremental_to_s3landing,
             role_arn=sfn_role_arn,
-            definition=defn_incremental,
+            definition=_defn_incremental,
         ),
     )
     sm_s3landing_arn = ensure_state_machine(
@@ -749,7 +678,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         StateMachineSpec(
             name=names.sm_s3landing_to_s3final_raw_dm,
             role_arn=sfn_role_arn,
-            definition=defn_s3landing,
+            definition=_substitute_asl("Cntr-Maint-S3Landing-to-S3Final-Raw-DM.param.asl.json"),
         ),
     )
     sm_pc_arn = ensure_state_machine(
@@ -757,15 +686,24 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         StateMachineSpec(
             name=names.sm_process_control_update,
             role_arn=sfn_role_arn,
-            definition=defn_pc,
+            definition=_substitute_asl("Cntr-Maint-Process-Control-Update.param.asl.json"),
         ),
     )
+    # Main SM needs child SM ARNs and name — substitute after child SMs are deployed
+    _main_subs = dict(_shared_subs)
+    _main_subs["__INCREMENTAL_TO_S3LANDING_SM_ARN__"] = sm_incremental_arn
+    _main_subs["__S3LANDING_TO_S3FINAL_RAW_DM_SM_ARN__"] = sm_s3landing_arn
+    _main_subs["__S3LANDING_TO_S3FINAL_RAW_DM_SM_NAME__"] = names.sm_s3landing_to_s3final_raw_dm
+    _main_subs["__PROCESS_CONTROL_UPDATE_SM_ARN__"] = sm_pc_arn
+    _main_asl_text = json.dumps(raw_asls["Cntr-Maint-Main.param.asl.json"])
+    for _p, _v in _main_subs.items():
+        _main_asl_text = _main_asl_text.replace(_p, _v)
     sm_main_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(
             name=names.sm_main,
             role_arn=sfn_role_arn,
-            definition=defn_main,
+            definition=json.loads(_main_asl_text),
         ),
     )
 

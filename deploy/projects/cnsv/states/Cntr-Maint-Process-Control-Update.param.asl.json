@@ -1,13 +1,13 @@
 {
-  "Comment": "A description of my state machine",
-  "StartAt": "data_ppln_job_update",
+  "Comment": "CNSV Cntr-Maint Process Control Update. All infrastructure values substituted at deploy time.",
+  "StartAt": "JobLoggingEnd",
   "States": {
-    "data_ppln_job_update": {
+    "JobLoggingEnd": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "Payload.$": "$",
-        "FunctionName.$": "$.job_logging_end_lambda_arn"
+        "FunctionName": "__JOB_LOGGING_END_FN_ARN__",
+        "Payload.$": "$"
       },
       "Retry": [
         {
@@ -22,15 +22,15 @@
           "BackoffRate": 2
         }
       ],
-      "Next": "Validations",
+      "Next": "ValidationCheck",
       "OutputPath": "$.Payload"
     },
-    "Validations": {
+    "ValidationCheck": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "Payload.$": "$",
-        "FunctionName.$": "$.validation_check_lambda_arn"
+        "FunctionName": "__VALIDATION_CHECK_FN_ARN__",
+        "Payload.$": "$"
       },
       "Retry": [
         {

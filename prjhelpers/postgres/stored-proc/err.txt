@@ -1,0 +1,27 @@
+Traceback (most recent call last):
+  File "/home/cloudshell-user/etlpython/prjhelpers/postgres/stored-proc/deploy_lambda.py", line 42, in ensure_role
+      role_arn = iam.get_role(RoleName=role_name)["Role"]["Arn"]
+        File "/home/cloudshell-user/.local/lib/python3.9/site-packages/botocore/client.py", line 602, in _api_call
+	    return self._make_api_call(operation_name, kwargs)
+	      File "/home/cloudshell-user/.local/lib/python3.9/site-packages/botocore/context.py", line 123, in wrapper
+	          return func(*args, **kwargs)
+		    File "/home/cloudshell-user/.local/lib/python3.9/site-packages/botocore/client.py", line 1078, in _make_api_call
+		        raise error_class(parsed_response, operation_name)
+			botocore.errorfactory.NoSuchEntityException: An error occurred (NoSuchEntity) when calling the GetRole operation: The role with name FSA-PROD-PostgresAnalysis-LambdaRole cannot be found.
+
+			During handling of the above exception, another exception occurred:
+
+			Traceback (most recent call last):
+			  File "/home/cloudshell-user/etlpython/prjhelpers/postgres/stored-proc/deploy_lambda.py", line 158, in <module>
+			      raise SystemExit(main())
+			        File "/home/cloudshell-user/etlpython/prjhelpers/postgres/stored-proc/deploy_lambda.py", line 138, in main
+				    role_arn = ensure_role(iam, args.role_name)
+				      File "/home/cloudshell-user/etlpython/prjhelpers/postgres/stored-proc/deploy_lambda.py", line 44, in ensure_role
+				          role_arn = iam.create_role(
+					    File "/home/cloudshell-user/.local/lib/python3.9/site-packages/botocore/client.py", line 602, in _api_call
+					        return self._make_api_call(operation_name, kwargs)
+						  File "/home/cloudshell-user/.local/lib/python3.9/site-packages/botocore/context.py", line 123, in wrapper
+						      return func(*args, **kwargs)
+						        File "/home/cloudshell-user/.local/lib/python3.9/site-packages/botocore/client.py", line 1078, in _make_api_call
+							    raise error_class(parsed_response, operation_name)
+							    botocore.exceptions.ClientError: An error occurred (AccessDenied) when calling the CreateRole operation: User: arn:aws:sts::253490756794:assumed-role/P_AWSX_PRD_PUB-253490756794-CloudEngineer_CDO_Role/William.Beckett@usda.gov is not authorized to perform: iam:CreateRole on resource: arn:aws:iam::253490756794:role/FSA-PROD-PostgresAnalysis-LambdaRole because no identity-based policy allows the iam:CreateRole action

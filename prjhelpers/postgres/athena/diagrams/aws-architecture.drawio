@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" version="21.0.0">
+  <diagram name="AWS Architecture" id="aws-architecture">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1"
+      connect="1" arrows="1" fold="1" page="1" pageScale="1"
+      pageWidth="1700" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ═══════════════════════════════════════════════════
+             ① INGEST CONTAINER
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="c_ingest"
+          value="① Ingest &amp; Materialize  —  runs on schedule / CDC trigger"
+          style="swimlane;startSize=35;fillColor=none;strokeColor=#2980b9;
+                 fontColor=#2980b9;fontStyle=1;fontSize=12;whiteSpace=wrap;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="10" y="10" width="1220" height="220" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="g1"
+          value="&lt;b&gt;AWS Glue Job&lt;/b&gt;&lt;br/&gt;Extract SSS farmrecords&lt;br/&gt;→ Parquet/Iceberg on S3&lt;br/&gt;(ibib, ibsp, ibst, ibin, ibpart,&lt;br/&gt;crmd_partner, zic, cpf, zba/zfe)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e8f7;strokeColor=#2980b9;"
+          vertex="1" parent="c_ingest">
+          <mxGeometry x="20" y="45" width="360" height="148" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="g2"
+          value="&lt;b&gt;AWS Glue Job&lt;/b&gt;&lt;br/&gt;Extract PG reference tables&lt;br/&gt;→ Parquet/Iceberg on S3&lt;br/&gt;(time_period, county_office_control,&lt;br/&gt;farm, tract, farm_year, tract_year)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e8f7;strokeColor=#2980b9;"
+          vertex="1" parent="c_ingest">
+          <mxGeometry x="430" y="45" width="360" height="148" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="g3"
+          value="&lt;b&gt;AWS Glue Job&lt;/b&gt;&lt;br/&gt;Extract PG CDC target&lt;br/&gt;→ Iceberg on S3&lt;br/&gt;(tract_producer_year,&lt;br/&gt;farm_producer_year)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e8f7;strokeColor=#2980b9;"
+          vertex="1" parent="c_ingest">
+          <mxGeometry x="840" y="45" width="360" height="148" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             ② GLUE DATA CATALOG CONTAINER
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="c_catalog"
+          value="② AWS Glue Data Catalog  —  single unified metastore"
+          style="swimlane;startSize=35;fillColor=none;strokeColor=#27ae60;
+                 fontColor=#27ae60;fontStyle=1;fontSize=12;whiteSpace=wrap;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="10" y="250" width="1220" height="215" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ic1"
+          value="&lt;b&gt;Iceberg table&lt;/b&gt;&lt;br/&gt;farm_ref.time_period"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;"
+          vertex="1" parent="c_catalog">
+          <mxGeometry x="15" y="45" width="210" height="145" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ic2"
+          value="&lt;b&gt;Iceberg table&lt;/b&gt;&lt;br/&gt;farm_ref.county_office_control"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;"
+          vertex="1" parent="c_catalog">
+          <mxGeometry x="245" y="45" width="210" height="145" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ic3"
+          value="&lt;b&gt;Iceberg table&lt;/b&gt;&lt;br/&gt;farm_ref.farm / tract /&lt;br/&gt;farm_year / tract_year"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;"
+          vertex="1" parent="c_catalog">
+          <mxGeometry x="475" y="45" width="210" height="145" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ic4"
+          value="&lt;b&gt;Iceberg table&lt;/b&gt;&lt;br/&gt;sss.ibib / ibsp / ibst&lt;br/&gt;ibin / ibpart / crmd_partner&lt;br/&gt;zic / cpf / zba"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;"
+          vertex="1" parent="c_catalog">
+          <mxGeometry x="705" y="45" width="235" height="145" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ic5"
+          value="&lt;b&gt;Iceberg table&lt;/b&gt;&lt;br/&gt;farm_records_reporting&lt;br/&gt;tract_producer_year&lt;br/&gt;(merge target)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;"
+          vertex="1" parent="c_catalog">
+          <mxGeometry x="960" y="45" width="245" height="145" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             ③ TRANSFORM CONTAINER
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="c_transform"
+          value="③ AWS Glue Spark Job  —  replaces Athena SQL"
+          style="swimlane;startSize=35;fillColor=none;strokeColor=#e67e22;
+                 fontColor=#e67e22;fontStyle=1;fontSize=12;whiteSpace=wrap;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="10" y="485" width="1220" height="205" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="sp1"
+          value="&lt;b&gt;Spark CTE logic&lt;/b&gt;&lt;br/&gt;(same SQL, no federated hops)&lt;br/&gt;All sources now local S3 Iceberg&lt;br/&gt;→ runs in seconds not hours"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef9e7;strokeColor=#e67e22;"
+          vertex="1" parent="c_transform">
+          <mxGeometry x="20" y="48" width="580" height="135" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="sp2"
+          value="&lt;b&gt;Iceberg MERGE INTO&lt;/b&gt;&lt;br/&gt;(INSERT + UPDATE in one atomic op)&lt;br/&gt;Eliminates separate&lt;br/&gt;INSERT / UPDATE queries"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef9e7;strokeColor=#e67e22;"
+          vertex="1" parent="c_transform">
+          <mxGeometry x="620" y="48" width="580" height="135" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             ④ STORE CONTAINER
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="c_store"
+          value="④ Target — Apache Iceberg on S3  +  sync back to RDS"
+          style="swimlane;startSize=35;fillColor=none;strokeColor=#c0392b;
+                 fontColor=#c0392b;fontStyle=1;fontSize=12;whiteSpace=wrap;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="10" y="710" width="1220" height="220" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="tpy_a"
+          value="&lt;b&gt;s3://final-zone/&lt;/b&gt;&lt;br/&gt;farm_records_reporting/&lt;br/&gt;tract_producer_year/&lt;br/&gt;(Iceberg — ACID, time-travel)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9ebea;strokeColor=#c0392b;"
+          vertex="1" parent="c_store">
+          <mxGeometry x="20" y="45" width="360" height="150" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="sync_a"
+          value="&lt;b&gt;AWS Glue Job&lt;/b&gt;&lt;br/&gt;Sync Iceberg → RDS PostgreSQL&lt;br/&gt;(small delta only via Iceberg&lt;br/&gt;incremental scan)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9ebea;strokeColor=#c0392b;"
+          vertex="1" parent="c_store">
+          <mxGeometry x="430" y="45" width="360" height="150" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="rds_a"
+          value="&lt;b&gt;RDS PostgreSQL&lt;/b&gt;&lt;br/&gt;farm_records_reporting&lt;br/&gt;(authoritative system of record)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9ebea;strokeColor=#c0392b;"
+          vertex="1" parent="c_store">
+          <mxGeometry x="840" y="45" width="360" height="150" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             ⑤ ORCHESTRATION CONTAINER
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="c_orch"
+          value="⑤ Orchestration"
+          style="swimlane;startSize=35;fillColor=none;strokeColor=#8e44ad;
+                 fontColor=#8e44ad;fontStyle=1;fontSize=12;whiteSpace=wrap;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="1250" y="10" width="390" height="920" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="eb"
+          value="&lt;b&gt;Amazon EventBridge&lt;/b&gt;&lt;br/&gt;Scheduled trigger&lt;br/&gt;or SSS S3 event trigger"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5eef8;strokeColor=#8e44ad;"
+          vertex="1" parent="c_orch">
+          <mxGeometry x="20" y="55" width="345" height="130" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="sf"
+          value="&lt;b&gt;AWS Step Functions&lt;/b&gt;&lt;br/&gt;DAG: Ingest → Transform → Merge → Sync&lt;br/&gt;retry + alerting built in"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5eef8;strokeColor=#8e44ad;"
+          vertex="1" parent="c_orch">
+          <mxGeometry x="20" y="235" width="345" height="130" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="cw"
+          value="&lt;b&gt;Amazon CloudWatch&lt;/b&gt;&lt;br/&gt;Job duration alarms&lt;br/&gt;row-count anomaly detection"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5eef8;strokeColor=#8e44ad;"
+          vertex="1" parent="c_orch">
+          <mxGeometry x="20" y="415" width="345" height="130" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             KEY PERFORMANCE LEVERS CONTAINER
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="c_speed"
+          value="Key performance levers"
+          style="swimlane;startSize=35;fillColor=none;strokeColor=#1e8449;
+                 fontColor=#1e8449;fontStyle=1;fontSize=12;whiteSpace=wrap;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="10" y="950" width="1220" height="215" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="p1"
+          value="&lt;i&gt;Partition SSS tables&lt;br/&gt;by state_fsa_code + year&lt;br/&gt;→ partition pruning&lt;/i&gt;"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eafaf1;strokeColor=#1e8449;fontStyle=2;"
+          vertex="1" parent="c_speed">
+          <mxGeometry x="15" y="45" width="270" height="145" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="p2"
+          value="&lt;i&gt;Z-order / sort on&lt;br/&gt;county_fsa_code + ibase&lt;br/&gt;→ data skipping&lt;/i&gt;"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eafaf1;strokeColor=#1e8449;fontStyle=2;"
+          vertex="1" parent="c_speed">
+          <mxGeometry x="305" y="45" width="270" height="145" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="p3"
+          value="&lt;i&gt;Glue G.2X workers&lt;br/&gt;+ auto-scaling&lt;br/&gt;→ parallel partition processing&lt;/i&gt;"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eafaf1;strokeColor=#1e8449;fontStyle=2;"
+          vertex="1" parent="c_speed">
+          <mxGeometry x="595" y="45" width="270" height="145" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="p4"
+          value="&lt;i&gt;Iceberg metadata layer&lt;br/&gt;→ no full table scan&lt;br/&gt;on reference tables&lt;/i&gt;"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eafaf1;strokeColor=#1e8449;fontStyle=2;"
+          vertex="1" parent="c_speed">
+          <mxGeometry x="885" y="45" width="310" height="145" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             EDGES — Orchestration flow
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="ae1" value="triggers"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;"
+          edge="1" source="eb" target="sf" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae2" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;"
+          edge="1" source="sf" target="g1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae3" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;"
+          edge="1" source="sf" target="g2" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae4" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=10;"
+          edge="1" source="sf" target="g3" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             EDGES — Ingest → Catalog
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="ae5" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;"
+          edge="1" source="g1" target="ic4" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae6" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;"
+          edge="1" source="g2" target="ic1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae7" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;"
+          edge="1" source="g2" target="ic2" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae8" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;"
+          edge="1" source="g2" target="ic3" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae9" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;"
+          edge="1" source="g3" target="ic5" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             EDGES — Catalog → Transform
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="ae10" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;"
+          edge="1" source="ic1" target="sp1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae11" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;"
+          edge="1" source="ic2" target="sp1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae12" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;"
+          edge="1" source="ic3" target="sp1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae13" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;"
+          edge="1" source="ic4" target="sp1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae14" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;"
+          edge="1" source="ic5" target="sp1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             EDGES — Transform → Store
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="ae15" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;"
+          edge="1" source="sp1" target="sp2" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae16" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;"
+          edge="1" source="sp2" target="tpy_a" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae17" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;"
+          edge="1" source="tpy_a" target="sync_a" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae18" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;"
+          edge="1" source="sync_a" target="rds_a" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae19" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;"
+          edge="1" source="sf" target="cw" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             EDGES — Performance levers → Transform (dashed)
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="ae20" value="applied during Glue job config"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;dashed=1;
+                 endArrow=open;endFill=0;strokeColor=#1e8449;fontColor=#1e8449;"
+          edge="1" source="p1" target="sp1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae21" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;dashed=1;
+                 endArrow=open;endFill=0;strokeColor=#1e8449;"
+          edge="1" source="p2" target="sp1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae22" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;dashed=1;
+                 endArrow=open;endFill=0;strokeColor=#1e8449;"
+          edge="1" source="p3" target="sp1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ae23" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;dashed=1;
+                 endArrow=open;endFill=0;strokeColor=#1e8449;"
+          edge="1" source="p4" target="sp1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

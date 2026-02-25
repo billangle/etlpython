@@ -1,0 +1,88 @@
+flowchart TD
+
+  subgraph SSS["sss-farmrecords  (Athena — SAP source)"]
+    direction TB
+    ibib["ibib\nFarm IBase\n(farm no., state/county, status)"]
+    ibsp["ibsp\nTract IBase Component\n(tract no., admin state/county)"]
+    ibst["ibst\nIBase Structure\n(component → IBase link)"]
+    ibin["ibin\nIBase Instance\n(instance → IBase)"]
+    ibpart["ibpart\nIBase Partner Segments\n(segment=2 → farm level)"]
+    crmd["crmd_partner\nCRM Partner Roles\n(ZFARMONR=162 / ZOTNT=163)"]
+    zic["z_ibase_comp_detail\n(IBase component detail)"]
+    cpf["comm_pr_frg_rel\n(Product → Fragment relationship)"]
+    zba["zmi_farm_partn\nZMI Farm Partner\n(exception codes, involve dates)"]
+    zfe["zmi_field_excp\nZMI Field Exceptions\n(HEL/CW/PCW codes + dates)"]
+    tbl_fr["tbl_fr_bp_relationship\nPre-built FR/BP lookup\n(no_compare variant only)"]
+  end
+
+  subgraph PG["FSA-PROD-rds-pg-edv  (Federated PostgreSQL)"]
+    direction TB
+    subgraph frr["farm_records_reporting schema"]
+      tp["time_period\nActive program years >= 2014\n=> time_period_identifier"]
+      coc["county_office_control\nState+County FSA code\n=> county_office_control_identifier"]
+      farm_pg["farm\nFarm master\n=> farm_identifier"]
+      tract_pg["tract\nTract master\n=> tract_identifier"]
+      fy["farm_year\nFarm + year bridge\n=> farm_year_identifier"]
+      ty["tract_year\nTract + year bridge\n=> tract_year_identifier"]
+      tpy["tract_producer_year\nExisting target rows\n(CDC INSERT / UPDATE compare)"]
+      fpy["farm_producer_year\nExisting target rows\n(SELECT file UPDATE compare)"]
+    end
+    subgraph crm["crm_ods schema"]
+      but000["but000\nBusiness Partner master\npartner_guid => bpext\n(core_customer_identifier)"]
+    end
+  end
+
+  subgraph ATH["awsdatacatalog  (Athena native)"]
+    farm_ath["fsa-prod-farm-records.farm\nRaw farm records\n(SELECT file only)"]
+  end
+
+  %% SSS internal joins (all INSERT / UPDATE files)
+  ibsp -->|"instance"| ibst
+  ibst -->|"ibase"| ibib
+  ibsp -->|"instance + client"| ibin
+  ibin -->|"in_guid = segment_recno\nsegment=2"| ibpart
+  ibpart -->|"partnerset = guid"| crmd
+
+  %% ZMI chain (INSERT + UPDATE files)
+  ibsp -.->|"instance + ibase\n(no_compare: via tbl_fr)"| zic
+  zic -->|"prod_objnr = product_guid"| cpf
+  cpf -->|"fragment_guid = frg_guid"| zba
+  cpf -->|"fragment_guid = frg_guid"| zfe
+
+  %% no_compare shortcut
+  ibsp -.->|"no_compare only"| tbl_fr
+
+  %% Cross-system lookups
+  crmd -->|"partner_no = partner_guid"| but000
+  ibsp -->|"admin_state + admin_county\n= state_fsa_code + county_fsa_code\n+ time_period_identifier"| coc
+  ibib -->|"state_fsa_code + county_fsa_code"| coc
+  tp -->|"current year match\n(Oct+ = next year)"| coc
+
+  %% farm_records_reporting resolution chain
+  coc -->|"county_office_control_identifier\n+ farm_number"| farm_pg
+  coc -->|"county_office_control_identifier\n+ tract_number"| tract_pg
+  farm_pg -->|"farm_identifier\n+ time_period_identifier"| fy
+  fy -->|"farm_year_identifier\n+ tract_identifier"| ty
+
+  %% Target / CDC compare
+  but000 -->|"core_customer_identifier"| tpy
+  ty -->|"tract_year_identifier"| tpy
+  tpy -->|"LEFT JOIN — detect\nINSERT or UPDATE"| OUT1["tract_producer_year\nINSERT / UPDATE output"]
+
+  %% SELECT file (farm_producer_year)
+  farm_ath -->|"farm_number + state/county"| coc
+  farm_ath -->|"farm_number +\ncounty_office_control_identifier"| farm_pg
+  farm_pg --> fy
+  fy --> fpy
+  fpy -->|"LEFT JOIN — detect UPDATE"| OUT2["farm_producer_year\nUPDATE output\n(SELECT file)"]
+
+  %% Styles
+  classDef sssTable fill:#d4e8f7,stroke:#2980b9,color:#000
+  classDef pgTable fill:#d5f5e3,stroke:#27ae60,color:#000
+  classDef athTable fill:#fef9e7,stroke:#f39c12,color:#000
+  classDef output fill:#f9ebea,stroke:#c0392b,color:#000,font-weight:bold
+
+  class ibib,ibsp,ibst,ibin,ibpart,crmd,zic,cpf,zba,zfe,tbl_fr sssTable
+  class tp,coc,farm_pg,tract_pg,fy,ty,tpy,fpy,but000 pgTable
+  class farm_ath athTable
+  class OUT1,OUT2 output

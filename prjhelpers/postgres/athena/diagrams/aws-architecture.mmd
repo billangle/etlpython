@@ -1,0 +1,68 @@
+flowchart TD
+
+  subgraph INGEST["① Ingest & Materialize  —  runs on schedule / CDC trigger"]
+    direction LR
+    G1["AWS Glue Job\nExtract SSS farmrecords\n→ Parquet/Iceberg on S3\n(ibib, ibsp, ibst, ibin,\nibpart, crmd_partner,\nzic, cpf, zba/zfe)"]
+    G2["AWS Glue Job\nExtract PG reference tables\n→ Parquet/Iceberg on S3\n(time_period, county_office_control,\nfarm, tract, farm_year, tract_year)"]
+    G3["AWS Glue Job\nExtract PG CDC target\n→ Iceberg on S3\n(tract_producer_year,\nfarm_producer_year)"]
+  end
+
+  subgraph CATALOG["② AWS Glue Data Catalog  —  single unified metastore"]
+    IC1["Iceberg table\nfarm_ref.time_period"]
+    IC2["Iceberg table\nfarm_ref.county_office_control"]
+    IC3["Iceberg table\nfarm_ref.farm / tract /\nfarm_year / tract_year"]
+    IC4["Iceberg table\nsss.ibib / ibsp / ibst\nibin / ibpart / crmd_partner\nzic / cpf / zba"]
+    IC5["Iceberg table\nfarm_records_reporting\ntract_producer_year\n(merge target)"]
+  end
+
+  subgraph TRANSFORM["③ AWS Glue Spark Job  —  replaces Athena SQL"]
+    direction TB
+    SP1["Spark CTE logic\n(same SQL, no federated hops)\nAll sources now local S3 Iceberg\n→ runs in seconds not hours"]
+    SP2["Iceberg MERGE INTO\n(INSERT + UPDATE in one atomic op)\nEliminates separate\nINSERT / UPDATE queries"]
+  end
+
+  subgraph STORE["④ Target — Apache Iceberg on S3  +  sync back to RDS"]
+    TPY["s3://final-zone/\nfarm_records_reporting/\ntract_producer_year/\n(Iceberg — ACID, time-travel)"]
+    SYNC["AWS Glue Job\nSync Iceberg → RDS PostgreSQL\n(small delta only via Iceberg\nincremental scan)"]
+    RDS["RDS PostgreSQL\nfarm_records_reporting\n(authoritative system of record)"]
+  end
+
+  subgraph ORCH["⑤ Orchestration"]
+    SF["AWS Step Functions\nDAG:\nIngest → Transform → Merge → Sync\nretry + alerting built in"]
+    EB["Amazon EventBridge\nScheduled trigger\nor SSS S3 event trigger"]
+    CW["Amazon CloudWatch\nJob duration alarms\nrow-count anomaly detection"]
+  end
+
+  subgraph SPEED["Key performance levers"]
+    direction TB
+    P1["Partition SSS tables\nby state_fsa_code + year\n→ partition pruning"]
+    P2["Z-order / sort on\ncounty_fsa_code + ibase\n→ data skipping"]
+    P3["Glue G.2X workers\n+ auto-scaling\n→ parallel partition processing"]
+    P4["Iceberg metadata layer\n→ no full table scan\non reference tables"]
+  end
+
+  EB -->|"triggers"| SF
+  SF --> G1 & G2 & G3
+  G1 --> IC4
+  G2 --> IC1 & IC2 & IC3
+  G3 --> IC5
+  IC1 & IC2 & IC3 & IC4 & IC5 --> SP1
+  SP1 --> SP2
+  SP2 --> TPY
+  TPY --> SYNC --> RDS
+  SF --> CW
+  P1 & P2 & P3 & P4 -.->|"applied during\nGlue job config"| SP1
+
+  classDef ingest fill:#d4e8f7,stroke:#2980b9,color:#000
+  classDef catalog fill:#d5f5e3,stroke:#27ae60,color:#000
+  classDef transform fill:#fef9e7,stroke:#e67e22,color:#000
+  classDef store fill:#f9ebea,stroke:#c0392b,color:#000
+  classDef orch fill:#f5eef8,stroke:#8e44ad,color:#000
+  classDef perf fill:#eafaf1,stroke:#1e8449,color:#000,font-style:italic
+
+  class G1,G2,G3 ingest
+  class IC1,IC2,IC3,IC4,IC5 catalog
+  class SP1,SP2 transform
+  class TPY,SYNC,RDS store
+  class SF,EB,CW orch
+  class P1,P2,P3,P4 perf

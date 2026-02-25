@@ -1,0 +1,227 @@
+{
+  "deployEnv": "FPACDEV",
+  "project": "ATHENAFARM",
+  "region": "us-east-1",
+  "bucketRegion": "us-east-1",
+  "secretId": "FSA-DEV-Secrets",
+
+  "icebergWarehouse": "s3://c108-dev-fpacfsa-final-zone/athenafarm/iceberg",
+
+  "strparams": {
+    "landingBucketNameParam": "c108-dev-fpacfsa-landing-zone",
+    "cleanBucketNameParam": "c108-dev-fpacfsa-cleansed-zone",
+    "finalBucketNameParam": "c108-dev-fpacfsa-final-zone",
+    "glueJobRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-servicerole-glue",
+    "etlRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-lambda",
+    "sfnRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-stepfunction",
+    "snsNotifyFnArnParam": "arn:aws:lambda:us-east-1:241533156429:function:FSA-FPACDEV-NotifyPipeline",
+    "pgConnectionNameParam": "FSA-DEV-PG-EDV"
+  },
+
+  "paths": {
+    "glueRootPath": "glue/",
+    "lambdaRootPath": "lambda/"
+  },
+
+  "artifacts": {
+    "artifactBucket": "fsa-dev-ops",
+    "prefix": "athenafarm/"
+  },
+
+  "stepFunctions": {
+    "createRoleIfMissing": false,
+    "roleName": "disc-fsa-dev-stepfunction",
+    "roleArn": "arn:aws:iam::241533156429:role/disc-fsa-dev-stepfunction"
+  },
+
+  "GlueConfig": [
+    {
+      "Ingest-SSS-Farmrecords": {
+        "Connections": [{ "ConnectionName": "" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "120",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/athenafarm/",
+        "NumberOfWorkers": "4",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-dev-ops/temp/glue/",
+        "PythonLibraryPath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--source_catalog": "AwsDataCatalog",
+          "--source_database": "sss-farmrecords",
+          "--target_database": "athenafarm_dev_raw",
+          "--full_load": "false"
+        }
+      }
+    },
+    {
+      "Ingest-PG-Reference-Tables": {
+        "Connections": [{ "ConnectionName": "FSA-DEV-PG-EDV" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "60",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/athenafarm/",
+        "NumberOfWorkers": "4",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-dev-ops/temp/glue/",
+        "PythonLibraryPath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--target_database": "athenafarm_dev_ref"
+        }
+      }
+    },
+    {
+      "Ingest-PG-CDC-Targets": {
+        "Connections": [{ "ConnectionName": "FSA-DEV-PG-EDV" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "60",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/athenafarm/",
+        "NumberOfWorkers": "4",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-dev-ops/temp/glue/",
+        "PythonLibraryPath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--target_database": "athenafarm_dev_cdc"
+        }
+      }
+    },
+    {
+      "Transform-Tract-Producer-Year": {
+        "Connections": [{ "ConnectionName": "" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "120",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/athenafarm/",
+        "NumberOfWorkers": "10",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-dev-ops/temp/glue/",
+        "PythonLibraryPath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--sss_database": "athenafarm_dev_raw",
+          "--ref_database": "athenafarm_dev_ref",
+          "--target_database": "athenafarm_dev_gold",
+          "--target_table": "tract_producer_year",
+          "--full_load": "false"
+        }
+      }
+    },
+    {
+      "Transform-Farm-Producer-Year": {
+        "Connections": [{ "ConnectionName": "" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "120",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/athenafarm/",
+        "NumberOfWorkers": "10",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-dev-ops/temp/glue/",
+        "PythonLibraryPath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--sss_database": "athenafarm_dev_raw",
+          "--ref_database": "athenafarm_dev_ref",
+          "--target_database": "athenafarm_dev_gold",
+          "--target_table": "farm_producer_year",
+          "--full_load": "false"
+        }
+      }
+    },
+    {
+      "Sync-Iceberg-To-RDS": {
+        "Connections": [{ "ConnectionName": "FSA-DEV-PG-EDV" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "60",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/athenafarm/",
+        "NumberOfWorkers": "4",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-dev-ops/temp/glue/",
+        "PythonLibraryPath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--source_database": "athenafarm_dev_gold",
+          "--rds_database": "farm_records_reporting",
+          "--snapshot_id_param": "/athenafarm/dev/sync_snapshot_id"
+        }
+      }
+    },
+    {
+      "Iceberg-Maintenance": {
+        "Connections": [{ "ConnectionName": "" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "60",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/athenafarm/",
+        "NumberOfWorkers": "2",
+        "AutomaticScalingEnabled": "false",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-dev-ops/temp/glue/",
+        "PythonLibraryPath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--snapshot_retention_hours": "48"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,259 @@
+{
+  "Comment": "athenafarm — tract/farm producer year ETL pipeline. Parallel ingest of SSS + PG reference + PG CDC tables, followed by Spark MERGE INTO transforms and RDS sync. All infrastructure values substituted at deploy time.",
+  "StartAt": "IngestParallel",
+  "States": {
+    "IngestParallel": {
+      "Type": "Parallel",
+      "Comment": "Run all three ingest jobs concurrently — SSS Athena tables, PG reference tables, and PG CDC target snapshots.",
+      "Branches": [
+        {
+          "StartAt": "IngestSSS",
+          "States": {
+            "IngestSSS": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__INGEST_SSS_GLUE_JOB_NAME__",
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__"
+                }
+              },
+              "TimeoutSeconds": 1800,
+              "HeartbeatSeconds": 120,
+              "Retry": [
+                {
+                  "ErrorEquals": ["Glue.AWSGlueException", "States.TaskFailed"],
+                  "IntervalSeconds": 30,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "ResultPath": "$.ingest_sss_error",
+                  "Next": "IngestSSSFailed"
+                }
+              ],
+              "End": true
+            },
+            "IngestSSSFailed": {
+              "Type": "Fail",
+              "Cause": "IngestSSS Glue job failed",
+              "Error": "IngestSSSError"
+            }
+          }
+        },
+        {
+          "StartAt": "IngestPGReferenceTables",
+          "States": {
+            "IngestPGReferenceTables": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__INGEST_PG_REFS_GLUE_JOB_NAME__",
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--connection_name": "__PG_CONNECTION_NAME__"
+                }
+              },
+              "TimeoutSeconds": 1800,
+              "HeartbeatSeconds": 120,
+              "Retry": [
+                {
+                  "ErrorEquals": ["Glue.AWSGlueException", "States.TaskFailed"],
+                  "IntervalSeconds": 30,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "ResultPath": "$.ingest_pg_refs_error",
+                  "Next": "IngestPGRefsFailed"
+                }
+              ],
+              "End": true
+            },
+            "IngestPGRefsFailed": {
+              "Type": "Fail",
+              "Cause": "IngestPGReferenceTables Glue job failed",
+              "Error": "IngestPGRefsError"
+            }
+          }
+        },
+        {
+          "StartAt": "IngestPGCDCTargets",
+          "States": {
+            "IngestPGCDCTargets": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__INGEST_PG_CDC_GLUE_JOB_NAME__",
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--connection_name": "__PG_CONNECTION_NAME__"
+                }
+              },
+              "TimeoutSeconds": 1800,
+              "HeartbeatSeconds": 120,
+              "Retry": [
+                {
+                  "ErrorEquals": ["Glue.AWSGlueException", "States.TaskFailed"],
+                  "IntervalSeconds": 30,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "ResultPath": "$.ingest_pg_cdc_error",
+                  "Next": "IngestPGCDCFailed"
+                }
+              ],
+              "End": true
+            },
+            "IngestPGCDCFailed": {
+              "Type": "Fail",
+              "Cause": "IngestPGCDCTargets Glue job failed",
+              "Error": "IngestPGCDCError"
+            }
+          }
+        }
+      ],
+      "ResultPath": "$.ingest_results",
+      "Next": "TransformTractProducerYear",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "Notify"
+        }
+      ]
+    },
+
+    "TransformTractProducerYear": {
+      "Type": "Task",
+      "Comment": "Run the full IBase→ZMI→PG CTE join chain and apply MERGE INTO on tract_producer_year.",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+        "Arguments": {
+          "--env": "__ENV__",
+          "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+          "--full_load.$": "$.full_load"
+        }
+      },
+      "TimeoutSeconds": 600,
+      "HeartbeatSeconds": 60,
+      "ResultPath": "$.transform_tpy_result",
+      "Retry": [
+        {
+          "ErrorEquals": ["Glue.AWSGlueException", "States.TaskFailed"],
+          "IntervalSeconds": 15,
+          "MaxAttempts": 1,
+          "BackoffRate": 1.5
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "Notify"
+        }
+      ],
+      "Next": "TransformFarmProducerYear"
+    },
+
+    "TransformFarmProducerYear": {
+      "Type": "Task",
+      "Comment": "Run the farm-level IBase→ZMI→PG CTE join chain and apply MERGE INTO on farm_producer_year.",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "__TRANSFORM_FARM_PY_GLUE_JOB_NAME__",
+        "Arguments": {
+          "--env": "__ENV__",
+          "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+          "--full_load.$": "$.full_load"
+        }
+      },
+      "TimeoutSeconds": 600,
+      "HeartbeatSeconds": 60,
+      "ResultPath": "$.transform_fpy_result",
+      "Retry": [
+        {
+          "ErrorEquals": ["Glue.AWSGlueException", "States.TaskFailed"],
+          "IntervalSeconds": 15,
+          "MaxAttempts": 1,
+          "BackoffRate": 1.5
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "Notify"
+        }
+      ],
+      "Next": "SyncToRDS"
+    },
+
+    "SyncToRDS": {
+      "Type": "Task",
+      "Comment": "Sync the Iceberg delta rows back to the authoritative RDS PostgreSQL instance.",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "__SYNC_RDS_GLUE_JOB_NAME__",
+        "Arguments": {
+          "--env": "__ENV__",
+          "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+          "--connection_name": "__PG_CONNECTION_NAME__",
+          "--full_load.$": "$.full_load"
+        }
+      },
+      "TimeoutSeconds": 600,
+      "HeartbeatSeconds": 60,
+      "ResultPath": "$.sync_result",
+      "Retry": [
+        {
+          "ErrorEquals": ["Glue.AWSGlueException", "States.TaskFailed"],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "Notify"
+        }
+      ],
+      "Next": "Notify"
+    },
+
+    "Notify": {
+      "Type": "Task",
+      "Comment": "Publish pipeline completion/failure notification via SNS Lambda.",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "__SNS_NOTIFY_FN_ARN__",
+        "Payload": {
+          "env": "__ENV__",
+          "pipeline": "athenafarm",
+          "ingest_results.$": "$.ingest_results",
+          "transform_tpy_result.$": "$.transform_tpy_result",
+          "transform_fpy_result.$": "$.transform_fpy_result",
+          "sync_result.$": "$.sync_result",
+          "error.$": "$.error"
+        }
+      },
+      "End": true
+    }
+  }
+}

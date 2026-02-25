@@ -15,13 +15,14 @@ from projects.cnsv.deploy_base import deploy as cnsv_deploy_base
 from projects.cnsv.deploy_maint import deploy as snsv_deploy_maint
 from projects.cnsv.deploy_pymts import deploy as cnsv_deploy_pymts
 from projects.nps.deploy import deploy as nps_deploy
+from projects.athenafarm.deploy import deploy as athenafarm_deploy
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
     ap.add_argument("--region", required=True)
-    ap.add_argument("--project-type", default="fpac", choices=["fpac","farmrec","flpids","tsthooks","cars","carsdm","sbsd","pmrds","fmmi","cnsvbase","cnsvmaint","cnsvpymts","nps"])
+    ap.add_argument("--project-type", default="fpac", choices=["fpac","farmrec","flpids","tsthooks","cars","carsdm","sbsd","pmrds","fmmi","cnsvbase","cnsvmaint","cnsvpymts","nps","athenafarm"])
     args = ap.parse_args()
 
     cfg = read_json(args.config)
@@ -52,6 +53,8 @@ def main() -> int:
         summary = cnsv_deploy_pymts(cfg, args.region)
     elif args.project_type == "nps":
         summary = nps_deploy(cfg, args.region)
+    elif args.project_type == "athenafarm":
+        summary = athenafarm_deploy(cfg, args.region)
     else:
         raise RuntimeError(f"Unknown project-type: {args.project_type}")
 

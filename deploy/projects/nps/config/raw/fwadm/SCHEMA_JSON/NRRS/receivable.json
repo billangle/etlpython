@@ -2,7 +2,7 @@
     "script type" : "H",
     "extra" : "testing",
     "load_type" : "full_day_load",
-    "source_table_name_A" : "MQCXTFIL.QCNPSS1A.FULL",
+    "source_table_name_A" : "sqlNRRS_receivable.txt",
     "target_table_name" : "receivable",
     "primary_key" : "rcv_id",
     "business_unit" : "NRRS",

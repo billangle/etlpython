@@ -162,7 +162,7 @@
               "--run_date": "20260215",
               "--env": "prod",
               "--final_bucket": "c108-prod-fpacfsa-final-zone",
-              "--landing_bucket": "c108-prod-fpacfsa-final-zone"
+              "--landing_bucket": "c108-prod-fpacfsa-landing-zone"
             }
       }
     }

@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" version="21.0.0">
+  <diagram name="Reference Data Lookups" id="ref-data-lookups">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1"
+      connect="1" arrows="1" fold="1" page="1" pageScale="1"
+      pageWidth="2000" pageHeight="1120" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ═══════════════════════════════════════════════════
+             SSS CONTAINER  (Athena / SAP source)
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="c_sss" value="sss-farmrecords  (Athena — SAP source)"
+          style="swimlane;startSize=35;fillColor=none;strokeColor=#2980b9;
+                 fontColor=#2980b9;fontStyle=1;fontSize=13;whiteSpace=wrap;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="10" y="10" width="755" height="855" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ibib"
+          value="ibib&lt;br/&gt;&lt;b&gt;Farm IBase&lt;/b&gt;&lt;br/&gt;(farm no., state/county, status)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e8f7;strokeColor=#2980b9;"
+          vertex="1" parent="c_sss">
+          <mxGeometry x="30" y="55" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ibsp"
+          value="ibsp&lt;br/&gt;&lt;b&gt;Tract IBase Component&lt;/b&gt;&lt;br/&gt;(tract no., admin state/county)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e8f7;strokeColor=#2980b9;"
+          vertex="1" parent="c_sss">
+          <mxGeometry x="30" y="200" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ibst"
+          value="ibst&lt;br/&gt;&lt;b&gt;IBase Structure&lt;/b&gt;&lt;br/&gt;(component → IBase link)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e8f7;strokeColor=#2980b9;"
+          vertex="1" parent="c_sss">
+          <mxGeometry x="280" y="120" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ibin"
+          value="ibin&lt;br/&gt;&lt;b&gt;IBase Instance&lt;/b&gt;&lt;br/&gt;(instance → IBase)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e8f7;strokeColor=#2980b9;"
+          vertex="1" parent="c_sss">
+          <mxGeometry x="280" y="265" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ibpart"
+          value="ibpart&lt;br/&gt;&lt;b&gt;IBase Partner Segments&lt;/b&gt;&lt;br/&gt;(segment=2 → farm level)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e8f7;strokeColor=#2980b9;"
+          vertex="1" parent="c_sss">
+          <mxGeometry x="520" y="200" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="crmd"
+          value="crmd_partner&lt;br/&gt;&lt;b&gt;CRM Partner Roles&lt;/b&gt;&lt;br/&gt;(ZFARMONR=162 / ZOTNT=163)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e8f7;strokeColor=#2980b9;"
+          vertex="1" parent="c_sss">
+          <mxGeometry x="520" y="345" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="zic"
+          value="z_ibase_comp_detail&lt;br/&gt;&lt;b&gt;IBase Component Detail&lt;/b&gt;"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e8f7;strokeColor=#2980b9;"
+          vertex="1" parent="c_sss">
+          <mxGeometry x="280" y="430" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="cpf"
+          value="comm_pr_frg_rel&lt;br/&gt;&lt;b&gt;Product → Fragment Rel.&lt;/b&gt;"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e8f7;strokeColor=#2980b9;"
+          vertex="1" parent="c_sss">
+          <mxGeometry x="520" y="490" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="zba"
+          value="zmi_farm_partn&lt;br/&gt;&lt;b&gt;ZMI Farm Partner&lt;/b&gt;&lt;br/&gt;(exception codes, involve dates)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e8f7;strokeColor=#2980b9;"
+          vertex="1" parent="c_sss">
+          <mxGeometry x="30" y="535" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="zfe"
+          value="zmi_field_excp&lt;br/&gt;&lt;b&gt;ZMI Field Exceptions&lt;/b&gt;&lt;br/&gt;(HEL/CW/PCW codes + dates)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e8f7;strokeColor=#2980b9;"
+          vertex="1" parent="c_sss">
+          <mxGeometry x="280" y="630" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="tbl_fr"
+          value="tbl_fr_bp_relationship&lt;br/&gt;&lt;b&gt;Pre-built FR/BP Lookup&lt;/b&gt;&lt;br/&gt;(no_compare variant only)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e8f7;strokeColor=#2980b9;"
+          vertex="1" parent="c_sss">
+          <mxGeometry x="520" y="630" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             PG CONTAINER  (Federated PostgreSQL)
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="c_pg" value="FSA-PROD-rds-pg-edv  (Federated PostgreSQL)"
+          style="swimlane;startSize=35;fillColor=none;strokeColor=#27ae60;
+                 fontColor=#27ae60;fontStyle=1;fontSize=13;whiteSpace=wrap;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="790" y="10" width="865" height="855" as="geometry"/>
+        </mxCell>
+
+        <!-- frr nested swimlane -->
+        <mxCell id="c_frr" value="farm_records_reporting schema"
+          style="swimlane;startSize=30;fillColor=none;strokeColor=#27ae60;
+                 fontColor=#27ae60;fontStyle=2;fontSize=11;whiteSpace=wrap;html=1;"
+          vertex="1" parent="c_pg">
+          <mxGeometry x="15" y="45" width="835" height="595" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="tp"
+          value="time_period&lt;br/&gt;&lt;b&gt;Active program years ≥ 2014&lt;/b&gt;&lt;br/&gt;⇒ time_period_identifier"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;"
+          vertex="1" parent="c_frr">
+          <mxGeometry x="15" y="40" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="coc"
+          value="county_office_control&lt;br/&gt;&lt;b&gt;State + County FSA code&lt;/b&gt;&lt;br/&gt;⇒ county_office_control_identifier"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;"
+          vertex="1" parent="c_frr">
+          <mxGeometry x="15" y="170" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="farm_pg"
+          value="farm&lt;br/&gt;&lt;b&gt;Farm master&lt;/b&gt;&lt;br/&gt;⇒ farm_identifier"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;"
+          vertex="1" parent="c_frr">
+          <mxGeometry x="15" y="300" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="tract_pg"
+          value="tract&lt;br/&gt;&lt;b&gt;Tract master&lt;/b&gt;&lt;br/&gt;⇒ tract_identifier"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;"
+          vertex="1" parent="c_frr">
+          <mxGeometry x="15" y="435" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="fy"
+          value="farm_year&lt;br/&gt;&lt;b&gt;Farm + year bridge&lt;/b&gt;&lt;br/&gt;⇒ farm_year_identifier"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;"
+          vertex="1" parent="c_frr">
+          <mxGeometry x="270" y="300" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ty"
+          value="tract_year&lt;br/&gt;&lt;b&gt;Tract + year bridge&lt;/b&gt;&lt;br/&gt;⇒ tract_year_identifier"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;"
+          vertex="1" parent="c_frr">
+          <mxGeometry x="270" y="435" width="210" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="tpy"
+          value="tract_producer_year&lt;br/&gt;&lt;b&gt;Existing target rows&lt;/b&gt;&lt;br/&gt;(CDC INSERT / UPDATE compare)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;"
+          vertex="1" parent="c_frr">
+          <mxGeometry x="530" y="310" width="215" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="fpy"
+          value="farm_producer_year&lt;br/&gt;&lt;b&gt;Existing target rows&lt;/b&gt;&lt;br/&gt;(SELECT file UPDATE compare)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;"
+          vertex="1" parent="c_frr">
+          <mxGeometry x="530" y="435" width="215" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- crm nested swimlane -->
+        <mxCell id="c_crm" value="crm_ods schema"
+          style="swimlane;startSize=30;fillColor=none;strokeColor=#27ae60;
+                 fontColor=#27ae60;fontStyle=2;fontSize=11;whiteSpace=wrap;html=1;"
+          vertex="1" parent="c_pg">
+          <mxGeometry x="15" y="660" width="835" height="165" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="but000"
+          value="but000&lt;br/&gt;&lt;b&gt;Business Partner master&lt;/b&gt;&lt;br/&gt;partner_guid ⇒ bpext (core_customer_identifier)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;"
+          vertex="1" parent="c_crm">
+          <mxGeometry x="280" y="47" width="265" height="75" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             ATH CONTAINER  (Athena native catalog)
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="c_ath" value="awsdatacatalog  (Athena native)"
+          style="swimlane;startSize=30;fillColor=none;strokeColor=#f39c12;
+                 fontColor=#f39c12;fontStyle=1;fontSize=13;whiteSpace=wrap;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="10" y="900" width="755" height="140" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="farm_ath"
+          value="fsa-prod-farm-records.farm&lt;br/&gt;&lt;b&gt;Raw farm records&lt;/b&gt;&lt;br/&gt;(SELECT file only)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef9e7;strokeColor=#f39c12;"
+          vertex="1" parent="c_ath">
+          <mxGeometry x="250" y="42" width="250" height="75" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             OUTPUT NODES
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="out1"
+          value="&lt;b&gt;tract_producer_year&lt;/b&gt;&lt;br/&gt;INSERT / UPDATE output"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9ebea;strokeColor=#c0392b;fontStyle=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="1720" y="410" width="240" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="out2"
+          value="&lt;b&gt;farm_producer_year&lt;/b&gt;&lt;br/&gt;UPDATE output (SELECT file)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9ebea;strokeColor=#c0392b;fontStyle=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="1720" y="530" width="240" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             EDGES — SSS internal joins
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="e1" value="instance"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="ibsp" target="ibst" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e2" value="ibase"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="ibst" target="ibib" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e3" value="instance + client"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="ibsp" target="ibin" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e4" value="in_guid = segment_recno / segment=2"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="ibin" target="ibpart" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e5" value="partnerset = guid"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="ibpart" target="crmd" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ZMI chain (dashed from ibsp to zic) -->
+        <mxCell id="e6" value="instance + ibase (no_compare: via tbl_fr)"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;dashed=1;endArrow=open;endFill=0;"
+          edge="1" source="ibsp" target="zic" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e7" value="prod_objnr = product_guid"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="zic" target="cpf" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e8" value="fragment_guid = frg_guid"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="cpf" target="zba" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e9" value="fragment_guid = frg_guid"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="cpf" target="zfe" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- no_compare shortcut (dashed) -->
+        <mxCell id="e10" value="no_compare only"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;dashed=1;endArrow=open;endFill=0;"
+          edge="1" source="ibsp" target="tbl_fr" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             EDGES — Cross-system lookups
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="e11" value="partner_no = partner_guid"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="crmd" target="but000" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e12" value="admin_state + admin_county = state_fsa_code + county_fsa_code"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="ibsp" target="coc" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e13" value="state_fsa_code + county_fsa_code"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="ibib" target="coc" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e14" value="current year match (Oct+ = next year)"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="tp" target="coc" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             EDGES — farm_records_reporting resolution chain
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="e15" value="county_office_control_identifier + farm_number"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="coc" target="farm_pg" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e16" value="county_office_control_identifier + tract_number"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="coc" target="tract_pg" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e17" value="farm_identifier + time_period_identifier"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="farm_pg" target="fy" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e18" value="farm_year_identifier + tract_identifier"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="fy" target="ty" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             EDGES — CDC compare / output
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="e19" value="core_customer_identifier"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="but000" target="tpy" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e20" value="tract_year_identifier"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="ty" target="tpy" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e21" value="LEFT JOIN — detect INSERT or UPDATE"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;strokeColor=#c0392b;fontColor=#c0392b;"
+          edge="1" source="tpy" target="out1" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             EDGES — SELECT file (farm_producer_year path)
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="e22" value="farm_number + state/county"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="farm_ath" target="coc" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e23" value="farm_number + county_office_control_identifier"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="farm_ath" target="farm_pg" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e24" value=""
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;"
+          edge="1" source="fy" target="fpy" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e25" value="LEFT JOIN — detect UPDATE"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;fontSize=9;strokeColor=#c0392b;fontColor=#c0392b;"
+          edge="1" source="fpy" target="out2" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

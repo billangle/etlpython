@@ -5,7 +5,7 @@
     "First_Set": {
       "Type": "Parallel",
       "Next": "Second_Set",
-      "ResultPath": "$.layer1_results",
+      "ResultPath": null,
       "Branches": [
         {
           "StartAt": "qct01pybl",
@@ -432,7 +432,7 @@
     "Second_Set": {
       "Type": "Parallel",
       "End": true,
-      "ResultPath": "$.layer2_results",
+      "ResultPath": null,
       "Branches": [
         {
           "StartAt": "qct45senttrsryrqst",

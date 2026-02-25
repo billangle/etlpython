@@ -1,4 +1,1 @@
 ./run_postgres_analysis.sh my_schema.my_proc FSA-PROD-secrets edv call
-
-python3 -m pip install --user --upgrade boto3
-python3 deploy_lambda.py --region us-east-1

@@ -96,12 +96,12 @@ password = secret['pass_db_redshift']
 properties = {
     "user": username,
     "password": password,
-[O    "preactions":"truncate table {}.{};".format(schemaname,tablename),
+    "preactions":"truncate table {}.{};".format(schemaname,tablename),
     "aws_iam_role": arnrole,
     "driver": "com.amazon.redshift.jdbc.Driver"
 }
 
-[I#Conn options used for writing to Redshift database using Glue context
+#Conn options used for writing to Redshift database using Glue context
 conn_options = {
     "dbtable": "{}.{}".format(schemaname,tablename),
     "database": "redshift_db",
@@ -109,7 +109,7 @@ conn_options = {
     "aws_iam_role": arnrole
 }
 
-[O
+
 # Block to load utils from S3
 s3 = boto3.client("s3")
 download_path = "/tmp/utils.py"
@@ -883,4 +883,3 @@ endtime = datetime.now()
 print("Write complete to {}.  Start: {}.  End: {}".format(destination_path, starttime, endtime))
 logger.info("Write complete to {}.  Start: {}.  End: {}".format(destination_path, starttime, endtime))
 job.commit()
-

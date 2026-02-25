@@ -3,7 +3,6 @@
 # with column headers & audit columns with using source jsons from fmmi/config
 # Date:    2026-02-17
 # Json schema includes both column names and data types.  
-
 import sys
 import json
 import boto3
@@ -14,7 +13,8 @@ from pyspark.context import SparkContext
 from pyspark.sql.functions import col, to_date
 from pyspark.sql.types import (
     StructType, StructField,
-    StringType, IntegerType, DecimalType
+    StringType, IntegerType, DecimalType,
+    DateType
 )
 
 # ---------------- INIT ----------------
@@ -89,11 +89,11 @@ def schema_from_json(source_json):
         )
 
     fields.extend([
-        StructField("fmmi_ods_cs_aud_id", StringType(), True),
-        StructField("cre_dt", StringType(), True),
-        StructField("last_chg_dt", StringType(), True),
+        StructField("fmmi_ods_cs_aud_id", IntegerType(), True),
+        StructField("cre_dt", DateType(), True),
+        StructField("last_chg_dt", DateType(), True),
         StructField("last_chg_user_nm", StringType(), True),
-        StructField("load_bat_id", StringType(), True),
+        StructField("load_bat_id", IntegerType(), True),
     ])
     return StructType(fields)
 
@@ -173,9 +173,9 @@ for src, tgt, json_base, mode in TABLES:
         # Cast audit columns
         df = df.withColumn("cre_dt", to_date(col("cre_dt"))) \
                .withColumn("last_chg_dt", to_date(col("last_chg_dt"))) \
-               .withColumn("fmmi_ods_cs_aud_id", col("fmmi_ods_cs_aud_id").cast("string")) \
-               .withColumn("last_chg_user_nm", col("last_chg_user_nm").cast("string")) \
-               .withColumn("load_bat_id", col("load_bat_id").cast("string"))
+               .withColumn("fmmi_ods_cs_aud_id", col("fmmi_ods_cs_aud_id").cast("int")) \
+               .withColumn("load_bat_id", col("load_bat_id").cast("int")) \
+               .withColumn("last_chg_user_nm", col("last_chg_user_nm").cast("string"))
 
         num_files = count_files(final_bucket, src_prefix)
         if num_files == 0:

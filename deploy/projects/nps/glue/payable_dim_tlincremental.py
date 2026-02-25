@@ -1,4 +1,4 @@
-i# Author : Cynthia Singh
+# Author : Cynthia Singh
 # Steampunk contractor
 # 2024-07-21 / 2025-01-31
 # source:  S3 file for incremental loads

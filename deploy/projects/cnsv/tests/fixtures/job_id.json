@@ -1,0 +1,6 @@
+{
+  "_comment": "Sample job_id fixture. Uploaded to S3 by load_test_data.sh.",
+  "job_id": "TST-JOB-001",
+  "pipeline": "cnsv",
+  "last_updated": "2024-01-01T00:00:00Z"
+}

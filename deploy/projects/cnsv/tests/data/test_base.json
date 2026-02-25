@@ -1,0 +1,71 @@
+{
+  "_comment": "Minimal test config for deploy_base.py (cnsvbase pipeline). Uses fake ARNs — safe for unit tests.",
+  "deployEnv": "TST",
+  "project": "CNSV",
+  "region": "us-east-1",
+  "secretId": "FSA-TST-secrets",
+
+  "configData": {
+    "databaseName": "fsa-fpac-test-db",
+    "dynamoTableName": "FsaFpacMetadata"
+  },
+
+  "strparams": {
+    "landingBucketNameParam": "tst-fpacfsa-landing-zone",
+    "cleanBucketNameParam": "tst-fpacfsa-cleansed-zone",
+    "finalBucketNameParam": "tst-fpacfsa-final-zone",
+    "jobIdKeyParam": "cnsv/etl-jobs/job_id.json",
+    "glueJobRoleArnParam": "arn:aws:iam::123456789012:role/test-FPACGlueCDKRole",
+    "etlRoleArnParam": "arn:aws:iam::123456789012:role/test-FPACLambdaCDKRole",
+    "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:123456789012:layer:test-third-party-layer:1",
+    "customLayerArnParam": "arn:aws:lambda:us-east-1:123456789012:layer:test-custom-layer:1",
+    "snsArnParam": "arn:aws:sns:us-east-1:123456789012:FSA-TST-CNSV"
+  },
+
+  "artifacts": {
+    "artifactBucket": "tst-cnsv-artifacts",
+    "prefix": "cnsv/"
+  },
+
+  "stepFunctions": {
+    "roleArn": "arn:aws:iam::123456789012:role/test-SfnExecRole"
+  },
+
+  "GlueConfig": [
+    {
+      "LandingFiles": {
+        "GlueVersion": "4.0",
+        "WorkerType": "G.1X",
+        "NumberOfWorkers": "2",
+        "TimeoutMinutes": "60",
+        "MaxRetries": "0",
+        "MaxConcurrency": "1",
+        "GenerateMetrics": "false",
+        "EnableJobBookmarks": "false",
+        "JobParameters": {
+          "--DestinationBucket": "tst-fpacfsa-landing-zone",
+          "--DestinationPrefix": "cnsv/etl-jobs",
+          "--PipelineName": "cnsv",
+          "--SecretId": "FSA-TST-secrets",
+          "--SourcePrefix": "cnsv/dbo"
+        }
+      }
+    },
+    {
+      "Raw-DM": {
+        "GlueVersion": "4.0",
+        "WorkerType": "G.1X",
+        "NumberOfWorkers": "2",
+        "TimeoutMinutes": "60",
+        "MaxRetries": "0",
+        "MaxConcurrency": "1",
+        "GenerateMetrics": "false",
+        "EnableJobBookmarks": "false",
+        "JobParameters": {
+          "--PipelineName": "cnsv",
+          "--SecretId": "FSA-TST-secrets"
+        }
+      }
+    }
+  ]
+}

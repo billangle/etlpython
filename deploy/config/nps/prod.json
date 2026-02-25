@@ -111,8 +111,10 @@
         "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
         "UseGlueDataCatalogAsTheHiveMetastore": "true",
         "JobParameters": {
-          "--JOB_NAME": "payable_dim_tlincremental",
-          "--environ": "prod"
+          "--environ": "prod",
+		  "--dbtable": "payable_dim",
+          "--schema_name": "fwadm_dw",
+		  "--utils": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils_with_validation_modular.py"
         }
       }
     },
@@ -149,8 +151,10 @@
         "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
         "UseGlueDataCatalogAsTheHiveMetastore": "true",
         "JobParameters": {
-          "--JOB_NAME": "payment_summary",
-          "--environ": "prod"
+          "--environ": "prod",
+		  "--dbtable": "payment_summary",
+          "--schema_name": "fwadm_dw",
+		  "--utils": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils_with_validation_modular.py"
         }
       }
     },
@@ -187,8 +191,10 @@
         "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
         "UseGlueDataCatalogAsTheHiveMetastore": "true",
         "JobParameters": {
-          "--JOB_NAME": "payment_transaction_fact_final",
-          "--environ": "prod"
+          "--environ": "prod",
+		  "--dbtable": "payment_transaction_fact",
+          "--schema_name": "fwadm_dw",
+		  "--utils": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils_with_validation_modular.py"
         }
       }
     },
@@ -225,8 +231,10 @@
         "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
         "UseGlueDataCatalogAsTheHiveMetastore": "true",
         "JobParameters": {
-          "--JOB_NAME": "payment_transaction_fact_part1",
-          "--environ": "prod"
+          "--environ": "prod",
+		  "--dbtable": "payment_transaction_fact",
+          "--schema_name": "fwadm_dw",
+		  "--utils": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils_with_validation_modular.py"
         }
       }
     },
@@ -263,8 +271,10 @@
         "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
         "UseGlueDataCatalogAsTheHiveMetastore": "true",
         "JobParameters": {
-          "--JOB_NAME": "payment_transaction_fact_part2",
-          "--environ": "prod"
+          "--environ": "prod",
+		  "--dbtable": "payment_transaction_fact",
+          "--schema_name": "fwadm_dw",
+		  "--utils": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils_with_validation_modular.py"
         }
       }
     },
@@ -301,8 +311,10 @@
         "PythonLibraryPath": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils.py",
         "UseGlueDataCatalogAsTheHiveMetastore": "true",
         "JobParameters": {
-          "--JOB_NAME": "payment_transaction_fact_part3",
-          "--environ": "prod"
+          "--environ": "prod",
+		  "--dbtable": "payment_transaction_fact",
+          "--schema_name": "fwadm_dw",
+		  "--utils": "s3://c108-prod-fpacfsa-landing-zone/dmart/fwadm_utils/utils_with_validation_modular.py"
         }
       }
     }

@@ -15,7 +15,7 @@
     "etlRoleArnParam": "arn:aws:iam::253490756794:role/disc-fsa-prod-lambda-servicerole",
     "sfnRoleArnParam": "arn:aws:iam::253490756794:role/disc-fsa-prod-stepfunction-servicerole",
     "snsNotifyFnArnParam": "arn:aws:lambda:us-east-1:253490756794:function:FSA-PROD-NotifyPipeline",
-    "pgConnectionNameParam": "FSA-PROD-PG-EDV"
+    "pgConnectionNameParam": "FSA-PROD-PG-DART115"
   },
 
   "paths": {
@@ -66,7 +66,7 @@
     },
     {
       "Ingest-PG-Reference-Tables": {
-        "Connections": [{ "ConnectionName": "FSA-PROD-PG-EDV" }],
+        "Connections": [{ "ConnectionName": "FSA-PROD-PG-DART115" }],
         "MaxConcurrency": "1",
         "MaxRetries": "0",
         "TimeoutMinutes": "60",
@@ -91,7 +91,7 @@
     },
     {
       "Ingest-PG-CDC-Targets": {
-        "Connections": [{ "ConnectionName": "FSA-PROD-PG-EDV" }],
+        "Connections": [{ "ConnectionName": "FSA-PROD-PG-DART115" }],
         "MaxConcurrency": "1",
         "MaxRetries": "0",
         "TimeoutMinutes": "60",
@@ -174,7 +174,7 @@
     },
     {
       "Sync-Iceberg-To-RDS": {
-        "Connections": [{ "ConnectionName": "FSA-PROD-PG-EDV" }],
+        "Connections": [{ "ConnectionName": "FSA-PROD-PG-DART115" }],
         "MaxConcurrency": "1",
         "MaxRetries": "0",
         "TimeoutMinutes": "60",

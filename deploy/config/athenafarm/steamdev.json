@@ -1,0 +1,228 @@
+{
+  "deployEnv": "STEAMDEV",
+  "project": "ATHENAFARM",
+  "region": "us-east-1",
+  "bucketRegion": "us-east-1",
+  "secretId": "FSA-DEV-Secrets",
+
+  "icebergWarehouse": "s3://punkdev-fpacfsa-final-zone/athenafarm/iceberg",
+
+  "strparams": {
+    "landingBucketNameParam": "punkdev-fpacfsa-landing-zone",
+    "cleanBucketNameParam": "punkdev-fpacfsa-cleansed-zone",
+    "finalBucketNameParam": "punkdev-fpacfsa-final-zone",
+    "glueJobRoleArnParam": "arn:aws:iam::335965711887:role/FPACGlueCDKRole",
+    "etlRoleArnParam": "arn:aws:iam::335965711887:role/FPACLambdaCDKRole",
+    "sfnRoleArnParam": "arn:aws:iam::335965711887:role/FSA-dev-FPACCARS-SfnExec",
+    "snsNotifyFnArnParam": "arn:aws:lambda:us-east-1:335965711887:function:FSA-STEAMDEV-NotifyPipeline",
+    "pgConnectionNameParam": "FSA-DEV-PG-EDV"
+  },
+
+  "paths": {
+    "glueRootPath": "glue/",
+    "lambdaRootPath": "lambda/"
+  },
+
+  "artifacts": {
+    "artifactBucket": "dev-cars-artifacts",
+    "prefix": "athenafarm/"
+  },
+
+  "stepFunctions": {
+    "createRoleIfMissing": false,
+    "roleName": "FSA-dev-FPACCARS-SfnExec",
+    "roleArn": "arn:aws:iam::335965711887:role/FSA-dev-FPACCARS-SfnExec",
+    "nestedCallerRoleArn": "arn:aws:iam::335965711887:role/FSA-dev-FPACCARS-SfnNestedCaller"
+  },
+
+  "GlueConfig": [
+    {
+      "Ingest-SSS-Farmrecords": {
+        "Connections": [{ "ConnectionName": "" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "120",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/athenafarm/",
+        "NumberOfWorkers": "2",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+        "PythonLibraryPath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--source_catalog": "AwsDataCatalog",
+          "--source_database": "sss-farmrecords",
+          "--target_database": "athenafarm_steam_raw",
+          "--full_load": "false"
+        }
+      }
+    },
+    {
+      "Ingest-PG-Reference-Tables": {
+        "Connections": [{ "ConnectionName": "FSA-DEV-PG-EDV" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "60",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/athenafarm/",
+        "NumberOfWorkers": "2",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+        "PythonLibraryPath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--target_database": "athenafarm_steam_ref"
+        }
+      }
+    },
+    {
+      "Ingest-PG-CDC-Targets": {
+        "Connections": [{ "ConnectionName": "FSA-DEV-PG-EDV" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "60",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/athenafarm/",
+        "NumberOfWorkers": "2",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+        "PythonLibraryPath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--target_database": "athenafarm_steam_cdc"
+        }
+      }
+    },
+    {
+      "Transform-Tract-Producer-Year": {
+        "Connections": [{ "ConnectionName": "" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "120",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/athenafarm/",
+        "NumberOfWorkers": "4",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+        "PythonLibraryPath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--sss_database": "athenafarm_steam_raw",
+          "--ref_database": "athenafarm_steam_ref",
+          "--target_database": "athenafarm_steam_gold",
+          "--target_table": "tract_producer_year",
+          "--full_load": "false"
+        }
+      }
+    },
+    {
+      "Transform-Farm-Producer-Year": {
+        "Connections": [{ "ConnectionName": "" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "120",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/athenafarm/",
+        "NumberOfWorkers": "4",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+        "PythonLibraryPath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--sss_database": "athenafarm_steam_raw",
+          "--ref_database": "athenafarm_steam_ref",
+          "--target_database": "athenafarm_steam_gold",
+          "--target_table": "farm_producer_year",
+          "--full_load": "false"
+        }
+      }
+    },
+    {
+      "Sync-Iceberg-To-RDS": {
+        "Connections": [{ "ConnectionName": "FSA-DEV-PG-EDV" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "60",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/athenafarm/",
+        "NumberOfWorkers": "2",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+        "PythonLibraryPath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--source_database": "athenafarm_steam_gold",
+          "--rds_database": "farm_records_reporting",
+          "--snapshot_id_param": "/athenafarm/steamdev/sync_snapshot_id"
+        }
+      }
+    },
+    {
+      "Iceberg-Maintenance": {
+        "Connections": [{ "ConnectionName": "" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "60",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/athenafarm/",
+        "NumberOfWorkers": "2",
+        "AutomaticScalingEnabled": "false",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+        "PythonLibraryPath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--snapshot_retention_hours": "48"
+        }
+      }
+    }
+  ]
+}

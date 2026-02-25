@@ -1,0 +1,49 @@
+{
+  "Comment": "Weekly Iceberg table maintenance — OPTIMIZE + EXPIRE SNAPSHOTS + REWRITE MANIFESTS. Runs independently of the main ETL pipeline.",
+  "StartAt": "RunIcebergMaintenance",
+  "States": {
+    "RunIcebergMaintenance": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "__ICEBERG_MAINT_GLUE_JOB_NAME__",
+        "Arguments": {
+          "--env": "__ENV__",
+          "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+          "--snapshot_retention_hours": "168"
+        }
+      },
+      "TimeoutSeconds": 7200,
+      "HeartbeatSeconds": 300,
+      "Retry": [
+        {
+          "ErrorEquals": ["Glue.AWSGlueException", "States.TaskFailed"],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 1,
+          "BackoffRate": 1.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "Notify"
+        }
+      ],
+      "Next": "Notify"
+    },
+    "Notify": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "__SNS_NOTIFY_FN_ARN__",
+        "Payload": {
+          "env": "__ENV__",
+          "pipeline": "athenafarm-maintenance",
+          "error.$": "$.error"
+        }
+      },
+      "End": true
+    }
+  }
+}

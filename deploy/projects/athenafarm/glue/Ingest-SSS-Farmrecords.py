@@ -52,6 +52,7 @@ import sys
 import logging
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
+from pyspark import SparkConf
 from awsglue.context import GlueContext
 from awsglue.job import Job
 
@@ -97,9 +98,15 @@ if DEBUG:
     log.debug("DEBUG logging enabled")
 
 # ---------------------------------------------------------------------------
-# Spark / Glue context (Iceberg extensions enabled via --conf in job spec)
+# Spark / Glue context — Iceberg catalog hardcoded in SparkConf so it is
+# always registered regardless of DefaultArguments
 # ---------------------------------------------------------------------------
-sc = SparkContext()
+_conf = SparkConf()
+_conf.set("spark.sql.catalog.glue_catalog", "org.apache.iceberg.spark.SparkCatalog")
+_conf.set("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws.glue.GlueCatalog")
+_conf.set("spark.sql.catalog.glue_catalog.io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
+_conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
+sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 job = Job(glueContext)
@@ -125,8 +132,6 @@ try:
 except Exception:
     log.exception(f"WARNING: could not list tables in catalog database '{SOURCE_DATABASE}' — full traceback:")
     log.warning("available_tables unknown — will attempt all TABLE_SPECS regardless")
-
-spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
 
 # ---------------------------------------------------------------------------
 # Table definitions: (source_table, partition_col, sort_cols)
@@ -176,7 +181,14 @@ def ingest_table(source_table: str, target_table: str, partition_col, sort_cols)
 
     # Sort within partitions for data-skipping
     if sort_cols:
-        df = df.sortWithinPartitions(*[c for c in sort_cols if c in df.columns])
+        valid_sort = [c for c in sort_cols if c in df.columns]
+        if valid_sort:
+            df = df.sortWithinPartitions(*valid_sort)
+        else:
+            log.warning(
+                f"[{source_table}] SKIP sort — none of {sort_cols} found in actual columns: "
+                f"{sorted(df.columns)}"
+            )
 
     writer = df.writeTo(target_fqn).using("iceberg") \
         .tableProperty("write.format.default", "parquet") \

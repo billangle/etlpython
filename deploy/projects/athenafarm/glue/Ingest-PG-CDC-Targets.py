@@ -36,6 +36,7 @@ import logging
 import boto3
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
+from pyspark import SparkConf
 from awsglue.context import GlueContext
 from awsglue.job import Job
 
@@ -73,7 +74,12 @@ if DEBUG:
     log.setLevel(logging.DEBUG)
     log.debug("DEBUG logging enabled")
 
-sc = SparkContext()
+_conf = SparkConf()
+_conf.set("spark.sql.catalog.glue_catalog", "org.apache.iceberg.spark.SparkCatalog")
+_conf.set("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws.glue.GlueCatalog")
+_conf.set("spark.sql.catalog.glue_catalog.io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
+_conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
+sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 job = Job(glueContext)
@@ -92,8 +98,6 @@ if DEBUG:
     safe_args = {k: ("***" if "pass" in k.lower() or "secret" in k.lower() else v)
                  for k, v in args.items()}
     log.debug(f"Resolved args: {safe_args}")
-
-spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
 
 # ---------------------------------------------------------------------------
 # Resolve PostgreSQL credentials from Secrets Manager.

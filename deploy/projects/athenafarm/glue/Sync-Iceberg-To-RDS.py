@@ -97,6 +97,11 @@ PG_DB   = _secret["edv_postgres_database_name"]
 PG_USER = _secret["edv_postgres_username"]
 PG_PASS = _secret["edv_postgres_password"]
 
+log.info(f"PG host     : {PG_HOST}:{PG_PORT}")
+log.info(f"PG DB       : {PG_DB}")
+if DEBUG:
+    log.debug(f"PG user     : {PG_USER}")
+
 ssm = boto3.client("ssm")
 
 # ---------------------------------------------------------------------------

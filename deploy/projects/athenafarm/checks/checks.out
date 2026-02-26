@@ -1,0 +1,103 @@
+--------------------------------------------
+|                 GetTables                |
++------------------------------------------+
+|  comm_pr_frg_rel                         |
+|  crm_partner_relationship                |
+|  crmd_partner                            |
+|  crop_insert_view                        |
+|  farm_bp_relationship                    |
+|  farm_insert_view                        |
+|  farm_tract_field_relationship           |
+|  farm_tract_relationship                 |
+|  fld_aggregations                        |
+|  fr_bp_relationship                      |
+|  ibib                                    |
+|  ibib_44e486d268344cdabeacdda33529ae81   |
+|  ibibt                                   |
+|  ibibt_74c761dedf0c94fad8bf36313bc8da96  |
+|  ibin                                    |
+|  ibpart                                  |
+|  ibsp                                    |
+|  ibst                                    |
+|  rcd_cnt_check                           |
+|  reconstitution_insert_view              |
+|  sss_ibib                                |
+|  sss_ibsp                                |
+|  tbl_farm_tract_relationship             |
+|  tbl_fr_bp_relationship                  |
+|  tbl_sss_ibib                            |
+|  tbl_sss_ibsp                            |
+|  tbl_time_period                         |
+|  tbl_zmi_field_excp                      |
+|  tract_insert_view                       |
+|  tract_producer_year_current             |
+|  tract_producer_year_tbl                 |
+|  z_ibase_comp_detail                     |
+|  zcrm_ext_mapping                        |
+|  zfr_crop_mast_yr                        |
+|  zfr_exceptions                          |
+|  zfr_farm_chg_log                        |
+|  zfr_hip_elig_det                        |
+|  zfr_ib_cdpos                            |
+|  zfr_reconhis_dtl                        |
+|  zfr_reconhistory                        |
+|  zfr_transfer_his                        |
+|  zfrh_base_acre                          |
+|  zfrh_base_acreh                         |
+|  zfrh_ccc505                             |
+|  zfrh_comp_parth                         |
+|  zfrh_crop_elec                          |
+|  zfrh_hdr_parth                          |
+|  zfrh_ibib                               |
+|  zfrh_ibsp                               |
+|  zfrh_ibsph                              |
+|  zfrh_partners                           |
+|  zfrh_partnersh                          |
+|  zmi_base_acre                           |
+|  zmi_base_acreh                          |
+|  zmi_ccc505                              |
+|  zmi_ccc505h                             |
+|  zmi_crop_elec                           |
+|  zmi_crop_elech                          |
+|  zmi_crp_mast                            |
+|  zmi_farm_partn                          |
+|  zmi_farm_partnh                         |
+|  zmi_field_excp                          |
+|  zmi_program_year                        |
+|  zmiribcansit                            |
+|  zmiribsansit                            |
+|  ztab0001fl                              |
++------------------------------------------+
+-------------------------------------------------------------------
+|                          ListCrawlers                           |
++---------------------+-------------------------------------------+
+|  NextToken          |  FSA-PROD-ELAP-CRAWLER                    |
++---------------------+-------------------------------------------+
+||                         CrawlerNames                          ||
+|+---------------------------------------------------------------+|
+||  FSA-PROD-ARC-PLC                                             ||
+||  FSA-PROD-BPMS                                                ||
+||  FSA-PROD-BusFile-CRAWLER                                     ||
+||  FSA-PROD-CARS-CRAWLER                                        ||
+||  FSA-PROD-CARS-cdc                                            ||
+||  FSA-PROD-CARS-validation                                     ||
+||  FSA-PROD-CMN-DIM                                             ||
+||  FSA-PROD-CNSV                                                ||
+||  FSA-PROD-CNSV-CNTR-MAINT                                     ||
+||  FSA-PROD-CNSV-CNTR-MAINT-cdc                                 ||
+||  FSA-PROD-CNSV-CONS-PYMTS                                     ||
+||  FSA-PROD-CNSV-CONS-PYMTS-cdc                                 ||
+||  FSA-PROD-CNSV-cdc                                            ||
+||  FSA-PROD-CPS-CRAWLER                                         ||
+||  FSA-PROD-CoC                                                 ||
+||  FSA-PROD-DART114-CRM_ODS                                     ||
+||  FSA-PROD-DART114-S3-CRM_ODS                                  ||
+||  FSA-PROD-DMC                                                 ||
+||  FSA-PROD-DMCLEANSTART                                        ||
+||  FSA-PROD-ECAP-CRAWLER                                        ||
+||  FSA-PROD-ECAP-CRAWLER-raw                                    ||
+||  FSA-PROD-ECP-CRAWLER                                         ||
+||  FSA-PROD-EDW-CPS_STG-PARQUET                                 ||
+||  FSA-PROD-EDW-ONE-TIME-EDV-r540-S3-CSV-TO-S3-Parquet-Crawler  ||
+||  FSA-PROD-ELAP-CRAWLER                                        ||
+|+---------------------------------------------------------------+|

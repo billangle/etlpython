@@ -279,6 +279,25 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
     print(f"  athenafarm deployer — env={deploy_env}  project={project}")
     print(f"{'='*60}\n")
 
+    # ── Ensure Glue catalog databases exist (Iceberg createOrReplace requires them) ──
+    print("[0/4] Ensuring Glue catalog databases exist...")
+    CATALOG_DATABASES = [
+        "athenafarm_prod_raw",
+        "athenafarm_prod_ref",
+        "athenafarm_prod_cdc",
+        "athenafarm_prod_gold",
+    ]
+    for db_name in CATALOG_DATABASES:
+        if dry_run:
+            print(f"  [DRY] Glue DB: {db_name}")
+        else:
+            try:
+                glue.get_database(Name=db_name)
+                print(f"  ✓ {db_name} (exists)")
+            except glue.exceptions.EntityNotFoundException:
+                glue.create_database(DatabaseInput={"Name": db_name})
+                print(f"  ✓ {db_name} (created)")
+
     # ── Upload all Glue scripts ──────────────────────────────────────────────
     print("[1/4] Uploading Glue scripts...")
     script_info: Dict[str, Tuple[str, Path]] = {}
@@ -324,6 +343,14 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
             job_params.setdefault("--secret_id", secret_id)
         # Inject debug flag for all jobs
         job_params.setdefault("--debug", "true" if debug_logging else "false")
+
+        # Map AdditionalPythonModulesPath → --extra-py-files (WHL/egg/zip on S3)
+        extra_py = _as_str(per.get("AdditionalPythonModulesPath"))
+        if extra_py:
+            job_params.setdefault("--extra-py-files", extra_py)
+
+        # Name the CloudWatch log group after the job so logs are easy to find
+        job_params.setdefault("--continuous-log-logGroup", f"/aws-glue/jobs/{job_name}")
 
         merged_args = _merge_default_args(default_args, job_params)
 

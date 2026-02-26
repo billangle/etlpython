@@ -245,11 +245,14 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
     default_args      = _as_str_dict(_as_dict(glue_defaults_cfg.get("DefaultArguments")))
     debug_logging     = _as_bool(cfg.get("debugLogging"), False)
 
-    # Iceberg --conf must carry the warehouse path
+    # Always inject the Iceberg warehouse path as a Spark --conf so that
+    # glue_catalog is recognised as an Iceberg SparkCatalog at session startup.
+    # (Setting spark.conf.set() after SparkContext creation is insufficient.)
+    warehouse_conf = f"spark.sql.catalog.glue_catalog.warehouse={iceberg_warehouse}"
     if "--conf" in default_args:
-        default_args["--conf"] += (
-            f" --conf spark.sql.catalog.glue_catalog.warehouse={iceberg_warehouse}"
-        )
+        default_args["--conf"] += f" --conf {warehouse_conf}"
+    else:
+        default_args["--conf"] = warehouse_conf
 
     # ── Boto3 clients ────────────────────────────────────────────────────────
     s3_client  = boto3.client("s3",             region_name=region)

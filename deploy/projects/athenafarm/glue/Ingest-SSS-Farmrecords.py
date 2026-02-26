@@ -37,8 +37,8 @@ GLUE JOB ARGUMENTS:
     --env               : Deployment environment (e.g. prod, certdev)
     --iceberg_warehouse : s3:// URI for Iceberg warehouse root
     --source_catalog    : Athena catalog name (default: sss-farmrecords)
-    --source_database   : Athena database name (default: sss)
-    --target_database   : Glue catalog database for Iceberg tables (default: sss)
+    --source_database   : Glue catalog database for SSS source tables (default: sss-farmrecords)
+    --target_database   : Glue catalog database for Iceberg targets (default: sss)
     --full_load         : "true" to force full re-load; default incremental via bookmark
     --debug             : "true" to enable DEBUG-level CloudWatch logging (default: false)
 
@@ -67,14 +67,29 @@ log = logging.getLogger(__name__)
 required_args = ["JOB_NAME", "env", "iceberg_warehouse"]
 args = getResolvedOptions(sys.argv, required_args)
 
-JOB_NAME         = args["JOB_NAME"]
-ENV              = args["env"]
+
+def _opt(key: str, default: str = "") -> str:
+    """Resolve an optional Glue job argument from sys.argv.
+
+    getResolvedOptions only returns keys that are in its `keys` list, so
+    args.get() on optional params always hits the default.  This helper calls
+    getResolvedOptions again for a single optional key so it is properly read
+    from DefaultArguments / runtime overrides.
+    """
+    try:
+        return getResolvedOptions(sys.argv, [key])[key]
+    except Exception:
+        return default
+
+
+JOB_NAME          = args["JOB_NAME"]
+ENV               = args["env"]
 ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
-SOURCE_CATALOG   = args.get("source_catalog", "sss-farmrecords")
-SOURCE_DATABASE  = args.get("source_database", "sss")
-TARGET_DATABASE  = args.get("target_database", "sss")
-FULL_LOAD        = args.get("full_load", "false").strip().lower() == "true"
-DEBUG            = args.get("debug", "false").strip().lower() == "true"
+SOURCE_CATALOG    = _opt("source_catalog", "sss-farmrecords")
+SOURCE_DATABASE   = _opt("source_database", "sss-farmrecords")
+TARGET_DATABASE   = _opt("target_database", "sss")
+FULL_LOAD         = _opt("full_load", "false").strip().lower() == "true"
+DEBUG             = _opt("debug", "false").strip().lower() == "true"
 
 if DEBUG:
     logging.getLogger().setLevel(logging.DEBUG)

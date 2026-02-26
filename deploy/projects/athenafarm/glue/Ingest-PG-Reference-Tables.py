@@ -60,12 +60,27 @@ log = logging.getLogger(__name__)
 required_args = ["JOB_NAME", "env", "iceberg_warehouse", "secret_id"]
 args = getResolvedOptions(sys.argv, required_args)
 
+
+def _opt(key: str, default: str = "") -> str:
+    """Resolve an optional Glue job argument from sys.argv.
+
+    getResolvedOptions only returns keys that are in its `keys` list, so
+    args.get() on optional params always hits the default.  This helper calls
+    getResolvedOptions again for a single optional key so it is properly read
+    from DefaultArguments / runtime overrides.
+    """
+    try:
+        return getResolvedOptions(sys.argv, [key])[key]
+    except Exception:
+        return default
+
+
 JOB_NAME          = args["JOB_NAME"]
 ENV               = args["env"]
 ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
 SECRET_ID         = args["secret_id"]
-TARGET_DATABASE   = args.get("target_database", "farm_ref")
-DEBUG             = args.get("debug", "false").strip().lower() == "true"
+TARGET_DATABASE   = _opt("target_database", "farm_ref")
+DEBUG             = _opt("debug", "false").strip().lower() == "true"
 
 if DEBUG:
     logging.getLogger().setLevel(logging.DEBUG)

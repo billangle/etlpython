@@ -6,6 +6,7 @@
   "secretId": "FSA-DEV-Secrets",
 
   "icebergWarehouse": "s3://punkdev-fpacfsa-final-zone/athenafarm/iceberg",
+  "sssFarmrecordsS3Path": "s3://punkdev-fpacfsa-landing-zone/farm_records/dbo/",
 
   "strparams": {
     "landingBucketNameParam": "punkdev-fpacfsa-landing-zone",

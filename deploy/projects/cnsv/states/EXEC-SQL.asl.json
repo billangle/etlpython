@@ -8,10 +8,10 @@
       "Parameters": {
         "FunctionName": "__BUILD_PROCESSING_PLAN_FN_ARN__",
         "Payload": {
-          "data_src_nm.$": "$.data_src_nm",
-          "run_type.$": "$.run_type",
-          "start_date.$": "$.start_date",
-          "env.$": "$.env"
+          "data_src_nm": "__DATA_SRC_NM__",
+          "run_type": "__RUN_TYPE__",
+          "start_date": "__START_DATE__",
+          "env": "__ENV__"
         }
       },
       "ResultSelector": {
@@ -56,10 +56,10 @@
       "MaxConcurrency": 20,
       "Parameters": {
         "table_name.$": "$$.Map.Item.Value",
-        "data_src_nm.$": "$.plan.data_src_nm",
-        "run_type.$": "$.plan.run_type",
-        "start_date.$": "$.plan.start_date",
-        "env.$": "$.plan.env",
+        "data_src_nm": "__DATA_SRC_NM__",
+        "run_type": "__RUN_TYPE__",
+        "start_date": "__START_DATE__",
+        "env": "__ENV__",
         "layer": "STG"
       },
       "Iterator": {
@@ -73,10 +73,10 @@
               "Arguments": {
                 "--JOB_NAME": "__EXEC_SQL_GLUE_JOB_NAME__",
                 "--table_name.$": "$.table_name",
-                "--data_src_nm.$": "$.data_src_nm",
-                "--run_type.$": "$.run_type",
-                "--start_date.$": "$.start_date",
-                "--env.$": "$.env",
+                "--data_src_nm": "__DATA_SRC_NM__",
+                "--run_type": "__RUN_TYPE__",
+                "--start_date": "__START_DATE__",
+                "--env": "__ENV__",
                 "--layer.$": "$.layer"
               }
             },
@@ -170,10 +170,10 @@
       "Parameters": {
         "tables.$": "$$.Map.Item.Value",
         "groupIndex.$": "$$.Map.Item.Index",
-        "data_src_nm.$": "$.plan.data_src_nm",
-        "run_type.$": "$.plan.run_type",
-        "start_date.$": "$.plan.start_date",
-        "env.$": "$.plan.env"
+        "data_src_nm": "__DATA_SRC_NM__",
+        "run_type": "__RUN_TYPE__",
+        "start_date": "__START_DATE__",
+        "env": "__ENV__"
       },
       "Iterator": {
         "StartAt": "ProcessEDVTablesInGroup",
@@ -185,10 +185,10 @@
             "Parameters": {
               "table_name.$": "$$.Map.Item.Value",
               "groupIndex.$": "$.groupIndex",
-              "data_src_nm.$": "$.data_src_nm",
-              "run_type.$": "$.run_type",
-              "start_date.$": "$.start_date",
-              "env.$": "$.env",
+              "data_src_nm": "__DATA_SRC_NM__",
+              "run_type": "__RUN_TYPE__",
+              "start_date": "__START_DATE__",
+              "env": "__ENV__",
               "layer": "EDV"
             },
             "Iterator": {
@@ -202,10 +202,10 @@
                     "Arguments": {
                       "--JOB_NAME": "__EXEC_SQL_GLUE_JOB_NAME__",
                       "--table_name.$": "$.table_name",
-                      "--data_src_nm.$": "$.data_src_nm",
-                      "--run_type.$": "$.run_type",
-                      "--start_date.$": "$.start_date",
-                      "--env.$": "$.env",
+                      "--data_src_nm": "__DATA_SRC_NM__",
+                      "--run_type": "__RUN_TYPE__",
+                      "--start_date": "__START_DATE__",
+                      "--env": "__ENV__",
                       "--layer.$": "$.layer"
                     }
                   },
@@ -286,9 +286,9 @@
       "Parameters": {
         "FunctionName": "__FINALIZE_PIPELINE_FN_ARN__",
         "Payload": {
-          "data_src_nm.$": "$.plan.data_src_nm",
-          "run_type.$": "$.plan.run_type",
-          "start_date.$": "$.plan.start_date",
+          "data_src_nm": "__DATA_SRC_NM__",
+          "run_type": "__RUN_TYPE__",
+          "start_date": "__START_DATE__",
           "stageCheck.$": "$.stageCheck",
           "edvCheck.$": "$.edvCheck",
           "counts.$": "$.plan.counts"
@@ -316,9 +316,9 @@
         "FunctionName": "__HANDLE_FAILURE_FN_ARN__",
         "Payload": {
           "error.$": "$.error",
-          "data_src_nm.$": "$.data_src_nm",
-          "run_type.$": "$.run_type",
-          "start_date.$": "$.start_date"
+          "data_src_nm": "__DATA_SRC_NM__",
+          "run_type": "__RUN_TYPE__",
+          "start_date": "__START_DATE__"
         }
       },
       "Next": "PipelineFailed"

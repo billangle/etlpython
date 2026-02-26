@@ -1,12 +1,13 @@
 # deploy/projects/cnsv/deploy.py
-# Deploys the CNSV EXEC-SQL Glue job and its Step Function state machine.
+# Deploys the CNSV EXEC-SQL Glue job, the 4 edv Lambda functions, and the
+# EXEC-SQL Step Function state machine.
 from __future__ import annotations
 
 import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import boto3
 
@@ -14,8 +15,10 @@ from common.aws_common import (
     ensure_bucket_exists,
     ensure_glue_job,
     ensure_state_machine,
+    ensure_lambda,
     GlueJobSpec,
     StateMachineSpec,
+    LambdaSpec,
 )
 
 # --------------------------------------------------------------------------------------
@@ -180,6 +183,10 @@ class Names:
     prefix: str
     exec_sql_glue_job: str
     sm_exec_sql: str
+    fn_build_processing_plan: str
+    fn_check_results: str
+    fn_finalize_pipeline: str
+    fn_handle_failure: str
 
 
 def build_names(deploy_env: str, project: str) -> Names:
@@ -194,6 +201,10 @@ def build_names(deploy_env: str, project: str) -> Names:
         prefix=prefix,
         exec_sql_glue_job=f"{prefix}-EXEC-SQL",
         sm_exec_sql=f"{prefix}-EXEC-SQL",
+        fn_build_processing_plan=f"{prefix}-edv-build-processing-plan",
+        fn_check_results=f"{prefix}-edv-check-results",
+        fn_finalize_pipeline=f"{prefix}-edv-finalize-pipeline",
+        fn_handle_failure=f"{prefix}-edv-handle-failure",
     )
 
 
@@ -223,11 +234,12 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     CNSV EXEC-SQL deployer.
 
     Deploys:
-      - Glue job: FSA-{ENV}-CNSV-EXEC-SQL  (glue/EXEC-SQL.py)
-      - State machine: FSA-{ENV}-CNSV-EXEC-SQL  (states/EXEC-SQL.param.asl.json)
+      - Glue job:       FSA-{ENV}-CNSV-EXEC-SQL         (glue/EXEC-SQL.py)
+      - Lambda x4:      FSA-{ENV}-CNSV-edv-*             (lambda/edv-*/lambda_function.py)
+      - State machine:  FSA-{ENV}-CNSV-EXEC-SQL          (states/EXEC-SQL.asl.json)
 
     All names derived from cfg.deployEnv and cfg.project — no hardcoding.
-    Lambda ARNs for the state machine are read from cfg.strparams.*FnArnParam keys.
+    Lambda ARNs are obtained from ensure_lambda and substituted into the ASL at deploy time.
     """
     deploy_env = cfg["deployEnv"]
     project = cfg["project"]
@@ -245,33 +257,39 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     # strparams
     strparams = cfg.get("strparams") or {}
     glue_job_role_arn = _as_str(strparams.get("glueJobRoleArnParam"))
+    etl_role_arn = _as_str(strparams.get("etlRoleArnParam"))
     sfn_role_arn = _as_str((cfg.get("stepFunctions") or {}).get("roleArn"))
-
-    # Lambda ARNs referenced by the state machine (read from config, not deployed here)
-    build_processing_plan_fn_arn = _as_str(strparams.get("buildProcessingPlanFnArnParam"))
-    check_results_fn_arn         = _as_str(strparams.get("checkResultsFnArnParam"))
-    finalize_pipeline_fn_arn     = _as_str(strparams.get("finalizePipelineFnArnParam"))
-    handle_failure_fn_arn        = _as_str(strparams.get("handleFailureFnArnParam"))
 
     missing: List[str] = []
     if not glue_job_role_arn:
         missing.append("strparams.glueJobRoleArnParam")
+    if not etl_role_arn:
+        missing.append("strparams.etlRoleArnParam")
     if not sfn_role_arn:
         missing.append("stepFunctions.roleArn")
-    if not build_processing_plan_fn_arn:
-        missing.append("strparams.buildProcessingPlanFnArnParam")
-    if not check_results_fn_arn:
-        missing.append("strparams.checkResultsFnArnParam")
-    if not finalize_pipeline_fn_arn:
-        missing.append("strparams.finalizePipelineFnArnParam")
-    if not handle_failure_fn_arn:
-        missing.append("strparams.handleFailureFnArnParam")
     if missing:
         raise RuntimeError("Missing required config keys: " + ", ".join(missing))
+
+    # Lambda shared config (same pattern as deploy_base.py)
+    lambdas_cfg = cfg.get("lambdas") or cfg.get("lambda") or {}
+    if not isinstance(lambdas_cfg, dict):
+        lambdas_cfg = {}
+    shared_layers = _as_str_list(lambdas_cfg.get("layers"))
+    shared_runtime = _as_str(lambdas_cfg.get("runtime")) or "python3.11"
+    shared_timeout = _as_int(lambdas_cfg.get("timeoutSeconds"), 30)
+    shared_memory = _as_int(lambdas_cfg.get("memoryMb"), 256)
+    shared_env: Dict[str, str] = {}
+    if isinstance(lambdas_cfg.get("environment"), dict):
+        shared_env = {str(k): str(v) for k, v in lambdas_cfg["environment"].items()}
+
+    vpc_cfg = lambdas_cfg.get("vpcConfig") or {}
+    subnet_ids = _as_str_list(vpc_cfg.get("subnetIds")) or None
+    security_group_ids = _as_str_list(vpc_cfg.get("securityGroupIds")) or None
 
     # Local paths
     project_dir = Path(__file__).resolve().parent
     glue_root = project_dir / "glue"
+    lambda_root = project_dir / "lambda"
 
     # Glue script
     exec_sql_script_local = glue_root / "EXEC-SQL.py"
@@ -299,13 +317,14 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     s3 = session.client("s3")
     glue = session.client("glue")
     sfn = session.client("stepfunctions")
+    lam = session.client("lambda")
 
     ensure_bucket_exists(s3, artifact_bucket, region)
 
-    # Upload Glue script and create/update job
+    # --- Glue job ---
     exec_sql_script_s3_key = _s3_script_key(prefix, deploy_env, project, exec_sql_script_local.name)
 
-    print(f"[1/2] Deploying Glue job: {names.exec_sql_glue_job}")
+    print(f"[1/3] Deploying Glue job: {names.exec_sql_glue_job}")
     ensure_glue_job(
         glue,
         s3,
@@ -326,17 +345,61 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         ),
     )
 
-    # Load and substitute the parameterized ASL
-    print(f"[2/2] Deploying State Machine: {names.sm_exec_sql}")
+    # --- Lambda functions ---
+    print(f"[2/3] Deploying Lambda functions")
+    required_lambdas: List[Tuple[str, str]] = [
+        (names.fn_build_processing_plan, "edv-build-processing-plan"),
+        (names.fn_check_results,          "edv-check-results"),
+        (names.fn_finalize_pipeline,      "edv-finalize-pipeline"),
+        (names.fn_handle_failure,         "edv-handle-failure"),
+    ]
+
+    lambda_arns: Dict[str, str] = {}
+    for fn_name, dir_suffix in required_lambdas:
+        src_dir = lambda_root / dir_suffix
+        if not src_dir.exists():
+            raise FileNotFoundError(f"Lambda source dir not found: {src_dir}")
+        handler_file = src_dir / "lambda_function.py"
+        if not handler_file.exists():
+            raise FileNotFoundError(f"Missing lambda_function.py in: {src_dir}")
+        spec = LambdaSpec(
+            name=fn_name,
+            role_arn=etl_role_arn,
+            handler="lambda_function.handler",
+            runtime=shared_runtime,
+            source_dir=str(src_dir),
+            env=dict(shared_env),
+            layers=list(shared_layers),
+            timeout=shared_timeout,
+            memory=shared_memory,
+            subnet_ids=subnet_ids,
+            security_group_ids=security_group_ids,
+        )
+        arn = ensure_lambda(lam, spec)
+        lambda_arns[fn_name] = arn
+        print(f"  {fn_name}: {arn}")
+
+    # --- State machine ---
+    print(f"[3/3] Deploying State Machine: {names.sm_exec_sql}")
     raw_asl = _load_asl_file(project_dir, _PARAM_ASL_FILE)
     asl_text = json.dumps(raw_asl)
 
+    # Read deploy-time payload values from EXEC-SQL.JobParameters in the config
+    exec_sql_job_params = exec_sql_params.get("JobParameters") or {}
+    data_src_nm = _as_str(exec_sql_job_params.get("--data_src_nm"))
+    run_type     = _as_str(exec_sql_job_params.get("--run_type"))
+    start_date   = _as_str(exec_sql_job_params.get("--start_date"))
+
     substitutions = {
-        "__EXEC_SQL_GLUE_JOB_NAME__":      names.exec_sql_glue_job,
-        "__BUILD_PROCESSING_PLAN_FN_ARN__": build_processing_plan_fn_arn,
-        "__CHECK_RESULTS_FN_ARN__":         check_results_fn_arn,
-        "__FINALIZE_PIPELINE_FN_ARN__":     finalize_pipeline_fn_arn,
-        "__HANDLE_FAILURE_FN_ARN__":        handle_failure_fn_arn,
+        "__EXEC_SQL_GLUE_JOB_NAME__":       names.exec_sql_glue_job,
+        "__BUILD_PROCESSING_PLAN_FN_ARN__": lambda_arns[names.fn_build_processing_plan],
+        "__CHECK_RESULTS_FN_ARN__":          lambda_arns[names.fn_check_results],
+        "__FINALIZE_PIPELINE_FN_ARN__":      lambda_arns[names.fn_finalize_pipeline],
+        "__HANDLE_FAILURE_FN_ARN__":         lambda_arns[names.fn_handle_failure],
+        "__DATA_SRC_NM__":                  data_src_nm,
+        "__RUN_TYPE__":                     run_type,
+        "__START_DATE__":                   start_date,
+        "__ENV__":                          str(deploy_env),
     }
     for placeholder, value in substitutions.items():
         asl_text = asl_text.replace(placeholder, value)
@@ -352,21 +415,23 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
 
     print(f"\nDeploy complete.")
     return {
-        "deploy_env":                  str(deploy_env),
-        "project":                     str(project),
-        "artifact_bucket":             artifact_bucket,
-        "artifact_prefix":             prefix,
-        "glue_job_name":               names.exec_sql_glue_job,
-        "glue_script_s3_key":          exec_sql_script_s3_key,
-        "glue_config_applied":         "yes" if bool(exec_sql_params) else "no",
-        "state_machine_name":          names.sm_exec_sql,
-        "state_machine_arn":           sm_arn,
-        "glue_job_role_arn":           glue_job_role_arn,
-        "sfn_role_arn":                sfn_role_arn,
-        "build_processing_plan_fn_arn": build_processing_plan_fn_arn,
-        "check_results_fn_arn":         check_results_fn_arn,
-        "finalize_pipeline_fn_arn":     finalize_pipeline_fn_arn,
-        "handle_failure_fn_arn":        handle_failure_fn_arn,
+        "deploy_env":                       str(deploy_env),
+        "project":                          str(project),
+        "artifact_bucket":                  artifact_bucket,
+        "artifact_prefix":                  prefix,
+        "glue_job_name":                    names.exec_sql_glue_job,
+        "glue_script_s3_key":               exec_sql_script_s3_key,
+        "glue_config_applied":              "yes" if bool(exec_sql_params) else "no",
+        "fn_build_processing_plan_name":    names.fn_build_processing_plan,
+        "fn_build_processing_plan_arn":     lambda_arns[names.fn_build_processing_plan],
+        "fn_check_results_name":            names.fn_check_results,
+        "fn_check_results_arn":             lambda_arns[names.fn_check_results],
+        "fn_finalize_pipeline_name":        names.fn_finalize_pipeline,
+        "fn_finalize_pipeline_arn":         lambda_arns[names.fn_finalize_pipeline],
+        "fn_handle_failure_name":           names.fn_handle_failure,
+        "fn_handle_failure_arn":            lambda_arns[names.fn_handle_failure],
+        "state_machine_name":               names.sm_exec_sql,
+        "state_machine_arn":                sm_arn,
     }
 
 

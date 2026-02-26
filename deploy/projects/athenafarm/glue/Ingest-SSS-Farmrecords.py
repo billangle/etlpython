@@ -103,11 +103,13 @@ log.info("=" * 70)
 
 # List all tables in the source database so any missing-table error is
 # immediately diagnosable from CloudWatch without needing to check the console.
+available_tables: list = []
 try:
     available_tables = [t.name for t in spark.catalog.listTables(SOURCE_DATABASE)]
     log.info(f"Tables in '{SOURCE_DATABASE}': {sorted(available_tables)}")
 except Exception:
     log.exception(f"WARNING: could not list tables in catalog database '{SOURCE_DATABASE}' — full traceback:")
+    log.warning("available_tables unknown — will attempt all TABLE_SPECS regardless")
 
 spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
 
@@ -199,6 +201,12 @@ def ingest_table(source_table: str, target_table: str, partition_col, sort_cols)
 # ---------------------------------------------------------------------------
 errors = []
 for src_tbl, tgt_tbl, part_col, srt_cols in TABLE_SPECS:
+    # Skip tables that are confirmed absent from the Glue catalog — they may
+    # not have been crawled yet.  When available_tables is empty (discovery
+    # failed) we still attempt every table so we don't silently skip everything.
+    if available_tables and src_tbl not in available_tables:
+        log.warning(f"[{src_tbl}] NOT FOUND in '{SOURCE_DATABASE}' catalog — skipping (not crawled yet)")
+        continue
     try:
         ingest_table(src_tbl, tgt_tbl, part_col, srt_cols)
     except Exception as exc:

@@ -225,6 +225,7 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
     pg_connection_name = _as_str(strparams.get("pgConnectionNameParam"))
     secret_id          = _as_str(cfg.get("secretId"))
     iceberg_warehouse  = _as_str(cfg.get("icebergWarehouse"))
+    sss_s3_path        = _as_str(cfg.get("sssFarmrecordsS3Path"))
 
     missing = []
     if not artifact_bucket: missing.append("artifacts.artifactBucket")
@@ -298,6 +299,71 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
                 glue.create_database(DatabaseInput={"Name": db_name})
                 print(f"  ✓ {db_name} (created)")
 
+    # ── Ensure sss-farmrecords Glue crawler exists and has been run ──────────
+    # The SSS/IBase tables (ibib, ibsp, ibst, ibin, ibpart, crmd_partner, etc.)
+    # live as Parquet files under sssFarmrecordsS3Path with UPPERCASE subfolder
+    # names matching table names.  The crawler populates the sss-farmrecords
+    # Glue catalog database so Ingest-SSS-Farmrecords can read them.
+    if sss_s3_path:
+        sss_crawler_name = f"FSA-{deploy_env}-SSS-Farmrecords-Crawler"
+        sss_db_name      = "sss-farmrecords"
+        if dry_run:
+            print(f"  [DRY] Glue crawler: {sss_crawler_name} → {sss_s3_path}")
+        else:
+            # Ensure the sss-farmrecords catalog database exists
+            try:
+                glue.get_database(Name=sss_db_name)
+            except glue.exceptions.EntityNotFoundException:
+                glue.create_database(DatabaseInput={"Name": sss_db_name})
+                print(f"  ✓ {sss_db_name} (created)")
+
+            crawler_cfg = dict(
+                Name=sss_crawler_name,
+                Role=glue_role_arn,
+                DatabaseName=sss_db_name,
+                Targets={"S3Targets": [{"Path": sss_s3_path}]},
+                SchemaChangePolicy={
+                    "UpdateBehavior": "UPDATE_IN_DATABASE",
+                    "DeleteBehavior": "LOG",
+                },
+                Configuration='{"Version":1.0,"CrawlerOutput":{"Partitions":{"AddOrUpdateBehavior":"InheritFromTable"}}}',
+            )
+            try:
+                existing = glue.get_crawler(Name=sss_crawler_name)["Crawler"]
+                # Update if S3 path has changed
+                if existing.get("Targets", {}).get("S3Targets", [{}])[0].get("Path") != sss_s3_path:
+                    glue.update_crawler(**crawler_cfg)
+                    print(f"  ✓ {sss_crawler_name} (updated)")
+                else:
+                    print(f"  ✓ {sss_crawler_name} (exists)")
+            except glue.exceptions.EntityNotFoundException:
+                glue.create_crawler(**crawler_cfg)
+                print(f"  ✓ {sss_crawler_name} (created)")
+
+            # Start the crawler and wait for it to complete
+            try:
+                state = glue.get_crawler(Name=sss_crawler_name)["Crawler"]["State"]
+                if state == "READY":
+                    print(f"  ↻  Starting {sss_crawler_name}...")
+                    glue.start_crawler(Name=sss_crawler_name)
+                else:
+                    print(f"  ↻  {sss_crawler_name} already running (state={state}), waiting...")
+            except glue.exceptions.CrawlerRunningException:
+                print(f"  ↻  {sss_crawler_name} already running, waiting...")
+
+            import time
+            while True:
+                state = glue.get_crawler(Name=sss_crawler_name)["Crawler"]["State"]
+                if state == "READY":
+                    last = glue.get_crawler(Name=sss_crawler_name)["Crawler"].get("LastCrawl", {})
+                    status = last.get("Status", "UNKNOWN")
+                    print(f"  ✓ {sss_crawler_name} finished — {status}")
+                    if status == "FAILED":
+                        print(f"  ⚠  Crawler error: {last.get('ErrorMessage', '')}")
+                    break
+                print(f"  ⏳ {sss_crawler_name} state={state} ...")
+                time.sleep(15)
+
     # ── Upload all Glue scripts ──────────────────────────────────────────────
     print("[1/4] Uploading Glue scripts...")
     script_info: Dict[str, Tuple[str, Path]] = {}
@@ -343,6 +409,9 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
             job_params.setdefault("--secret_id", secret_id)
         # Inject debug flag for all jobs
         job_params.setdefault("--debug", "true" if debug_logging else "false")
+
+        # Enable native Iceberg support on Glue 4.0 (required for .using("iceberg"))
+        job_params.setdefault("--datalake-formats", "iceberg")
 
         # Map AdditionalPythonModulesPath → --extra-py-files (WHL/egg/zip on S3)
         extra_py = _as_str(per.get("AdditionalPythonModulesPath"))

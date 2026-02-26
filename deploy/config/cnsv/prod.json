@@ -107,6 +107,37 @@
         }
       }
     },
+     {
+      "EXEC-SQL": {
+        "Connections": [{ "ConnectionName": "FSA-PROD-PG-DART114" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "480",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/cnsv/",
+        "NumberOfWorkers": "2",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
+        "PythonLibraryPath": "",
+        "ReferencePath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--data_src_nm": "cnsv",
+          "--end_date": "2026-02-11",
+          "--layer": "stg",
+          "--run_type": "incremental",
+          "--start_date": "2026-01-27",
+          "--table_name": "CNSV_LOSS_UNIT"
+        }
+      }
+    },
     {
       "Cons-Pymts-LandingFiles": {
         "Connections": [{ "ConnectionName": "" }],

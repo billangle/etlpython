@@ -82,7 +82,7 @@
         "JobContinuousLogging": "ENABLED",
         "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
         "PythonLibraryPath": "",
-        "AdditionalPythonModulesPath": "",
+        "AdditionalPythonModulesPath": "s3://c108-prod-fpacfsa-landing-zone/dart/scripts/python-modules/dart/glue/psycopg2_binary-2.9.9-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
         "UseGlueDataCatalogAsTheHiveMetastore": "true",
         "JobParameters": {
           "--target_database": "athenafarm_prod_ref"
@@ -107,7 +107,7 @@
         "JobContinuousLogging": "ENABLED",
         "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
         "PythonLibraryPath": "",
-        "AdditionalPythonModulesPath": "",
+        "AdditionalPythonModulesPath": "s3://c108-prod-fpacfsa-landing-zone/dart/scripts/python-modules/dart/glue/psycopg2_binary-2.9.9-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
         "UseGlueDataCatalogAsTheHiveMetastore": "true",
         "JobParameters": {
           "--target_database": "athenafarm_prod_cdc"
@@ -132,7 +132,7 @@
         "JobContinuousLogging": "ENABLED",
         "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
         "PythonLibraryPath": "",
-        "AdditionalPythonModulesPath": "",
+        "AdditionalPythonModulesPath": "s3://c108-prod-fpacfsa-landing-zone/dart/scripts/python-modules/dart/glue/psycopg2_binary-2.9.9-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
         "UseGlueDataCatalogAsTheHiveMetastore": "true",
         "JobParameters": {
           "--sss_database": "athenafarm_prod_raw",
@@ -190,7 +190,7 @@
         "JobContinuousLogging": "ENABLED",
         "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
         "PythonLibraryPath": "",
-        "AdditionalPythonModulesPath": "",
+        "AdditionalPythonModulesPath": "s3://c108-prod-fpacfsa-landing-zone/dart/scripts/python-modules/dart/glue/psycopg2_binary-2.9.9-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
         "UseGlueDataCatalogAsTheHiveMetastore": "true",
         "JobParameters": {
           "--source_database": "athenafarm_prod_gold",

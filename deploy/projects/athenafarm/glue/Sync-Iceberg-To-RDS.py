@@ -17,7 +17,7 @@ GLUE JOB ARGUMENTS:
     --JOB_NAME            : Glue job name
     --env                 : Deployment environment
     --iceberg_warehouse   : s3:// URI for Iceberg warehouse root
-    --connection_name     : Glue connection name for RDS PostgreSQL
+    --secret_id           : AWS Secrets Manager secret ID holding PG credentials
     --rds_database        : PostgreSQL database name (default: fpac_farm_records)
     --target_database     : Glue catalog db for Iceberg tables (default: farm_records_reporting)
     --snapshot_id_param   : SSM parameter storing the last-synced Iceberg snapshot ID
@@ -30,10 +30,12 @@ VERSION HISTORY:
 """
 
 import sys
+import json
 import logging
 import boto3
+import psycopg2
+import psycopg2.extras
 from awsglue.utils import getResolvedOptions
-from awsglue.dynamicframe import DynamicFrame
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
@@ -42,13 +44,13 @@ from pyspark.sql import functions as F
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
-required_args = ["JOB_NAME", "env", "iceberg_warehouse", "connection_name"]
+required_args = ["JOB_NAME", "env", "iceberg_warehouse", "secret_id"]
 args = getResolvedOptions(sys.argv, required_args)
 
 JOB_NAME            = args["JOB_NAME"]
 ENV                 = args["env"]
 ICEBERG_WAREHOUSE   = args["iceberg_warehouse"]
-CONNECTION_NAME     = args["connection_name"]
+SECRET_ID           = args["secret_id"]
 RDS_DATABASE        = args.get("rds_database", "fpac_farm_records")
 TGT_DB              = args.get("target_database", "farm_records_reporting")
 SNAPSHOT_SSM_PARAM  = args.get("snapshot_id_param", f"/athenafarm/{ENV}/last_sync_snapshot")
@@ -61,6 +63,20 @@ job = Job(glueContext)
 job.init(JOB_NAME, args)
 
 spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
+
+# ---------------------------------------------------------------------------
+# Resolve PostgreSQL credentials from Secrets Manager (same pattern as the
+# ingest jobs — the Glue Connection handles VPC routing, credentials and
+# the full database name come from Secrets Manager).
+# ---------------------------------------------------------------------------
+_sm     = boto3.client("secretsmanager")
+_secret = json.loads(_sm.get_secret_value(SecretId=SECRET_ID)["SecretString"])
+
+PG_HOST = _secret["edv_postgres_hostname"]
+PG_PORT = int(_secret["postgres_port"])
+PG_DB   = _secret["edv_postgres_database_name"]
+PG_USER = _secret["edv_postgres_username"]
+PG_PASS = _secret["edv_postgres_password"]
 
 ssm = boto3.client("ssm")
 
@@ -127,44 +143,37 @@ def sync_table(iceberg_table: str, pg_schema: str, pg_table: str, pk_cols: list)
     log.info(f"[{iceberg_table}] {row_count:,} rows to sync")
 
     if row_count == 0:
-        log.info(f"[{iceberg_table}] No changed rows — skipping JDBC write")
+        log.info(f"[{iceberg_table}] No changed rows — skipping write")
         return
 
-    # ── Upsert delta to RDS via Glue postgresql connection ──────────────────
-    # Uses the same connection_type="postgresql" + connectionName pattern as
-    # the ingest jobs.  preactions creates a temp staging table; postactions
-    # runs INSERT ... ON CONFLICT and drops staging.
-    staging_table  = f"_athenafarm_stage_{iceberg_table}"
-    target_table   = f"{pg_schema}.{pg_table}"
-    all_cols       = delta_df.columns
-    pk_cols_str    = ", ".join(pk_cols)
+    # ── Upsert delta to RDS via psycopg2 ────────────────────────────────────
+    all_cols    = delta_df.columns
+    pk_set      = set(pk_cols)
+    non_pk_cols = [c for c in all_cols if c not in pk_set]
+    pk_cols_str = ", ".join(pk_cols)
     insert_cols_str = ", ".join(all_cols)
-    update_set     = ", ".join([f"{c} = EXCLUDED.{c}" for c in all_cols if c not in pk_cols])
+    values_placeholder = ", ".join(["%s"] * len(all_cols))
+    update_set  = ", ".join([f"{c} = EXCLUDED.{c}" for c in non_pk_cols])
 
-    preactions  = (
-        f"DROP TABLE IF EXISTS {staging_table}; "
-        f"CREATE TABLE {staging_table} AS SELECT * FROM {target_table} WHERE 1=0"
-    )
-    postactions = (
-        f"INSERT INTO {target_table} ({insert_cols_str}) "
-        f"SELECT {insert_cols_str} FROM {staging_table} "
-        f"ON CONFLICT ({pk_cols_str}) DO UPDATE SET {update_set}; "
-        f"DROP TABLE IF EXISTS {staging_table}"
+    upsert_sql = (
+        f"INSERT INTO {pg_schema}.{pg_table} ({insert_cols_str}) "
+        f"VALUES ({values_placeholder}) "
+        f"ON CONFLICT ({pk_cols_str}) DO UPDATE SET {update_set}"
     )
 
-    dyf = DynamicFrame.fromDF(delta_df, glueContext, f"sync_{iceberg_table}")
-    glueContext.write_dynamic_frame.from_options(
-        frame=dyf,
-        connection_type="postgresql",
-        connection_options={
-            "useConnectionProperties": "true",
-            "connectionName": CONNECTION_NAME,
-            "dbtable": staging_table,
-            "preactions":  preactions,
-            "postactions": postactions,
-        },
+    rows = [(row[c] for c in all_cols) for row in delta_df.collect()]
+
+    conn = psycopg2.connect(
+        host=PG_HOST, port=PG_PORT, dbname=PG_DB,
+        user=PG_USER, password=PG_PASS, sslmode="require",
     )
-    log.info(f"[{iceberg_table}] Upsert complete → {target_table}")
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                psycopg2.extras.execute_batch(cur, upsert_sql, rows, page_size=1000)
+        log.info(f"[{iceberg_table}] Upserted {row_count:,} rows → {pg_schema}.{pg_table}")
+    finally:
+        conn.close()
 
     # ── Store current snapshot for next incremental run ───────────────────
     current_snapshot_df = spark.sql(

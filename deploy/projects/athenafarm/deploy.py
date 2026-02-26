@@ -41,8 +41,10 @@ sys.path.insert(0, str(_DEPLOY_ROOT))
 from common.aws_common import (
     ensure_bucket_exists,
     ensure_glue_job,
+    ensure_lambda,
     ensure_state_machine,
     GlueJobSpec,
+    LambdaSpec,
     StateMachineSpec,
     s3_upload_file,
 )
@@ -126,6 +128,8 @@ class Names:
     transform_fpy_job: str
     sync_rds_job: str
     iceberg_maint_job: str
+    # Lambda functions
+    notify_fn: str
     # State machines
     sm_main: str
     sm_maintenance: str
@@ -148,6 +152,7 @@ def build_names(deploy_env: str, project: str) -> Names:
         transform_fpy_job=f"{pfx}-Transform-Farm-Producer-Year",
         sync_rds_job=f"{pfx}-Sync-Iceberg-To-RDS",
         iceberg_maint_job=f"{pfx}-Iceberg-Maintenance",
+        notify_fn=f"{pfx}-NotifyPipeline",
         sm_main=f"{pfx}-Main",
         sm_maintenance=f"{pfx}-Maintenance",
     )
@@ -211,12 +216,14 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
     strparams          = _as_dict(cfg.get("strparams"))
     final_bucket       = _as_str(strparams.get("finalBucketNameParam"))
     glue_role_arn      = _as_str(strparams.get("glueJobRoleArnParam"))
+    etl_lambda_role_arn = _as_str(strparams.get("etlRoleArnParam"))
     # sfnRoleArn: primary source is stepFunctions.roleArn (cnsv schema);
     # fall back to strparams.sfnRoleArnParam for legacy configs.
     _sfn_cfg           = _as_dict(cfg.get("stepFunctions"))
     sfn_role_arn       = _as_str(_sfn_cfg.get("roleArn")) or _as_str(strparams.get("sfnRoleArnParam"))
     sns_notify_fn_arn  = _as_str(strparams.get("snsNotifyFnArnParam"))
     pg_connection_name = _as_str(strparams.get("pgConnectionNameParam"))
+    secret_id          = _as_str(cfg.get("secretId"))
     iceberg_warehouse  = _as_str(cfg.get("icebergWarehouse"))
 
     missing = []
@@ -245,6 +252,7 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
     # ── Boto3 clients ────────────────────────────────────────────────────────
     s3_client  = boto3.client("s3",             region_name=region)
     glue       = boto3.client("glue",           region_name=region)
+    lam        = boto3.client("lambda",         region_name=region)
     sfn        = boto3.client("stepfunctions",  region_name=region)
 
     project_dir = Path(__file__).resolve().parent
@@ -271,7 +279,7 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
     print(f"{'='*60}\n")
 
     # ── Upload all Glue scripts ──────────────────────────────────────────────
-    print("[1/3] Uploading Glue scripts...")
+    print("[1/4] Uploading Glue scripts...")
     script_info: Dict[str, Tuple[str, Path]] = {}
     for stem, _job_name in SCRIPT_SPECS:
         local = glue_dir / f"{stem}.py"
@@ -283,7 +291,7 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
         script_info[stem] = (s3_key, local)
 
     # ── Create / update Glue jobs ────────────────────────────────────────────
-    print("\n[2/3] Creating/updating Glue jobs...")
+    print("\n[2/4] Creating/updating Glue jobs...")
     for stem, job_name in SCRIPT_SPECS:
         per = _glue_config_for_script(cfg, stem)
         worker    = _as_str(per.get("WorkerType"), default_worker)
@@ -310,6 +318,9 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
         job_params.setdefault("--iceberg_warehouse", iceberg_warehouse)
         if per_job_connections:
             job_params.setdefault("--connection_name", per_job_connections[0])
+        # Inject Secrets Manager secret ID for jobs that read/write PostgreSQL
+        if ("pg" in stem.lower() or "sync" in stem.lower()) and secret_id:
+            job_params.setdefault("--secret_id", secret_id)
 
         merged_args = _merge_default_args(default_args, job_params)
 
@@ -336,8 +347,28 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
             ensure_glue_job(glue, s3_client, spec)
             print(f"  ✓ {job_name}")
 
+    # ── Deploy Lambda functions ──────────────────────────────────────────────
+    print("\n[3/4] Deploying Lambda functions...")
+    lambda_dir = Path(__file__).resolve().parent / "lambda"
+    notify_spec = LambdaSpec(
+        name=names.notify_fn,
+        role_arn=etl_lambda_role_arn,
+        handler="lambda_function.handler",
+        runtime="python3.12",
+        source_dir=str(lambda_dir / "notify_pipeline"),
+        env={"ENV": deploy_env, "PIPELINE": "athenafarm"},
+        layers=[],
+        timeout=30,
+        memory=256,
+    )
+    if dry_run:
+        print(f"  [DRY] Lambda: {names.notify_fn}")
+    else:
+        ensure_lambda(lam, notify_spec)
+        print(f"  ✓ {names.notify_fn}")
+
     # ── Deploy Step Functions ────────────────────────────────────────────────
-    print("\n[3/3] Deploying Step Functions state machines...")
+    print("\n[4/4] Deploying Step Functions state machines...")
 
     # Token map shared by both ASL files
     tokens = {
@@ -378,7 +409,7 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
     print(f"  athenafarm deploy {'(DRY RUN) ' if dry_run else ''}complete.")
     print(f"{'='*60}\n")
 
-    return {
+    return {  # type: ignore[return-value]
         "deploy_env": deploy_env,
         "project": project,
         "region": region,
@@ -393,6 +424,8 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
         "glue_job_transform_fpy": names.transform_fpy_job,
         "glue_job_sync_rds": names.sync_rds_job,
         "glue_job_iceberg_maint": names.iceberg_maint_job,
+        # Lambda
+        "lambda_notify_fn": names.notify_fn,
         # Step Functions
         "state_machine_main": names.sm_main,
         "state_machine_maintenance": names.sm_maintenance,

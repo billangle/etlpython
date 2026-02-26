@@ -25,7 +25,7 @@ GLUE JOB ARGUMENTS:
     --JOB_NAME          : Glue job name
     --env               : Deployment environment
     --iceberg_warehouse : s3:// URI for Iceberg warehouse root
-    --connection_name   : Glue connection name for RDS PostgreSQL
+    --secret_id         : AWS Secrets Manager secret ID holding PG credentials
     --target_database   : Glue catalog database for Iceberg tables (default: farm_ref)
     --full_load         : "true" to force full re-load (default: incremental)
 
@@ -45,7 +45,9 @@ VERSION HISTORY:
 """
 
 import sys
+import json
 import logging
+import boto3
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
@@ -54,13 +56,13 @@ from awsglue.job import Job
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
-required_args = ["JOB_NAME", "env", "iceberg_warehouse", "connection_name"]
+required_args = ["JOB_NAME", "env", "iceberg_warehouse", "secret_id"]
 args = getResolvedOptions(sys.argv, required_args)
 
 JOB_NAME          = args["JOB_NAME"]
 ENV               = args["env"]
 ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
-CONNECTION_NAME   = args["connection_name"]
+SECRET_ID         = args["secret_id"]
 TARGET_DATABASE   = args.get("target_database", "farm_ref")
 FULL_LOAD         = args.get("full_load", "false").strip().lower() == "true"
 
@@ -72,11 +74,27 @@ job.init(JOB_NAME, args)
 
 spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
 
-# Resolve JDBC credentials once from the named Glue connection
-_jdbc_conf  = glueContext.extract_jdbc_conf(CONNECTION_NAME)
-JDBC_URL    = _jdbc_conf["url"]
-JDBC_USER   = _jdbc_conf.get("user", "")
-JDBC_PASS   = _jdbc_conf.get("password", "")
+# ---------------------------------------------------------------------------
+# Resolve PostgreSQL credentials from Secrets Manager.
+# Build two JDBC URLs — the main EDV database (farm_records_reporting schema)
+# and the CRM database (crm_ods schema lives in a separate PG database).
+# The Glue Connection attached to this job handles VPC / subnet routing;
+# the credentials come from Secrets Manager rather than extract_jdbc_conf so
+# the full database name is always present in the JDBC URL.
+# ---------------------------------------------------------------------------
+_sm     = boto3.client("secretsmanager")
+_secret = json.loads(_sm.get_secret_value(SecretId=SECRET_ID)["SecretString"])
+
+PG_HOST = _secret["edv_postgres_hostname"]
+PG_PORT = str(_secret["postgres_port"])
+PG_DB   = _secret["edv_postgres_database_name"]   # EDV database
+PG_USER = _secret["edv_postgres_username"]
+PG_PASS = _secret["edv_postgres_password"]
+
+# farm_records_reporting tables live in the main EDV PostgreSQL database
+JDBC_URL_MAIN = f"jdbc:postgresql://{PG_HOST}:{PG_PORT}/{PG_DB}?sslmode=require"
+# crm_ods.but000 lives in a separate PostgreSQL database on the same server
+JDBC_URL_CRM  = f"jdbc:postgresql://{PG_HOST}:{PG_PORT}/CRM_ODS?sslmode=require"
 
 # ---------------------------------------------------------------------------
 # Table specs: (pg_schema, pg_table, iceberg_target, partition_col, bookmark_key)
@@ -96,13 +114,17 @@ TABLE_SPECS = [
 def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_col):
     target_fqn = f"glue_catalog.{TARGET_DATABASE}.{target_table}"
     source_label = f"{pg_schema}.{pg_table}"
-    log.info(f"[{source_label}] Reading via JDBC connection {CONNECTION_NAME}")
+    log.info(f"[{source_label}] Reading via Secrets Manager JDBC credentials")
+
+    # crm_ods tables live in a separate PostgreSQL database (CRM_ODS);
+    # everything else is in the main EDV database.
+    jdbc_url = JDBC_URL_CRM if pg_schema.lower() == "crm_ods" else JDBC_URL_MAIN
 
     df = spark.read.format("jdbc") \
-        .option("url",      JDBC_URL) \
+        .option("url",      jdbc_url) \
         .option("dbtable",  f"{pg_schema}.{pg_table}") \
-        .option("user",     JDBC_USER) \
-        .option("password", JDBC_PASS) \
+        .option("user",     PG_USER) \
+        .option("password", PG_PASS) \
         .option("driver",   "org.postgresql.Driver") \
         .option("fetchsize", "10000") \
         .load()

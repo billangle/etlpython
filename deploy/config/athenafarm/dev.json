@@ -14,7 +14,7 @@
     "glueJobRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-servicerole-glue",
     "etlRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-lambda",
     "sfnRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-stepfunction",
-    "snsNotifyFnArnParam": "arn:aws:lambda:us-east-1:241533156429:function:FSA-FPACDEV-NotifyPipeline",
+    "snsNotifyFnArnParam": "arn:aws:lambda:us-east-1:241533156429:function:FSA-FPACDEV-ATHENAFARM-NotifyPipeline",
     "pgConnectionNameParam": "FSA-DEV-PG-EDV"
   },
 

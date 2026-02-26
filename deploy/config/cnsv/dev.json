@@ -18,7 +18,11 @@
     "etlRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-lambda",
     "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1",
     "customLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:FSA-polars:2",
-    "snsArnParam": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-FMMI"
+    "snsArnParam": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-FMMI",
+    "buildProcessingPlanFnArnParam": "arn:aws:lambda:us-east-1:241533156429:function:FSA-FPACDEV-edv-build-processing-plan",
+    "checkResultsFnArnParam": "arn:aws:lambda:us-east-1:241533156429:function:FSA-FPACDEV-edv-check-results",
+    "finalizePipelineFnArnParam": "arn:aws:lambda:us-east-1:241533156429:function:FSA-FPACDEV-edv-finalize-pipeline",
+    "handleFailureFnArnParam": "arn:aws:lambda:us-east-1:241533156429:function:FSA-FPACDEV-edv-handle-failure"
   },
   "paths": {
     "glueRootPath": "glue/",
@@ -106,6 +110,37 @@
             "--SecretId": "FSA-CERT-Secrets",
             "--SourcePrefix": "cnsv/dbo"
           }
+      }
+    },
+    {
+      "EXEC-SQL": {
+        "Connections": [{ "ConnectionName": "FSA-DEV-PG-DART114" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "480",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/cnsv/",
+        "NumberOfWorkers": "2",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-dev-ops/temp/glue/",
+        "PythonLibraryPath": "",
+        "ReferencePath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--data_src_nm": "cnsv",
+          "--end_date": "2026-02-11",
+          "--layer": "stg",
+          "--run_type": "incremental",
+          "--start_date": "2026-01-27",
+          "--table_name": "CNSV_LOSS_UNIT"
+        }
       }
     },
     { 

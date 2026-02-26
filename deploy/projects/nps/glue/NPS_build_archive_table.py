@@ -12,7 +12,8 @@
 #          per use of the   "load_type": "full_day_load", work with data which does not have the 
 #              need for load full day then several daily deltas.  
 #          to handle more than just nps, added arg --area.  
-#          eliminated the write to Redshift step (we don't write stage tables to Redshift)
+#          eliminated the write to Redshift step (we don't write stage tables to Redshift
+# dgsprous - 20260225 - added logic to take yesterday iff environ == prod and area == nrrs and present_hour < 20
 
 
 import gzip
@@ -37,6 +38,8 @@ from pyspark.sql import SQLContext
 from pyspark.sql import Window
 from py4j.java_gateway import java_import
 from pyspark.sql.types import DecimalType, DoubleType, IntegerType, StringType, StructType, StructField, TimestampType, LongType, DateType
+import pytz
+
 
 # @params: [JOB_NAME, source_path, destination_path, dbtable, schema_name]
 args = getResolvedOptions(sys.argv, ['JOB_NAME', 'dbtable', 'schema_name', 'environ', 'utils', 'force_full_rebuild', 'area'])
@@ -309,9 +312,17 @@ source_schema = utils.get_schema_from_source_schema(json_table["source_table_sch
 delete_schema = utils.get_schema_from_source_schema(json_table["delete_table_schema"])
 
 #print(f"source_schema: {source_schema}")
+datestmp = df_loaddate.collect()[i]["folderdate"]
+present_hour = datetime.now().astimezone(pytz.timezone('US/Central')).strftime("%H")
+print(present_hour)
+if (int(present_hour)<20, area.lower() == 'nrrs',environ.lower()=='prod') == (True,True,True):
+    print('line 316')
+    datestmp = datetime.utcnow().astimezone(pytz.timezone('US/Central')) + timedelta(days=-1)
+    datestmp = datestmp.strftime("%Y%m%d")
+    tmstmp = datetime.now().astimezone(pytz.timezone('US/Central')) + timedelta(days=-1)
+    datestmp = tmstmp.strftime("%Y%m%d")
 
 while i < date_count:
-    datestmp = df_loaddate.collect()[i]["folderdate"]
     print(f"inside loop loading date: {datestmp}")
     source_path_01a = f"{source_path}/{datestmp}/{filename_a}"
     source_path_01b = f"{source_path}/{datestmp}/{filename_b}"
@@ -428,20 +439,6 @@ utils.data_ppln_job_insert(job_stat_nm, 'Complete', starttime_m, endtime_m, pcdb
 
 logger.info("Glue Job finished.")
 job.commit()
-
-
-#####################################################################################
-# Adding logic to save data to Final Zone in Parquet format with try-except handling
-#####################################################################################
-try:
-    # Saving the transformed dataframe to the Final Zone in Parquet format
-    logger.info(f"Saving data to the Final Zone in Parquet format: {final_zone_path}")
-    
-    df.write.mode("overwrite").parquet(f"{final_zone_path}")
-    logger.info(f"Data successfully saved to the Final Zone in Parquet format at: {final_zone_path}")
-
-except Exception as e:
-    logger.error(f"Error while saving data to the Final Zone in Parquet format: {e}")
 
 
 endtime_m = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

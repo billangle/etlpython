@@ -64,7 +64,6 @@ ENV               = args["env"]
 ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
 SECRET_ID         = args["secret_id"]
 TARGET_DATABASE   = args.get("target_database", "farm_ref")
-FULL_LOAD         = args.get("full_load", "false").strip().lower() == "true"
 
 sc = SparkContext()
 glueContext = GlueContext(sc)
@@ -143,17 +142,11 @@ def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_
     if partition_col and partition_col in df.columns:
         writer = writer.partitionedBy(partition_col)
 
-    if FULL_LOAD:
-        log.info(f"[{source_label}] Full load — createOrReplace")
-        writer.createOrReplace()
-    else:
-        try:
-            writer.append()
-        except Exception:
-            log.warning(f"[{source_label}] Table does not exist — creating")
-            writer.create()
-
-    log.info(f"[{source_label}] Done → {target_fqn}")
+    # Always createOrReplace: we read the full table from PG on every run,
+    # so append would accumulate duplicate rows on re-runs or retries.
+    log.info(f"[{source_label}] createOrReplace → {target_fqn}")
+    writer.createOrReplace()
+    log.info(f"[{source_label}] Done")
 
 
 errors = []

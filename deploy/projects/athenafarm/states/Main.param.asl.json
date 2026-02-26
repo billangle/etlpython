@@ -200,7 +200,20 @@
           "Next": "Notify"
         }
       ],
-      "Next": "SyncToRDS"
+      "Next": "CheckSkipRDSSync"
+    },
+
+    "CheckSkipRDSSync": {
+      "Type": "Choice",
+      "Comment": "If skip_rds_sync is true in the execution input, bypass SyncToRDS and go straight to Notify. Default (false or absent) runs the sync.",
+      "Choices": [
+        {
+          "Variable": "$.skip_rds_sync",
+          "BooleanEquals": true,
+          "Next": "Notify"
+        }
+      ],
+      "Default": "SyncToRDS"
     },
 
     "SyncToRDS": {

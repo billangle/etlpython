@@ -161,7 +161,7 @@ def sync_table(iceberg_table: str, pg_schema: str, pg_table: str, pk_cols: list)
         f"ON CONFLICT ({pk_cols_str}) DO UPDATE SET {update_set}"
     )
 
-    rows = [(row[c] for c in all_cols) for row in delta_df.collect()]
+    rows = [tuple(row[c] for c in all_cols) for row in delta_df.collect()]
 
     conn = psycopg2.connect(
         host=PG_HOST, port=PG_PORT, dbname=PG_DB,
@@ -170,8 +170,13 @@ def sync_table(iceberg_table: str, pg_schema: str, pg_table: str, pk_cols: list)
     try:
         with conn:
             with conn.cursor() as cur:
+                if FULL_LOAD:
+                    # Full load: truncate first so deleted-from-source rows
+                    # don't silently persist as stale orphans in RDS.
+                    cur.execute(f"TRUNCATE TABLE {pg_schema}.{pg_table}")
+                    log.info(f"[{iceberg_table}] Truncated {pg_schema}.{pg_table} for full load")
                 psycopg2.extras.execute_batch(cur, upsert_sql, rows, page_size=1000)
-        log.info(f"[{iceberg_table}] Upserted {row_count:,} rows → {pg_schema}.{pg_table}")
+        log.info(f"[{iceberg_table}] {'Full load' if FULL_LOAD else 'Upserted'} {row_count:,} rows → {pg_schema}.{pg_table}")
     finally:
         conn.close()
 

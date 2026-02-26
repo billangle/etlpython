@@ -21,6 +21,9 @@ deploy/projects/athenafarm/
 │   ├── Transform-Farm-Producer-Year.py     # CTE + MERGE INTO farm_producer_year
 │   ├── Sync-Iceberg-To-RDS.py             # Delta sync Iceberg → RDS PostgreSQL
 │   └── Iceberg-Maintenance.py             # Weekly OPTIMIZE + EXPIRE SNAPSHOTS
+├── lambda/
+│   └── notify_pipeline/
+│       └── lambda_function.py              # Pipeline completion/failure notifier
 └── states/
     ├── Main.param.asl.json          # Main ETL pipeline Step Functions DAG
     └── Maintenance.param.asl.json   # Weekly maintenance Step Functions DAG
@@ -52,7 +55,9 @@ Manual / Lambda / CI trigger (no EventBridge — see "Running Without EventBridg
         │
         ├─ Transform-Tract-Producer-Year        (CTE + MERGE INTO tract_producer_year)
         ├─ Transform-Farm-Producer-Year         (CTE + MERGE INTO farm_producer_year)
-        └─ Sync-Iceberg-To-RDS                  (delta → RDS PostgreSQL)
+        ├─ CheckSkipRDSSync                     (Choice: skip_rds_sync=true → Notify)
+        ├─ Sync-Iceberg-To-RDS                  (delta → RDS PostgreSQL)  [skippable]
+        └─ Notify                               (FSA-{ENV}-ATHENAFARM-NotifyPipeline Lambda)
 
 Manual / Lambda / CI trigger (on schedule — no EventBridge)
   └─▶ Step Functions: FSA-{ENV}-ATHENAFARM-Maintenance
@@ -89,11 +94,21 @@ python deploy.py --config ../../config/athenafarm/prod.json
 
 ### 2. Trigger a full-load run
 
-Pass `full_load: "true"` in the Step Functions input to force a bulk insert
-(skips `WHEN MATCHED` — equivalent to `INSERT_NO_COMPARE`):
+Pass `full_load: "true"` in the Step Functions input to force a full snapshot
+(equivalent to `INSERT_NO_COMPARE` — rebuilds all Iceberg tables from scratch
+and truncates RDS target tables before re-inserting):
 
 ```json
-{ "full_load": "true" }
+{ "full_load": "true", "skip_rds_sync": false }
+```
+
+### 3. Skip the RDS sync
+
+To run the ingest + transform stages without writing back to RDS PostgreSQL
+(useful for testing or backfilling Iceberg without touching the live database):
+
+```json
+{ "full_load": "false", "skip_rds_sync": true }
 ```
 
 ---
@@ -116,14 +131,21 @@ aws stepfunctions start-execution \
   --region "${REGION}" \
   --state-machine-arn "arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:FSA-${ENV}-ATHENAFARM-Main" \
   --name "manual-$(date +%Y%m%d-%H%M%S)" \
-  --input '{"full_load": "false"}'
+  --input '{"full_load": "false", "skip_rds_sync": false}'
 
 # ------- Main ETL pipeline (full / bulk-insert only) -------
 aws stepfunctions start-execution \
   --region "${REGION}" \
   --state-machine-arn "arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:FSA-${ENV}-ATHENAFARM-Main" \
   --name "fullload-$(date +%Y%m%d-%H%M%S)" \
-  --input '{"full_load": "true"}'
+  --input '{"full_load": "true", "skip_rds_sync": false}'
+
+# ------- Iceberg-only run (no RDS write-back) -------
+aws stepfunctions start-execution \
+  --region "${REGION}" \
+  --state-machine-arn "arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:FSA-${ENV}-ATHENAFARM-Main" \
+  --name "iceberg-only-$(date +%Y%m%d-%H%M%S)" \
+  --input '{"full_load": "false", "skip_rds_sync": true}'
 
 # ------- Weekly Maintenance pipeline -------
 aws stepfunctions start-execution \
@@ -149,8 +171,9 @@ aws stepfunctions describe-execution \
 3. Search for `FSA-{ENV}-ATHENAFARM-Main` (or `Maintenance`).
 4. Click **Start execution**.
 5. In the **Input** box enter one of:
-   - `{ "full_load": "false" }` — incremental MERGE (normal run)
-   - `{ "full_load": "true" }` — full/bulk insert only
+   - `{ "full_load": "false", "skip_rds_sync": false }` — incremental MERGE (normal run)
+   - `{ "full_load": "true", "skip_rds_sync": false }` — full/bulk insert, truncates RDS before reload
+   - `{ "full_load": "false", "skip_rds_sync": true }` — Iceberg only, no RDS write-back
 6. Click **Start execution**.
 
 Monitor progress in the **Graph inspector** tab; each node goes green when
@@ -245,16 +268,24 @@ stage('Run ETL') {
 
 ## Glue Job Arguments
 
-| Argument | Description | Default |
-|---|---|---|
-| `--env` | Deployment environment | (required) |
-| `--iceberg_warehouse` | S3 URI for Iceberg warehouse root | (required) |
-| `--full_load` | `true` = bulk insert only, no MATCHED update | `false` |
-| `--connection_name` | Glue connection name for RDS PostgreSQL | from config |
-| `--sss_database` | Glue catalog DB for SSS Iceberg tables | `sss` |
-| `--ref_database` | Glue catalog DB for PG reference Iceberg tables | `farm_ref` |
-| `--target_database` | Glue catalog DB for target Iceberg tables | `farm_records_reporting` |
-| `--snapshot_retention_hours` | Maintenance: hours of snapshots to keep | `168` (7 days) |
+| Argument | Jobs | Description | Default |
+|---|---|---|---|
+| `--env` | all | Deployment environment | (required) |
+| `--iceberg_warehouse` | all | S3 URI for Iceberg warehouse root | (required) |
+| `--secret_id` | PG ingest, Sync | AWS Secrets Manager secret ID for PG credentials | from config |
+| `--full_load` | Transform, Sync | `true` = full rebuild; Sync also truncates RDS before insert | `false` |
+| `--sss_database` | Transform | Glue catalog DB for SSS Iceberg tables | `sss` |
+| `--ref_database` | Transform | Glue catalog DB for PG reference Iceberg tables | `farm_ref` |
+| `--target_database` | Ingest PG, Transform | Glue catalog DB for target Iceberg tables | `farm_records_reporting` |
+| `--snapshot_id_param` | Sync | SSM parameter path storing last-synced Iceberg snapshot ID | `/athenafarm/{env}/last_sync_snapshot` |
+| `--snapshot_retention_hours` | Maintenance | Hours of snapshots to keep | `168` (7 days) |
+
+## Step Functions Execution Input
+
+| Parameter | Type | Description | Default |
+|---|---|---|---|
+| `full_load` | boolean/string | Force full rebuild of all Iceberg tables; Sync truncates RDS before reload | `false` |
+| `skip_rds_sync` | boolean | Skip `Sync-Iceberg-To-RDS` entirely — useful for testing or Iceberg-only backfills | `false` |
 
 ---
 

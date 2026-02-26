@@ -1,0 +1,92 @@
+{
+  "cause": {
+    "AllocatedCapacity": 8,
+    "Arguments": {
+      "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+      "--env": "PROD"
+    },
+    "Attempt": 0,
+    "CompletedOn": 1772135310107,
+    "ErrorMessage": "RuntimeError: Ingest-PG-CDC-Targets completed with errors: farm_records_reporting.tract_producer_year: spark_catalog requires a single-part namespace, but got [glue_catalog, athenafarm_prod_cdc]; farm_records_reporting.farm_producer_year: spark_catalog requires a single-part namespace, but got [glue_catalog, athenafarm_prod_cdc]",
+    "ExecutionTime": 513,
+    "GlueVersion": "4.0",
+    "Id": "jr_3b07f0ff6393e481836b88fb390a8f4ddd877ca94787c727da9c9e7526c04853",
+    "JobMode": "SCRIPT",
+    "JobName": "FSA-PROD-ATHENAFARM-Ingest-PG-CDC-Targets",
+    "JobRunState": "FAILED",
+    "LastModifiedOn": 1772135310107,
+    "LogGroupName": "/aws-glue/jobs",
+    "MaxCapacity": 8,
+    "NumberOfWorkers": 4,
+    "PredecessorRuns": [],
+    "StartedOn": 1772134772768,
+    "Timeout": 60,
+    "WorkerType": "G.2X"
+  },
+  "error": "States.TaskFailed",
+  "resource": "startJobRun.sync",
+  "resourceType": "glue"
+}
+
+{
+  "cause": {
+    "AllocatedCapacity": 8,
+    "Arguments": {
+      "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+      "--env": "PROD"
+    },
+    "Attempt": 0,
+    "CompletedOn": 1772135246893,
+    "ErrorMessage": "RuntimeError: Ingest-PG-Reference-Tables completed with errors: farm_records_reporting.time_period: spark_catalog requires a single-part namespace, but got [glue_catalog, athenafarm_prod_ref]; farm_records_reporting.county_office_control: spark_catalog requires a single-part namespace, but got [glue_catalog, athenafarm_prod_ref]; farm_records_reporting.farm: spark_catalog requires a single-part namespace, but got [glue_catalog, athenafarm_prod_ref]; farm_records_reporting.tract: spark_catalog requires a single-part namespace, but got [glue_catalog, athenafarm_prod_ref]; farm_records_reporting.farm_year: spark_catalog requires a single-part namespace, but got [glue_catalog, athenafarm_prod_ref]; farm_records_reporting.tract_year: spark_catalog requires a single-part namespace, but got [glue_catalog, athenafarm_prod_ref]; crm_ods.but000: spark_catalog requires a single-part namespace, but got [glue_catalog, athenafarm_prod_ref]",
+    "ExecutionTime": 454,
+    "GlueVersion": "4.0",
+    "Id": "jr_c74ef92cd7f3fe429e54618fd8abe86a487bd06f88e53b0719194065f8547167",
+    "JobMode": "SCRIPT",
+    "JobName": "FSA-PROD-ATHENAFARM-Ingest-PG-Reference-Tables",
+    "JobRunState": "FAILED",
+    "LastModifiedOn": 1772135246893,
+    "LogGroupName": "/aws-glue/jobs",
+    "MaxCapacity": 8,
+    "NumberOfWorkers": 4,
+    "PredecessorRuns": [],
+    "StartedOn": 1772134772786,
+    "Timeout": 60,
+    "WorkerType": "G.2X"
+  },
+  "error": "States.TaskFailed",
+  "resource": "startJobRun.sync",
+  "resourceType": "glue"
+}
+
+
+
+{
+  "cause": {
+    "AllocatedCapacity": 20,
+    "Arguments": {
+      "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+      "--env": "PROD"
+    },
+    "Attempt": 0,
+    "CompletedOn": 1772135421278,
+    "ErrorMessage": "RuntimeError: Ingest-SSS-Farmrecords completed with errors: ibib: spark_catalog requires a single-part namespace, but got [glue_catalog, athenafarm_prod_raw]; ibsp: should sort by at least one column; ibst: should sort by at least one column; ibin: should sort by at least one column; ibpart: should sort by at least one column; crmd_partner: should sort by at least one column; z_ibase_comp_detail: should sort by at least one column; comm_pr_frg_rel: should sort by at least one column; zmi_farm_partn: should sort by at least one column; zmi_field_excp: should sort by at least one column; tbl_fr_bp_relationship: should sort by at least one column; farm: spark_catalog requires a single-part namespace, but got [glue_catalog, athenafarm_prod_raw]",
+    "ExecutionTime": 641,
+    "GlueVersion": "4.0",
+    "Id": "jr_4b03608e9ff842fdbfcb364d58b1025149b35f0261bdb2962a978d84f0f9008f",
+    "JobMode": "SCRIPT",
+    "JobName": "FSA-PROD-ATHENAFARM-Ingest-SSS-Farmrecords",
+    "JobRunState": "FAILED",
+    "LastModifiedOn": 1772135421278,
+    "LogGroupName": "/aws-glue/jobs",
+    "MaxCapacity": 20,
+    "NumberOfWorkers": 10,
+    "PredecessorRuns": [],
+    "StartedOn": 1772134772770,
+    "Timeout": 120,
+    "WorkerType": "G.2X"
+  },
+  "error": "States.TaskFailed",
+  "resource": "startJobRun.sync",
+  "resourceType": "glue"
+}
+

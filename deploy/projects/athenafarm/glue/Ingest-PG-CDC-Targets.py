@@ -172,7 +172,8 @@ def ingest_cdc_target(pg_schema: str, pg_table: str, tgt_table: str, partition_c
     writer = df.writeTo(target_fqn).using("iceberg") \
         .tableProperty("write.format.default", "parquet") \
         .tableProperty("write.parquet.compression-codec", "snappy") \
-        .tableProperty("write.distribution-mode", "range") \
+        .tableProperty("write.distribution-mode", "none") \
+        .tableProperty("write.spark.fanout.enabled", "true") \
         .tableProperty("write.merge.mode", "merge-on-read")
 
     if partition_col and partition_col in df.columns:

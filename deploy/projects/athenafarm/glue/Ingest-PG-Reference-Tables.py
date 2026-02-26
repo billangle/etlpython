@@ -195,7 +195,8 @@ def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_
     writer = df.writeTo(target_fqn).using("iceberg") \
         .tableProperty("write.format.default", "parquet") \
         .tableProperty("write.parquet.compression-codec", "snappy") \
-        .tableProperty("write.distribution-mode", "range")
+        .tableProperty("write.distribution-mode", "none") \
+        .tableProperty("write.spark.fanout.enabled", "true")
 
     if partition_col and partition_col in df.columns:
         writer = writer.partitionedBy(partition_col)

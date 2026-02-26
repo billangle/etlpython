@@ -193,7 +193,8 @@ def ingest_table(source_table: str, target_table: str, partition_col, sort_cols)
     writer = df.writeTo(target_fqn).using("iceberg") \
         .tableProperty("write.format.default", "parquet") \
         .tableProperty("write.parquet.compression-codec", "snappy") \
-        .tableProperty("write.distribution-mode", "range") \
+        .tableProperty("write.distribution-mode", "none") \
+        .tableProperty("write.spark.fanout.enabled", "true") \
         .tableProperty("write.merge.mode", "merge-on-read")
 
     if partition_col and partition_col in df.columns:
@@ -267,7 +268,8 @@ try:
     writer = df_fsa.writeTo(fsa_farm_target_fqn).using("iceberg") \
         .tableProperty("write.format.default", "parquet") \
         .tableProperty("write.parquet.compression-codec", "snappy") \
-        .tableProperty("write.distribution-mode", "range") \
+        .tableProperty("write.distribution-mode", "none") \
+        .tableProperty("write.spark.fanout.enabled", "true") \
         .tableProperty("write.merge.mode", "merge-on-read")
 
     # Partition by administrative_state for state-level pruning (arch.md §3.4 strategy)

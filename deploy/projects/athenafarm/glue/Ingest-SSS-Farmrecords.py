@@ -108,13 +108,13 @@ TABLE_SPECS = [
 def ingest_table(source_table: str, target_table: str, partition_col, sort_cols):
     """Read one SSS table from Athena catalog and write/merge to Iceberg."""
     target_fqn = f"glue_catalog.{TARGET_DATABASE}.{target_table}"
-    log.info(f"[{source_table}] Reading from {SOURCE_CATALOG}.{SOURCE_DATABASE}.{source_table}")
+    log.info(f"[{source_table}] Reading from Glue catalog database '{SOURCE_DATABASE}' table '{source_table}'")
 
-    df = spark.read.format("awsdatacatalog").options(
-        catalog=SOURCE_CATALOG,
+    dyf = glueContext.create_dynamic_frame.from_catalog(
         database=SOURCE_DATABASE,
-        tableName=source_table,
-    ).load()
+        table_name=source_table,
+    )
+    df = dyf.toDF()
 
     row_count = df.count()
     log.info(f"[{source_table}] Read {row_count:,} rows")
@@ -171,13 +171,13 @@ FSA_FARM_TARGET   = "fsa_farm_records_farm"
 
 try:
     fsa_farm_target_fqn = f"glue_catalog.{TARGET_DATABASE}.{FSA_FARM_TARGET}"
-    log.info(f"[{FSA_FARM_SOURCE}] Reading from {FSA_FARM_CATALOG}.{FSA_FARM_DATABASE}.{FSA_FARM_SOURCE}")
+    log.info(f"[{FSA_FARM_SOURCE}] Reading from Glue catalog database '{FSA_FARM_DATABASE}' table '{FSA_FARM_SOURCE}'")
 
-    df_fsa = spark.read.format("awsdatacatalog").options(
-        catalog=FSA_FARM_CATALOG,
+    dyf_fsa = glueContext.create_dynamic_frame.from_catalog(
         database=FSA_FARM_DATABASE,
-        tableName=FSA_FARM_SOURCE,
-    ).load()
+        table_name=FSA_FARM_SOURCE,
+    )
+    df_fsa = dyf_fsa.toDF()
 
     log.info(f"[{FSA_FARM_SOURCE}] Read {df_fsa.count():,} rows")
 

@@ -67,39 +67,38 @@ TABLE_SPECS = [
         "tract_producer_year",
         "tract_producer_year",
         "state_fsa_code",
-        "core_customer_identifier",           # bookmark key — monotonically increasing surrogate
     ),
     (
         "farm_records_reporting",
         "farm_producer_year",
         "farm_producer_year",
         "state_fsa_code",
-        "core_customer_identifier",
     ),
 ]
 
 
-def ingest_cdc_target(pg_schema: str, pg_table: str, tgt_table: str, partition_col: str, bookmark_key: str):
+def ingest_cdc_target(pg_schema: str, pg_table: str, tgt_table: str, partition_col: str):
     target_fqn = f"glue_catalog.{TARGET_DATABASE}.{tgt_table}"
     source_label = f"{pg_schema}.{pg_table}"
-    log.info(f"[{source_label}] Snapshotting CDC target via {CONNECTION_NAME}")
+    log.info(f"[{source_label}] Snapshotting CDC target via JDBC connection {CONNECTION_NAME}")
 
-    dyf = glueContext.create_dynamic_frame.from_catalog(
-        database=CONNECTION_NAME,
-        table_name=f"{pg_schema}_{pg_table}",
-        additional_options={
-            "jobBookmarkKeys": [bookmark_key],
-            "jobBookmarkKeysSortOrder": "asc",
-        } if not FULL_LOAD else {},
+    # from_options with connection_type="postgresql" reads directly via the
+    # named Glue JDBC connection — no Glue Data Catalog crawl required.
+    # CDC targets always do a full snapshot so the Transform MERGE has a
+    # complete current-state baseline for WHEN MATCHED comparison.
+    dyf = glueContext.create_dynamic_frame.from_options(
+        connection_type="postgresql",
+        connection_options={
+            "useConnectionProperties": "true",
+            "connectionName": CONNECTION_NAME,
+            "dbtable": f"{pg_schema}.{pg_table}",
+        },
+        transformation_ctx=f"read_{pg_schema}_{pg_table}",
     )
 
     df = dyf.toDF()
     row_count = df.count()
     log.info(f"[{source_label}] Read {row_count:,} rows")
-
-    if row_count == 0:
-        log.info(f"[{source_label}] No new rows — skipping write")
-        return
 
     writer = df.writeTo(target_fqn).using("iceberg") \
         .tableProperty("write.format.default", "parquet") \
@@ -110,23 +109,17 @@ def ingest_cdc_target(pg_schema: str, pg_table: str, tgt_table: str, partition_c
     if partition_col and partition_col in df.columns:
         writer = writer.partitionedBy(partition_col)
 
-    if FULL_LOAD:
-        log.info(f"[{source_label}] Full load — createOrReplace")
-        writer.createOrReplace()
-    else:
-        try:
-            writer.append()
-        except Exception:
-            log.warning(f"[{source_label}] Table does not exist — creating")
-            writer.create()
-
+    # Always createOrReplace — CDC targets must reflect the full current PG
+    # state so the downstream Transform MERGE has a complete baseline.
+    log.info(f"[{source_label}] Full snapshot — createOrReplace")
+    writer.createOrReplace()
     log.info(f"[{source_label}] Done → {target_fqn}")
 
 
 errors = []
-for pg_schema, pg_table, tgt_tbl, part_col, bk_key in TABLE_SPECS:
+for pg_schema, pg_table, tgt_tbl, part_col in TABLE_SPECS:
     try:
-        ingest_cdc_target(pg_schema, pg_table, tgt_tbl, part_col, bk_key)
+        ingest_cdc_target(pg_schema, pg_table, tgt_tbl, part_col)
     except Exception as exc:
         log.error(f"[{pg_schema}.{pg_table}] FAILED: {exc}", exc_info=True)
         errors.append((f"{pg_schema}.{pg_table}", str(exc)))

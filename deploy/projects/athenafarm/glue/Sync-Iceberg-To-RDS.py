@@ -33,6 +33,7 @@ import sys
 import logging
 import boto3
 from awsglue.utils import getResolvedOptions
+from awsglue.dynamicframe import DynamicFrame
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
@@ -129,46 +130,40 @@ def sync_table(iceberg_table: str, pg_schema: str, pg_table: str, pk_cols: list)
         log.info(f"[{iceberg_table}] No changed rows — skipping JDBC write")
         return
 
-    # ── Write delta to RDS via JDBC (upsert via temp staging table pattern) ──
-    jdbc_url = glueContext.extract_jdbc_conf(CONNECTION_NAME)["url"]
-    staging_table = f"_athenafarm_stage_{iceberg_table}"
-    target_table = f"{pg_schema}.{pg_table}"
+    # ── Upsert delta to RDS via Glue postgresql connection ──────────────────
+    # Uses the same connection_type="postgresql" + connectionName pattern as
+    # the ingest jobs.  preactions creates a temp staging table; postactions
+    # runs INSERT ... ON CONFLICT and drops staging.
+    staging_table  = f"_athenafarm_stage_{iceberg_table}"
+    target_table   = f"{pg_schema}.{pg_table}"
+    all_cols       = delta_df.columns
+    pk_cols_str    = ", ".join(pk_cols)
+    insert_cols_str = ", ".join(all_cols)
+    update_set     = ", ".join([f"{c} = EXCLUDED.{c}" for c in all_cols if c not in pk_cols])
 
-    # Write to staging table
-    delta_df.write.format("jdbc") \
-        .option("url", jdbc_url) \
-        .option("dbtable", staging_table) \
-        .option("driver", "org.postgresql.Driver") \
-        .option("batchsize", "10000") \
-        .mode("overwrite") \
-        .save()
+    preactions  = (
+        f"DROP TABLE IF EXISTS {staging_table}; "
+        f"CREATE TABLE {staging_table} AS SELECT * FROM {target_table} WHERE 1=0"
+    )
+    postactions = (
+        f"INSERT INTO {target_table} ({insert_cols_str}) "
+        f"SELECT {insert_cols_str} FROM {staging_table} "
+        f"ON CONFLICT ({pk_cols_str}) DO UPDATE SET {update_set}; "
+        f"DROP TABLE IF EXISTS {staging_table}"
+    )
 
-    log.info(f"[{iceberg_table}] Staging table loaded — executing upsert to {target_table}")
-
-    # Build upsert SQL
-    pk_match = " AND ".join([f"t.{c} = s.{c}" for c in pk_cols])
-    all_cols = delta_df.columns
-    update_set = ", ".join([f"{c} = s.{c}" for c in all_cols if c not in pk_cols])
-    insert_cols = ", ".join(all_cols)
-    insert_vals = ", ".join([f"s.{c}" for c in all_cols])
-
-    upsert_sql = f"""
-    INSERT INTO {target_table} ({insert_cols})
-    SELECT {insert_cols} FROM {staging_table} s
-    ON CONFLICT ({", ".join(pk_cols)})
-    DO UPDATE SET {update_set}
-    """
-
-    # Execute via JDBC using a Spark driver-side connection
-    from py4j.java_gateway import java_import
-    java_import(spark._jvm, "java.sql.DriverManager")
-    conn_props = glueContext.extract_jdbc_conf(CONNECTION_NAME)
-    conn = spark._jvm.DriverManager.getConnection(conn_props["url"], conn_props.get("user", ""), conn_props.get("password", ""))
-    stmt = conn.createStatement()
-    stmt.execute(upsert_sql)
-    stmt.execute(f"DROP TABLE IF EXISTS {staging_table}")
-    conn.close()
-
+    dyf = DynamicFrame.fromDF(delta_df, glueContext, f"sync_{iceberg_table}")
+    glueContext.write_dynamic_frame.from_options(
+        frame=dyf,
+        connection_type="postgresql",
+        connection_options={
+            "useConnectionProperties": "true",
+            "connectionName": CONNECTION_NAME,
+            "dbtable": staging_table,
+            "preactions":  preactions,
+            "postactions": postactions,
+        },
+    )
     log.info(f"[{iceberg_table}] Upsert complete → {target_table}")
 
     # ── Store current snapshot for next incremental run ───────────────────

@@ -76,30 +76,32 @@ spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
 # Table specs: (pg_schema, pg_table, iceberg_target, partition_col, bookmark_key)
 # ---------------------------------------------------------------------------
 TABLE_SPECS = [
-    # (pg_schema, pg_table, iceberg_target, partition_col, bookmark_key)
-    ("farm_records_reporting", "time_period",             "time_period",             None,              "time_period_identifier"),
-    ("farm_records_reporting", "county_office_control",   "county_office_control",   "state_fsa_code",  "county_office_control_identifier"),
-    ("farm_records_reporting", "farm",                    "farm",                    "state_fsa_code",  "farm_identifier"),
-    ("farm_records_reporting", "tract",                   "tract",                   "state_fsa_code",  "tract_identifier"),
-    ("farm_records_reporting", "farm_year",               "farm_year",               "state_fsa_code",  "farm_year_identifier"),
-    ("farm_records_reporting", "tract_year",              "tract_year",              "state_fsa_code",  "tract_year_identifier"),
-    ("crm_ods",                "but000",                  "but000",                  None,              "partner_guid"),
+    # (pg_schema, pg_table, iceberg_target, partition_col)
+    ("farm_records_reporting", "time_period",             "time_period",             None),
+    ("farm_records_reporting", "county_office_control",   "county_office_control",   "state_fsa_code"),
+    ("farm_records_reporting", "farm",                    "farm",                    "state_fsa_code"),
+    ("farm_records_reporting", "tract",                   "tract",                   "state_fsa_code"),
+    ("farm_records_reporting", "farm_year",               "farm_year",               "state_fsa_code"),
+    ("farm_records_reporting", "tract_year",              "tract_year",              "state_fsa_code"),
+    ("crm_ods",                "but000",                  "but000",                  None),
 ]
 
 
-def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_col, bookmark_key: str):
+def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_col):
     target_fqn = f"glue_catalog.{TARGET_DATABASE}.{target_table}"
     source_label = f"{pg_schema}.{pg_table}"
-    log.info(f"[{source_label}] Reading via Glue connection {CONNECTION_NAME}")
+    log.info(f"[{source_label}] Reading via JDBC connection {CONNECTION_NAME}")
 
-    # Use Glue connection to pull from PostgreSQL
-    dyf = glueContext.create_dynamic_frame.from_catalog(
-        database=CONNECTION_NAME,
-        table_name=f"{pg_schema}_{pg_table}",
-        additional_options={
-            "jobBookmarkKeys": [bookmark_key],
-            "jobBookmarkKeysSortOrder": "asc",
-        } if not FULL_LOAD else {},
+    # from_options with connection_type="postgresql" reads directly via the
+    # named Glue JDBC connection — no Glue Data Catalog crawl required.
+    dyf = glueContext.create_dynamic_frame.from_options(
+        connection_type="postgresql",
+        connection_options={
+            "useConnectionProperties": "true",
+            "connectionName": CONNECTION_NAME,
+            "dbtable": f"{pg_schema}.{pg_table}",
+        },
+        transformation_ctx=f"read_{pg_schema}_{pg_table}",
     )
 
     df = dyf.toDF()
@@ -132,9 +134,9 @@ def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_
 
 
 errors = []
-for pg_schema, pg_table, tgt_tbl, part_col, bk_key in TABLE_SPECS:
+for pg_schema, pg_table, tgt_tbl, part_col in TABLE_SPECS:
     try:
-        ingest_pg_table(pg_schema, pg_table, tgt_tbl, part_col, bk_key)
+        ingest_pg_table(pg_schema, pg_table, tgt_tbl, part_col)
     except Exception as exc:
         log.error(f"[{pg_schema}.{pg_table}] FAILED: {exc}", exc_info=True)
         errors.append((f"{pg_schema}.{pg_table}", str(exc)))

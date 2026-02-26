@@ -239,18 +239,14 @@
 
     "Notify": {
       "Type": "Task",
-      "Comment": "Publish pipeline completion/failure notification via SNS Lambda.",
+      "Comment": "Publish pipeline completion/failure notification via SNS Lambda. Passes the full execution state so the Lambda can report whatever fields are present regardless of which stage failed.",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
         "FunctionName": "__SNS_NOTIFY_FN_ARN__",
         "Payload": {
           "env": "__ENV__",
           "pipeline": "athenafarm",
-          "ingest_results.$": "$.ingest_results",
-          "transform_tpy_result.$": "$.transform_tpy_result",
-          "transform_fpy_result.$": "$.transform_fpy_result",
-          "sync_result.$": "$.sync_result",
-          "error.$": "$.error"
+          "executionState.$": "$"
         }
       },
       "End": true

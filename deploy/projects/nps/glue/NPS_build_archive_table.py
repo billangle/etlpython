@@ -320,7 +320,7 @@ if (int(present_hour)<20, area.lower() == 'nrrs',environ.lower()=='prod') == (Tr
     datestmp = datetime.utcnow().astimezone(pytz.timezone('US/Central')) + timedelta(days=-1)
     datestmp = datestmp.strftime("%Y%m%d")
     tmstmp = datetime.now().astimezone(pytz.timezone('US/Central')) + timedelta(days=-1)
-    datestmp = tmstmp.strftime("%Y%m%d")
+    datestmp = tmstmp.strftime("%Y%m%d%H%M")
 
 while i < date_count:
     print(f"inside loop loading date: {datestmp}")
@@ -411,17 +411,21 @@ while i < date_count:
   
     try:
         logger.info(f"Saving data to the cleansed Zone in Parquet format: {destination_path}")
-        
         df_pybl.write.mode("overwrite").parquet(f"{destination_path}")
-        # add line to write to Final
+        # original instructions were to write to this path.  Leave if they change their minds.  add line to write to Final
         # final_path = f'c108-{ENVIRON}-fpacfsa-final-zone/{BIZAREA}/{tablename}'
         #         s3://c108-dev-fpacfsa-final-zone/car/
-        fpath = f's3://c108-{environ.lower()}-fpacfsa-final-zone/{area}/{tablename}'
-        logger.info(f"Data successfully saved to the Final Zone in Parquet format at: \n{destination_path} and\n {fpath}")
-        df_pybl.write.mode("overwrite").parquet(fpath)
-        fpath = f's3://c108-{environ.lower()}-fpacfsa-final-zone/dmart/fwadm/{area}/{tablename}'
-        logger.info(f"Data successfully saved to the SECOND Final Zone in Parquet format at: \n{destination_path} and\n {fpath}")
-        df_pybl.write.mode("overwrite").parquet(fpath)
+        # fpath = f's3://c108-{environ.lower()}-fpacfsa-final-zone/{area}/{tablename}'
+        #logger.info(f"Data successfully saved to the Final Zone in Parquet format at: \n{destination_path} and\n {fpath}")
+        #df_pybl.write.mode("overwrite").parquet(fpath)
+        # NB:  NPS-mainframe, NPS and NRRS are on diff schedules.  Don't overwrite with no data present.  
+        #      there should always be data but frequently one of the three won't have data transfered today.  
+        if df_pybl.count() > 0:
+            fpath = f's3://c108-{environ.lower()}-fpacfsa-final-zone/dmart/fwadm/{area}/{tablename}'
+            logger.info(f"Data successfully saved to the SECOND Final Zone in Parquet format at: \n{destination_path} and\n {fpath}")
+            df_pybl.write.mode("overwrite").parquet(fpath)
+        else:
+            logger.info(f"No new data today")
     
     except Exception as e:
         logger.error(f"Error while saving data to the Final Zone in Parquet format: {e}")

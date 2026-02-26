@@ -19,9 +19,12 @@ SELECT
     AL1.short_text AS fund_center_short_text
 FROM cs_tbl_gl AL2
 LEFT JOIN cs_tbl_fund_center AL1
-    ON AL2.funds_center = AL1.funds_center
+    ON trim(AL2.funds_center) = trim(AL1.funds_center)
+    AND trim(AL1.header_total_count) IS NULL
 LEFT JOIN cs_tbl_cmmt_item AL3
-    ON AL2.commitment_item = AL3.commitment_item
+    ON trim(AL2.commitment_item) = trim(AL3.commitment_item)
+    AND trim(AL3.header_total_count) IS NULL
+WHERE trim(AL2.header_total_count) IS NULL
 GROUP BY
     AL2.fund,
     AL2.gl_account,

@@ -22,4 +22,8 @@ INSERT INTO edv.CROP_ACRG_RPT_BUS_PTY_SHR_L (CROP_ACRG_RPT_BUS_PTY_SHR_L_ID, AG_
                                            'D') ) TEMP) stg
    LEFT JOIN edv.CROP_ACRG_RPT_BUS_PTY_SHR_L dv ON (stg.CROP_ACRG_RPT_BUS_PTY_SHR_L_ID = dv.CROP_ACRG_RPT_BUS_PTY_SHR_L_ID)
    WHERE (dv.CROP_ACRG_RPT_BUS_PTY_SHR_L_ID IS NULL)
-     AND stg.STG_EFF_DT_RANK = 1 )
+     AND stg.STG_EFF_DT_RANK = 1
+     AND EXISTS (
+         SELECT 1 FROM edv.ag_prod_plan_h parent
+         WHERE parent.ag_prod_plan_h_id = stg.AG_PROD_PLAN_H_ID
+     ))

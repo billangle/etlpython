@@ -584,7 +584,7 @@ def main():
 
 
 # =============================================================================
-# STAGE LAYER PROCESSING (Athena SQL → PostgreSQL)
+# STAGE LAYER PROCESSING (Athena SQL â†’ PostgreSQL)
 # =============================================================================
 
 def process_stage_table(spark, glue_context, db, sqlfs, table_name, data_src_nm,

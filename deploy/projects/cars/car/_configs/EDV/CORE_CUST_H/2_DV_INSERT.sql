@@ -1,7 +1,8 @@
-INSERT INTO edv.CORE_CUST_H (CORE_CUST_ID, LOAD_DT, DATA_SRC_NM)
+INSERT INTO edv.CORE_CUST_H (CORE_CUST_ID, LOAD_DT, DATA_SRC_NM, DURB_ID)
   (SELECT CORE_CUST_ID,
           LOAD_DT,
-          DATA_SRC_NM
+          DATA_SRC_NM,
+          CORE_CUST_ID AS DURB_ID
    FROM
      (SELECT stg.CORE_CUST_ID,
              stg.LOAD_DT,
@@ -36,4 +37,8 @@ INSERT INTO edv.CORE_CUST_H (CORE_CUST_ID, LOAD_DT, DATA_SRC_NM)
                                        'D') ) stg
       LEFT JOIN edv.CORE_CUST_H dv ON (stg.CORE_CUST_ID = dv.CORE_CUST_ID)
       WHERE (dv.CORE_CUST_ID IS NULL)
-        AND stg.STG_EFF_DT_RANK = 1 ) src)
+        AND stg.STG_EFF_DT_RANK = 1 ) src
+   WHERE NOT EXISTS (
+       SELECT 1 FROM edv.core_cust_h existing
+       WHERE existing.durb_id = src.CORE_CUST_ID
+   ))

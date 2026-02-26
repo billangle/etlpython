@@ -26,4 +26,12 @@ INSERT INTO edv.CARS_CROP_CLS_L (CROP_ACRG_RPT_CROP_TYPE_L_ID, FSA_CROP_CD, FSA_
                                       'D') ) stg
    LEFT JOIN edv.CARS_CROP_CLS_L dv ON (stg.CROP_ACRG_RPT_CROP_TYPE_L_ID = dv.CROP_ACRG_RPT_CROP_TYPE_L_ID)
    WHERE (dv.CROP_ACRG_RPT_CROP_TYPE_L_ID IS NULL)
-     AND stg.STG_EFF_DT_RANK = 1 )
+     AND stg.STG_EFF_DT_RANK = 1
+     AND EXISTS (
+         SELECT 1 FROM edv.fsa_crop_rh parent
+         WHERE parent.fsa_crop_cd = stg.FSA_CROP_CD
+     )
+     AND EXISTS (
+         SELECT 1 FROM edv.intn_use_rh parent
+         WHERE parent.intn_use_cd = stg.INTN_USE_CD
+     ))

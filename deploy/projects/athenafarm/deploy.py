@@ -344,6 +344,9 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
         # Inject debug flag for all jobs
         job_params.setdefault("--debug", "true" if debug_logging else "false")
 
+        # Enable native Iceberg support on Glue 4.0 (required for .using("iceberg"))
+        job_params.setdefault("--datalake-formats", "iceberg")
+
         # Map AdditionalPythonModulesPath → --extra-py-files (WHL/egg/zip on S3)
         extra_py = _as_str(per.get("AdditionalPythonModulesPath"))
         if extra_py:

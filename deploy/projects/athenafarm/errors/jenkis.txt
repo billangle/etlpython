@@ -1,0 +1,3 @@
+15:14:01  + python deploy.py --config config/athenafarm/prod.json --region us-east-1 --project-type athenafarm
+15:14:02  /app/jenkins/workspace/BuildProcess/DeployAthenaFarm/deploy/.venv/lib64/python3.9/site-packages/boto3/compat.py:89: PythonDeprecationWarning: Boto3 will no longer support Python 3.9 starting April 29, 2026. To continue receiving service updates, bug fixes, and security updates please upgrade to Python 3.10 or later. More information can be found here: https://aws.amazon.com/blogs/developer/python-support-policy-updates-for-aws-sdks-and-tools/
+15:14:02    warnings.warn(warning, PythonDeprecationWarning)

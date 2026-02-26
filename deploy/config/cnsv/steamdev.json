@@ -18,11 +18,7 @@
     "etlRoleArnParam": "arn:aws:iam::335965711887:role/FPACLambdaCDKRole",
     "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:335965711887:layer:FSA-DEV-MDART-layer:1",
     "customLayerArnParam": "arn:aws:lambda:us-east-1:335965711887:layer:FSA-polars:1",
-    "snsArnParam": "arn:aws:sns:us-east-1:335965711887:FSA-DEV-FMMI",
-    "buildProcessingPlanFnArnParam": "arn:aws:lambda:us-east-1:335965711887:function:FSA-STEAMDEV-edv-build-processing-plan",
-    "checkResultsFnArnParam": "arn:aws:lambda:us-east-1:335965711887:function:FSA-STEAMDEV-edv-check-results",
-    "finalizePipelineFnArnParam": "arn:aws:lambda:us-east-1:335965711887:function:FSA-STEAMDEV-edv-finalize-pipeline",
-    "handleFailureFnArnParam": "arn:aws:lambda:us-east-1:335965711887:function:FSA-STEAMDEV-edv-handle-failure"
+    "snsArnParam": "arn:aws:sns:us-east-1:335965711887:FSA-DEV-FMMI"
   },
   "paths": {
     "glueRootPath": "glue/",

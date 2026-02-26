@@ -40,6 +40,7 @@ GLUE JOB ARGUMENTS:
     --source_database   : Athena database name (default: sss)
     --target_database   : Glue catalog database for Iceberg tables (default: sss)
     --full_load         : "true" to force full re-load; default incremental via bookmark
+    --debug             : "true" to enable DEBUG-level CloudWatch logging (default: false)
 
 VERSION HISTORY:
     v1.0.0 - 2026-02-25 - Initial implementation (athenafarm project)
@@ -73,6 +74,12 @@ SOURCE_CATALOG   = args.get("source_catalog", "sss-farmrecords")
 SOURCE_DATABASE  = args.get("source_database", "sss")
 TARGET_DATABASE  = args.get("target_database", "sss")
 FULL_LOAD        = args.get("full_load", "false").strip().lower() == "true"
+DEBUG            = args.get("debug", "false").strip().lower() == "true"
+
+if DEBUG:
+    logging.getLogger().setLevel(logging.DEBUG)
+    log.setLevel(logging.DEBUG)
+    log.debug("DEBUG logging enabled")
 
 # ---------------------------------------------------------------------------
 # Spark / Glue context (Iceberg extensions enabled via --conf in job spec)
@@ -82,6 +89,25 @@ glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(JOB_NAME, args)
+
+log.info("=" * 70)
+log.info(f"Job            : {JOB_NAME}")
+log.info(f"Env            : {ENV}")
+log.info(f"Warehouse      : {ICEBERG_WAREHOUSE}")
+log.info(f"Source catalog : {SOURCE_CATALOG}")
+log.info(f"Source DB      : {SOURCE_DATABASE}")
+log.info(f"Target DB      : {TARGET_DATABASE}")
+log.info(f"Full load      : {FULL_LOAD}")
+log.info(f"Debug          : {DEBUG}")
+log.info("=" * 70)
+
+# List all tables in the source database so any missing-table error is
+# immediately diagnosable from CloudWatch without needing to check the console.
+try:
+    available_tables = [t.name for t in spark.catalog.listTables(SOURCE_DATABASE)]
+    log.info(f"Tables in '{SOURCE_DATABASE}': {sorted(available_tables)}")
+except Exception:
+    log.exception(f"WARNING: could not list tables in catalog database '{SOURCE_DATABASE}' — full traceback:")
 
 spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
 
@@ -108,16 +134,28 @@ TABLE_SPECS = [
 def ingest_table(source_table: str, target_table: str, partition_col, sort_cols):
     """Read one SSS table from Athena catalog and write/merge to Iceberg."""
     target_fqn = f"glue_catalog.{TARGET_DATABASE}.{target_table}"
-    log.info(f"[{source_table}] Reading from Glue catalog database '{SOURCE_DATABASE}' table '{source_table}'")
+    log.info(f"[{source_table}] --- START ---")
+    log.info(f"[{source_table}] Source DB   : {SOURCE_DATABASE}")
+    log.info(f"[{source_table}] Target FQN  : {target_fqn}")
+    log.info(f"[{source_table}] Partition   : {partition_col}  Sort: {sort_cols}")
 
-    dyf = glueContext.create_dynamic_frame.from_catalog(
-        database=SOURCE_DATABASE,
-        table_name=source_table,
-    )
+    try:
+        dyf = glueContext.create_dynamic_frame.from_catalog(
+            database=SOURCE_DATABASE,
+            table_name=source_table,
+        )
+    except Exception:
+        log.exception(f"[{source_table}] CATALOG READ FAILED — full traceback:")
+        raise
+
     df = dyf.toDF()
-
     row_count = df.count()
-    log.info(f"[{source_table}] Read {row_count:,} rows")
+    log.info(f"[{source_table}] Rows read   : {row_count:,}")
+
+    if DEBUG:
+        log.debug(f"[{source_table}] Schema:")
+        for field in df.schema.fields:
+            log.debug(f"  {field.name}: {field.dataType}")
 
     # Sort within partitions for data-skipping
     if sort_cols:
@@ -131,19 +169,29 @@ def ingest_table(source_table: str, target_table: str, partition_col, sort_cols)
 
     if partition_col and partition_col in df.columns:
         writer = writer.partitionedBy(partition_col)
+    elif partition_col and partition_col not in df.columns:
+        log.warning(f"[{source_table}] Partition column '{partition_col}' not in DataFrame. Columns: {df.columns}")
 
     if FULL_LOAD:
-        log.info(f"[{source_table}] Full load — createOrReplace")
-        writer.createOrReplace()
+        log.info(f"[{source_table}] Writing createOrReplace → {target_fqn}")
+        try:
+            writer.createOrReplace()
+        except Exception:
+            log.exception(f"[{source_table}] ICEBERG WRITE (createOrReplace) FAILED — full traceback:")
+            raise
     else:
         try:
-            log.info(f"[{source_table}] Incremental — appendOrCreate")
+            log.info(f"[{source_table}] Writing append → {target_fqn}")
             writer.append()
         except Exception:
-            log.warning(f"[{source_table}] Table does not exist yet — creating")
-            writer.create()
+            log.warning(f"[{source_table}] append failed (table may not exist yet) — retrying with create")
+            try:
+                writer.create()
+            except Exception:
+                log.exception(f"[{source_table}] ICEBERG WRITE (create) FAILED — full traceback:")
+                raise
 
-    log.info(f"[{source_table}] Done → {target_fqn}")
+    log.info(f"[{source_table}] --- DONE ---")
 
 
 # ---------------------------------------------------------------------------

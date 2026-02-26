@@ -25,6 +25,7 @@ GLUE JOB ARGUMENTS:
     --sss_database          : Glue catalog db for SSS Iceberg tables  (default: sss)
     --ref_database          : Glue catalog db for PG ref tables (default: farm_ref)
     --target_database       : Glue catalog db for target tables (default: farm_records_reporting)
+    --debug                 : "true" to enable DEBUG-level CloudWatch logging (default: false)
 
 VERSION HISTORY:
     v1.0.0 - 2026-02-25 - Initial implementation (athenafarm project)
@@ -52,8 +53,14 @@ RETENTION_HOURS           = int(args.get("snapshot_retention_hours", "168"))
 SSS_DB                    = args.get("sss_database", "sss")
 REF_DB                    = args.get("ref_database", "farm_ref")
 TGT_DB                    = args.get("target_database", "farm_records_reporting")
+DEBUG                     = args.get("debug", "false").strip().lower() == "true"
 
 RETENTION_MS = RETENTION_HOURS * 3600 * 1000   # Iceberg expects milliseconds
+
+if DEBUG:
+    logging.getLogger().setLevel(logging.DEBUG)
+    log.setLevel(logging.DEBUG)
+    log.debug("DEBUG logging enabled")
 
 sc = SparkContext()
 glueContext = GlueContext(sc)
@@ -62,6 +69,17 @@ job = Job(glueContext)
 job.init(JOB_NAME, args)
 
 spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
+
+log.info("=" * 70)
+log.info(f"Job                : {JOB_NAME}")
+log.info(f"Env                : {ENV}")
+log.info(f"Warehouse          : {ICEBERG_WAREHOUSE}")
+log.info(f"Retention (hours)  : {RETENTION_HOURS}")
+log.info(f"SSS DB             : {SSS_DB}")
+log.info(f"Ref DB             : {REF_DB}")
+log.info(f"Target DB          : {TGT_DB}")
+log.info(f"Debug              : {DEBUG}")
+log.info("=" * 70)
 
 # ---------------------------------------------------------------------------
 # All Iceberg tables to maintain

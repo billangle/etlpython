@@ -4,6 +4,7 @@
   "region": "us-east-1",
   "bucketRegion": "us-east-1",
   "secretId": "FSA-PROD-secrets",
+  "debugLogging": true,
 
   "icebergWarehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
 

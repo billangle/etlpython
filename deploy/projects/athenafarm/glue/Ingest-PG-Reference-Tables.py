@@ -27,7 +27,7 @@ GLUE JOB ARGUMENTS:
     --iceberg_warehouse : s3:// URI for Iceberg warehouse root
     --secret_id         : AWS Secrets Manager secret ID holding PG credentials
     --target_database   : Glue catalog database for Iceberg tables (default: farm_ref)
-    --full_load         : "true" to force full re-load (default: incremental)
+    --debug             : "true" to enable DEBUG-level CloudWatch logging (default: false)
 
 PARTITION STRATEGY:
     time_period            → no partition (small, rarely changes)
@@ -47,6 +47,7 @@ VERSION HISTORY:
 import sys
 import json
 import logging
+import traceback
 import boto3
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
@@ -64,12 +65,32 @@ ENV               = args["env"]
 ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
 SECRET_ID         = args["secret_id"]
 TARGET_DATABASE   = args.get("target_database", "farm_ref")
+DEBUG             = args.get("debug", "false").strip().lower() == "true"
+
+if DEBUG:
+    logging.getLogger().setLevel(logging.DEBUG)
+    log.setLevel(logging.DEBUG)
+    log.debug("DEBUG logging enabled")
 
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(JOB_NAME, args)
+
+log.info("=" * 70)
+log.info(f"Job         : {JOB_NAME}")
+log.info(f"Env         : {ENV}")
+log.info(f"Warehouse   : {ICEBERG_WAREHOUSE}")
+log.info(f"Secret ID   : {SECRET_ID}")
+log.info(f"Target DB   : {TARGET_DATABASE}")
+log.info(f"Debug       : {DEBUG}")
+log.info("=" * 70)
+
+if DEBUG:
+    safe_args = {k: ("***" if "pass" in k.lower() or "secret" in k.lower() else v)
+                 for k, v in args.items()}
+    log.debug(f"Resolved args: {safe_args}")
 
 spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
 
@@ -95,6 +116,13 @@ JDBC_URL_MAIN = f"jdbc:postgresql://{PG_HOST}:{PG_PORT}/{PG_DB}?sslmode=require"
 # crm_ods.but000 lives in a separate PostgreSQL database on the same server
 JDBC_URL_CRM  = f"jdbc:postgresql://{PG_HOST}:{PG_PORT}/CRM_ODS?sslmode=require"
 
+log.info(f"PG host     : {PG_HOST}:{PG_PORT}")
+log.info(f"PG main DB  : {PG_DB}")
+log.info(f"JDBC main   : {JDBC_URL_MAIN}")
+log.info(f"JDBC CRM    : {JDBC_URL_CRM}")
+if DEBUG:
+    log.debug(f"PG user     : {PG_USER}")
+
 # ---------------------------------------------------------------------------
 # Table specs: (pg_schema, pg_table, iceberg_target, partition_col, bookmark_key)
 # ---------------------------------------------------------------------------
@@ -113,25 +141,36 @@ TABLE_SPECS = [
 def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_col):
     target_fqn = f"glue_catalog.{TARGET_DATABASE}.{target_table}"
     source_label = f"{pg_schema}.{pg_table}"
-    log.info(f"[{source_label}] Reading via Secrets Manager JDBC credentials")
+    log.info(f"[{source_label}] --- START ---")
+    log.info(f"[{source_label}] Target FQN  : {target_fqn}")
+    log.info(f"[{source_label}] Partition   : {partition_col}")
 
-    # crm_ods tables live in a separate PostgreSQL database (CRM_ODS);
-    # everything else is in the main EDV database.
     jdbc_url = JDBC_URL_CRM if pg_schema.lower() == "crm_ods" else JDBC_URL_MAIN
+    log.info(f"[{source_label}] JDBC URL    : {jdbc_url}")
 
-    df = spark.read.format("jdbc") \
-        .option("url",      jdbc_url) \
-        .option("dbtable",  f"{pg_schema}.{pg_table}") \
-        .option("user",     PG_USER) \
-        .option("password", PG_PASS) \
-        .option("driver",   "org.postgresql.Driver") \
-        .option("fetchsize", "10000") \
-        .load()
+    try:
+        df = spark.read.format("jdbc") \
+            .option("url",      jdbc_url) \
+            .option("dbtable",  f"{pg_schema}.{pg_table}") \
+            .option("user",     PG_USER) \
+            .option("password", PG_PASS) \
+            .option("driver",   "org.postgresql.Driver") \
+            .option("fetchsize", "10000") \
+            .load()
+    except Exception:
+        log.exception(f"[{source_label}] JDBC READ FAILED — full traceback:")
+        raise
+
     row_count = df.count()
-    log.info(f"[{source_label}] Read {row_count:,} rows")
+    log.info(f"[{source_label}] Rows read   : {row_count:,}")
+
+    if DEBUG:
+        log.debug(f"[{source_label}] Schema:")
+        for field in df.schema.fields:
+            log.debug(f"  {field.name}: {field.dataType}")
 
     if row_count == 0:
-        log.info(f"[{source_label}] No new rows — skipping write")
+        log.info(f"[{source_label}] No rows — skipping write")
         return
 
     writer = df.writeTo(target_fqn).using("iceberg") \
@@ -141,12 +180,16 @@ def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_
 
     if partition_col and partition_col in df.columns:
         writer = writer.partitionedBy(partition_col)
+    elif partition_col and partition_col not in df.columns:
+        log.warning(f"[{source_label}] Partition column '{partition_col}' not found in DataFrame — writing unpartitioned. Columns: {df.columns}")
 
-    # Always createOrReplace: we read the full table from PG on every run,
-    # so append would accumulate duplicate rows on re-runs or retries.
-    log.info(f"[{source_label}] createOrReplace → {target_fqn}")
-    writer.createOrReplace()
-    log.info(f"[{source_label}] Done")
+    log.info(f"[{source_label}] Writing createOrReplace → {target_fqn}")
+    try:
+        writer.createOrReplace()
+    except Exception:
+        log.exception(f"[{source_label}] ICEBERG WRITE FAILED — full traceback:")
+        raise
+    log.info(f"[{source_label}] --- DONE ---")
 
 
 errors = []

@@ -242,6 +242,7 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
     default_autosc    = _as_bool(glue_defaults_cfg.get("EnableAutoScaling"), True)
     default_timeout   = _as_int(glue_defaults_cfg.get("Timeout"), 60)
     default_args      = _as_str_dict(_as_dict(glue_defaults_cfg.get("DefaultArguments")))
+    debug_logging     = _as_bool(cfg.get("debugLogging"), False)
 
     # Iceberg --conf must carry the warehouse path
     if "--conf" in default_args:
@@ -321,6 +322,8 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
         # Inject Secrets Manager secret ID for jobs that read/write PostgreSQL
         if ("pg" in stem.lower() or "sync" in stem.lower()) and secret_id:
             job_params.setdefault("--secret_id", secret_id)
+        # Inject debug flag for all jobs
+        job_params.setdefault("--debug", "true" if debug_logging else "false")
 
         merged_args = _merge_default_args(default_args, job_params)
 

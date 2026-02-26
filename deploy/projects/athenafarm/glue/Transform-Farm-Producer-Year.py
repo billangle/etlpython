@@ -29,6 +29,7 @@ GLUE JOB ARGUMENTS:
     --ref_database        : Glue catalog db for PG ref Iceberg tables (default: farm_ref)
     --target_database     : Glue catalog db for target table (default: farm_records_reporting)
     --target_table        : Target Iceberg table name (default: farm_producer_year)
+    --debug               : "true" to enable DEBUG-level CloudWatch logging (default: false)
 
 KEY SOURCE TABLE COLUMNS (fsa-prod-farm-records.farm, stored as fsa_farm_records_farm):
     hel_exception, cw_exception, pcw_exception   → farm_producer_*_exception_code
@@ -47,6 +48,7 @@ VERSION HISTORY:
 
 import sys
 import logging
+import traceback
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
@@ -66,6 +68,12 @@ SSS_DB            = args.get("sss_database", "sss")
 REF_DB            = args.get("ref_database", "farm_ref")
 TGT_DB            = args.get("target_database", "farm_records_reporting")
 TGT_TABLE         = args.get("target_table", "farm_producer_year")
+DEBUG             = args.get("debug", "false").strip().lower() == "true"
+
+if DEBUG:
+    logging.getLogger().setLevel(logging.DEBUG)
+    log.setLevel(logging.DEBUG)
+    log.debug("DEBUG logging enabled")
 
 sc = SparkContext()
 glueContext = GlueContext(sc)
@@ -74,6 +82,18 @@ job = Job(glueContext)
 job.init(JOB_NAME, args)
 
 spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
+
+log.info("=" * 70)
+log.info(f"Job            : {JOB_NAME}")
+log.info(f"Env            : {ENV}")
+log.info(f"Warehouse      : {ICEBERG_WAREHOUSE}")
+log.info(f"SSS DB         : {SSS_DB}")
+log.info(f"Ref DB         : {REF_DB}")
+log.info(f"Target DB      : {TGT_DB}")
+log.info(f"Target Table   : {TGT_TABLE}")
+log.info(f"Full Load      : {FULL_LOAD}")
+log.info(f"Debug          : {DEBUG}")
+log.info("=" * 70)
 
 # ---------------------------------------------------------------------------
 # Register source views

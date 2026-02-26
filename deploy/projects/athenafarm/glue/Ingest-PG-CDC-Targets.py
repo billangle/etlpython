@@ -22,7 +22,7 @@ GLUE JOB ARGUMENTS:
     --iceberg_warehouse : s3:// URI for Iceberg warehouse root
     --secret_id         : AWS Secrets Manager secret ID holding PG credentials
     --target_database   : Glue catalog database (default: farm_records_reporting)
-    --full_load         : "true" to force full snapshot (default: incremental)
+    --debug             : "true" to enable DEBUG-level CloudWatch logging (default: false)
 
 VERSION HISTORY:
     v1.0.0 - 2026-02-25 - Initial implementation (athenafarm project)
@@ -51,12 +51,32 @@ ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
 SECRET_ID         = args["secret_id"]
 TARGET_DATABASE   = args.get("target_database", "farm_records_reporting")
 FULL_LOAD         = args.get("full_load", "false").strip().lower() == "true"
+DEBUG             = args.get("debug", "false").strip().lower() == "true"
+
+if DEBUG:
+    logging.getLogger().setLevel(logging.DEBUG)
+    log.setLevel(logging.DEBUG)
+    log.debug("DEBUG logging enabled")
 
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(JOB_NAME, args)
+
+log.info("=" * 70)
+log.info(f"Job         : {JOB_NAME}")
+log.info(f"Env         : {ENV}")
+log.info(f"Warehouse   : {ICEBERG_WAREHOUSE}")
+log.info(f"Secret ID   : {SECRET_ID}")
+log.info(f"Target DB   : {TARGET_DATABASE}")
+log.info(f"Debug       : {DEBUG}")
+log.info("=" * 70)
+
+if DEBUG:
+    safe_args = {k: ("***" if "pass" in k.lower() or "secret" in k.lower() else v)
+                 for k, v in args.items()}
+    log.debug(f"Resolved args: {safe_args}")
 
 spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
 
@@ -75,6 +95,12 @@ PG_DB      = _secret["edv_postgres_database_name"]
 PG_USER    = _secret["edv_postgres_username"]
 PG_PASS    = _secret["edv_postgres_password"]
 JDBC_URL   = f"jdbc:postgresql://{PG_HOST}:{PG_PORT}/{PG_DB}?sslmode=require"
+
+log.info(f"PG host     : {PG_HOST}:{PG_PORT}")
+log.info(f"PG DB       : {PG_DB}")
+log.info(f"JDBC URL    : {JDBC_URL}")
+if DEBUG:
+    log.debug(f"PG user     : {PG_USER}")
 
 # ---------------------------------------------------------------------------
 # Table specs: (pg_table, iceberg_target, partition_col, bookmark_key)
@@ -98,20 +124,31 @@ TABLE_SPECS = [
 def ingest_cdc_target(pg_schema: str, pg_table: str, tgt_table: str, partition_col: str):
     target_fqn = f"glue_catalog.{TARGET_DATABASE}.{tgt_table}"
     source_label = f"{pg_schema}.{pg_table}"
-    log.info(f"[{source_label}] Snapshotting CDC target via Secrets Manager JDBC credentials")
+    log.info(f"[{source_label}] --- START ---")
+    log.info(f"[{source_label}] Target FQN  : {target_fqn}")
+    log.info(f"[{source_label}] Partition   : {partition_col}")
+    log.info(f"[{source_label}] JDBC URL    : {JDBC_URL}")
 
-    # CDC targets always do a full snapshot so the Transform MERGE has a
-    # complete current-state baseline for WHEN MATCHED comparison.
-    df = spark.read.format("jdbc") \
-        .option("url",      JDBC_URL) \
-        .option("dbtable",  f"{pg_schema}.{pg_table}") \
-        .option("user",     PG_USER) \
-        .option("password", PG_PASS) \
-        .option("driver",   "org.postgresql.Driver") \
-        .option("fetchsize", "10000") \
-        .load()
+    try:
+        df = spark.read.format("jdbc") \
+            .option("url",      JDBC_URL) \
+            .option("dbtable",  f"{pg_schema}.{pg_table}") \
+            .option("user",     PG_USER) \
+            .option("password", PG_PASS) \
+            .option("driver",   "org.postgresql.Driver") \
+            .option("fetchsize", "10000") \
+            .load()
+    except Exception:
+        log.exception(f"[{source_label}] JDBC READ FAILED — full traceback:")
+        raise
+
     row_count = df.count()
-    log.info(f"[{source_label}] Read {row_count:,} rows")
+    log.info(f"[{source_label}] Rows read   : {row_count:,}")
+
+    if DEBUG:
+        log.debug(f"[{source_label}] Schema:")
+        for field in df.schema.fields:
+            log.debug(f"  {field.name}: {field.dataType}")
 
     writer = df.writeTo(target_fqn).using("iceberg") \
         .tableProperty("write.format.default", "parquet") \
@@ -121,12 +158,16 @@ def ingest_cdc_target(pg_schema: str, pg_table: str, tgt_table: str, partition_c
 
     if partition_col and partition_col in df.columns:
         writer = writer.partitionedBy(partition_col)
+    elif partition_col and partition_col not in df.columns:
+        log.warning(f"[{source_label}] Partition column '{partition_col}' not in DataFrame. Columns: {df.columns}")
 
-    # Always createOrReplace — CDC targets must reflect the full current PG
-    # state so the downstream Transform MERGE has a complete baseline.
-    log.info(f"[{source_label}] Full snapshot — createOrReplace")
-    writer.createOrReplace()
-    log.info(f"[{source_label}] Done → {target_fqn}")
+    log.info(f"[{source_label}] Writing createOrReplace → {target_fqn}")
+    try:
+        writer.createOrReplace()
+    except Exception:
+        log.exception(f"[{source_label}] ICEBERG WRITE FAILED — full traceback:")
+        raise
+    log.info(f"[{source_label}] --- DONE ---")
 
 
 errors = []

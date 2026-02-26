@@ -22,6 +22,7 @@ GLUE JOB ARGUMENTS:
     --target_database     : Glue catalog db for Iceberg tables (default: farm_records_reporting)
     --snapshot_id_param   : SSM parameter storing the last-synced Iceberg snapshot ID
     --full_load           : "true" to sync full table (default: incremental delta)
+    --debug               : "true" to enable DEBUG-level CloudWatch logging (default: false)
 
 VERSION HISTORY:
     v1.0.0 - 2026-02-25 - Initial implementation (athenafarm project)
@@ -55,6 +56,12 @@ RDS_DATABASE        = args.get("rds_database", "fpac_farm_records")
 TGT_DB              = args.get("target_database", "farm_records_reporting")
 SNAPSHOT_SSM_PARAM  = args.get("snapshot_id_param", f"/athenafarm/{ENV}/last_sync_snapshot")
 FULL_LOAD           = args.get("full_load", "false").strip().lower() == "true"
+DEBUG               = args.get("debug", "false").strip().lower() == "true"
+
+if DEBUG:
+    logging.getLogger().setLevel(logging.DEBUG)
+    log.setLevel(logging.DEBUG)
+    log.debug("DEBUG logging enabled")
 
 sc = SparkContext()
 glueContext = GlueContext(sc)
@@ -63,6 +70,18 @@ job = Job(glueContext)
 job.init(JOB_NAME, args)
 
 spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
+
+log.info("=" * 70)
+log.info(f"Job            : {JOB_NAME}")
+log.info(f"Env            : {ENV}")
+log.info(f"Warehouse      : {ICEBERG_WAREHOUSE}")
+log.info(f"Secret ID      : {SECRET_ID}")
+log.info(f"Target DB      : {TGT_DB}")
+log.info(f"RDS Database   : {RDS_DATABASE}")
+log.info(f"Snapshot Param : {SNAPSHOT_SSM_PARAM}")
+log.info(f"Full Load      : {FULL_LOAD}")
+log.info(f"Debug          : {DEBUG}")
+log.info("=" * 70)
 
 # ---------------------------------------------------------------------------
 # Resolve PostgreSQL credentials from Secrets Manager (same pattern as the

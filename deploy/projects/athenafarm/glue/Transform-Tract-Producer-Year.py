@@ -22,9 +22,9 @@ GLUE JOB ARGUMENTS:
     --env                 : Deployment environment
     --iceberg_warehouse   : s3:// URI for Iceberg warehouse root
     --full_load           : "true" skips WHEN MATCHED clause (bulk-load mode)
-    --sss_database        : Glue catalog db for SSS Iceberg tables  (default: sss)
-    --ref_database        : Glue catalog db for PG ref Iceberg tables (default: farm_ref)
-    --target_database     : Glue catalog db for target table (default: farm_records_reporting)
+    --sss_database        : Glue catalog db for SSS Iceberg tables  (default: athenafarm_prod_raw)
+    --ref_database        : Glue catalog db for PG ref Iceberg tables (default: athenafarm_prod_ref)
+    --target_database     : Glue catalog db for target table (default: athenafarm_prod_gold)
     --target_table        : Target Iceberg table name (default: tract_producer_year)
     --debug               : "true" to enable DEBUG-level CloudWatch logging (default: false)
 
@@ -81,9 +81,9 @@ JOB_NAME          = args["JOB_NAME"]
 ENV               = args["env"]
 ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
 FULL_LOAD         = args.get("full_load", "false").strip().lower() == "true"
-SSS_DB            = args.get("sss_database", "sss")
-REF_DB            = args.get("ref_database", "farm_ref")
-TGT_DB            = args.get("target_database", "farm_records_reporting")
+SSS_DB            = args.get("sss_database", "athenafarm_prod_raw")
+REF_DB            = args.get("ref_database", "athenafarm_prod_ref")
+TGT_DB            = args.get("target_database", "athenafarm_prod_gold")
 TGT_TABLE         = args.get("target_table", "tract_producer_year")
 DEBUG             = args.get("debug", "false").strip().lower() == "true"
 

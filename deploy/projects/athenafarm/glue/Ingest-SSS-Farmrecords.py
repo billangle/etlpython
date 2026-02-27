@@ -38,7 +38,7 @@ GLUE JOB ARGUMENTS:
     --iceberg_warehouse : s3:// URI for Iceberg warehouse root
     --source_catalog    : Athena catalog name (default: sss-farmrecords)
     --source_database   : Glue catalog database for SSS source tables (default: sss-farmrecords)
-    --target_database   : Glue catalog database for Iceberg targets (default: sss)
+    --target_database   : Glue catalog database for Iceberg targets (default: athenafarm_prod_raw)
     --full_load         : "true" to force full re-load; default incremental via bookmark
     --debug             : "true" to enable DEBUG-level CloudWatch logging (default: false)
 
@@ -94,7 +94,7 @@ ENV               = args["env"]
 ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
 SOURCE_CATALOG    = _opt("source_catalog", "sss-farmrecords")
 SOURCE_DATABASE   = _opt("source_database", "sss-farmrecords")
-TARGET_DATABASE   = _opt("target_database", "sss")
+TARGET_DATABASE   = _opt("target_database", "athenafarm_prod_raw")
 FULL_LOAD         = _opt("full_load", "false").strip().lower() == "true"
 DEBUG             = _opt("debug", "false").strip().lower() == "true"
 

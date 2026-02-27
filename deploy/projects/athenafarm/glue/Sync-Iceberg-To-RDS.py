@@ -18,8 +18,8 @@ GLUE JOB ARGUMENTS:
     --env                 : Deployment environment
     --iceberg_warehouse   : s3:// URI for Iceberg warehouse root
     --secret_id           : AWS Secrets Manager secret ID holding PG credentials
-    --rds_database        : PostgreSQL database name (default: fpac_farm_records)
-    --target_database     : Glue catalog db for Iceberg tables (default: farm_records_reporting)
+    --rds_database        : PostgreSQL database name (default: farm_records_reporting)
+    --target_database     : Glue catalog db for Iceberg gold tables (default: athenafarm_prod_gold)
     --snapshot_id_param   : SSM parameter storing the last-synced Iceberg snapshot ID
     --full_load           : "true" to sync full table (default: incremental delta)
     --debug               : "true" to enable DEBUG-level CloudWatch logging (default: false)
@@ -58,8 +58,8 @@ JOB_NAME            = args["JOB_NAME"]
 ENV                 = args["env"]
 ICEBERG_WAREHOUSE   = args["iceberg_warehouse"]
 SECRET_ID           = args["secret_id"]
-RDS_DATABASE        = args.get("rds_database", "fpac_farm_records")
-TGT_DB              = args.get("target_database", "farm_records_reporting")
+RDS_DATABASE        = args.get("rds_database", "farm_records_reporting")
+TGT_DB              = args.get("target_database", "athenafarm_prod_gold")
 SNAPSHOT_SSM_PARAM  = args.get("snapshot_id_param", f"/athenafarm/{ENV}/last_sync_snapshot")
 FULL_LOAD           = args.get("full_load", "false").strip().lower() == "true"
 DEBUG               = args.get("debug", "false").strip().lower() == "true"

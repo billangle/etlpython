@@ -197,7 +197,7 @@
         "AdditionalPythonModulesPath": "s3://c108-prod-fpacfsa-landing-zone/dart/scripts/python-modules/dart/glue/psycopg2_binary-2.9.9-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
         "UseGlueDataCatalogAsTheHiveMetastore": "true",
         "JobParameters": {
-          "--source_database": "athenafarm_prod_gold",
+          "--target_database": "athenafarm_prod_gold",
           "--rds_database": "farm_records_reporting",
           "--snapshot_id_param": "/athenafarm/prod/sync_snapshot_id"
         }
@@ -224,7 +224,10 @@
         "AdditionalPythonModulesPath": "",
         "UseGlueDataCatalogAsTheHiveMetastore": "true",
         "JobParameters": {
-          "--snapshot_retention_hours": "168"
+          "--snapshot_retention_hours": "168",
+          "--sss_database": "athenafarm_prod_raw",
+          "--ref_database": "athenafarm_prod_ref",
+          "--target_database": "athenafarm_prod_gold"
         }
       }
     }

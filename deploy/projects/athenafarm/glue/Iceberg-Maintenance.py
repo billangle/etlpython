@@ -22,9 +22,9 @@ GLUE JOB ARGUMENTS:
     --env                   : Deployment environment
     --iceberg_warehouse     : s3:// URI for Iceberg warehouse root
     --snapshot_retention_hours : Number of hours of snapshots to retain (default: 168 = 7 days)
-    --sss_database          : Glue catalog db for SSS Iceberg tables  (default: sss)
-    --ref_database          : Glue catalog db for PG ref tables (default: farm_ref)
-    --target_database       : Glue catalog db for target tables (default: farm_records_reporting)
+    --sss_database          : Glue catalog db for SSS Iceberg tables  (default: athenafarm_prod_raw)
+    --ref_database          : Glue catalog db for PG ref tables (default: athenafarm_prod_ref)
+    --target_database       : Glue catalog db for gold tables (default: athenafarm_prod_gold)
     --debug                 : "true" to enable DEBUG-level CloudWatch logging (default: false)
 
 VERSION HISTORY:
@@ -56,9 +56,9 @@ JOB_NAME                  = args["JOB_NAME"]
 ENV                       = args["env"]
 ICEBERG_WAREHOUSE         = args["iceberg_warehouse"]
 RETENTION_HOURS           = int(args.get("snapshot_retention_hours", "168"))
-SSS_DB                    = args.get("sss_database", "sss")
-REF_DB                    = args.get("ref_database", "farm_ref")
-TGT_DB                    = args.get("target_database", "farm_records_reporting")
+SSS_DB                    = args.get("sss_database", "athenafarm_prod_raw")
+REF_DB                    = args.get("ref_database", "athenafarm_prod_ref")
+TGT_DB                    = args.get("target_database", "athenafarm_prod_gold")
 DEBUG                     = args.get("debug", "false").strip().lower() == "true"
 
 RETENTION_MS = RETENTION_HOURS * 3600 * 1000   # Iceberg expects milliseconds

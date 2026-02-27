@@ -21,7 +21,7 @@ GLUE JOB ARGUMENTS:
     --env               : Deployment environment
     --iceberg_warehouse : s3:// URI for Iceberg warehouse root
     --secret_id         : AWS Secrets Manager secret ID holding PG credentials
-    --target_database   : Glue catalog database (default: farm_records_reporting)
+    --target_database   : Glue catalog database (default: athenafarm_prod_cdc)
     --debug             : "true" to enable DEBUG-level CloudWatch logging (default: false)
 
 VERSION HISTORY:
@@ -76,7 +76,7 @@ JOB_NAME          = args["JOB_NAME"]
 ENV               = args["env"]
 ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
 SECRET_ID         = args["secret_id"]
-TARGET_DATABASE   = _opt("target_database", "farm_records_reporting")
+TARGET_DATABASE   = _opt("target_database", "athenafarm_prod_cdc")
 FULL_LOAD         = _opt("full_load", "false").strip().lower() == "true"
 DEBUG             = _opt("debug", "false").strip().lower() == "true"
 

@@ -193,7 +193,7 @@
         "AdditionalPythonModulesPath": "",
         "UseGlueDataCatalogAsTheHiveMetastore": "true",
         "JobParameters": {
-          "--source_database": "athenafarm_dev_gold",
+          "--target_database": "athenafarm_dev_gold",
           "--rds_database": "farm_records_reporting",
           "--snapshot_id_param": "/athenafarm/dev/sync_snapshot_id"
         }
@@ -220,7 +220,10 @@
         "AdditionalPythonModulesPath": "",
         "UseGlueDataCatalogAsTheHiveMetastore": "true",
         "JobParameters": {
-          "--snapshot_retention_hours": "48"
+          "--snapshot_retention_hours": "48",
+          "--sss_database": "athenafarm_dev_raw",
+          "--ref_database": "athenafarm_dev_ref",
+          "--target_database": "athenafarm_dev_gold"
         }
       }
     }

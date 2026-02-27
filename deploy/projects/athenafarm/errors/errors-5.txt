@@ -1,0 +1,29 @@
+{
+  "cause": {
+    "AllocatedCapacity": 8,
+    "Arguments": {
+      "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+      "--env": "PROD"
+    },
+    "Attempt": 0,
+    "CompletedOn": 1772202850333,
+    "ErrorMessage": "RuntimeError: Ingest-PG-Reference-Tables completed with errors: farm_records_reporting.tract_year: An error occurred while calling o196.createOrReplace.",
+    "ExecutionTime": 2593,
+    "GlueVersion": "4.0",
+    "Id": "jr_9364e7a17c014af012d15dae23cf209d4eab7d40fe2c7b7998ed35468660a236",
+    "JobMode": "SCRIPT",
+    "JobName": "FSA-PROD-ATHENAFARM-Ingest-PG-Reference-Tables",
+    "JobRunState": "FAILED",
+    "LastModifiedOn": 1772202850333,
+    "LogGroupName": "/aws-glue/jobs",
+    "MaxCapacity": 8,
+    "NumberOfWorkers": 4,
+    "PredecessorRuns": [],
+    "StartedOn": 1772200232677,
+    "Timeout": 480,
+    "WorkerType": "G.2X"
+  },
+  "error": "States.TaskFailed",
+  "resource": "startJobRun.sync",
+  "resourceType": "glue"
+}

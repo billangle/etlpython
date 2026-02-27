@@ -166,36 +166,78 @@ if DEBUG:
 # Table specs: (pg_schema, pg_table, iceberg_target, partition_col, bookmark_key)
 # ---------------------------------------------------------------------------
 TABLE_SPECS = [
-    # (pg_schema, pg_table, iceberg_target, partition_col)
-    ("farm_records_reporting", "time_period",             "time_period",             None),
-    ("farm_records_reporting", "county_office_control",   "county_office_control",   "state_fsa_code"),
-    ("farm_records_reporting", "farm",                    "farm",                    "state_fsa_code"),
-    ("farm_records_reporting", "tract",                   "tract",                   "state_fsa_code"),
-    ("farm_records_reporting", "farm_year",               "farm_year",               "state_fsa_code"),
-    ("farm_records_reporting", "tract_year",              "tract_year",              "state_fsa_code"),
-    ("crm_ods",                "but000",                  "but000",                  None),
+    # (pg_schema, pg_table, iceberg_target, partition_col, pk_col)
+    # pk_col = sequential integer PK column used for lowerBound/upperBound range
+    #   partitioning via the PK index (numPartitions=20 parallel JDBC tasks).
+    # pk_col = None  → single-partition read (small table or non-numeric PK).
+    ("farm_records_reporting", "time_period",           "time_period",           None,              None),                             # ~30 rows
+    ("farm_records_reporting", "county_office_control", "county_office_control", "state_fsa_code",  "county_office_control_identifier"),
+    ("farm_records_reporting", "farm",                  "farm",                  "state_fsa_code",  "farm_identifier"),
+    ("farm_records_reporting", "tract",                 "tract",                 "state_fsa_code",  "tract_identifier"),
+    ("farm_records_reporting", "farm_year",             "farm_year",             "state_fsa_code",  "farm_year_identifier"),
+    ("farm_records_reporting", "tract_year",            "tract_year",            "state_fsa_code",  "tract_year_identifier"),
+    ("crm_ods",                "but000",                "but000",                None,              None),                             # partner_guid is a UUID string
 ]
 
 
-def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_col):
+def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_col, pk_col: str):
     target_fqn = f"glue_catalog.{TARGET_DATABASE}.{target_table}"
     source_label = f"{pg_schema}.{pg_table}"
     log.info(f"[{source_label}] --- START ---")
     log.info(f"[{source_label}] Target FQN  : {target_fqn}")
     log.info(f"[{source_label}] Partition   : {partition_col}")
+    log.info(f"[{source_label}] PK col      : {pk_col}")
 
     jdbc_url = JDBC_URL_CRM if pg_schema.lower() == "crm_ods" else JDBC_URL_MAIN
     log.info(f"[{source_label}] JDBC URL    : {jdbc_url}")
 
+    # JDBC connection properties shared by all reads.
+    _jdbc_props = {
+        "user":           PG_USER,
+        "password":       PG_PASS,
+        "driver":         "org.postgresql.Driver",
+        "fetchsize":      "50000",
+        "connectTimeout": "120",
+        "socketTimeout":  "600",
+    }
+
     try:
-        df = spark.read.format("jdbc") \
-            .option("url",      jdbc_url) \
-            .option("dbtable",  f"{pg_schema}.{pg_table}") \
-            .option("user",     PG_USER) \
-            .option("password", PG_PASS) \
-            .option("driver",   "org.postgresql.Driver") \
-            .option("fetchsize", "10000") \
-            .load()
+        if pk_col:
+            # Parallel read: split [MIN(pk), MAX(pk)] into numPartitions ranges.
+            # Uses the PK btree index — guaranteed fast regardless of whether
+            # secondary indexes (e.g. on state_fsa_code) exist in PostgreSQL.
+            _NUM_PARTITIONS = 20
+            bounds_row = spark.read.jdbc(
+                url=jdbc_url,
+                table=f"(SELECT MIN({pk_col}) AS lo, MAX({pk_col}) AS hi FROM {pg_schema}.{pg_table}) q",
+                properties=_jdbc_props,
+            ).collect()[0]
+            lo = int(bounds_row["lo"] or 0)
+            hi = int(bounds_row["hi"] or 0)
+            log.info(f"[{source_label}] PK range {lo:,} – {hi:,}, numPartitions={_NUM_PARTITIONS}")
+
+            if hi == 0:
+                log.info(f"[{source_label}] Table is empty — skipping")
+                return
+
+            df = spark.read.jdbc(
+                url=jdbc_url,
+                table=f"{pg_schema}.{pg_table}",
+                column=pk_col,
+                lowerBound=lo,
+                upperBound=hi + 1,   # +1 so last row falls inside last partition
+                numPartitions=_NUM_PARTITIONS,
+                properties=_jdbc_props,
+            )
+        else:
+            # Single-partition read — acceptable for small tables (time_period
+            # has ~30 rows; but000 uses a UUID PK incompatible with numeric ranges).
+            log.info(f"[{source_label}] Single-partition JDBC read (small table or non-numeric PK)")
+            df = spark.read.jdbc(
+                url=jdbc_url,
+                table=f"{pg_schema}.{pg_table}",
+                properties=_jdbc_props,
+            )
     except Exception:
         log.exception(f"[{source_label}] JDBC READ FAILED — full traceback:")
         raise
@@ -219,43 +261,48 @@ def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_
         df.unpersist()
         return
 
-    # Sort by partition column before writing.  Even though fanout mode is
-    # enabled at the catalog level, sorting ensures optimal data layout and
-    # avoids the ClusteredWriter error if fanout is ever not picked up:
-    #   "Incoming records violate the writer assumption that records are
-    #    clustered by spec and by partition within each spec."
-    # repartition() colocates all rows with the same partition value into
-    # the same Spark task; sortWithinPartitions() then orders within each task.
-    if partition_col and partition_col in df.columns:
-        log.info(f"[{source_label}] Repartitioning + sorting by '{partition_col}' for Iceberg write ordering")
-        df = df.repartition(partition_col).sortWithinPartitions(partition_col)
-    elif partition_col:
-        log.warning(f"[{source_label}] Partition column '{partition_col}' not in DataFrame — skipping sort. Columns: {df.columns}")
+    # Hold a reference to the cached JDBC df so we can unpersist it after
+    # the repartition rebinds the local `df` variable to a new DataFrame.
+    df_cached = df
 
-    writer = df.writeTo(target_fqn).using("iceberg") \
-        .tableProperty("write.format.default", "parquet") \
-        .tableProperty("write.parquet.compression-codec", "snappy") \
-        .tableProperty("write.distribution-mode", "none") \
-        .tableProperty("write.spark.fanout.enabled", "true")
-
-    if partition_col and partition_col in df.columns:
-        writer = writer.partitionedBy(partition_col)
-
-    log.info(f"[{source_label}] Writing createOrReplace → {target_fqn}")
     try:
-        writer.createOrReplace()
-    except Exception:
-        log.exception(f"[{source_label}] ICEBERG WRITE FAILED — full traceback:")
-        raise
+        # Sort by partition column before writing.  Even though fanout mode is
+        # enabled at the catalog level, sorting ensures optimal data layout and
+        # avoids the ClusteredWriter error if fanout is ever not picked up:
+        #   "Incoming records violate the writer assumption that records are
+        #    clustered by spec and by partition within each spec."
+        # repartition() colocates all rows with the same partition value into
+        # the same Spark task; sortWithinPartitions() then orders within each task.
+        if partition_col and partition_col in df.columns:
+            log.info(f"[{source_label}] Repartitioning + sorting by '{partition_col}' for Iceberg write ordering")
+            df = df.repartition(partition_col).sortWithinPartitions(partition_col)
+        elif partition_col:
+            log.warning(f"[{source_label}] Partition column '{partition_col}' not in DataFrame — skipping sort. Columns: {df.columns}")
+
+        writer = df.writeTo(target_fqn).using("iceberg") \
+            .tableProperty("write.format.default", "parquet") \
+            .tableProperty("write.parquet.compression-codec", "snappy") \
+            .tableProperty("write.distribution-mode", "none") \
+            .tableProperty("write.spark.fanout.enabled", "true")
+
+        if partition_col and partition_col in df.columns:
+            writer = writer.partitionedBy(partition_col)
+
+        log.info(f"[{source_label}] Writing createOrReplace → {target_fqn}")
+        try:
+            writer.createOrReplace()
+        except Exception:
+            log.exception(f"[{source_label}] ICEBERG WRITE FAILED — full traceback:")
+            raise
+        log.info(f"[{source_label}] --- DONE ---")
     finally:
-        df.unpersist()
-    log.info(f"[{source_label}] --- DONE ---")
+        df_cached.unpersist()
 
 
 errors = []
-for pg_schema, pg_table, tgt_tbl, part_col in TABLE_SPECS:
+for pg_schema, pg_table, tgt_tbl, part_col, pk_col in TABLE_SPECS:
     try:
-        ingest_pg_table(pg_schema, pg_table, tgt_tbl, part_col)
+        ingest_pg_table(pg_schema, pg_table, tgt_tbl, part_col, pk_col)
     except Exception as exc:
         log.error(f"[{pg_schema}.{pg_table}] FAILED: {exc}", exc_info=True)
         errors.append((f"{pg_schema}.{pg_table}", str(exc)))

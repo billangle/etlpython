@@ -57,9 +57,15 @@ from awsglue.context import GlueContext
 from awsglue.job import Job
 
 # ---------------------------------------------------------------------------
-# Logging
+# Logging — explicit StreamHandler so messages reach CloudWatch in Glue 4.0
+# (logging.basicConfig is a no-op when a root handler already exists).
 # ---------------------------------------------------------------------------
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+_root_log = logging.getLogger()
+if not _root_log.handlers:
+    _h = logging.StreamHandler(sys.stderr)
+    _h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    _root_log.addHandler(_h)
+_root_log.setLevel(logging.INFO)
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -106,6 +112,8 @@ _conf.set("spark.sql.catalog.glue_catalog", "org.apache.iceberg.spark.SparkCatal
 _conf.set("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws.glue.GlueCatalog")
 _conf.set("spark.sql.catalog.glue_catalog.io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
 _conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
+# FanoutWriter at driver level — overrides ClusteredWriter even for createOrReplace
+_conf.set("spark.sql.catalog.glue_catalog.write.spark.fanout.enabled", "true")
 sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -171,57 +179,72 @@ def ingest_table(source_table: str, target_table: str, partition_col, sort_cols)
         raise
 
     df = dyf.toDF()
-    row_count = df.count()
-    log.info(f"[{source_table}] Rows read   : {row_count:,}")
+    # Cache so df.count() and the subsequent Iceberg write share one scan.
+    df.cache()
+    try:
+        row_count = df.count()
+        log.info(f"[{source_table}] Rows read   : {row_count:,}")
 
-    if DEBUG:
-        log.debug(f"[{source_table}] Schema:")
-        for field in df.schema.fields:
-            log.debug(f"  {field.name}: {field.dataType}")
+        if row_count == 0:
+            log.info(f"[{source_table}] No rows — skipping write")
+            return
 
-    # Sort within partitions for data-skipping
-    if sort_cols:
-        valid_sort = [c for c in sort_cols if c in df.columns]
-        if valid_sort:
-            df = df.sortWithinPartitions(*valid_sort)
-        else:
-            log.warning(
-                f"[{source_table}] SKIP sort — none of {sort_cols} found in actual columns: "
-                f"{sorted(df.columns)}"
-            )
+        if DEBUG:
+            log.debug(f"[{source_table}] Schema:")
+            for field in df.schema.fields:
+                log.debug(f"  {field.name}: {field.dataType}")
 
-    writer = df.writeTo(target_fqn).using("iceberg") \
-        .tableProperty("write.format.default", "parquet") \
-        .tableProperty("write.parquet.compression-codec", "snappy") \
-        .tableProperty("write.distribution-mode", "none") \
-        .tableProperty("write.spark.fanout.enabled", "true") \
-        .tableProperty("write.merge.mode", "merge-on-read")
+        # Repartition by partition col first (colocates rows by partition key),
+        # then sort within each Spark partition so ClusteredWriter — or the
+        # belt-and-suspenders FanoutWriter — sees an ordered stream per file.
+        if partition_col and partition_col in df.columns:
+            valid_sort = [c for c in sort_cols if c in df.columns] if sort_cols else []
+            df = df.repartition(partition_col).sortWithinPartitions(partition_col, *valid_sort)
+        elif sort_cols:
+            valid_sort = [c for c in sort_cols if c in df.columns]
+            if valid_sort:
+                df = df.sortWithinPartitions(*valid_sort)
+            else:
+                log.warning(
+                    f"[{source_table}] SKIP sort — none of {sort_cols} found in actual columns: "
+                    f"{sorted(df.columns)}"
+                )
 
-    if partition_col and partition_col in df.columns:
-        writer = writer.partitionedBy(partition_col)
-    elif partition_col and partition_col not in df.columns:
-        log.warning(f"[{source_table}] Partition column '{partition_col}' not in DataFrame. Columns: {df.columns}")
+        if partition_col and partition_col not in df.columns:
+            log.warning(f"[{source_table}] Partition column '{partition_col}' not in DataFrame. Columns: {df.columns}")
 
-    if FULL_LOAD:
-        log.info(f"[{source_table}] Writing createOrReplace → {target_fqn}")
-        try:
-            writer.createOrReplace()
-        except Exception:
-            log.exception(f"[{source_table}] ICEBERG WRITE (createOrReplace) FAILED — full traceback:")
-            raise
-    else:
-        try:
-            log.info(f"[{source_table}] Writing append → {target_fqn}")
-            writer.append()
-        except Exception:
-            log.warning(f"[{source_table}] append failed (table may not exist yet) — retrying with create")
+        writer = df.writeTo(target_fqn).using("iceberg") \
+            .tableProperty("write.format.default", "parquet") \
+            .tableProperty("write.parquet.compression-codec", "snappy") \
+            .tableProperty("write.distribution-mode", "none") \
+            .tableProperty("write.spark.fanout.enabled", "true") \
+            .tableProperty("write.merge.mode", "merge-on-read")
+
+        if partition_col and partition_col in df.columns:
+            writer = writer.partitionedBy(partition_col)
+
+        if FULL_LOAD:
+            log.info(f"[{source_table}] Writing createOrReplace → {target_fqn}")
             try:
-                writer.create()
+                writer.createOrReplace()
             except Exception:
-                log.exception(f"[{source_table}] ICEBERG WRITE (create) FAILED — full traceback:")
+                log.exception(f"[{source_table}] ICEBERG WRITE (createOrReplace) FAILED — full traceback:")
                 raise
+        else:
+            try:
+                log.info(f"[{source_table}] Writing append → {target_fqn}")
+                writer.append()
+            except Exception:
+                log.warning(f"[{source_table}] append failed (table may not exist yet) — retrying with create")
+                try:
+                    writer.create()
+                except Exception:
+                    log.exception(f"[{source_table}] ICEBERG WRITE (create) FAILED — full traceback:")
+                    raise
 
-    log.info(f"[{source_table}] --- DONE ---")
+        log.info(f"[{source_table}] --- DONE ---")
+    finally:
+        df.unpersist()
 
 
 # ---------------------------------------------------------------------------
@@ -262,32 +285,43 @@ try:
         table_name=FSA_FARM_SOURCE,
     )
     df_fsa = dyf_fsa.toDF()
+    df_fsa.cache()
+    try:
+        fsa_row_count = df_fsa.count()
+        log.info(f"[{FSA_FARM_SOURCE}] Read {fsa_row_count:,} rows")
 
-    log.info(f"[{FSA_FARM_SOURCE}] Read {df_fsa.count():,} rows")
+        if fsa_row_count == 0:
+            log.info(f"[{FSA_FARM_SOURCE}] No rows — skipping write")
+        else:
+            # Repartition by partition col so ClusteredWriter sees an ordered stream.
+            if "administrative_state" in df_fsa.columns:
+                df_fsa = df_fsa.repartition("administrative_state").sortWithinPartitions("administrative_state")
 
-    writer = df_fsa.writeTo(fsa_farm_target_fqn).using("iceberg") \
-        .tableProperty("write.format.default", "parquet") \
-        .tableProperty("write.parquet.compression-codec", "snappy") \
-        .tableProperty("write.distribution-mode", "none") \
-        .tableProperty("write.spark.fanout.enabled", "true") \
-        .tableProperty("write.merge.mode", "merge-on-read")
+            writer = df_fsa.writeTo(fsa_farm_target_fqn).using("iceberg") \
+                .tableProperty("write.format.default", "parquet") \
+                .tableProperty("write.parquet.compression-codec", "snappy") \
+                .tableProperty("write.distribution-mode", "none") \
+                .tableProperty("write.spark.fanout.enabled", "true") \
+                .tableProperty("write.merge.mode", "merge-on-read")
 
-    # Partition by administrative_state for state-level pruning (arch.md §3.4 strategy)
-    if "administrative_state" in df_fsa.columns:
-        writer = writer.partitionedBy("administrative_state")
+            # Partition by administrative_state for state-level pruning (arch.md §3.4 strategy)
+            if "administrative_state" in df_fsa.columns:
+                writer = writer.partitionedBy("administrative_state")
 
-    if FULL_LOAD:
-        log.info(f"[{FSA_FARM_SOURCE}] Full load — createOrReplace → {fsa_farm_target_fqn}")
-        writer.createOrReplace()
-    else:
-        try:
-            log.info(f"[{FSA_FARM_SOURCE}] Incremental — append → {fsa_farm_target_fqn}")
-            writer.append()
-        except Exception:
-            log.warning(f"[{FSA_FARM_SOURCE}] Table does not exist yet — creating")
-            writer.create()
+            if FULL_LOAD:
+                log.info(f"[{FSA_FARM_SOURCE}] Full load — createOrReplace → {fsa_farm_target_fqn}")
+                writer.createOrReplace()
+            else:
+                try:
+                    log.info(f"[{FSA_FARM_SOURCE}] Incremental — append → {fsa_farm_target_fqn}")
+                    writer.append()
+                except Exception:
+                    log.warning(f"[{FSA_FARM_SOURCE}] Table does not exist yet — creating")
+                    writer.create()
 
-    log.info(f"[{FSA_FARM_SOURCE}] Done → {fsa_farm_target_fqn}")
+            log.info(f"[{FSA_FARM_SOURCE}] Done → {fsa_farm_target_fqn}")
+    finally:
+        df_fsa.unpersist()
 except Exception as exc:
     log.error(f"[{FSA_FARM_SOURCE}] FAILED: {exc}", exc_info=True)
     errors.append((FSA_FARM_SOURCE, str(exc)))

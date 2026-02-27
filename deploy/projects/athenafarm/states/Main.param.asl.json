@@ -125,7 +125,7 @@
         }
       ],
       "ResultPath": "$.ingest_results",
-      "Next": "TransformTractProducerYear",
+      "Next": "TransformParallel",
       "Catch": [
         {
           "ErrorEquals": ["States.ALL"],
@@ -135,60 +135,72 @@
       ]
     },
 
-    "TransformTractProducerYear": {
-      "Type": "Task",
-      "Comment": "Run the full IBase→ZMI→PG CTE join chain and apply MERGE INTO on tract_producer_year.",
-      "Resource": "arn:aws:states:::glue:startJobRun.sync",
-      "Parameters": {
-        "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
-        "Arguments": {
-          "--env": "__ENV__",
-          "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
-          "--full_load.$": "$.full_load"
-        }
-      },
-      "TimeoutSeconds": 28800,
-      "ResultPath": "$.transform_tpy_result",
-      "Retry": [
+    "TransformParallel": {
+      "Type": "Parallel",
+      "Comment": "Run tract and farm producer year transforms concurrently. Both read from S3 Iceberg only (no shared write targets, no locks).",
+      "Branches": [
         {
-          "ErrorEquals": ["Glue.AWSGlueException", "States.TaskFailed"],
-          "IntervalSeconds": 15,
-          "MaxAttempts": 1,
-          "BackoffRate": 1.5
+          "StartAt": "TransformTractProducerYear",
+          "States": {
+            "TransformTractProducerYear": {
+              "Type": "Task",
+              "Comment": "Run the full IBase→ZMI→PG CTE join chain and apply MERGE INTO on tract_producer_year.",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--full_load.$": "$.full_load"
+                }
+              },
+              "TimeoutSeconds": 28800,
+              "ResultPath": "$.transform_tpy_result",
+              "Retry": [
+                {
+                  "ErrorEquals": ["Glue.AWSGlueException"],
+                  "Comment": "Retry only on transient AWS infrastructure errors. States.TaskFailed means the script raised RuntimeError — retrying wastes job startup time.",
+                  "IntervalSeconds": 15,
+                  "MaxAttempts": 1,
+                  "BackoffRate": 1.5
+                }
+              ],
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "TransformFarmProducerYear",
+          "States": {
+            "TransformFarmProducerYear": {
+              "Type": "Task",
+              "Comment": "Run the farm-level IBase→ZMI→PG CTE join chain and apply MERGE INTO on farm_producer_year.",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_FARM_PY_GLUE_JOB_NAME__",
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--full_load.$": "$.full_load"
+                }
+              },
+              "TimeoutSeconds": 28800,
+              "ResultPath": "$.transform_fpy_result",
+              "Retry": [
+                {
+                  "ErrorEquals": ["Glue.AWSGlueException"],
+                  "Comment": "Retry only on transient AWS infrastructure errors. States.TaskFailed means the script raised RuntimeError — retrying wastes job startup time.",
+                  "IntervalSeconds": 15,
+                  "MaxAttempts": 1,
+                  "BackoffRate": 1.5
+                }
+              ],
+              "End": true
+            }
+          }
         }
       ],
-      "Catch": [
-        {
-          "ErrorEquals": ["States.ALL"],
-          "ResultPath": "$.error",
-          "Next": "Notify"
-        }
-      ],
-      "Next": "TransformFarmProducerYear"
-    },
-
-    "TransformFarmProducerYear": {
-      "Type": "Task",
-      "Comment": "Run the farm-level IBase→ZMI→PG CTE join chain and apply MERGE INTO on farm_producer_year.",
-      "Resource": "arn:aws:states:::glue:startJobRun.sync",
-      "Parameters": {
-        "JobName": "__TRANSFORM_FARM_PY_GLUE_JOB_NAME__",
-        "Arguments": {
-          "--env": "__ENV__",
-          "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
-          "--full_load.$": "$.full_load"
-        }
-      },
-      "TimeoutSeconds": 28800,
-      "ResultPath": "$.transform_fpy_result",
-      "Retry": [
-        {
-          "ErrorEquals": ["Glue.AWSGlueException", "States.TaskFailed"],
-          "IntervalSeconds": 15,
-          "MaxAttempts": 1,
-          "BackoffRate": 1.5
-        }
-      ],
+      "ResultPath": "$.transform_results",
       "Catch": [
         {
           "ErrorEquals": ["States.ALL"],
@@ -228,7 +240,8 @@
       "ResultPath": "$.sync_result",
       "Retry": [
         {
-          "ErrorEquals": ["Glue.AWSGlueException", "States.TaskFailed"],
+          "ErrorEquals": ["Glue.AWSGlueException"],
+          "Comment": "Retry only on transient AWS infrastructure errors. States.TaskFailed means the script raised RuntimeError — retrying wastes job startup time.",
           "IntervalSeconds": 30,
           "MaxAttempts": 2,
           "BackoffRate": 2.0

@@ -1,0 +1,3 @@
+One remaining caveat to verify with the DBA: tract_producer_year_identifier and farm_producer_year_identifier in the CDC tables 
+— confirm they are sequential auto-increment integer columns (not UUIDs). If they are, the current code is correct. 
+If they're something else, they'd need to be added to the pk_col=None list, which would fall back to single-partition.

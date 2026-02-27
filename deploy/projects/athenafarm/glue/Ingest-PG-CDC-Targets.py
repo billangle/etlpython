@@ -143,38 +143,72 @@ if DEBUG:
 # Table specs: (pg_table, iceberg_target, partition_col, bookmark_key)
 # ---------------------------------------------------------------------------
 TABLE_SPECS = [
+    # (pg_schema, pg_table, iceberg_target, partition_col, pk_col)
+    # pk_col is the sequential integer PK used for lowerBound/upperBound range
+    # partitioning — guaranteed indexed, no secondary index dependency.
     (
         "farm_records_reporting",
         "tract_producer_year",
         "tract_producer_year",
         "state_fsa_code",
+        "tract_producer_year_identifier",
     ),
     (
         "farm_records_reporting",
         "farm_producer_year",
         "farm_producer_year",
         "state_fsa_code",
+        "farm_producer_year_identifier",
     ),
 ]
 
 
-def ingest_cdc_target(pg_schema: str, pg_table: str, tgt_table: str, partition_col: str):
+def ingest_cdc_target(pg_schema: str, pg_table: str, tgt_table: str, partition_col: str, pk_col: str):
     target_fqn = f"glue_catalog.{TARGET_DATABASE}.{tgt_table}"
     source_label = f"{pg_schema}.{pg_table}"
     log.info(f"[{source_label}] --- START ---")
     log.info(f"[{source_label}] Target FQN  : {target_fqn}")
     log.info(f"[{source_label}] Partition   : {partition_col}")
+    log.info(f"[{source_label}] PK col      : {pk_col}")
     log.info(f"[{source_label}] JDBC URL    : {JDBC_URL}")
 
+    # Parallel JDBC read via numeric PK range partitioning.
+    # The PK index is always present; Spark splits [lowerBound, upperBound]
+    # evenly across numPartitions tasks. Using state_fsa_code predicates
+    # instead requires a secondary index — absent index = 100 sequential
+    # full-table scans, which is far worse than a single serial read.
+    _NUM_PARTITIONS = 20
+    _jdbc_props = {
+        "user":           PG_USER,
+        "password":       PG_PASS,
+        "driver":         "org.postgresql.Driver",
+        "fetchsize":      "50000",
+        "connectTimeout": "120",
+        "socketTimeout":  "600",
+    }
     try:
-        df = spark.read.format("jdbc") \
-            .option("url",      JDBC_URL) \
-            .option("dbtable",  f"{pg_schema}.{pg_table}") \
-            .option("user",     PG_USER) \
-            .option("password", PG_PASS) \
-            .option("driver",   "org.postgresql.Driver") \
-            .option("fetchsize", "10000") \
-            .load()
+        bounds_row = spark.read.jdbc(
+            url=JDBC_URL,
+            table=f"(SELECT MIN({pk_col}) AS lo, MAX({pk_col}) AS hi FROM {pg_schema}.{pg_table}) q",
+            properties=_jdbc_props,
+        ).collect()[0]
+        lo = int(bounds_row["lo"] or 0)
+        hi = int(bounds_row["hi"] or 0)
+        log.info(f"[{source_label}] PK range {lo:,} – {hi:,}, numPartitions={_NUM_PARTITIONS}")
+
+        if hi == 0:
+            log.info(f"[{source_label}] Table is empty — skipping")
+            return
+
+        df = spark.read.jdbc(
+            url=JDBC_URL,
+            table=f"{pg_schema}.{pg_table}",
+            column=pk_col,
+            lowerBound=lo,
+            upperBound=hi + 1,
+            numPartitions=_NUM_PARTITIONS,
+            properties=_jdbc_props,
+        )
     except Exception:
         log.exception(f"[{source_label}] JDBC READ FAILED — full traceback:")
         raise
@@ -195,37 +229,41 @@ def ingest_cdc_target(pg_schema: str, pg_table: str, tgt_table: str, partition_c
 
     # Sort by partition column before writing — must happen before writeTo()
     # since the writer is bound to df at construction time.
-    if partition_col and partition_col in df.columns:
-        log.info(f"[{source_label}] Repartitioning + sorting by '{partition_col}' for Iceberg write ordering")
-        df = df.repartition(partition_col).sortWithinPartitions(partition_col)
-    elif partition_col:
-        log.warning(f"[{source_label}] Partition column '{partition_col}' not in DataFrame — skipping sort. Columns: {df.columns}")
-
-    writer = df.writeTo(target_fqn).using("iceberg") \
-        .tableProperty("write.format.default", "parquet") \
-        .tableProperty("write.parquet.compression-codec", "snappy") \
-        .tableProperty("write.distribution-mode", "none") \
-        .tableProperty("write.spark.fanout.enabled", "true") \
-        .tableProperty("write.merge.mode", "merge-on-read")
-
-    if partition_col and partition_col in df.columns:
-        writer = writer.partitionedBy(partition_col)
-
-    log.info(f"[{source_label}] Writing createOrReplace → {target_fqn}")
+    # Hold a reference to the cached JDBC df so the repartition rebind
+    # doesn't prevent unpersist() from releasing the original cached data.
+    df_cached = df
     try:
-        writer.createOrReplace()
-    except Exception:
-        log.exception(f"[{source_label}] ICEBERG WRITE FAILED — full traceback:")
-        raise
+        if partition_col and partition_col in df.columns:
+            log.info(f"[{source_label}] Repartitioning + sorting by '{partition_col}' for Iceberg write ordering")
+            df = df.repartition(partition_col).sortWithinPartitions(partition_col)
+        elif partition_col:
+            log.warning(f"[{source_label}] Partition column '{partition_col}' not in DataFrame — skipping sort. Columns: {df.columns}")
+
+        writer = df.writeTo(target_fqn).using("iceberg") \
+            .tableProperty("write.format.default", "parquet") \
+            .tableProperty("write.parquet.compression-codec", "snappy") \
+            .tableProperty("write.distribution-mode", "none") \
+            .tableProperty("write.spark.fanout.enabled", "true") \
+            .tableProperty("write.merge.mode", "merge-on-read")
+
+        if partition_col and partition_col in df.columns:
+            writer = writer.partitionedBy(partition_col)
+
+        log.info(f"[{source_label}] Writing createOrReplace → {target_fqn}")
+        try:
+            writer.createOrReplace()
+        except Exception:
+            log.exception(f"[{source_label}] ICEBERG WRITE FAILED — full traceback:")
+            raise
+        log.info(f"[{source_label}] --- DONE ---")
     finally:
-        df.unpersist()
-    log.info(f"[{source_label}] --- DONE ---")
+        df_cached.unpersist()
 
 
 errors = []
-for pg_schema, pg_table, tgt_tbl, part_col in TABLE_SPECS:
+for pg_schema, pg_table, tgt_tbl, part_col, pk_col in TABLE_SPECS:
     try:
-        ingest_cdc_target(pg_schema, pg_table, tgt_tbl, part_col)
+        ingest_cdc_target(pg_schema, pg_table, tgt_tbl, part_col, pk_col)
     except Exception as exc:
         log.error(f"[{pg_schema}.{pg_table}] FAILED: {exc}", exc_info=True)
         errors.append((f"{pg_schema}.{pg_table}", str(exc)))

@@ -35,12 +35,18 @@ VERSION HISTORY:
 
 import sys
 import logging
+import datetime
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+_root_log = logging.getLogger()
+if not _root_log.handlers:
+    _h = logging.StreamHandler(sys.stderr)
+    _h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    _root_log.addHandler(_h)
+_root_log.setLevel(logging.INFO)
 log = logging.getLogger(__name__)
 
 required_args = ["JOB_NAME", "env", "iceberg_warehouse"]
@@ -133,10 +139,11 @@ def maintain_table(catalog_db: str, table: str):
 
     # ── 2. EXPIRE SNAPSHOTS: remove snapshots older than retention window ────
     try:
+        _cutoff = (datetime.datetime.utcnow() - datetime.timedelta(hours=RETENTION_HOURS)).strftime("%Y-%m-%d %H:%M:%S")
         expire_result = spark.sql(f"""
             CALL glue_catalog.system.expire_snapshots(
                 table              => '{catalog_db}.{table}',
-                older_than         => TIMESTAMP '{__import__('datetime').datetime.utcnow().__class__.utcnow() - __import__('datetime').timedelta(hours={RETENTION_HOURS})}',
+                older_than         => TIMESTAMP '{_cutoff}',
                 retain_last        => 5,
                 max_concurrent_deletes => 10
             )

@@ -54,7 +54,12 @@ from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+_root_log = logging.getLogger()
+if not _root_log.handlers:
+    _h = logging.StreamHandler(sys.stderr)
+    _h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    _root_log.addHandler(_h)
+_root_log.setLevel(logging.INFO)
 log = logging.getLogger(__name__)
 
 required_args = ["JOB_NAME", "env", "iceberg_warehouse"]
@@ -82,6 +87,10 @@ job = Job(glueContext)
 job.init(JOB_NAME, args)
 
 spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
+# Broadcast small reference tables (county_office_control, farm_year) rather
+# than shuffle-joining them.  Default threshold is 10 MB; 50 MB gives Iceberg
+# table statistics room to make the right call.
+spark.conf.set("spark.sql.autoBroadcastJoinThreshold", str(50 * 1024 * 1024))
 
 log.info("=" * 70)
 log.info(f"Job            : {JOB_NAME}")
@@ -239,6 +248,8 @@ FROM (
 
 log.info("Running farm_producer_year CTE transform")
 source_df = spark.sql(TRANSFORM_SQL)
+# Cache so .count() and the subsequent MERGE INTO share one materialisation.
+source_df.cache()
 source_df.createOrReplaceTempView("new_farm_producer_year")
 log.info(f"Transform produced {source_df.count():,} source rows")
 
@@ -287,10 +298,10 @@ else:
     ON  t.farm_year_identifier = s.farm_year_identifier
 
     WHEN MATCHED AND (
-            t.farm_producer_hel_exception_code   <> s.farm_producer_hel_exception_code OR
-            t.farm_producer_cw_exception_code    <> s.farm_producer_cw_exception_code  OR
-            t.farm_producer_pcw_exception_code   <> s.farm_producer_pcw_exception_code OR
-            t.data_status_code                   <> s.data_status_code
+            NOT (t.farm_producer_hel_exception_code  <=> s.farm_producer_hel_exception_code) OR
+            NOT (t.farm_producer_cw_exception_code   <=> s.farm_producer_cw_exception_code)  OR
+            NOT (t.farm_producer_pcw_exception_code  <=> s.farm_producer_pcw_exception_code) OR
+            NOT (t.data_status_code                  <=> s.data_status_code)
     ) THEN UPDATE SET
         farm_producer_hel_exception_code    = s.farm_producer_hel_exception_code,
         farm_producer_cw_exception_code     = s.farm_producer_cw_exception_code,
@@ -335,8 +346,17 @@ else:
 
 log.info(f"Executing MERGE INTO {TARGET_FQN}")
 spark.sql(MERGE_SQL)
+source_df.unpersist()
 
-final_count = spark.read.format("iceberg").load(TARGET_FQN).count()
+try:
+    snap_row = spark.sql(
+        f"SELECT summary['total-records'] AS n "
+        f"FROM glue_catalog.{TGT_DB}.{TGT_TABLE}.snapshots "
+        f"ORDER BY committed_at DESC LIMIT 1"
+    ).first()
+    final_count = int(snap_row["n"]) if snap_row else -1
+except Exception:
+    final_count = -1
 log.info(f"[METRIC] {TGT_TABLE}_row_count={final_count}")
 
 job.commit()

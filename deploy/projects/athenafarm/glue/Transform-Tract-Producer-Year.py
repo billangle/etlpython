@@ -65,7 +65,12 @@ from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+_root_log = logging.getLogger()
+if not _root_log.handlers:
+    _h = logging.StreamHandler(sys.stderr)
+    _h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    _root_log.addHandler(_h)
+_root_log.setLevel(logging.INFO)
 log = logging.getLogger(__name__)
 
 required_args = ["JOB_NAME", "env", "iceberg_warehouse"]
@@ -93,6 +98,10 @@ job = Job(glueContext)
 job.init(JOB_NAME, args)
 
 spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
+# Broadcast small reference tables (time_period, county_office_control) rather
+# than shuffle-joining them.  Default threshold in Spark 3.x is 10 MB; 50 MB
+# allows Iceberg's table statistics to push these into broadcast.
+spark.conf.set("spark.sql.autoBroadcastJoinThreshold", str(50 * 1024 * 1024))
 
 log.info("=" * 70)
 log.info(f"Job            : {JOB_NAME}")
@@ -395,6 +404,8 @@ WHERE rownum = 1
 
 log.info("Running CTE transform query")
 source_df = spark.sql(TRANSFORM_SQL)
+# Cache so .count() and the subsequent MERGE INTO share one materialisation.
+source_df.cache()
 source_df.createOrReplaceTempView("new_tract_producer_year")
 log.info(f"Transform produced {source_df.count():,} source rows")
 
@@ -478,12 +489,15 @@ else:
     AND t.producer_involvement_code = s.producer_involvement_code
 
     WHEN MATCHED AND (
-            t.producer_involvement_start_date       <> s.producer_involvement_start_date  OR
-            t.producer_involvement_end_date         <> s.producer_involvement_end_date    OR
-            t.tract_producer_hel_exception_code     <> s.tract_producer_hel_exception_code OR
-            t.tract_producer_cw_exception_code      <> s.tract_producer_cw_exception_code  OR
-            t.tract_producer_pcw_exception_code     <> s.tract_producer_pcw_exception_code OR
-            t.data_status_code                      <> s.data_status_code
+            -- NOT (a <=> b) is Spark SQL's null-safe not-equal (≡ IS DISTINCT FROM).
+            -- Using <> would silently skip updates where either side is NULL, e.g.
+            -- when an exception code is removed (changed from a value to NULL).
+            NOT (t.producer_involvement_start_date   <=> s.producer_involvement_start_date)  OR
+            NOT (t.producer_involvement_end_date     <=> s.producer_involvement_end_date)    OR
+            NOT (t.tract_producer_hel_exception_code <=> s.tract_producer_hel_exception_code) OR
+            NOT (t.tract_producer_cw_exception_code  <=> s.tract_producer_cw_exception_code)  OR
+            NOT (t.tract_producer_pcw_exception_code <=> s.tract_producer_pcw_exception_code) OR
+            NOT (t.data_status_code                  <=> s.data_status_code)
     ) THEN UPDATE SET
         producer_involvement_start_date       = s.producer_involvement_start_date,
         producer_involvement_end_date         = s.producer_involvement_end_date,
@@ -558,12 +572,22 @@ else:
 
 log.info(f"Executing MERGE INTO {TARGET_FQN}")
 spark.sql(MERGE_SQL)
+source_df.unpersist()
 log.info("MERGE INTO complete")
 
 # ---------------------------------------------------------------------------
-# Post-merge row-count metric (CloudWatch via print — picked up by CW Logs)
+# Post-merge row-count metric from Iceberg snapshot metadata — reads one
+# small JSON manifest file, not the full Parquet data files.
 # ---------------------------------------------------------------------------
-final_count = spark.read.format("iceberg").load(TARGET_FQN).count()
+try:
+    snap_row = spark.sql(
+        f"SELECT summary['total-records'] AS n "
+        f"FROM glue_catalog.{TGT_DB}.{TGT_TABLE}.snapshots "
+        f"ORDER BY committed_at DESC LIMIT 1"
+    ).first()
+    final_count = int(snap_row["n"]) if snap_row else -1
+except Exception:
+    final_count = -1  # metadata unavailable — non-fatal
 log.info(f"[METRIC] {TGT_TABLE}_row_count={final_count}")
 
 job.commit()

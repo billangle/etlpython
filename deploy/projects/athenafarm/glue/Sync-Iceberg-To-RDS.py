@@ -42,7 +42,12 @@ from awsglue.context import GlueContext
 from awsglue.job import Job
 from pyspark.sql import functions as F
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+_root_log = logging.getLogger()
+if not _root_log.handlers:
+    _h = logging.StreamHandler(sys.stderr)
+    _h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    _root_log.addHandler(_h)
+_root_log.setLevel(logging.INFO)
 log = logging.getLogger(__name__)
 
 required_args = ["JOB_NAME", "env", "iceberg_warehouse", "secret_id"]
@@ -163,29 +168,33 @@ def sync_table(iceberg_table: str, pg_schema: str, pg_table: str, pk_cols: list)
             log.info(f"[{iceberg_table}] No previous snapshot found — full sync")
             delta_df = spark.read.format("iceberg").load(iceberg_fqn)
 
-    row_count = delta_df.count()
-    log.info(f"[{iceberg_table}] {row_count:,} rows to sync")
+    # Cache so count() and collect() share one Spark scan.
+    delta_df.cache()
+    try:
+        row_count = delta_df.count()
+        log.info(f"[{iceberg_table}] {row_count:,} rows to sync")
 
-    if row_count == 0:
-        log.info(f"[{iceberg_table}] No changed rows — skipping write")
-        return
+        if row_count == 0:
+            log.info(f"[{iceberg_table}] No changed rows — skipping write")
+            return
 
-    # ── Upsert delta to RDS via psycopg2 ────────────────────────────────────
-    all_cols    = delta_df.columns
-    pk_set      = set(pk_cols)
-    non_pk_cols = [c for c in all_cols if c not in pk_set]
-    pk_cols_str = ", ".join(pk_cols)
-    insert_cols_str = ", ".join(all_cols)
-    values_placeholder = ", ".join(["%s"] * len(all_cols))
-    update_set  = ", ".join([f"{c} = EXCLUDED.{c}" for c in non_pk_cols])
+        all_cols    = delta_df.columns
+        pk_set      = set(pk_cols)
+        non_pk_cols = [c for c in all_cols if c not in pk_set]
+        pk_cols_str = ", ".join(pk_cols)
+        insert_cols_str = ", ".join(all_cols)
+        values_placeholder = ", ".join(["%s"] * len(all_cols))
+        update_set  = ", ".join([f"{c} = EXCLUDED.{c}" for c in non_pk_cols])
 
-    upsert_sql = (
-        f"INSERT INTO {pg_schema}.{pg_table} ({insert_cols_str}) "
-        f"VALUES ({values_placeholder}) "
-        f"ON CONFLICT ({pk_cols_str}) DO UPDATE SET {update_set}"
-    )
+        upsert_sql = (
+            f"INSERT INTO {pg_schema}.{pg_table} ({insert_cols_str}) "
+            f"VALUES ({values_placeholder}) "
+            f"ON CONFLICT ({pk_cols_str}) DO UPDATE SET {update_set}"
+        )
 
-    rows = [tuple(row[c] for c in all_cols) for row in delta_df.collect()]
+        rows = [tuple(row[c] for c in all_cols) for row in delta_df.collect()]
+    finally:
+        delta_df.unpersist()
 
     conn = psycopg2.connect(
         host=PG_HOST, port=PG_PORT, dbname=PG_DB,
@@ -205,12 +214,14 @@ def sync_table(iceberg_table: str, pg_schema: str, pg_table: str, pk_cols: list)
         conn.close()
 
     # ── Store current snapshot for next incremental run ───────────────────
-    current_snapshot_df = spark.sql(
-        f"SELECT snapshot_id FROM glue_catalog.{TGT_DB}.{iceberg_table}.snapshots ORDER BY committed_at DESC LIMIT 1"
-    )
-    if current_snapshot_df.count() > 0:
-        current_snapshot = str(current_snapshot_df.collect()[0]["snapshot_id"])
-        put_snapshot(iceberg_table, current_snapshot)
+    # Use .first() instead of .count() + .collect() — avoids evaluating the
+    # same metadata query twice.
+    snap_row = spark.sql(
+        f"SELECT snapshot_id FROM glue_catalog.{TGT_DB}.{iceberg_table}.snapshots "
+        f"ORDER BY committed_at DESC LIMIT 1"
+    ).first()
+    if snap_row:
+        put_snapshot(iceberg_table, str(snap_row["snapshot_id"]))
 
 
 errors = []

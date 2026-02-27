@@ -156,21 +156,24 @@ def sync_table(iceberg_table: str, pg_schema: str, pg_table: str, pk_cols: list)
     # ── Determine rows to sync ────────────────────────────────────────────
     if FULL_LOAD:
         log.info(f"[{iceberg_table}] Full sync mode — reading entire table")
-        delta_df = spark.read.format("iceberg").load(iceberg_fqn)
+        delta_df = spark.table(iceberg_fqn)
     else:
         last_snapshot = get_last_snapshot(iceberg_table)
+        # S3 direct path for incremental #changes read — bypasses catalog FQN
+        # requirement so DataFrameReader.load() works without catalog registration.
+        iceberg_s3_path = f"{ICEBERG_WAREHOUSE}/{TGT_DB}/{iceberg_table}"
         if last_snapshot:
             log.info(f"[{iceberg_table}] Incremental scan from snapshot {last_snapshot}")
             delta_df = spark.read.format("iceberg") \
                 .option("start-snapshot-id", last_snapshot) \
-                .load(f"{iceberg_fqn}#changes")
+                .load(f"{iceberg_s3_path}#changes")
             # Filter to only INSERTED and UPDATED rows (exclude deletes)
             if "_change_type" in delta_df.columns:
                 delta_df = delta_df.filter(F.col("_change_type").isin("INSERT", "UPDATE_AFTER")) \
                                    .drop("_change_type", "_commit_version", "_commit_timestamp")
         else:
             log.info(f"[{iceberg_table}] No previous snapshot found — full sync")
-            delta_df = spark.read.format("iceberg").load(iceberg_fqn)
+            delta_df = spark.table(iceberg_fqn)
 
     # Cache so count() and collect() share one Spark scan.
     delta_df.cache()

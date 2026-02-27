@@ -402,8 +402,13 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
         if extra_py:
             job_params.setdefault("--extra-py-files", extra_py)
 
-        # Name the CloudWatch log group after the job so logs are easy to find
+        # Enable continuous CloudWatch logging and name the log group after the
+        # actual job so logs are trivially findable in the console.
+        # --continuous-log-logStreamPrefix scopes each run's streams under a
+        # unique prefix (job_name/) so runs don't overwrite each other's output.
+        job_params.setdefault("--enable-continuous-cloudwatch-log", "true")
         job_params.setdefault("--continuous-log-logGroup", f"/aws-glue/jobs/{job_name}")
+        job_params.setdefault("--continuous-log-logStreamPrefix", f"{job_name}/")
 
         merged_args = _merge_default_args(default_args, job_params)
 

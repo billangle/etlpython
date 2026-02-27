@@ -83,15 +83,6 @@
                 }
               },
               "TimeoutSeconds": 28800,
-              "Retry": [
-                {
-                  "ErrorEquals": ["Glue.AWSGlueException"],
-                  "Comment": "Retry only on transient AWS Glue infrastructure errors. States.TaskFailed means the script raised RuntimeError — retrying a code failure wastes 40+ min per attempt.",
-                  "IntervalSeconds": 30,
-                  "MaxAttempts": 2,
-                  "BackoffRate": 2.0
-                }
-              ],
               "Catch": [
                 {
                   "ErrorEquals": ["States.ALL"],
@@ -122,15 +113,6 @@
                 }
               },
               "TimeoutSeconds": 28800,
-              "Retry": [
-                {
-                  "ErrorEquals": ["Glue.AWSGlueException"],
-                  "Comment": "Retry only on transient AWS Glue infrastructure errors. States.TaskFailed means the script raised RuntimeError — retrying a code failure wastes 40+ min per attempt.",
-                  "IntervalSeconds": 30,
-                  "MaxAttempts": 2,
-                  "BackoffRate": 2.0
-                }
-              ],
               "Catch": [
                 {
                   "ErrorEquals": ["States.ALL"],
@@ -161,15 +143,6 @@
                 }
               },
               "TimeoutSeconds": 28800,
-              "Retry": [
-                {
-                  "ErrorEquals": ["Glue.AWSGlueException"],
-                  "Comment": "Retry only on transient AWS Glue infrastructure errors. States.TaskFailed means the script raised RuntimeError — retrying a code failure wastes 40+ min per attempt.",
-                  "IntervalSeconds": 30,
-                  "MaxAttempts": 2,
-                  "BackoffRate": 2.0
-                }
-              ],
               "Catch": [
                 {
                   "ErrorEquals": ["States.ALL"],
@@ -219,15 +192,6 @@
               },
               "TimeoutSeconds": 28800,
               "ResultPath": "$.transform_tpy_result",
-              "Retry": [
-                {
-                  "ErrorEquals": ["Glue.AWSGlueException"],
-                  "Comment": "Retry only on transient AWS infrastructure errors. States.TaskFailed means the script raised RuntimeError — retrying wastes job startup time.",
-                  "IntervalSeconds": 15,
-                  "MaxAttempts": 1,
-                  "BackoffRate": 1.5
-                }
-              ],
               "End": true
             }
           }
@@ -249,15 +213,6 @@
               },
               "TimeoutSeconds": 28800,
               "ResultPath": "$.transform_fpy_result",
-              "Retry": [
-                {
-                  "ErrorEquals": ["Glue.AWSGlueException"],
-                  "Comment": "Retry only on transient AWS infrastructure errors. States.TaskFailed means the script raised RuntimeError — retrying wastes job startup time.",
-                  "IntervalSeconds": 15,
-                  "MaxAttempts": 1,
-                  "BackoffRate": 1.5
-                }
-              ],
               "End": true
             }
           }
@@ -276,15 +231,23 @@
 
     "CheckSkipRDSSync": {
       "Type": "Choice",
-      "Comment": "If skip_rds_sync is true in the execution input, bypass SyncToRDS and go straight to Notify. Default (false or absent) runs the sync.",
+      "Comment": "Only run SyncToRDS if skip_rds_sync is explicitly false. Default (absent or true) skips the sync.",
       "Choices": [
         {
-          "Variable": "$.skip_rds_sync",
-          "BooleanEquals": true,
-          "Next": "Notify"
+          "And": [
+            {
+              "Variable": "$.skip_rds_sync",
+              "IsPresent": true
+            },
+            {
+              "Variable": "$.skip_rds_sync",
+              "BooleanEquals": false
+            }
+          ],
+          "Next": "SyncToRDS"
         }
       ],
-      "Default": "SyncToRDS"
+      "Default": "Notify"
     },
 
     "SyncToRDS": {
@@ -301,15 +264,6 @@
       },
       "TimeoutSeconds": 28800,
       "ResultPath": "$.sync_result",
-      "Retry": [
-        {
-          "ErrorEquals": ["Glue.AWSGlueException"],
-          "Comment": "Retry only on transient AWS infrastructure errors. States.TaskFailed means the script raised RuntimeError — retrying wastes job startup time.",
-          "IntervalSeconds": 30,
-          "MaxAttempts": 2,
-          "BackoffRate": 2.0
-        }
-      ],
       "Catch": [
         {
           "ErrorEquals": ["States.ALL"],

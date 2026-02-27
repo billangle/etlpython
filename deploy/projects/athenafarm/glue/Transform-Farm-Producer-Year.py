@@ -112,7 +112,7 @@ log.info("=" * 70)
 def register_view(catalog_db: str, table: str, view_name: str = None):
     fqn = f"glue_catalog.{catalog_db}.{table}"
     vn = view_name or table
-    spark.read.format("iceberg").load(fqn).createOrReplaceTempView(vn)
+    spark.table(fqn).createOrReplaceTempView(vn)
     log.info(f"Registered view [{vn}] → {fqn}")
 
 # fsa-prod-farm-records.farm — pre-ingested as fsa_farm_records_farm by Ingest-SSS-Farmrecords

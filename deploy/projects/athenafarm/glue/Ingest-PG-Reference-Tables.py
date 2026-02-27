@@ -55,8 +55,19 @@ from pyspark import SparkConf
 from awsglue.context import GlueContext
 from awsglue.job import Job
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+# ---------------------------------------------------------------------------
+# Logging — explicit StreamHandler so output reaches CloudWatch regardless
+# of whether Glue's runtime has already initialised the root logger.
+# Glue captures sys.stderr → /aws-glue/jobs/error log stream in CloudWatch.
+# ---------------------------------------------------------------------------
+_root_log = logging.getLogger()
+if not _root_log.handlers:
+    _handler = logging.StreamHandler(sys.stderr)
+    _handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    _root_log.addHandler(_handler)
+_root_log.setLevel(logging.INFO)
 log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 required_args = ["JOB_NAME", "env", "iceberg_warehouse", "secret_id"]
 args = getResolvedOptions(sys.argv, required_args)
@@ -93,6 +104,15 @@ _conf.set("spark.sql.catalog.glue_catalog", "org.apache.iceberg.spark.SparkCatal
 _conf.set("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws.glue.GlueCatalog")
 _conf.set("spark.sql.catalog.glue_catalog.io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
 _conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
+# Force Iceberg FanoutWriter for all writes via this catalog.  The default
+# ClusteredWriter requires incoming records to be physically sorted by
+# partition spec — JDBC reads do not guarantee this ordering, so partitioned
+# createOrReplace calls repeatedly fail with:
+#   "Incoming records violate the writer assumption that records are clustered
+#    by spec and by partition within each spec."
+# Setting fanout at the SparkConf level ensures it applies to createOrReplace
+# as well as append/create, regardless of per-table write properties.
+_conf.set("spark.sql.catalog.glue_catalog.write.spark.fanout.enabled", "true")
 sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -180,6 +200,12 @@ def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_
         log.exception(f"[{source_label}] JDBC READ FAILED — full traceback:")
         raise
 
+    # Cache before count so Spark does not re-execute the JDBC query a second
+    # time during the Iceberg write.  Without cache(), df.count() triggers a
+    # full table fetch over JDBC, then createOrReplace() triggers another
+    # full fetch — doubling runtime for every large table (e.g. tract_year).
+    df.cache()
+
     row_count = df.count()
     log.info(f"[{source_label}] Rows read   : {row_count:,}")
 
@@ -190,7 +216,21 @@ def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_
 
     if row_count == 0:
         log.info(f"[{source_label}] No rows — skipping write")
+        df.unpersist()
         return
+
+    # Sort by partition column before writing.  Even though fanout mode is
+    # enabled at the catalog level, sorting ensures optimal data layout and
+    # avoids the ClusteredWriter error if fanout is ever not picked up:
+    #   "Incoming records violate the writer assumption that records are
+    #    clustered by spec and by partition within each spec."
+    # repartition() colocates all rows with the same partition value into
+    # the same Spark task; sortWithinPartitions() then orders within each task.
+    if partition_col and partition_col in df.columns:
+        log.info(f"[{source_label}] Repartitioning + sorting by '{partition_col}' for Iceberg write ordering")
+        df = df.repartition(partition_col).sortWithinPartitions(partition_col)
+    elif partition_col:
+        log.warning(f"[{source_label}] Partition column '{partition_col}' not in DataFrame — skipping sort. Columns: {df.columns}")
 
     writer = df.writeTo(target_fqn).using("iceberg") \
         .tableProperty("write.format.default", "parquet") \
@@ -200,8 +240,6 @@ def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_
 
     if partition_col and partition_col in df.columns:
         writer = writer.partitionedBy(partition_col)
-    elif partition_col and partition_col not in df.columns:
-        log.warning(f"[{source_label}] Partition column '{partition_col}' not found in DataFrame — writing unpartitioned. Columns: {df.columns}")
 
     log.info(f"[{source_label}] Writing createOrReplace → {target_fqn}")
     try:
@@ -209,6 +247,8 @@ def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_
     except Exception:
         log.exception(f"[{source_label}] ICEBERG WRITE FAILED — full traceback:")
         raise
+    finally:
+        df.unpersist()
     log.info(f"[{source_label}] --- DONE ---")
 
 

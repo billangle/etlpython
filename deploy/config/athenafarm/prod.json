@@ -84,10 +84,11 @@
         "JobContinuousLogging": "ENABLED",
         "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
         "PythonLibraryPath": "",
-        "AdditionalPythonModulesPath": "s3://c108-prod-fpacfsa-landing-zone/dart/scripts/python-modules/dart/glue/psycopg2_binary-2.9.9-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "AdditionalPythonModulesPath": "",
         "UseGlueDataCatalogAsTheHiveMetastore": "true",
         "JobParameters": {
-          "--target_database": "athenafarm_prod_ref"
+          "--target_database": "athenafarm_prod_ref",
+          "--conf": "spark.sql.shuffle.partitions=50"
         }
       }
     },
@@ -109,10 +110,11 @@
         "JobContinuousLogging": "ENABLED",
         "TemporaryPath": "s3://fsa-prod-ops/temp/glue/",
         "PythonLibraryPath": "",
-        "AdditionalPythonModulesPath": "s3://c108-prod-fpacfsa-landing-zone/dart/scripts/python-modules/dart/glue/psycopg2_binary-2.9.9-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "AdditionalPythonModulesPath": "",
         "UseGlueDataCatalogAsTheHiveMetastore": "true",
         "JobParameters": {
-          "--target_database": "athenafarm_prod_cdc"
+          "--target_database": "athenafarm_prod_cdc",
+          "--conf": "spark.sql.shuffle.partitions=50"
         }
       }
     },

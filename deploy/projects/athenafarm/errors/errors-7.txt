@@ -1,0 +1,33 @@
+{
+  "full_load": "true",
+  "skip_rds_sync": true,
+  "ingest_pg_refs_error": {
+    "Error": "States.TaskFailed",
+    "Cause": "{\"AllocatedCapacity\":8,\"Arguments\":{\"--iceberg_warehouse\":\"s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg\",\"--env\":\"PROD\"},\"Attempt\":0,\"CompletedOn\":1772211928408,\"ErrorMessage\":\"RuntimeError: Ingest-PG-Reference-Tables completed with errors: farm_records_reporting.tract_year: An error occurred while calling o197.count.\",\"ExecutionTime\":1272,\"GlueVersion\":\"4.0\",\"Id\":\"jr_acab544da1b715fe864458fbcdb619f070a39cfc32d45899373549d42bf7d472\",\"JobMode\":\"SCRIPT\",\"JobName\":\"FSA-PROD-ATHENAFARM-Ingest-PG-Reference-Tables\",\"JobRunState\":\"FAILED\",\"LastModifiedOn\":1772211928408,\"LogGroupName\":\"/aws-glue/jobs\",\"MaxCapacity\":8.0,\"NumberOfWorkers\":4,\"PredecessorRuns\":[],\"StartedOn\":1772210632105,\"Timeout\":480,\"WorkerType\":\"G.2X\"}"
+  }
+}
+
+{
+  "AllocatedCapacity": 8,
+  "Arguments": {
+    "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+    "--env": "PROD"
+  },
+  "Attempt": 0,
+  "CompletedOn": 1772211822208,
+  "ExecutionTime": 1171,
+  "GlueVersion": "4.0",
+  "Id": "jr_99c54d14ee29d5fda993c3c0dcff76f2007e1fe8caf861e08e59fc7cc058f938",
+  "JobMode": "SCRIPT",
+  "JobName": "FSA-PROD-ATHENAFARM-Ingest-PG-CDC-Targets",
+  "JobRunState": "SUCCEEDED",
+  "LastModifiedOn": 1772211822208,
+  "LogGroupName": "/aws-glue/jobs",
+  "MaxCapacity": 8,
+  "NumberOfWorkers": 4,
+  "PredecessorRuns": [],
+  "StartedOn": 1772210632128,
+  "Timeout": 480,
+  "WorkerType": "G.2X"
+}
+

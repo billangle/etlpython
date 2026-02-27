@@ -1,65 +1,102 @@
-# Python based deployer
+# Python Based ETL Deployer
 
-This document provides an overview of the Python based deployer. The solution utilizes Python and Boto3 to automate deployments of Lambda functions, Glue Jobs, Step functions and Glue crawlers. This solution does not utilize the AWS CDK.
+This repository implements a **modular, Python-based CI/CD deployment framework**
+for FPAC FSA data pipelines. It uses Python and Boto3 to automate the creation
+and updating of AWS Glue jobs, Lambda functions, Step Functions state machines,
+and Glue crawlers. No AWS CDK is used.
 
 ---
 
-# Solution Structure Template
+## Quick Links
+
+| Document | Description |
+|---|---|
+| [deploy/projects/README.md](deploy/projects/README.md) | Project catalogue — all 14 pipelines, resource counts, S3 config upload details |
+| [deploy/config/README.md](deploy/config/README.md) | Config file structure — full field reference with annotated examples |
+
+---
+
+## Solution Structure
 
 ```
 deploy/
-├── deploy.py
+├── deploy.py                   # Master deployer — dispatches to each project
 ├── common/
 │   ├── __init__.py
-│   └── aws_common.py
-├── projects/
-│   ├── __init__.py
-│   └── fpac_pipeline/
-│       ├── __init__.py
-│       ├── deploy.py
-│       ├── fpac_stepfunctions.py
-│       ├── lambda/
-│       │   ├── Validate/
-│       │   ├── CreateNewId/
-│       │   └── LogResults/
-│       └── glue/
-│           ├── landingFiles/landing_job.py
-│           ├── cleaningFiles/cleaning_job.py
-│           └── finalFiles/final_job.py
-└── config/
-    ├── dev.json
-    └── prod.json
-
+│   └── aws_common.py           # Shared helpers: GlueJobSpec, ensure_glue_job, ensure_lambda, etc.
+├── config/                     # Per-project, per-environment JSON config files
+│   ├── README.md               # ← Config file field reference
+│   ├── athenafarm/
+│   │   ├── dev.json
+│   │   ├── prod.json
+│   │   └── steamdev.json
+│   └── <project>/              # Same pattern for all 14 projects
+│       ├── dev.json
+│       ├── steamdev.json
+│       ├── cert.json           # Selected projects only
+│       └── prod.json
+└── projects/
+    ├── README.md               # ← Project catalogue and resource inventory
+    ├── athenafarm/             # Iceberg / farm data pipeline
+    ├── cars/                   # CARS reporting pipeline
+    ├── carsdm/                 # CARS data mart
+    ├── cnsv/                   # Conservation multi-pipeline (5 deployers)
+    ├── farm_records/           # Farm Records pipeline
+    ├── farmdm/                 # Farm Data Mart config upload
+    ├── flpids/                 # FLPIDS FTPS file checks
+    ├── fmmi/                   # FMMI CSV→ODS pipeline
+    ├── fpac_pipeline/          # Shared FPAC landing/cleaning/final jobs
+    ├── nps/                    # NPS archive table pipeline
+    ├── pmrds/                  # PMRDS ODS→STG→FINAL pipeline
+    ├── sbsd/                   # SBSD data mart + config upload
+    └── tsthooks/               # CI/CD webhook test Lambdas
 ```
 
-# Overview
+## Overview
 
-This solution implements a **modular, Python based CI/CD deployment pipeline framework** designed to support environment-specific deployments, reusable infrastructure components, and event-driven processing using AWS Step Functions, Lambda, and Glue.
+The framework supports **14 independent ETL projects**, each deploying a
+combination of Glue Spark jobs, Lambda functions, and Step Functions state
+machines. All resource names, IAM ARNs, bucket references, and job parameters
+are driven by JSON config files — nothing is hardcoded in the deployer scripts.
 
-The structure emphasizes **separation of concerns**, **reusability**, and **least-privilege deployment practices**.
+Resources follow a consistent naming convention:
+```
+FSA-{deployEnv}-{project}-{ResourceName}
+```
+e.g. `FSA-PROD-ATHENAFARM-Ingest-SSS-Farmrecords` (Glue), `FSA-PROD-CNSV-Main` (Step Functions).
 
 ---
-## Deployment via Jenkins 
 
-The root level deployer is called via a Jenkins pipeline. This requires the following variables to be resolved:
+## Deployment via Jenkins
 
-- Configuration file - defines all of the parameters for the targeted environment
-- AWS Region - AWS region
-- Project-type - this is the data pipeline that will be deployed
+The master deployer is invoked by a Jenkins pipeline with three variables:
 
+- **Config file** — JSON file defining all environment-specific parameters
+- **AWS Region** — target region for API calls
+- **Project type** — which project deployer to dispatch to
+
+```bash
+python deploy.py \
+  --config config/athenafarm/prod.json \
+  --region us-east-1 \
+  --project-type athenafarm
 ```
-Example:
 
-python deploy.py --config config/depeast2.json --region us-east-2 --project-type fpac
-```
+### Environments
 
-The goal is to integrate this with BitBucket via webhooks. This will allow deployments to occur in specific environments based on the types of git actions. These can include:
+| Config file | Environment |
+|---|---|
+| `dev.json` | Development |
+| `steamdev.json` | Steam / Cert-Dev |
+| `cert.json` | Certification (selected projects) |
+| `prod.json` | Production |
 
-- Code Commits on specific branches
-- PR (pull requests) to merge specific branches
-- Feature Tags on specific branches
+The framework is designed for integration with BitBucket webhooks to trigger
+environment-targeted deployments based on:
 
-The goal will be to automate the deployment of data pipelines, using a git branching and deployment strategy.
+- Commits to specific branches
+- Pull requests and branch merges
+- Feature branch tags
 
 ---
 
@@ -89,16 +126,43 @@ config/       → Environment-specific configuration
 ### Step Functions–Driven Workflow Orchestration
 
 - Data pipeline logic is coordinated via **AWS Step Functions**
-- Workflow definitions are centralized in:
+
+#### Current Design — Parameterised ASL JSON
+
+Workflow definitions are stored as `*.param.asl.json` files alongside each project's deployer. At deploy time the deployer reads the file, substitutes environment-specific parameters (ARNs, bucket names, resource tags, etc.) from the project's JSON config, and creates or updates the state machine via the AWS API.
 
 ```
-projects/fpac_pipeline/fpac_stepfunctions.py
+projects/
+├── athenafarm/states/
+│   ├── Main.param.asl.json          # Pipeline — ingest → transform → sync
+│   └── Maintenance.param.asl.json
+└── cnsv/states/
+    ├── Main.param.asl.json
+    ├── Incremental-to-S3Landing.param.asl.json
+    └── ...                          # One .param.asl.json per state machine
 ```
 
-- Supports:
-  - Multi-stage execution
-  - Error handling and retries
-  - Clear separation between orchestration and execution logic
+Projects using this approach: **athenafarm**, **cnsv**
+
+#### Legacy Design — Python-Based ASL Builder
+
+Earlier projects constructed ASL definitions programmatically using Python builder classes. These files remain in place and are still deployed but are not the target pattern for new pipelines.
+
+Projects still using Python builders: **cars**, **carsdm**, **farm_records**, **flpids**, **fpac_pipeline**, **sbsd**
+
+```
+projects/
+├── cars/states/
+│   ├── cars_stepfunction.py
+│   └── cars_dm_etl_stepfunction.py
+├── carsdm/states/carsdm_stepfunction.py
+├── farm_records/farm_rec_stepfunctions.py
+├── flpids/stepfunctions/fpac_stepfunctions.py
+├── fpac_pipeline/fpac_stepfunctions.py
+└── sbsd/states/
+    ├── sbsd_stepfunction.py
+    └── sbsd_dm_etl_stepfunction.py
+```
 
 ---
 

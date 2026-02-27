@@ -452,6 +452,33 @@ class TestRequiredArgs(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# Test 6: First-run safety for missing gold target tables
+# ---------------------------------------------------------------------------
+
+class TestFirstRunTargetSafety(unittest.TestCase):
+    """
+    Transform jobs must be able to run on first deployment when the target
+    Iceberg table does not exist yet.
+    """
+
+    def test_transform_tract_creates_target_if_missing(self):
+        text = _script_text("Transform-Tract-Producer-Year")
+        self.assertRegex(
+            text,
+            r"CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+\{TARGET_FQN\}",
+            "Transform-Tract-Producer-Year must create target table if missing",
+        )
+
+    def test_transform_farm_creates_target_if_missing(self):
+        text = _script_text("Transform-Farm-Producer-Year")
+        self.assertRegex(
+            text,
+            r"CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+\{TARGET_FQN\}",
+            "Transform-Farm-Producer-Year must create target table if missing",
+        )
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -464,6 +491,7 @@ if __name__ == "__main__":
         TestConfigScriptContract,
         TestDatabaseSemantics,
         TestRequiredArgs,
+        TestFirstRunTargetSafety,
     ]:
         suite.addTests(loader.loadTestsFromTestCase(cls))
 

@@ -143,9 +143,6 @@ for tbl in ["ibib", "ibsp", "ibst", "ibin", "ibpart", "crmd_partner",
 for tbl in ["time_period", "county_office_control", "farm", "tract", "farm_year", "tract_year", "but000"]:
     register_view(REF_DB, tbl)
 
-# CDC target snapshot (for MERGE INTO comparison)
-register_view(TGT_DB, TGT_TABLE, "tract_producer_year_existing")
-
 log.info("All source views registered — executing CTE transform")
 
 # ---------------------------------------------------------------------------
@@ -422,6 +419,14 @@ log.info(f"Transform produced {source_df.count():,} source rows")
 # Replaces separate INSERT + UPDATE Athena queries in one atomic S3 pass.
 # ---------------------------------------------------------------------------
 TARGET_FQN = f"glue_catalog.{TGT_DB}.{TGT_TABLE}"
+
+# First run safety: create empty Iceberg target table if it does not exist yet.
+# This prevents AnalysisException on initial deploy while still allowing MERGE
+# to perform inserts/updates against a stable schema.
+spark.sql(
+    f"CREATE TABLE IF NOT EXISTS {TARGET_FQN} "
+    f"USING iceberg AS SELECT * FROM new_tract_producer_year WHERE 1 = 0"
+)
 
 if FULL_LOAD:
     # --full_load flag: skip WHEN MATCHED, only insert (replaces INSERT_NO_COMPARE)

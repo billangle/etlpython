@@ -123,7 +123,23 @@ register_view(REF_DB, "county_office_control")
 register_view(REF_DB, "farm",      "farm_rds")   # PG farm table — different from fsa_farm_records_farm
 register_view(REF_DB, "farm_year")
 
-register_view(TGT_DB, TGT_TABLE, "farm_producer_year_existing")
+try:
+    register_view(TGT_DB, TGT_TABLE, "farm_producer_year_existing")
+except Exception:
+    # First run safety: table may not exist yet.
+    # Provide an empty compatible view so the transform SQL can compile.
+    spark.sql(
+        """
+        SELECT
+            CAST(NULL AS BIGINT) AS farm_producer_year_identifier,
+            CAST(NULL AS BIGINT) AS farm_year_identifier
+        WHERE 1 = 0
+        """
+    ).createOrReplaceTempView("farm_producer_year_existing")
+    log.warning(
+        f"Target snapshot glue_catalog.{TGT_DB}.{TGT_TABLE} not found; "
+        "using empty farm_producer_year_existing view for initial load"
+    )
 
 log.info("All source views registered — executing farm_producer_year CTE transform")
 
@@ -255,6 +271,12 @@ source_df.createOrReplaceTempView("new_farm_producer_year")
 log.info(f"Transform produced {source_df.count():,} source rows")
 
 TARGET_FQN = f"glue_catalog.{TGT_DB}.{TGT_TABLE}"
+
+# First run safety: create empty Iceberg target table if it does not exist yet.
+spark.sql(
+    f"CREATE TABLE IF NOT EXISTS {TARGET_FQN} "
+    f"USING iceberg AS SELECT * FROM new_farm_producer_year WHERE 1 = 0"
+)
 
 # MERGE ON: farm_year_identifier only — core_customer_identifier and
 # producer_involvement_code are NULL in the original SQL (pending mapping).

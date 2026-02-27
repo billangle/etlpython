@@ -22,7 +22,8 @@
               "TimeoutSeconds": 28800,
               "Retry": [
                 {
-                  "ErrorEquals": ["Glue.AWSGlueException", "States.TaskFailed"],
+                  "ErrorEquals": ["Glue.AWSGlueException"],
+                  "Comment": "Retry only on transient AWS Glue infrastructure errors. States.TaskFailed means the script raised RuntimeError — retrying a code failure wastes 40+ min per attempt.",
                   "IntervalSeconds": 30,
                   "MaxAttempts": 2,
                   "BackoffRate": 2.0
@@ -60,7 +61,8 @@
               "TimeoutSeconds": 28800,
               "Retry": [
                 {
-                  "ErrorEquals": ["Glue.AWSGlueException", "States.TaskFailed"],
+                  "ErrorEquals": ["Glue.AWSGlueException"],
+                  "Comment": "Retry only on transient AWS Glue infrastructure errors. States.TaskFailed means the script raised RuntimeError — retrying a code failure wastes 40+ min per attempt.",
                   "IntervalSeconds": 30,
                   "MaxAttempts": 2,
                   "BackoffRate": 2.0
@@ -98,7 +100,8 @@
               "TimeoutSeconds": 28800,
               "Retry": [
                 {
-                  "ErrorEquals": ["Glue.AWSGlueException", "States.TaskFailed"],
+                  "ErrorEquals": ["Glue.AWSGlueException"],
+                  "Comment": "Retry only on transient AWS Glue infrastructure errors. States.TaskFailed means the script raised RuntimeError — retrying a code failure wastes 40+ min per attempt.",
                   "IntervalSeconds": 30,
                   "MaxAttempts": 2,
                   "BackoffRate": 2.0

@@ -1,0 +1,8 @@
+{
+  "full_load": "true",
+  "skip_rds_sync": true,
+  "ingest_pg_refs_error": {
+    "Error": "States.TaskFailed",
+    "Cause": "{\"AllocatedCapacity\":8,\"Arguments\":{\"--iceberg_warehouse\":\"s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg\",\"--env\":\"PROD\"},\"Attempt\":0,\"CompletedOn\":1772209318660,\"ErrorMessage\":\"RuntimeError: Ingest-PG-Reference-Tables completed with errors: farm_records_reporting.tract_year: An error occurred while calling o213.count.\",\"ExecutionTime\":2696,\"GlueVersion\":\"4.0\",\"Id\":\"jr_a20ce877950ce282a199ad8f26bf946072de515a7aa7c835aa97770eeeddcbea\",\"JobMode\":\"SCRIPT\",\"JobName\":\"FSA-PROD-ATHENAFARM-Ingest-PG-Reference-Tables\",\"JobRunState\":\"FAILED\",\"LastModifiedOn\":1772209318660,\"LogGroupName\":\"/aws-glue/jobs\",\"MaxCapacity\":8.0,\"NumberOfWorkers\":4,\"PredecessorRuns\":[],\"StartedOn\":1772206607930,\"Timeout\":480,\"WorkerType\":\"G.2X\"}"
+  }
+}

@@ -61,6 +61,7 @@ import sys
 import logging
 import traceback
 from awsglue.utils import getResolvedOptions
+from pyspark import SparkConf
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
@@ -91,17 +92,24 @@ if DEBUG:
     log.setLevel(logging.DEBUG)
     log.debug("DEBUG logging enabled")
 
-sc = SparkContext()
+# All catalog properties must be set in SparkConf BEFORE SparkContext is
+# created.  Setting them after-the-fact via spark.conf.set() registers the
+# warehouse path but does NOT register glue_catalog as a SparkCatalog, causing:
+#   java.util.NoSuchElementException: None.get  (DataSourceV2Utils.loadV2Source)
+_conf = SparkConf()
+_conf.set("spark.sql.catalog.glue_catalog",              "org.apache.iceberg.spark.SparkCatalog")
+_conf.set("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws.glue.GlueCatalog")
+_conf.set("spark.sql.catalog.glue_catalog.io-impl",      "org.apache.iceberg.aws.s3.S3FileIO")
+_conf.set("spark.sql.catalog.glue_catalog.warehouse",    ICEBERG_WAREHOUSE)
+# Broadcast small reference tables (time_period, county_office_control) rather
+# than shuffle-joining them.  Default threshold in Spark 3.x is 10 MB; 50 MB
+# allows Iceberg's table statistics to push these into broadcast.
+_conf.set("spark.sql.autoBroadcastJoinThreshold",        str(50 * 1024 * 1024))
+sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(JOB_NAME, args)
-
-spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
-# Broadcast small reference tables (time_period, county_office_control) rather
-# than shuffle-joining them.  Default threshold in Spark 3.x is 10 MB; 50 MB
-# allows Iceberg's table statistics to push these into broadcast.
-spark.conf.set("spark.sql.autoBroadcastJoinThreshold", str(50 * 1024 * 1024))
 
 log.info("=" * 70)
 log.info(f"Job            : {JOB_NAME}")

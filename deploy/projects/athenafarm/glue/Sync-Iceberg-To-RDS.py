@@ -37,6 +37,7 @@ import boto3
 import psycopg2
 import psycopg2.extras
 from awsglue.utils import getResolvedOptions
+from pyspark import SparkConf
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
@@ -68,13 +69,16 @@ if DEBUG:
     log.setLevel(logging.DEBUG)
     log.debug("DEBUG logging enabled")
 
-sc = SparkContext()
+_conf = SparkConf()
+_conf.set("spark.sql.catalog.glue_catalog",              "org.apache.iceberg.spark.SparkCatalog")
+_conf.set("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws.glue.GlueCatalog")
+_conf.set("spark.sql.catalog.glue_catalog.io-impl",      "org.apache.iceberg.aws.s3.S3FileIO")
+_conf.set("spark.sql.catalog.glue_catalog.warehouse",    ICEBERG_WAREHOUSE)
+sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(JOB_NAME, args)
-
-spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
 
 log.info("=" * 70)
 log.info(f"Job            : {JOB_NAME}")

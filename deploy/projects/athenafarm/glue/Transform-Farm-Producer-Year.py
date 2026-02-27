@@ -50,6 +50,7 @@ import sys
 import logging
 import traceback
 from awsglue.utils import getResolvedOptions
+from pyspark import SparkConf
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
@@ -80,17 +81,17 @@ if DEBUG:
     log.setLevel(logging.DEBUG)
     log.debug("DEBUG logging enabled")
 
-sc = SparkContext()
+_conf = SparkConf()
+_conf.set("spark.sql.catalog.glue_catalog",              "org.apache.iceberg.spark.SparkCatalog")
+_conf.set("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws.glue.GlueCatalog")
+_conf.set("spark.sql.catalog.glue_catalog.io-impl",      "org.apache.iceberg.aws.s3.S3FileIO")
+_conf.set("spark.sql.catalog.glue_catalog.warehouse",    ICEBERG_WAREHOUSE)
+_conf.set("spark.sql.autoBroadcastJoinThreshold",        str(50 * 1024 * 1024))
+sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(JOB_NAME, args)
-
-spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
-# Broadcast small reference tables (county_office_control, farm_year) rather
-# than shuffle-joining them.  Default threshold is 10 MB; 50 MB gives Iceberg
-# table statistics room to make the right call.
-spark.conf.set("spark.sql.autoBroadcastJoinThreshold", str(50 * 1024 * 1024))
 
 log.info("=" * 70)
 log.info(f"Job            : {JOB_NAME}")

@@ -1257,6 +1257,7 @@ final_df.select(length_exprs).show()
 ###############################################################################################
 # Write to S3 in Parquet format with Snappy compression
 ###############################################################################################
+final_df = final_df.repartition(10)
 final_df.write.mode("overwrite").parquet(destination_path, compression="snappy")
 print(f"Final Data Frame written to S3 at: {destination_path}")
 
@@ -1361,7 +1362,7 @@ else:
 if dq_passed:
     print(f"Row Count of DF: {df_final.count()}")
 
-'''
+
 ### Try Writing to RDS using Dynamic Frame since COPY CMD being funky
 try:
     logger.info("Writing Transformed data to Redshift")
@@ -1411,7 +1412,7 @@ except Exception as e:
     msg = f"Unexpected error during COPY COMMAND execution: {str(e)}"
     logger.error(msg)
     print(msg)
-
+'''
 
 endtime_m = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 job_stat_nm = f"FWADM NPS {tablename} successfully loaded"

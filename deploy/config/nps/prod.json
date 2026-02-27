@@ -99,7 +99,7 @@
         "TimeoutMinutes": "2880",
         "WorkerType": "G.4X",
         "SparkUILogsPath": "s3://fsa-prod-ops/glue-logs/spark-ui/nps/",
-        "NumberOfWorkers": "4",
+        "NumberOfWorkers": "6",
         "AutomaticScalingEnabled": "true",
         "GlueVersion": "4.0",
         "JobLanguage": "python",

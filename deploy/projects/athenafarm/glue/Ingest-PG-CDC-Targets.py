@@ -163,6 +163,49 @@ TABLE_SPECS = [
 ]
 
 
+def nan_safe_table_expr(pg_schema: str, pg_table: str, jdbc_url: str, props: dict) -> str:
+    """Return a JDBC table expression that replaces NaN in NUMERIC columns with NULL.
+
+    PostgreSQL allows NaN as a valid value for the NUMERIC type, but the
+    pgJDBC driver cannot convert NaN::numeric to Java BigDecimal and raises:
+        PSQLException: Bad value for type BigDecimal : NaN
+    """
+    meta_df = spark.read.jdbc(
+        url=jdbc_url,
+        table=(
+            f"(SELECT column_name, data_type "
+            f"FROM information_schema.columns "
+            f"WHERE table_schema = '{pg_schema}' AND table_name = '{pg_table}' "
+            f"ORDER BY ordinal_position) q"
+        ),
+        properties=props,
+    )
+    rows = meta_df.collect()
+    if not rows:
+        return f"{pg_schema}.{pg_table}"
+
+    select_parts = []
+    nan_cols = []
+    for row in rows:
+        col   = row["column_name"]
+        dtype = row["data_type"]
+        if dtype in ("numeric", "decimal"):
+            select_parts.append(
+                f"CASE WHEN {col}::text = 'NaN' THEN NULL ELSE {col} END AS {col}"
+            )
+            nan_cols.append(col)
+        else:
+            select_parts.append(col)
+
+    if nan_cols:
+        log.info(f"[{pg_schema}.{pg_table}] NaN-safe wrap applied to NUMERIC columns: {nan_cols}")
+    else:
+        log.info(f"[{pg_schema}.{pg_table}] No NUMERIC columns — using bare table expression")
+
+    select_clause = ", ".join(select_parts)
+    return f"(SELECT {select_clause} FROM {pg_schema}.{pg_table}) q"
+
+
 def ingest_cdc_target(pg_schema: str, pg_table: str, tgt_table: str, partition_col: str, pk_col: str):
     target_fqn = f"glue_catalog.{TARGET_DATABASE}.{tgt_table}"
     source_label = f"{pg_schema}.{pg_table}"
@@ -187,6 +230,9 @@ def ingest_cdc_target(pg_schema: str, pg_table: str, tgt_table: str, partition_c
         "socketTimeout":  "600",
     }
     try:
+        # Build NaN-safe table expression before reading any data.
+        _table_expr = nan_safe_table_expr(pg_schema, pg_table, JDBC_URL, _jdbc_props)
+
         bounds_row = spark.read.jdbc(
             url=JDBC_URL,
             table=f"(SELECT MIN({pk_col}) AS lo, MAX({pk_col}) AS hi FROM {pg_schema}.{pg_table}) q",
@@ -202,7 +248,7 @@ def ingest_cdc_target(pg_schema: str, pg_table: str, tgt_table: str, partition_c
 
         df = spark.read.jdbc(
             url=JDBC_URL,
-            table=f"{pg_schema}.{pg_table}",
+            table=_table_expr,
             column=pk_col,
             lowerBound=lo,
             upperBound=hi + 1,

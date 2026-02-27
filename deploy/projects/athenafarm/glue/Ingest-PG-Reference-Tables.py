@@ -180,6 +180,59 @@ TABLE_SPECS = [
 ]
 
 
+def nan_safe_table_expr(pg_schema: str, pg_table: str, jdbc_url: str, props: dict) -> str:
+    """Return a JDBC table expression that replaces NaN in NUMERIC columns with NULL.
+
+    PostgreSQL allows NaN as a valid value for the NUMERIC type, but the
+    pgJDBC driver cannot convert NaN::numeric to Java BigDecimal and raises:
+        PSQLException: Bad value for type BigDecimal : NaN
+
+    The fix is to wrap the table in a subquery that casts each numeric column
+    through text so the literal string 'NaN' can be detected and replaced:
+        CASE WHEN col::text = 'NaN' THEN NULL ELSE col END AS col
+
+    This query is lightweight — it reads only the information_schema metadata
+    row for this table (no data rows).
+    """
+    meta_df = spark.read.jdbc(
+        url=jdbc_url,
+        table=(
+            f"(SELECT column_name, data_type "
+            f"FROM information_schema.columns "
+            f"WHERE table_schema = '{pg_schema}' AND table_name = '{pg_table}' "
+            f"ORDER BY ordinal_position) q"
+        ),
+        properties=props,
+    )
+    rows = meta_df.collect()
+    if not rows:
+        # Fallback — return bare table name if metadata unavailable
+        return f"{pg_schema}.{pg_table}"
+
+    select_parts = []
+    nan_cols = []
+    for row in rows:
+        col   = row["column_name"]
+        dtype = row["data_type"]
+        if dtype in ("numeric", "decimal"):
+            # NaN::numeric is valid in PostgreSQL but breaks BigDecimal in the JDBC driver.
+            # Cast to text to detect the literal 'NaN' string, then substitute NULL.
+            select_parts.append(
+                f"CASE WHEN {col}::text = 'NaN' THEN NULL ELSE {col} END AS {col}"
+            )
+            nan_cols.append(col)
+        else:
+            select_parts.append(col)
+
+    if nan_cols:
+        log.info(f"[{pg_schema}.{pg_table}] NaN-safe wrap applied to NUMERIC columns: {nan_cols}")
+    else:
+        log.info(f"[{pg_schema}.{pg_table}] No NUMERIC columns — using bare table expression")
+
+    select_clause = ", ".join(select_parts)
+    return f"(SELECT {select_clause} FROM {pg_schema}.{pg_table}) q"
+
+
 def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_col, pk_col: str):
     target_fqn = f"glue_catalog.{TARGET_DATABASE}.{target_table}"
     source_label = f"{pg_schema}.{pg_table}"
@@ -202,6 +255,11 @@ def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_
     }
 
     try:
+        # Build a NaN-safe table expression for this table before reading any data.
+        # Some NUMERIC columns in farm_records_reporting contain PostgreSQL NaN values
+        # which are valid in PG but break the JDBC driver's BigDecimal conversion.
+        _table_expr = nan_safe_table_expr(pg_schema, pg_table, jdbc_url, _jdbc_props)
+
         if pk_col:
             # Parallel read: split [MIN(pk), MAX(pk)] into numPartitions ranges.
             # Uses the PK btree index — guaranteed fast regardless of whether
@@ -222,7 +280,7 @@ def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_
 
             df = spark.read.jdbc(
                 url=jdbc_url,
-                table=f"{pg_schema}.{pg_table}",
+                table=_table_expr,
                 column=pk_col,
                 lowerBound=lo,
                 upperBound=hi + 1,   # +1 so last row falls inside last partition
@@ -235,7 +293,7 @@ def ingest_pg_table(pg_schema: str, pg_table: str, target_table: str, partition_
             log.info(f"[{source_label}] Single-partition JDBC read (small table or non-numeric PK)")
             df = spark.read.jdbc(
                 url=jdbc_url,
-                table=f"{pg_schema}.{pg_table}",
+                table=_table_expr,
                 properties=_jdbc_props,
             )
     except Exception:

@@ -7,8 +7,71 @@
       "Comment": "Run all three ingest jobs concurrently — SSS Athena tables, PG reference tables, and PG CDC target snapshots.",
       "Branches": [
         {
-          "StartAt": "IngestSSS",
+          "StartAt": "StartSSSCrawler",
           "States": {
+            "StartSSSCrawler": {
+              "Type": "Task",
+              "Comment": "Start the SSS Farmrecords Glue crawler to refresh the sss-farmrecords catalog database from S3 landing zone. If already running from a concurrent execution, skip straight to the poll loop.",
+              "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+              "Parameters": {
+                "Name": "__SSS_CRAWLER_NAME__"
+              },
+              "ResultPath": null,
+              "Catch": [
+                {
+                  "ErrorEquals": ["Glue.CrawlerRunningException"],
+                  "Comment": "Crawler already running — skip the start and fall into the poll loop.",
+                  "ResultPath": null,
+                  "Next": "WaitForSSSCrawler"
+                },
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "ResultPath": "$.crawler_error",
+                  "Next": "IngestSSSFailed"
+                }
+              ],
+              "Next": "WaitForSSSCrawler"
+            },
+            "WaitForSSSCrawler": {
+              "Type": "Wait",
+              "Comment": "Poll every 30 seconds until the crawler reaches READY state.",
+              "Seconds": 30,
+              "Next": "GetSSSCrawlerState"
+            },
+            "GetSSSCrawlerState": {
+              "Type": "Task",
+              "Comment": "Read current crawler state. READY = finished (success or failure). Any other value = still running.",
+              "Resource": "arn:aws:states:::aws-sdk:glue:getCrawler",
+              "Parameters": {
+                "Name": "__SSS_CRAWLER_NAME__"
+              },
+              "ResultPath": "$.crawler_status",
+              "Next": "CheckSSSCrawlerDone"
+            },
+            "CheckSSSCrawlerDone": {
+              "Type": "Choice",
+              "Comment": "Branch on crawler State. READY means finished — check LastCrawl.Status separately in IngestSSS logs. Anything else means still running.",
+              "Choices": [
+                {
+                  "Variable": "$.crawler_status.Crawler.State",
+                  "StringEquals": "READY",
+                  "Next": "CheckSSSCrawlerStatus"
+                }
+              ],
+              "Default": "WaitForSSSCrawler"
+            },
+            "CheckSSSCrawlerStatus": {
+              "Type": "Choice",
+              "Comment": "Crawler is READY. Check LastCrawl.Status — FAILED means no catalog tables were updated and IngestSSS would read stale/missing data.",
+              "Choices": [
+                {
+                  "Variable": "$.crawler_status.Crawler.LastCrawl.Status",
+                  "StringEquals": "FAILED",
+                  "Next": "IngestSSSFailed"
+                }
+              ],
+              "Default": "IngestSSS"
+            },
             "IngestSSS": {
               "Type": "Task",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
@@ -40,7 +103,7 @@
             },
             "IngestSSSFailed": {
               "Type": "Fail",
-              "Cause": "IngestSSS Glue job failed",
+              "Cause": "SSS crawler or IngestSSS Glue job failed",
               "Error": "IngestSSSError"
             }
           }

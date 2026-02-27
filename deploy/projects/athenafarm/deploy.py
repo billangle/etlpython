@@ -343,29 +343,10 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
                 glue.create_crawler(**crawler_cfg)
                 print(f"  ✓ {sss_crawler_name} (created)")
 
-            # Start the crawler and wait for it to complete
-            try:
-                state = glue.get_crawler(Name=sss_crawler_name)["Crawler"]["State"]
-                if state == "READY":
-                    print(f"  ↻  Starting {sss_crawler_name}...")
-                    glue.start_crawler(Name=sss_crawler_name)
-                else:
-                    print(f"  ↻  {sss_crawler_name} already running (state={state}), waiting...")
-            except glue.exceptions.CrawlerRunningException:
-                print(f"  ↻  {sss_crawler_name} already running, waiting...")
-
-            import time
-            while True:
-                state = glue.get_crawler(Name=sss_crawler_name)["Crawler"]["State"]
-                if state == "READY":
-                    last = glue.get_crawler(Name=sss_crawler_name)["Crawler"].get("LastCrawl", {})
-                    status = last.get("Status", "UNKNOWN")
-                    print(f"  ✓ {sss_crawler_name} finished — {status}")
-                    if status == "FAILED":
-                        print(f"  ⚠  Crawler error: {last.get('ErrorMessage', '')}")
-                    break
-                print(f"  ⏳ {sss_crawler_name} state={state} ...")
-                time.sleep(15)
+            # Crawler execution is a pipeline step — it runs inside the Step
+            # Function (StartSSSCrawler → WaitForSSSCrawler → poll loop).
+            # deploy.py only provisions the crawler definition here.
+            print(f"  ✓ {sss_crawler_name} provisioned — will be executed by the Step Function")
 
     # ── Upload all Glue scripts ──────────────────────────────────────────────
     print("[1/4] Uploading Glue scripts...")
@@ -473,10 +454,13 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
     print("\n[4/4] Deploying Step Functions state machines...")
 
     # Token map shared by both ASL files
+    sss_crawler_name = f"FSA-{deploy_env}-SSS-Farmrecords-Crawler"
+
     tokens = {
         "__ENV__":                           deploy_env,
         "__ICEBERG_WAREHOUSE__":             iceberg_warehouse,
         "__PG_CONNECTION_NAME__":            pg_connection_name,
+        "__SSS_CRAWLER_NAME__":              sss_crawler_name,
         "__INGEST_SSS_GLUE_JOB_NAME__":      names.ingest_sss_job,
         "__INGEST_PG_REFS_GLUE_JOB_NAME__":  names.ingest_pg_refs_job,
         "__INGEST_PG_CDC_GLUE_JOB_NAME__":   names.ingest_pg_cdc_job,

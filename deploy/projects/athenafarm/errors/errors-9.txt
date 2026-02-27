@@ -1,0 +1,79 @@
+{
+  "cause": {
+    "AllocatedCapacity": 40,
+    "Arguments": {
+      "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+      "--full_load": "true",
+      "--env": "PROD"
+    },
+    "Attempt": 0,
+    "CompletedOn": 1772218901824,
+    "ErrorMessage": "An error occurred while calling o102.load. None.get",
+    "ExecutionTime": 43,
+    "GlueVersion": "4.0",
+    "Id": "jr_3f0cfe96473d0c01c6e9d6532b171b52ed581fc4565bc7f4a29a80be2913c846",
+    "JobMode": "SCRIPT",
+    "JobName": "FSA-PROD-ATHENAFARM-Transform-Farm-Producer-Year",
+    "JobRunState": "FAILED",
+    "LastModifiedOn": 1772218901824,
+    "LogGroupName": "/aws-glue/jobs",
+    "MaxCapacity": 40,
+    "NumberOfWorkers": 20,
+    "PredecessorRuns": [],
+    "StartedOn": 1772218852334,
+    "Timeout": 120,
+    "WorkerType": "G.2X"
+  },
+  "error": "States.TaskFailed",
+  "resource": "startJobRun.sync",
+  "resourceType": "glue"
+}
+
+26/02/27 19:01:26 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] 
+{
+    "Event": "GlueETLJobExceptionEvent",
+    "Timestamp": 1772218886975,
+    "Failure Reason": "Traceback (most recent call last):\n  File \"/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py\", line 140, in <module>\n    register_view(SSS_DB, tbl)\n  File \"/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py\", line 134, in register_view\n    spark.read.format(\"iceberg\").load(fqn).createOrReplaceTempView(vn)\n  File \"/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/readwriter.py\", line 177, in load\n    return self._df(self._jreader.load(path))\n  File \"/opt/amazon/spark/python/lib/py4j-0.10.9.5-src.zip/py4j/java_gateway.py\", line 1321, in __call__\n    return_value = get_return_value(\n  File \"/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/utils.py\", line 190, in deco\n    return f(*a, **kw)\n  File \"/opt/amazon/spark/python/lib/py4j-0.10.9.5-src.zip/py4j/protocol.py\", line 326, in get_return_value\n    raise Py4JJavaError(\npy4j.protocol.Py4JJavaError: An error occurred while calling o102.load.\n: java.util.NoSuchElementException: None.get\n\tat scala.None$.get(Option.scala:529)\n\tat scala.None$.get(Option.scala:527)\n\tat org.apache.spark.sql.execution.datasources.v2.DataSourceV2Utils$.loadV2Source(DataSourceV2Utils.scala:129)\n\tat org.apache.spark.sql.DataFrameReader.$anonfun$load$1(DataFrameReader.scala:209)\n\tat scala.Option.flatMap(Option.scala:271)\n\tat org.apache.spark.sql.DataFrameReader.load(DataFrameReader.scala:207)\n\tat org.apache.spark.sql.DataFrameReader.load(DataFrameReader.scala:185)\n\tat sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)\n\tat sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)\n\tat sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)\n\tat java.lang.reflect.Method.invoke(Method.java:498)\n\tat py4j.reflection.MethodInvoker.invoke(MethodInvoker.java:244)\n\tat py4j.reflection.ReflectionEngine.invoke(ReflectionEngine.java:357)\n\tat py4j.Gateway.invoke(Gateway.java:282)\n\tat py4j.commands.AbstractCommand.invokeMethod(AbstractCommand.java:132)\n\tat py4j.commands.CallCommand.execute(CallCommand.java:79)\n\tat py4j.ClientServerConnection.waitForCommands(ClientServerConnection.java:182)\n\tat py4j.ClientServerConnection.run(ClientServerConnection.java:106)\n\tat java.lang.Thread.run(Thread.java:750)\n",
+    "Stack Trace": [
+        {
+            "Declaring Class": "get_return_value",
+            "Method Name": "raise Py4JJavaError(",
+            "File Name": "/opt/amazon/spark/python/lib/py4j-0.10.9.5-src.zip/py4j/protocol.py",
+            "Line Number": 326
+        },
+        {
+            "Declaring Class": "deco",
+            "Method Name": "return f(*a, **kw)",
+            "File Name": "/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/utils.py",
+            "Line Number": 190
+        },
+        {
+            "Declaring Class": "__call__",
+            "Method Name": "return_value = get_return_value(",
+            "File Name": "/opt/amazon/spark/python/lib/py4j-0.10.9.5-src.zip/py4j/java_gateway.py",
+            "Line Number": 1321
+        },
+        {
+            "Declaring Class": "load",
+            "Method Name": "return self._df(self._jreader.load(path))",
+            "File Name": "/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/readwriter.py",
+            "Line Number": 177
+        },
+        {
+            "Declaring Class": "register_view",
+            "Method Name": "spark.read.format(\"iceberg\").load(fqn).createOrReplaceTempView(vn)",
+            "File Name": "/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py",
+            "Line Number": 134
+        },
+        {
+            "Declaring Class": "<module>",
+            "Method Name": "register_view(SSS_DB, tbl)",
+            "File Name": "/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py",
+            "Line Number": 140
+        }
+    ],
+    "Last Executed Line number": 140,
+    "script": "FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py"
+}
+
+26/02/27 19:01:27 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] Last Executed Line number from script FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py: 140

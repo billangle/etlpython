@@ -48,15 +48,18 @@ deploy/projects/athenafarm/
 Manual / Lambda / CI trigger (no EventBridge — see "Running Without EventBridge" below)
   │
   └─▶ Step Functions: FSA-{ENV}-ATHENAFARM-Main
-        ├─ [Parallel]
-        │    ├─ Ingest-SSS-Farmrecords          (SSS Athena → sss.* Iceberg)
-        │    ├─ Ingest-PG-Reference-Tables      (PG refs → farm_ref.* Iceberg)
-        │    └─ Ingest-PG-CDC-Targets           (PG targets → farm_records_reporting.* Iceberg)
+        ├─ [IngestParallel]
+        │    ├─ StartSSSCrawler → WaitForSSSCrawler → poll loop → CheckSSSCrawlerStatus
+        │    │    └─ Ingest-SSS-Farmrecords     (SSS Athena → athenafarm_prod_raw Iceberg)
+        │    ├─ Ingest-PG-Reference-Tables      (PG refs → athenafarm_prod_ref Iceberg)
+        │    └─ Ingest-PG-CDC-Targets           (PG CDC → athenafarm_prod_cdc Iceberg)
         │
-        ├─ Transform-Tract-Producer-Year        (CTE + MERGE INTO tract_producer_year)
-        ├─ Transform-Farm-Producer-Year         (CTE + MERGE INTO farm_producer_year)
-        ├─ CheckSkipRDSSync                     (Choice: skip_rds_sync=true → Notify)
-        ├─ Sync-Iceberg-To-RDS                  (delta → RDS PostgreSQL)  [skippable]
+        ├─ [TransformParallel]                  (both transforms run concurrently)
+        │    ├─ Transform-Tract-Producer-Year   (CTE + MERGE INTO tract_producer_year)
+        │    └─ Transform-Farm-Producer-Year    (CTE + MERGE INTO farm_producer_year)
+        │
+        ├─ CheckSkipRDSSync                     (default: skip — must pass skip_rds_sync=false to run sync)
+        ├─ Sync-Iceberg-To-RDS                  (delta → RDS PostgreSQL)  [opt-in only]
         └─ Notify                               (FSA-{ENV}-ATHENAFARM-NotifyPipeline Lambda)
 
 Manual / Lambda / CI trigger (on schedule — no EventBridge)
@@ -102,13 +105,21 @@ and truncates RDS target tables before re-inserting):
 { "full_load": "true", "skip_rds_sync": false }
 ```
 
-### 3. Skip the RDS sync
+### 3. RDS sync is opt-in (default: skipped)
 
-To run the ingest + transform stages without writing back to RDS PostgreSQL
-(useful for testing or backfilling Iceberg without touching the live database):
+`skip_rds_sync` defaults to **true** — the sync step is **opt-in**. If `skip_rds_sync`
+is absent from the execution input or is `true`, `Sync-Iceberg-To-RDS` is skipped.
+
+Normal incremental run (no RDS sync):
 
 ```json
-{ "full_load": "false", "skip_rds_sync": true }
+{ "full_load": "false" }
+```
+
+To explicitly enable the RDS sync, pass `skip_rds_sync: false`:
+
+```json
+{ "full_load": "false", "skip_rds_sync": false }
 ```
 
 ---
@@ -126,26 +137,26 @@ ACCOUNT="241533156429"   # change per environment
 ENV="FPACDEV"            # FPACDEV | STEAMDEV | PROD
 REGION="us-east-1"
 
-# ------- Main ETL pipeline (incremental) -------
+# ------- Main ETL pipeline (incremental, no RDS sync — DEFAULT) -------
 aws stepfunctions start-execution \
   --region "${REGION}" \
   --state-machine-arn "arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:FSA-${ENV}-ATHENAFARM-Main" \
   --name "manual-$(date +%Y%m%d-%H%M%S)" \
+  --input '{"full_load": "false"}'
+
+# ------- Main ETL pipeline (incremental, WITH RDS sync) -------
+aws stepfunctions start-execution \
+  --region "${REGION}" \
+  --state-machine-arn "arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:FSA-${ENV}-ATHENAFARM-Main" \
+  --name "manual-sync-$(date +%Y%m%d-%H%M%S)" \
   --input '{"full_load": "false", "skip_rds_sync": false}'
 
-# ------- Main ETL pipeline (full / bulk-insert only) -------
+# ------- Full load + RDS sync -------
 aws stepfunctions start-execution \
   --region "${REGION}" \
   --state-machine-arn "arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:FSA-${ENV}-ATHENAFARM-Main" \
   --name "fullload-$(date +%Y%m%d-%H%M%S)" \
   --input '{"full_load": "true", "skip_rds_sync": false}'
-
-# ------- Iceberg-only run (no RDS write-back) -------
-aws stepfunctions start-execution \
-  --region "${REGION}" \
-  --state-machine-arn "arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:FSA-${ENV}-ATHENAFARM-Main" \
-  --name "iceberg-only-$(date +%Y%m%d-%H%M%S)" \
-  --input '{"full_load": "false", "skip_rds_sync": true}'
 
 # ------- Weekly Maintenance pipeline -------
 aws stepfunctions start-execution \
@@ -171,9 +182,10 @@ aws stepfunctions describe-execution \
 3. Search for `FSA-{ENV}-ATHENAFARM-Main` (or `Maintenance`).
 4. Click **Start execution**.
 5. In the **Input** box enter one of:
-   - `{ "full_load": "false", "skip_rds_sync": false }` — incremental MERGE (normal run)
-   - `{ "full_load": "true", "skip_rds_sync": false }` — full/bulk insert, truncates RDS before reload
-   - `{ "full_load": "false", "skip_rds_sync": true }` — Iceberg only, no RDS write-back
+   - `{ "full_load": "false" }` — incremental MERGE, no RDS sync (**default**)
+   - `{ "full_load": "false", "skip_rds_sync": false }` — incremental MERGE + RDS sync
+   - `{ "full_load": "true", "skip_rds_sync": false }` — full rebuild + RDS sync
+   - `{ "full_load": "true" }` — full rebuild, no RDS sync
 6. Click **Start execution**.
 
 Monitor progress in the **Graph inspector** tab; each node goes green when
@@ -266,6 +278,141 @@ stage('Run ETL') {
 
 ---
 
+---
+
+## SSS Farmrecords Crawler
+
+The SSS branch of the Step Function manages the Glue crawler
+(`FSA-{ENV}-SSS-Farmrecords-Crawler`) that populates the `sss-farmrecords` Glue
+catalog database from the SSS Parquet landing zone on S3.
+
+### What the crawler does
+
+The crawler scans `sssFarmrecordsS3Path` (configured in `prod.json`) and registers
+the discovered Parquet tables into the `sss-farmrecords` Glue catalog database.
+`Ingest-SSS-Farmrecords` then reads those catalog tables via `spark.table()` and
+writes them to Iceberg in `athenafarm_prod_raw`.
+
+### Poll loop (inside the Step Function)
+
+```
+StartSSSCrawler
+  │  CrawlerRunningException → WaitForSSSCrawler   (concurrent exec already started it)
+  │  States.ALL              → IngestSSSFailed
+  ▼
+WaitForSSSCrawler (30 s)
+  ▼
+GetSSSCrawlerState
+  ▼
+CheckSSSCrawlerDone
+  ├─ Crawler.State == READY  → CheckSSSCrawlerStatus
+  └─ anything else           → WaitForSSSCrawler   (still running — loop)
+  ▼
+CheckSSSCrawlerStatus
+  ├─ LastCrawl.Status == FAILED → IngestSSSFailed  (tables may be stale/missing)
+  └─ default                    → IngestSSS
+```
+
+**Key assumptions:**
+- The crawler is provisioned by `deploy.py` (create/update only — it does **not** start it).
+  Execution is entirely within the Step Function so the timing is pipeline-controlled.
+- `sss-farmrecords` database must exist before the crawler runs. `deploy.py` creates it
+  automatically during deployment.
+- S3 subfolder names under `sssFarmrecordsS3Path` are treated as table names by the crawler.
+  The SSS landing zone uses **UPPERCASE** subfolder names (e.g. `IBIB/`, `IBPART/`).
+  The resulting catalog table names are lowercase (`ibib`, `ibpart`, etc.) after Glue normalises them.
+- If the crawler finishes with `State=READY` but `LastCrawl.Status=FAILED`, the pipeline
+  aborts to `IngestSSSFailed` rather than running ingest on potentially stale or missing tables.
+- A `CrawlerRunningException` on start means another concurrent execution already started the
+  crawler — the pipeline falls directly into the poll loop and waits for it to finish normally.
+
+---
+
+## Expected Runtimes (PROD, G.2X workers)
+
+| Job | Workers | Typical runtime | Notes |
+|---|---|---|---|
+| SSS Crawler | — | 1–3 min | Depends on S3 object count in landing zone |
+| Ingest-SSS-Farmrecords | 10 | 5–15 min | Reads SSS Parquet, writes Iceberg with partition sort |
+| Ingest-PG-Reference-Tables | 4 | 10–30 min | Parallel JDBC reads (20 partitions per table, PK range) |
+| Ingest-PG-CDC-Targets | 4 | 10–30 min | Same parallel JDBC approach |
+| Transform-Tract-Producer-Year | 20 | 15–45 min | Large CTE join; incremental MERGE is fastest |
+| Transform-Farm-Producer-Year | 20 | 5–20 min | Smaller dataset than tract |
+| Sync-Iceberg-To-RDS | 4 | 2–15 min | Delta-only (snapshot diff); full load is longer |
+| Iceberg-Maintenance | 2 | 5–20 min | OPTIMIZE + EXPIRE SNAPSHOTS across all tables |
+
+IngestParallel and TransformParallel branches run concurrently, so total wall-clock time
+for a normal incremental run (no RDS sync) is roughly:
+
+```
+max(Crawler + IngestSSS, IngestPGRefs, IngestPGCDC)   ~30 min
++ max(TransformTract, TransformFarm)                   ~45 min
+= ~75 min worst-case incremental
+```
+
+---
+
+## Optimizations
+
+### Parallel JDBC reads (Ingest-PG-Reference-Tables, Ingest-PG-CDC-Targets)
+
+Large PostgreSQL tables are read in parallel using JDBC partitioning on the integer
+primary key. For each table the deployer queries `information_schema` to find the PK
+column, then computes a `lowerBound`/`upperBound` split across `numPartitions=20`
+parallel JDBC connections. This turns what was a single-threaded sequential read into
+20 concurrent reads, cutting ingest time by up to 20×.
+
+### NaN-safe JDBC reads
+
+PostgreSQL `NUMERIC`/`DECIMAL` columns can contain `NaN` (IEEE 754 not-a-number), which
+is valid in PostgreSQL but illegal in Java `BigDecimal` — the JDBC driver throws
+`PSQLException: Bad value for type BigDecimal: NaN` when it encounters one.
+
+Every JDBC read is wrapped via `nan_safe_table_expr()`, which queries
+`information_schema.columns` to identify all `numeric`/`decimal` columns in the table
+and builds a subquery that wraps each one in:
+
+```sql
+CASE WHEN col::text = 'NaN' THEN NULL ELSE col END AS col
+```
+
+This converts PostgreSQL `NaN` to SQL `NULL` before the JDBC driver reads it.
+
+### `spark.table()` for Iceberg catalog reads
+
+All Iceberg table reads use `spark.table("glue_catalog.db.table")` — **not**
+`spark.read.format("iceberg").load("glue_catalog.db.table")`.
+
+`DataFrameReader.load()` expects an S3 path; passing a catalog FQN causes
+`DataSourceV2Utils.loadV2Source` to throw `None.get` (NullPointerException in Scala).
+`spark.table()` routes through Spark's `CatalogManager`, which is correctly configured
+by `--datalake-formats iceberg`.
+
+Exception: the incremental `#changes` read in `Sync-Iceberg-To-RDS` uses a direct S3
+path (`{warehouse}/{db}/{table}#changes`) because the `#changes` suffix is an Iceberg
+S3-path convention and cannot be used with a catalog FQN.
+
+### Broadcast join threshold
+
+`spark.sql.autoBroadcastJoinThreshold=52428800` (50 MB) is set globally so that small
+reference/dimension tables are broadcast-joined rather than shuffle-joined, avoiding
+expensive all-to-all data shuffles in the transform CTE chains.
+
+### NULL-safe MERGE conditions
+
+MERGE INTO `WHEN MATCHED` conditions use `NOT (t.col <=> s.col)` (NULL-safe equality)
+instead of `t.col <> s.col`. Standard `<>` returns `NULL` when either side is `NULL`,
+which means rows with any NULL column would never match the update condition and would
+accumulate as duplicates. `<=>` is always `true` or `false`.
+
+### Iceberg snapshot count (no full scan)
+
+Post-MERGE row counts are read from Iceberg snapshot metadata
+(`spark.table("glue_catalog.db.table.snapshots")`) rather than running a full
+`SELECT COUNT(*)` scan over all Parquet files.
+
+---
+
 ## Glue Job Arguments
 
 | Argument | Jobs | Description | Default |
@@ -274,9 +421,9 @@ stage('Run ETL') {
 | `--iceberg_warehouse` | all | S3 URI for Iceberg warehouse root | (required) |
 | `--secret_id` | PG ingest, Sync | AWS Secrets Manager secret ID for PG credentials | from config |
 | `--full_load` | Transform, Sync | `true` = full rebuild; Sync also truncates RDS before insert | `false` |
-| `--sss_database` | Transform | Glue catalog DB for SSS Iceberg tables | `sss` |
-| `--ref_database` | Transform | Glue catalog DB for PG reference Iceberg tables | `farm_ref` |
-| `--target_database` | Ingest PG, Transform | Glue catalog DB for target Iceberg tables | `farm_records_reporting` |
+| `--sss_database` | Transform | Glue catalog DB for SSS Iceberg tables | `athenafarm_prod_raw` |
+| `--ref_database` | Transform | Glue catalog DB for PG reference Iceberg tables | `athenafarm_prod_ref` |
+| `--target_database` | Ingest PG, Transform | Glue catalog DB for target Iceberg tables | `athenafarm_prod_gold` |
 | `--snapshot_id_param` | Sync | SSM parameter path storing last-synced Iceberg snapshot ID | `/athenafarm/{env}/last_sync_snapshot` |
 | `--snapshot_retention_hours` | Maintenance | Hours of snapshots to keep | `168` (7 days) |
 
@@ -285,19 +432,90 @@ stage('Run ETL') {
 | Parameter | Type | Description | Default |
 |---|---|---|---|
 | `full_load` | boolean/string | Force full rebuild of all Iceberg tables; Sync truncates RDS before reload | `false` |
-| `skip_rds_sync` | boolean | Skip `Sync-Iceberg-To-RDS` entirely — useful for testing or Iceberg-only backfills | `false` |
+| `skip_rds_sync` | boolean | Skip `Sync-Iceberg-To-RDS`. **Default is `true` (absent = skip)**. Pass `false` explicitly to run the sync. | `true` |
 
 ---
 
 ## Required Glue Catalog Databases
 
-Create these in the AWS Glue Data Catalog before first run:
+These are created automatically by `deploy.py` during deployment. They must
+exist before the first pipeline run:
 
 | Database | Contains |
 |---|---|
-| `sss` | Materialised SSS/SAP farmrecords Iceberg tables |
-| `farm_ref` | Materialised PG reference Iceberg tables |
-| `farm_records_reporting` | CDC target Iceberg tables (merge target) |
+| `athenafarm_prod_raw` | Materialised SSS/SAP farmrecords Iceberg tables (written by Ingest-SSS-Farmrecords) |
+| `athenafarm_prod_ref` | Materialised PG reference Iceberg tables (written by Ingest-PG-Reference-Tables) |
+| `athenafarm_prod_cdc` | PG CDC target Iceberg tables (written by Ingest-PG-CDC-Targets) |
+| `athenafarm_prod_gold` | Transform output: `tract_producer_year`, `farm_producer_year` |
+| `sss-farmrecords` | Raw SSS catalog tables populated by the Glue crawler (read by Ingest-SSS-Farmrecords) |
+
+---
+
+## CloudWatch Logging
+
+All Glue jobs write continuous logs to CloudWatch. Three args are injected by
+`deploy.py` for every job — no manual setup required:
+
+| Arg | Value |
+|---|---|
+| `--enable-continuous-cloudwatch-log` | `true` |
+| `--continuous-log-logGroup` | `/aws-glue/jobs/FSA-{ENV}-ATHENAFARM-{JobStem}` |
+| `--continuous-log-logStreamPrefix` | `FSA-{ENV}-ATHENAFARM-{JobStem}/` |
+
+### Log group names (PROD)
+
+| Job | Log group |
+|---|---|
+| Ingest-SSS-Farmrecords | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Ingest-SSS-Farmrecords` |
+| Ingest-PG-Reference-Tables | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Ingest-PG-Reference-Tables` |
+| Ingest-PG-CDC-Targets | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Ingest-PG-CDC-Targets` |
+| Transform-Tract-Producer-Year | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year` |
+| Transform-Farm-Producer-Year | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Transform-Farm-Producer-Year` |
+| Sync-Iceberg-To-RDS | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Sync-Iceberg-To-RDS` |
+| Iceberg-Maintenance | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Iceberg-Maintenance` |
+
+### Log stream naming
+
+Within each log group, streams are prefixed with the job name so runs don't
+overwrite each other. Each run produces three streams:
+
+```
+FSA-PROD-ATHENAFARM-{JobStem}/{job-run-id}           ← driver stdout (print statements)
+FSA-PROD-ATHENAFARM-{JobStem}/{job-run-id}/error      ← driver stderr (exceptions, stack traces)
+FSA-PROD-ATHENAFARM-{JobStem}/{job-run-id}/out        ← Glue system output
+```
+
+### Finding logs for a failed run
+
+The Step Functions execution output includes the Glue job run ID in the `cause`
+block (field `Id`). Use it to go directly to the relevant stream:
+
+```bash
+ENV="PROD"
+JOB="FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year"
+RUN_ID="jr_abc123..."
+
+aws logs get-log-events \
+  --region us-east-1 \
+  --log-group-name "/aws-glue/jobs/${JOB}" \
+  --log-stream-name "${JOB}/${RUN_ID}/error" \
+  --query 'events[*].message' \
+  --output text
+```
+
+Or in the console: **CloudWatch → Log groups → `/aws-glue/jobs/FSA-PROD-ATHENAFARM-{JobStem}`
+→ filter by the run ID**.
+
+### Glue Exception Analysis events
+
+Glue 4.0 also emits a structured `GlueExceptionAnalysisListener` event to the
+`error` stream on job failure. It contains:
+- `Failure Reason` — full Python traceback
+- `Stack Trace` — parsed frame list with file, class, method, line number
+- `Last Executed Line number` — last line reached before the exception
+- `script` — the script filename that failed
+
+This is the fastest way to identify root cause without reading raw log output.
 
 ---
 

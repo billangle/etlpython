@@ -1,0 +1,74 @@
+{
+  "cause": {
+    "AllocatedCapacity": 40,
+    "Arguments": {
+      "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+      "--full_load": "true",
+      "--env": "PROD"
+    },
+    "Attempt": 0,
+    "CompletedOn": 1772229861054,
+    "ErrorMessage": "An error occurred while calling o96.sql. MERGE INTO TABLE is not supported temporarily.",
+    "ExecutionTime": 188,
+    "GlueVersion": "4.0",
+    "Id": "jr_64c876aa035800b77fb31216fce8363fa3dd0b4fe7b9eeb179b53e9878272570",
+    "JobMode": "SCRIPT",
+    "JobName": "FSA-PROD-ATHENAFARM-Transform-Farm-Producer-Year",
+    "JobRunState": "FAILED",
+    "LastModifiedOn": 1772229861054,
+    "LogGroupName": "/aws-glue/jobs",
+    "MaxCapacity": 40,
+    "NumberOfWorkers": 20,
+    "PredecessorRuns": [],
+    "StartedOn": 1772229665653,
+    "Timeout": 120,
+    "WorkerType": "G.2X"
+  },
+  "error": "States.TaskFailed",
+  "resource": "startJobRun.sync",
+  "resourceType": "glue"
+}
+
+
+{
+    "Event": "GlueETLJobExceptionEvent",
+    "Timestamp": 1772229846586,
+    "Failure Reason": "Traceback (most recent call last):\n  File \"/tmp/FSA-PROD-ATHENAFARM-Transform-Farm-Producer-Year.py\", line 371, in <module>\n    spark.sql(MERGE_SQL)\n  File \"/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/session.py\", line 1034, in sql\n    return DataFrame(self._jsparkSession.sql(sqlQuery), self)\n  File \"/opt/amazon/spark/python/lib/py4j-0.10.9.5-src.zip/py4j/java_gateway.py\", line 1321, in __call__\n    return_value = get_return_value(\n  File \"/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/utils.py\", line 190, in deco\n    return f(*a, **kw)\n  File \"/opt/amazon/spark/python/lib/py4j-0.10.9.5-src.zip/py4j/protocol.py\", line 326, in get_return_value\n    raise Py4JJavaError(\npy4j.protocol.Py4JJavaError: An error occurred while calling o96.sql.\n: java.lang.UnsupportedOperationException: MERGE INTO TABLE is not supported temporarily.\n\tat org.apache.spark.sql.errors.QueryExecutionErrors$.ddlUnsupportedTemporarilyError(QueryExecutionErrors.scala:891)\n\tat org.apache.spark.sql.execution.SparkStrategies$BasicOperators$.apply(SparkStrategies.scala:895)\n\tat org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$1(QueryPlanner.scala:63)\n\tat scala.collection.Iterator$$anon$11.nextCur(Iterator.scala:486)\n\tat scala.collection.Iterator$$anon$11.hasNext(Iterator.scala:492)\n\tat scala.collection.Iterator$$anon$11.hasNext(Iterator.scala:491)\n\tat org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)\n\tat org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:72)\n\tat org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$3(QueryPlanner.scala:78)\n\tat scala.collection.TraversableOnce$folder$1.apply(TraversableOnce.scala:196)\n\tat scala.collection.TraversableOnce$folder$1.apply(TraversableOnce.scala:194)\n\tat scala.collection.Iterator.foreach(Iterator.scala:943)\n\tat scala.collection.Iterator.foreach$(Iterator.scala:943)\n\tat scala.collection.AbstractIterator.foreach(Iterator.scala:1431)\n\tat scala.collection.TraversableOnce.foldLeft(TraversableOnce.scala:199)\n\tat scala.collection.TraversableOnce.foldLeft$(TraversableOnce.scala:192)\n\tat scala.collection.AbstractIterator.foldLeft(Iterator.scala:1431)\n\tat org.apache.spark.sql.catalyst.planning.QueryPlanner.$anonfun$plan$2(QueryPlanner.scala:75)\n\tat scala.collection.Iterator$$anon$11.nextCur(Iterator.scala:486)\n\tat scala.collection.Iterator$$anon$11.hasNext(Iterator.scala:492)\n\tat org.apache.spark.sql.catalyst.planning.QueryPlanner.plan(QueryPlanner.scala:93)\n\tat org.apache.spark.sql.execution.SparkStrategies.plan(SparkStrategies.scala:72)\n\tat org.apache.spark.sql.execution.QueryExecution$.createSparkPlan(QueryExecution.scala:495)\n\tat org.apache.spark.sql.execution.QueryExecution.$anonfun$sparkPlan$1(QueryExecution.scala:153)\n\tat org.apache.spark.sql.catalyst.QueryPlanningTracker.measurePhase(QueryPlanningTracker.scala:192)\n\tat org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$2(QueryExecution.scala:213)\n\tat org.apache.spark.sql.execution.QueryExecution$.withInternalError(QueryExecution.scala:552)\n\tat org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$1(QueryExecution.scala:213)\n\tat org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:779)\n\tat org.apache.spark.sql.execution.QueryExecution.executePhase(QueryExecution.scala:212)\n\tat org.apache.spark.sql.execution.QueryExecution.sparkPlan$lzycompute(QueryExecution.scala:153)\n\tat org.apache.spark.sql.execution.QueryExecution.sparkPlan(QueryExecution.scala:146)\n\tat org.apache.spark.sql.execution.QueryExecution.$anonfun$executedPlan$1(QueryExecution.scala:166)\n\tat org.apache.spark.sql.catalyst.QueryPlanningTracker.measurePhase(QueryPlanningTracker.scala:192)\n\tat org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$2(QueryExecution.scala:213)\n\tat org.apache.spark.sql.execution.QueryExecution$.withInternalError(QueryExecution.scala:552)\n\tat org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$1(QueryExecution.scala:213)\n\tat org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:779)\n\tat org.apache.spark.sql.execution.QueryExecution.executePhase(QueryExecution.scala:212)\n\tat org.apache.spark.sql.execution.QueryExecution.executedPlan$lzycompute(QueryExecution.scala:163)\n\tat org.apache.spark.sql.execution.QueryExecution.executedPlan(QueryExecution.scala:159)\n\tat org.apache.spark.sql.execution.QueryExecution.$anonfun$writePlans$5(QueryExecution.scala:298)\n\tat org.apache.spark.sql.catalyst.plans.QueryPlan$.append(QueryPlan.scala:657)\n\tat org.apache.spark.sql.execution.QueryExecution.writePlans(QueryExecution.scala:298)\n\tat org.apache.spark.sql.execution.QueryExecution.toString(QueryExecution.scala:313)\n\tat org.apache.spark.sql.execution.QueryExecution.org$apache$spark$sql$execution$QueryExecution$$explainString(QueryExecution.scala:267)\n\tat org.apache.spark.sql.execution.QueryExecution.explainString(QueryExecution.scala:246)\n\tat org.apache.spark.sql.execution.SQLExecution$.executeQuery$1(SQLExecution.scala:107)\n\tat org.apache.spark.sql.execution.SQLExecution$.$anonfun$withNewExecutionId$7(SQLExecution.scala:139)\n\tat org.apache.spark.sql.catalyst.QueryPlanningTracker$.withTracker(QueryPlanningTracker.scala:107)\n\tat org.apache.spark.sql.execution.SQLExecution$.withTracker(SQLExecution.scala:224)\n\tat org.apache.spark.sql.execution.SQLExecution$.$anonfun$withNewExecutionId$6(SQLExecution.scala:139)\n\tat org.apache.spark.sql.execution.SQLExecution$.withSQLConfPropagated(SQLExecution.scala:245)\n\tat org.apache.spark.sql.execution.SQLExecution$.$anonfun$withNewExecutionId$1(SQLExecution.scala:138)\n\tat org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:779)\n\tat org.apache.spark.sql.execution.SQLExecution$.withNewExecutionId(SQLExecution.scala:68)\n\tat org.apache.spark.sql.execution.QueryExecution$$anonfun$eagerlyExecuteCommands$1.applyOrElse(QueryExecution.scala:100)\n\tat org.apache.spark.sql.execution.QueryExecution$$anonfun$eagerlyExecuteCommands$1.applyOrElse(QueryExecution.scala:96)\n\tat org.apache.spark.sql.catalyst.trees.TreeNode.$anonfun$transformDownWithPruning$1(TreeNode.scala:615)\n\tat org.apache.spark.sql.catalyst.trees.CurrentOrigin$.withOrigin(TreeNode.scala:177)\n\tat org.apache.spark.sql.catalyst.trees.TreeNode.transformDownWithPruning(TreeNode.scala:615)\n\tat org.apache.spark.sql.catalyst.plans.logical.LogicalPlan.org$apache$spark$sql$catalyst$plans$logical$AnalysisHelper$$super$transformDownWithPruning(LogicalPlan.scala:30)\n\tat org.apache.spark.sql.catalyst.plans.logical.AnalysisHelper.transformDownWithPruning(AnalysisHelper.scala:267)\n\tat org.apache.spark.sql.catalyst.plans.logical.AnalysisHelper.transformDownWithPruning$(AnalysisHelper.scala:263)\n\tat org.apache.spark.sql.catalyst.plans.logical.LogicalPlan.transformDownWithPruning(LogicalPlan.scala:30)\n\tat org.apache.spark.sql.catalyst.plans.logical.LogicalPlan.transformDownWithPruning(LogicalPlan.scala:30)\n\tat org.apache.spark.sql.catalyst.trees.TreeNode.transformDown(TreeNode.scala:591)\n\tat org.apache.spark.sql.execution.QueryExecution.eagerlyExecuteCommands(QueryExecution.scala:96)\n\tat org.apache.spark.sql.execution.QueryExecution.commandExecuted$lzycompute(QueryExecution.scala:83)\n\tat org.apache.spark.sql.execution.QueryExecution.commandExecuted(QueryExecution.scala:81)\n\tat org.apache.spark.sql.Dataset.<init>(Dataset.scala:222)\n\tat org.apache.spark.sql.Dataset$.$anonfun$ofRows$2(Dataset.scala:102)\n\tat org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:779)\n\tat org.apache.spark.sql.Dataset$.ofRows(Dataset.scala:99)\n\tat org.apache.spark.sql.SparkSession.$anonfun$sql$1(SparkSession.scala:622)\n\tat org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:779)\n\tat org.apache.spark.sql.SparkSession.sql(SparkSession.scala:617)\n\tat sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)\n\tat sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)\n\tat sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)\n\tat java.lang.reflect.Method.invoke(Method.java:498)\n\tat py4j.reflection.MethodInvoker.invoke(MethodInvoker.java:244)\n\tat py4j.reflection.ReflectionEngine.invoke(ReflectionEngine.java:357)\n\tat py4j.Gateway.invoke(Gateway.java:282)\n\tat py4j.commands.AbstractCommand.invokeMethod(AbstractCommand.java:132)\n\tat py4j.commands.CallCommand.execute(CallCommand.java:79)\n\tat py4j.ClientServerConnection.waitForCommands(ClientServerConnection.java:182)\n\tat py4j.ClientServerConnection.run(ClientServerConnection.java:106)\n\tat java.lang.Thread.run(Thread.java:750)\n",
+    "Stack Trace": [
+        {
+            "Declaring Class": "get_return_value",
+            "Method Name": "raise Py4JJavaError(",
+            "File Name": "/opt/amazon/spark/python/lib/py4j-0.10.9.5-src.zip/py4j/protocol.py",
+            "Line Number": 326
+        },
+        {
+            "Declaring Class": "deco",
+            "Method Name": "return f(*a, **kw)",
+            "File Name": "/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/utils.py",
+            "Line Number": 190
+        },
+        {
+            "Declaring Class": "__call__",
+            "Method Name": "return_value = get_return_value(",
+            "File Name": "/opt/amazon/spark/python/lib/py4j-0.10.9.5-src.zip/py4j/java_gateway.py",
+            "Line Number": 1321
+        },
+        {
+            "Declaring Class": "sql",
+            "Method Name": "return DataFrame(self._jsparkSession.sql(sqlQuery), self)",
+            "File Name": "/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/session.py",
+            "Line Number": 1034
+        },
+        {
+            "Declaring Class": "<module>",
+            "Method Name": "spark.sql(MERGE_SQL)",
+            "File Name": "/tmp/FSA-PROD-ATHENAFARM-Transform-Farm-Producer-Year.py",
+            "Line Number": 371
+        }
+    ],
+    "Last Executed Line number": 371,
+    "script": "FSA-PROD-ATHENAFARM-Transform-Farm-Producer-Year.py"
+}
+
+
+26/02/27 22:04:06 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] Last Executed Line number from script FSA-PROD-ATHENAFARM-Transform-Farm-Producer-Year.py: 371

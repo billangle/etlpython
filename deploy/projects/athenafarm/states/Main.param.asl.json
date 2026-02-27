@@ -19,7 +19,7 @@
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__"
                 }
               },
-              "TimeoutSeconds": 1800,
+              "TimeoutSeconds": 28800,
               "Retry": [
                 {
                   "ErrorEquals": ["Glue.AWSGlueException", "States.TaskFailed"],
@@ -57,7 +57,7 @@
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__"
                 }
               },
-              "TimeoutSeconds": 1800,
+              "TimeoutSeconds": 28800,
               "Retry": [
                 {
                   "ErrorEquals": ["Glue.AWSGlueException", "States.TaskFailed"],
@@ -95,7 +95,7 @@
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__"
                 }
               },
-              "TimeoutSeconds": 1800,
+              "TimeoutSeconds": 28800,
               "Retry": [
                 {
                   "ErrorEquals": ["Glue.AWSGlueException", "States.TaskFailed"],
@@ -144,7 +144,7 @@
           "--full_load.$": "$.full_load"
         }
       },
-      "TimeoutSeconds": 600,
+      "TimeoutSeconds": 28800,
       "ResultPath": "$.transform_tpy_result",
       "Retry": [
         {
@@ -176,7 +176,7 @@
           "--full_load.$": "$.full_load"
         }
       },
-      "TimeoutSeconds": 600,
+      "TimeoutSeconds": 28800,
       "ResultPath": "$.transform_fpy_result",
       "Retry": [
         {
@@ -221,7 +221,7 @@
           "--full_load.$": "$.full_load"
         }
       },
-      "TimeoutSeconds": 600,
+      "TimeoutSeconds": 28800,
       "ResultPath": "$.sync_result",
       "Retry": [
         {

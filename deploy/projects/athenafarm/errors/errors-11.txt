@@ -1,0 +1,30 @@
+{
+  "cause": {
+    "AllocatedCapacity": 40,
+    "Arguments": {
+      "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+      "--full_load": "true",
+      "--env": "PROD"
+    },
+    "Attempt": 0,
+    "CompletedOn": 1772225281316,
+    "ErrorMessage": "AnalysisException: Table or view not found: glue_catalog.athenafarm_prod_gold.tract_producer_year;",
+    "ExecutionTime": 46,
+    "GlueVersion": "4.0",
+    "Id": "jr_92e299013870fe8ea73159b9e6c11cfd5007480da77044566480c6121f6477fc",
+    "JobMode": "SCRIPT",
+    "JobName": "FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year",
+    "JobRunState": "FAILED",
+    "LastModifiedOn": 1772225281316,
+    "LogGroupName": "/aws-glue/jobs",
+    "MaxCapacity": 40,
+    "NumberOfWorkers": 20,
+    "PredecessorRuns": [],
+    "StartedOn": 1772225228362,
+    "Timeout": 480,
+    "WorkerType": "G.2X"
+  },
+  "error": "States.TaskFailed",
+  "resource": "startJobRun.sync",
+  "resourceType": "glue"
+}

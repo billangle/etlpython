@@ -1,0 +1,9 @@
+{
+  "full_load": "true",
+  "skip_rds_sync": true,
+  "ingest_pg_refs_error": {
+    "Error": "States.Timeout",
+    "Cause": ""
+  }
+}
+IngestPGRefs

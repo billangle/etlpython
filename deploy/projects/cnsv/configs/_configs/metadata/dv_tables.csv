@@ -1,4 +1,4 @@
-"ETL_DV_TBL_ID"|"dv_tbl_nm"
+etl_dv_tbl_id|dv_tbl_nm
 1267|acct_pgm_rh
 1388|ccms_acrg_chg_evnt_hs
 1239|ccms_cnsv_pgm_rs

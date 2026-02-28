@@ -110,59 +110,56 @@ select
           THEN CAST(date_format(zba.ZZ0015, '%Y-%m-%d') AS DATE)
           ELSE null
     END AS pcw_appeals_exhausted_date,
-    case when zba.ZZ0011 is not null and trim(zba.ZZ0011) = 'WR' then 43
-         when zba.ZZ0011 is not null and trim(zba.ZZ0011) = 'GF' then 42
-        when zba.ZZ0011 is not null and trim(zba.ZZ0011) = 'NAR' then 41
-             when zba.ZZ0011 is not null and trim(zba.ZZ0011) = 'AE' then 41
+    coalesce(case     when zba.ZZ0011 is not null and trim(zba.ZZ0011) = 'AE' then 41
              when zba.ZZ0011 is not null and trim(zba.ZZ0011) = 'AR' then 40
              when zba.ZZ0011 is not null and trim(zba.ZZ0011) = 'HA' then 40
              when zba.ZZ0011 is not null and trim(zba.ZZ0011) = 'NP' then 45
              when zba.ZZ0011 is not null and trim(zba.ZZ0011) = 'NW' then 45
              when zba.ZZ0011 is not null and trim(zba.ZZ0011) = 'TP' then 44
              when zba.ZZ0011 is not null and trim(zba.ZZ0011) = 'TR' then 44
-        end as tract_producer_cw_exception_code,
-        case when zba.ZZ0010 is not null and trim(zba.ZZ0010) = 'GF' then 31
+        end,0) as tract_producer_cw_exception_code,
+        coalesce(case when zba.ZZ0010 is not null and trim(zba.ZZ0010) = 'GF' then 31
              when zba.ZZ0010 is not null and trim(zba.ZZ0010) = 'EH' then 34
              when zba.ZZ0010 is not null and trim(zba.ZZ0010) = 'AE' then 33
              when zba.ZZ0010 is not null and trim(zba.ZZ0010) = 'NAR' then 33
              when zba.ZZ0010 is not null and trim(zba.ZZ0010) = 'AR' then 32
              when zba.ZZ0010 is not null and trim(zba.ZZ0010) = 'HA' then 32
              when zba.ZZ0010 is not null and trim(zba.ZZ0010) = 'LT' then 30
-        end as tract_producer_hel_exception_code,
-        case when zba.ZZ0012 is not null and trim(zba.ZZ0012) = 'AR' then 52
+        end,0) as tract_producer_hel_exception_code,
+        coalesce(case when zba.ZZ0012 is not null and trim(zba.ZZ0012) = 'AR' then 52
              when zba.ZZ0012 is not null and trim(zba.ZZ0012) = 'HA' then 52
              when zba.ZZ0012 is not null and trim(zba.ZZ0012) = 'NAR' then 50
              when zba.ZZ0012 is not null and trim(zba.ZZ0012) = 'AE' then 50
              when zba.ZZ0012 is not null and trim(zba.ZZ0012) = 'GF' then 51
-        end as tract_producer_pcw_exception_code,
-        case when zba.ZZ0017 is not null and trim(zba.ZZ0017) = 'WR' then 43
+        end,0) as tract_producer_pcw_exception_code,
+        coalesce(case when zba.ZZ0017 is not null and trim(zba.ZZ0017) = 'WR' then 43
              when zba.ZZ0017 is not null and trim(zba.ZZ0017) = 'GF' then 42
              when zba.ZZ0017 is not null and trim(zba.ZZ0017) = 'NAR' then 41
              when zba.ZZ0017 is not null and trim(zba.ZZ0017) = 'AR' then 40
              when zba.ZZ0017 is not null and trim(zba.ZZ0017) = 'NP' then 45
              when zba.ZZ0017 is not null and trim(zba.ZZ0017) = 'TP' then 44
-        end as rma_cw_exception_code,
-        case when zba.ZZ0016 is not null and trim(zba.ZZ0016) = 'GF' then 31
+        end,0) as rma_cw_exception_code,
+        coalesce(case when zba.ZZ0016 is not null and trim(zba.ZZ0016) = 'GF' then 31
              when zba.ZZ0016 is not null and trim(zba.ZZ0016) = 'EH' then 34
              when zba.ZZ0016 is not null and trim(zba.ZZ0016) = 'NAR' then 33
              when zba.ZZ0016 is not null and trim(zba.ZZ0016) = 'AR' then 32
              when zba.ZZ0016 is not null and trim(zba.ZZ0016) = 'LT' then 30
-        end as rma_hel_exception_code,
-        case when zba.ZZ0018 is not null and trim(zba.ZZ0018) = 'AR' then 52
+        end,0) as rma_hel_exception_code,
+        coalesce(case when zba.ZZ0018 is not null and trim(zba.ZZ0018) = 'AR' then 52
              when zba.ZZ0018 is not null and trim(zba.ZZ0018) = 'HA' then 52
              when zba.ZZ0018 is not null and trim(zba.ZZ0018) = 'NAR' then 50
              when zba.ZZ0018 is not null and trim(zba.ZZ0018) = 'AE' then 50
              when zba.ZZ0018 is not null and trim(zba.ZZ0018) = 'GF' then 51
-        end as rma_pcw_exception_code,
-        zba.ZZK0010 as producer_involvement_code,
-        case when zba.VALID_FROM is not null AND zba.VALID_FROM <> 0
+        end,0) as rma_pcw_exception_code,
+        coalesce(zba.ZZK0010,'0') as producer_involvement_code,
+        coalesce(case when zba.VALID_FROM is not null AND zba.VALID_FROM <> 0
                 then CAST(date_parse(cast(zba.VALID_FROM as varchar), '%Y%m%d%H%i%S') AS DATE)
             else null
-        end as producer_involvement_start_date,
-        case when zba.VALID_TO is not null AND zba.VALID_TO <> 0
+        end,null) as producer_involvement_start_date,
+        coalesce(case when zba.VALID_TO is not null AND zba.VALID_TO <> 0
                 then CAST(date_parse(cast(zba.VALID_TO as varchar), '%Y%m%d%H%i%S') AS DATE)
             else null
-        end as producer_involvement_end_date
+        end,null) as producer_involvement_end_date
 from "sss-farmrecords"."z_ibase_comp_detail" zic --ON ibin.INSTANCE = cast(zic.INSTANCE as varchar) AND ibin.IBASE = cast(zic.IBASE as varchar) --12,069,613 (orginial)/1,180 (full load 2/11)
 join "sss-farmrecords"."comm_pr_frg_rel" cpf on zic.prod_objnr = cpf.product_guid
 join "sss-farmrecords"."zmi_farm_partn" zba on zba.frg_guid = cpf.fragment_guid

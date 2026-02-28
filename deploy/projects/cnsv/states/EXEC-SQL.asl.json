@@ -1,332 +1,332 @@
 {
-  "Comment": "EDV Pipeline: S3 Parquet → Stage → DataVault. Input: start_date",
-  "StartAt": "BuildProcessingPlan",
-  "States": {
-    "BuildProcessingPlan": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "FSA-CERT-edv-build-processing-plan",
-        "Payload": {
-          "data_src_nm": "__DATA_SRC_NM__",
-          "run_type": "__RUN_TYPE__",
-          "start_date": "__START_DATE__",
-          "env": "__ENV__"
-        }
-      },
-      "ResultSelector": {
-        "stgTables.$": "$.Payload.stgTables",
-        "dvGroups.$": "$.Payload.dvGroups",
-        "counts.$": "$.Payload.counts",
-        "data_src_nm.$": "$.Payload.data_src_nm",
-        "run_type.$": "$.Payload.run_type",
-        "start_date.$": "$.Payload.start_date",
-        "env.$": "$.Payload.env"
-      },
-      "ResultPath": "$.plan",
-      "Next": "CheckTablesExist",
-      "Catch": [
-        {
-          "ErrorEquals": [
-            "States.ALL"
-          ],
-          "Next": "HandlePipelineFailure",
-          "ResultPath": "$.error"
-        }
-      ]
-    },
-    "CheckTablesExist": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Variable": "$.plan.counts.stg",
-          "NumericEquals": 0,
-          "Next": "NoTablesToProcess"
-        }
-      ],
-      "Default": "ProcessStageTables"
-    },
-    "NoTablesToProcess": {
-      "Type": "Succeed",
-      "Comment": "No tables found for processing"
-    },
-    "ProcessStageTables": {
-      "Type": "Map",
-      "ItemsPath": "$.plan.stgTables",
-      "MaxConcurrency": 20,
-      "Parameters": {
-        "table_name.$": "$$.Map.Item.Value",
-        "data_src_nm": "__DATA_SRC_NM__",
-        "run_type": "__RUN_TYPE__",
-        "start_date": "__START_DATE__",
-        "env": "__ENV__",
-        "layer": "STG"
-      },
-      "Iterator": {
-        "StartAt": "ExecuteStageSQL",
-        "States": {
-          "ExecuteStageSQL": {
+    "Comment": "EDV Pipeline: S3 Parquet → Stage → DataVault. Input: start_date",
+    "StartAt": "BuildProcessingPlan",
+    "States": {
+        "BuildProcessingPlan": {
             "Type": "Task",
-            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+            "Resource": "arn:aws:states:::lambda:invoke",
             "Parameters": {
-              "JobName": "FSA-DART-EXEC-CNSV-SQL",
-              "Arguments": {
-                "--JOB_NAME": "FSA-DART-EXEC-CNSV-SQL",
-                "--table_name.$": "$.table_name",
-                "--data_src_nm": "__DATA_SRC_NM__",
-                "--run_type": "__RUN_TYPE__",
-                "--start_date": "__START_DATE__",
-                "--env": "__ENV__",
-                "--layer.$": "$.layer"
-              }
+                "FunctionName": "FSA-PROD-edv-build-processing-plan",
+                "Payload": {
+                    "data_src_nm": "__DATA_SRC_NM__",
+                    "run_type": "__RUN_TYPE__",
+                    "start_date": "__START_DATE__",
+                    "env": "__ENV__"
+                }
             },
-            "ResultPath": "$.glueResult",
-            "Next": "StageTableSuccess",
+            "ResultSelector": {
+                "stgTables.$": "$.Payload.stgTables",
+                "dvGroups.$": "$.Payload.dvGroups",
+                "counts.$": "$.Payload.counts",
+                "data_src_nm.$": "$.Payload.data_src_nm",
+                "run_type.$": "$.Payload.run_type",
+                "start_date.$": "$.Payload.start_date",
+                "env.$": "$.Payload.env"
+            },
+            "ResultPath": "$.plan",
+            "Next": "CheckTablesExist",
             "Catch": [
-              {
-                "ErrorEquals": [
-                  "States.ALL"
-                ],
-                "Next": "StageTableFailed",
-                "ResultPath": "$.error"
-              }
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "HandlePipelineFailure",
+                    "ResultPath": "$.error"
+                }
             ]
-          },
-          "StageTableSuccess": {
-            "Type": "Pass",
-            "Parameters": {
-              "table_name.$": "$.table_name",
-              "status": "SUCCESS",
-              "layer": "STG"
-            },
-            "End": true
-          },
-          "StageTableFailed": {
-            "Type": "Pass",
-            "Parameters": {
-              "table_name.$": "$.table_name",
-              "status": "FAILED",
-              "layer": "STG",
-              "error.$": "$.error"
-            },
-            "End": true
-          }
-        }
-      },
-      "ResultPath": "$.stageResults",
-      "Next": "CheckStageResults",
-      "Catch": [
-        {
-          "ErrorEquals": [
-            "States.ALL"
-          ],
-          "Next": "HandlePipelineFailure",
-          "ResultPath": "$.error"
-        }
-      ]
-    },
-    "CheckStageResults": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "FSA-CERT-edv-check-results",
-        "Payload": {
-          "layer": "STG",
-          "results.$": "$.stageResults"
-        }
-      },
-      "ResultSelector": {
-        "successCount.$": "$.Payload.successCount",
-        "failedCount.$": "$.Payload.failedCount",
-        "failedTables.$": "$.Payload.failedTables",
-        "canContinue.$": "$.Payload.canContinue"
-      },
-      "ResultPath": "$.stageCheck",
-      "Next": "ShouldProcessEDV"
-    },
-    "ShouldProcessEDV": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "And": [
-            {
-              "Variable": "$.plan.counts.dv",
-              "NumericGreaterThan": 0
-            },
-            {
-              "Variable": "$.stageCheck.canContinue",
-              "BooleanEquals": true
-            }
-          ],
-          "Next": "ProcessEDVGroups"
-        }
-      ],
-      "Default": "FinalizePipeline"
-    },
-    "ProcessEDVGroups": {
-      "Type": "Map",
-      "ItemsPath": "$.plan.dvGroups",
-      "MaxConcurrency": 1,
-      "Parameters": {
-        "tables.$": "$$.Map.Item.Value",
-        "groupIndex.$": "$$.Map.Item.Index",
-        "data_src_nm": "__DATA_SRC_NM__",
-        "run_type": "__RUN_TYPE__",
-        "start_date": "__START_DATE__",
-        "env": "__ENV__"
-      },
-      "Iterator": {
-        "StartAt": "ProcessEDVTablesInGroup",
-        "States": {
-          "ProcessEDVTablesInGroup": {
+        },
+        "CheckTablesExist": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.plan.counts.stg",
+                    "NumericEquals": 0,
+                    "Next": "NoTablesToProcess"
+                }
+            ],
+            "Default": "ProcessStageTables"
+        },
+        "NoTablesToProcess": {
+            "Type": "Succeed",
+            "Comment": "No tables found for processing"
+        },
+        "ProcessStageTables": {
             "Type": "Map",
-            "ItemsPath": "$.tables",
-            "MaxConcurrency": 10,
+            "ItemsPath": "$.plan.stgTables",
+            "MaxConcurrency": 20,
             "Parameters": {
-              "table_name.$": "$$.Map.Item.Value",
-              "groupIndex.$": "$.groupIndex",
-              "data_src_nm": "__DATA_SRC_NM__",
-              "run_type": "__RUN_TYPE__",
-              "start_date": "__START_DATE__",
-              "env": "__ENV__",
-              "layer": "EDV"
+                "table_name.$": "$$.Map.Item.Value",
+                "data_src_nm": "__DATA_SRC_NM__",
+                "run_type": "__RUN_TYPE__",
+                "start_date": "__START_DATE__",
+                "env": "__ENV__",
+                "layer": "STG"
             },
             "Iterator": {
-              "StartAt": "ExecuteEDVSQL",
-              "States": {
-                "ExecuteEDVSQL": {
-                  "Type": "Task",
-                  "Resource": "arn:aws:states:::glue:startJobRun.sync",
-                  "Parameters": {
-                    "JobName": "FSA-DART-EXEC-CNSV-SQL",
-                    "Arguments": {
-                      "--JOB_NAME": "FSA-DART-EXEC-CNSV-SQL",
-                      "--table_name.$": "$.table_name",
-                      "--data_src_nm": "__DATA_SRC_NM__",
-                      "--run_type": "__RUN_TYPE__",
-                      "--start_date": "__START_DATE__",
-                      "--env": "__ENV__",
-                      "--layer.$": "$.layer"
+                "StartAt": "ExecuteStageSQL",
+                "States": {
+                    "ExecuteStageSQL": {
+                        "Type": "Task",
+                        "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                        "Parameters": {
+                            "JobName": "FSA-DART-EXEC-CNSV-SQL",
+                            "Arguments": {
+                                "--JOB_NAME": "FSA-DART-EXEC-CNSV-SQL",
+                                "--table_name.$": "$.table_name",
+                                "--data_src_nm": "__DATA_SRC_NM__",
+                                "--run_type": "__RUN_TYPE__",
+                                "--start_date": "__START_DATE__",
+                                "--env": "__ENV__",
+                                "--layer.$": "$.layer"
+                            }
+                        },
+                        "ResultPath": "$.glueResult",
+                        "Next": "StageTableSuccess",
+                        "Catch": [
+                            {
+                                "ErrorEquals": [
+                                    "States.ALL"
+                                ],
+                                "Next": "StageTableFailed",
+                                "ResultPath": "$.error"
+                            }
+                        ]
+                    },
+                    "StageTableSuccess": {
+                        "Type": "Pass",
+                        "Parameters": {
+                            "table_name.$": "$.table_name",
+                            "status": "SUCCESS",
+                            "layer": "STG"
+                        },
+                        "End": true
+                    },
+                    "StageTableFailed": {
+                        "Type": "Pass",
+                        "Parameters": {
+                            "table_name.$": "$.table_name",
+                            "status": "FAILED",
+                            "layer": "STG",
+                            "error.$": "$.error"
+                        },
+                        "End": true
                     }
-                  },
-                  "ResultPath": "$.glueResult",
-                  "Next": "EDVTableSuccess",
-                  "Catch": [
-                    {
-                      "ErrorEquals": [
-                        "States.ALL"
-                      ],
-                      "Next": "EDVTableFailed",
-                      "ResultPath": "$.error"
-                    }
-                  ]
-                },
-                "EDVTableSuccess": {
-                  "Type": "Pass",
-                  "Parameters": {
-                    "table_name.$": "$.table_name",
-                    "groupIndex.$": "$.groupIndex",
-                    "status": "SUCCESS",
-                    "layer": "EDV"
-                  },
-                  "End": true
-                },
-                "EDVTableFailed": {
-                  "Type": "Pass",
-                  "Parameters": {
-                    "table_name.$": "$.table_name",
-                    "groupIndex.$": "$.groupIndex",
-                    "status": "FAILED",
-                    "layer": "EDV",
-                    "error.$": "$.error"
-                  },
-                  "End": true
                 }
-              }
             },
-            "ResultPath": "$.groupResults",
-            "End": true
-          }
+            "ResultPath": "$.stageResults",
+            "Next": "CheckStageResults",
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "HandlePipelineFailure",
+                    "ResultPath": "$.error"
+                }
+            ]
+        },
+        "CheckStageResults": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+                "FunctionName": "FSA-PROD-edv-check-results",
+                "Payload": {
+                    "layer": "STG",
+                    "results.$": "$.stageResults"
+                }
+            },
+            "ResultSelector": {
+                "successCount.$": "$.Payload.successCount",
+                "failedCount.$": "$.Payload.failedCount",
+                "failedTables.$": "$.Payload.failedTables",
+                "canContinue.$": "$.Payload.canContinue"
+            },
+            "ResultPath": "$.stageCheck",
+            "Next": "ShouldProcessEDV"
+        },
+        "ShouldProcessEDV": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "And": [
+                        {
+                            "Variable": "$.plan.counts.dv",
+                            "NumericGreaterThan": 0
+                        },
+                        {
+                            "Variable": "$.stageCheck.canContinue",
+                            "BooleanEquals": true
+                        }
+                    ],
+                    "Next": "ProcessEDVGroups"
+                }
+            ],
+            "Default": "FinalizePipeline"
+        },
+        "ProcessEDVGroups": {
+            "Type": "Map",
+            "ItemsPath": "$.plan.dvGroups",
+            "MaxConcurrency": 1,
+            "Parameters": {
+                "tables.$": "$$.Map.Item.Value",
+                "groupIndex.$": "$$.Map.Item.Index",
+                "data_src_nm": "__DATA_SRC_NM__",
+                "run_type": "__RUN_TYPE__",
+                "start_date": "__START_DATE__",
+                "env": "__ENV__"
+            },
+            "Iterator": {
+                "StartAt": "ProcessEDVTablesInGroup",
+                "States": {
+                    "ProcessEDVTablesInGroup": {
+                        "Type": "Map",
+                        "ItemsPath": "$.tables",
+                        "MaxConcurrency": 10,
+                        "Parameters": {
+                            "table_name.$": "$$.Map.Item.Value",
+                            "groupIndex.$": "$.groupIndex",
+                            "data_src_nm": "__DATA_SRC_NM__",
+                            "run_type": "__RUN_TYPE__",
+                            "start_date": "__START_DATE__",
+                            "env": "__ENV__",
+                            "layer": "EDV"
+                        },
+                        "Iterator": {
+                            "StartAt": "ExecuteEDVSQL",
+                            "States": {
+                                "ExecuteEDVSQL": {
+                                    "Type": "Task",
+                                    "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                                    "Parameters": {
+                                        "JobName": "FSA-DART-EXEC-CNSV-SQL",
+                                        "Arguments": {
+                                            "--JOB_NAME": "FSA-DART-EXEC-CNSV-SQL",
+                                            "--table_name.$": "$.table_name",
+                                            "--data_src_nm": "__DATA_SRC_NM__",
+                                            "--run_type": "__RUN_TYPE__",
+                                            "--start_date": "__START_DATE__",
+                                            "--env": "__ENV__",
+                                            "--layer.$": "$.layer"
+                                        }
+                                    },
+                                    "ResultPath": "$.glueResult",
+                                    "Next": "EDVTableSuccess",
+                                    "Catch": [
+                                        {
+                                            "ErrorEquals": [
+                                                "States.ALL"
+                                            ],
+                                            "Next": "EDVTableFailed",
+                                            "ResultPath": "$.error"
+                                        }
+                                    ]
+                                },
+                                "EDVTableSuccess": {
+                                    "Type": "Pass",
+                                    "Parameters": {
+                                        "table_name.$": "$.table_name",
+                                        "groupIndex.$": "$.groupIndex",
+                                        "status": "SUCCESS",
+                                        "layer": "EDV"
+                                    },
+                                    "End": true
+                                },
+                                "EDVTableFailed": {
+                                    "Type": "Pass",
+                                    "Parameters": {
+                                        "table_name.$": "$.table_name",
+                                        "groupIndex.$": "$.groupIndex",
+                                        "status": "FAILED",
+                                        "layer": "EDV",
+                                        "error.$": "$.error"
+                                    },
+                                    "End": true
+                                }
+                            }
+                        },
+                        "ResultPath": "$.groupResults",
+                        "End": true
+                    }
+                }
+            },
+            "ResultPath": "$.edvResults",
+            "Next": "CheckEDVResults",
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "HandlePipelineFailure",
+                    "ResultPath": "$.error"
+                }
+            ]
+        },
+        "CheckEDVResults": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+                "FunctionName": "FSA-PROD-edv-check-results",
+                "Payload": {
+                    "layer": "EDV",
+                    "results.$": "$.edvResults"
+                }
+            },
+            "ResultSelector": {
+                "successCount.$": "$.Payload.successCount",
+                "failedCount.$": "$.Payload.failedCount",
+                "failedTables.$": "$.Payload.failedTables",
+                "canContinue.$": "$.Payload.canContinue"
+            },
+            "ResultPath": "$.edvCheck",
+            "Next": "FinalizePipeline"
+        },
+        "FinalizePipeline": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+                "FunctionName": "FSA-PROD-edv-finalize-pipeline",
+                "Payload": {
+                    "data_src_nm": "__DATA_SRC_NM__",
+                    "run_type": "__RUN_TYPE__",
+                    "start_date": "__START_DATE__",
+                    "stageCheck.$": "$.stageCheck",
+                    "edvCheck.$": "$.edvCheck",
+                    "counts.$": "$.plan.counts"
+                }
+            },
+            "ResultPath": "$.finalResult",
+            "Next": "PipelineSuccess",
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "HandlePipelineFailure",
+                    "ResultPath": "$.error"
+                }
+            ]
+        },
+        "PipelineSuccess": {
+            "Type": "Succeed"
+        },
+        "HandlePipelineFailure": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+                "FunctionName": "FSA-PROD-edv-handle-failure",
+                "Payload": {
+                    "error.$": "$.error",
+                    "data_src_nm": "__DATA_SRC_NM__",
+                    "run_type": "__RUN_TYPE__",
+                    "start_date": "__START_DATE__"
+                }
+            },
+            "Next": "PipelineFailed"
+        },
+        "PipelineFailed": {
+            "Type": "Fail",
+            "Error": "PipelineExecutionFailed",
+            "Cause": "Pipeline execution failed - check logs for details"
         }
-      },
-      "ResultPath": "$.edvResults",
-      "Next": "CheckEDVResults",
-      "Catch": [
-        {
-          "ErrorEquals": [
-            "States.ALL"
-          ],
-          "Next": "HandlePipelineFailure",
-          "ResultPath": "$.error"
-        }
-      ]
-    },
-    "CheckEDVResults": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "FSA-CERT-edv-check-results",
-        "Payload": {
-          "layer": "EDV",
-          "results.$": "$.edvResults"
-        }
-      },
-      "ResultSelector": {
-        "successCount.$": "$.Payload.successCount",
-        "failedCount.$": "$.Payload.failedCount",
-        "failedTables.$": "$.Payload.failedTables",
-        "canContinue.$": "$.Payload.canContinue"
-      },
-      "ResultPath": "$.edvCheck",
-      "Next": "FinalizePipeline"
-    },
-    "FinalizePipeline": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "FSA-CERT-edv-finalize-pipeline",
-        "Payload": {
-          "data_src_nm": "__DATA_SRC_NM__",
-          "run_type": "__RUN_TYPE__",
-          "start_date": "__START_DATE__",
-          "stageCheck.$": "$.stageCheck",
-          "edvCheck.$": "$.edvCheck",
-          "counts.$": "$.plan.counts"
-        }
-      },
-      "ResultPath": "$.finalResult",
-      "Next": "PipelineSuccess",
-      "Catch": [
-        {
-          "ErrorEquals": [
-            "States.ALL"
-          ],
-          "Next": "HandlePipelineFailure",
-          "ResultPath": "$.error"
-        }
-      ]
-    },
-    "PipelineSuccess": {
-      "Type": "Succeed"
-    },
-    "HandlePipelineFailure": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "FSA-CERT-edv-handle-failure",
-        "Payload": {
-          "error.$": "$.error",
-          "data_src_nm": "__DATA_SRC_NM__",
-          "run_type": "__RUN_TYPE__",
-          "start_date": "__START_DATE__"
-        }
-      },
-      "Next": "PipelineFailed"
-    },
-    "PipelineFailed": {
-      "Type": "Fail",
-      "Error": "PipelineExecutionFailed",
-      "Cause": "Pipeline execution failed - check logs for details"
     }
-  }
 }

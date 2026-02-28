@@ -6,7 +6,7 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::lambda:invoke",
             "Parameters": {
-                "FunctionName": "FSA-PROD-edv-build-processing-plan",
+                "FunctionName": "__BUILD_PROCESSING_PLAN_FN_ARN__",
                 "Payload": {
                     "data_src_nm": "__DATA_SRC_NM__",
                     "run_type": "__RUN_TYPE__",
@@ -69,9 +69,9 @@
                         "Type": "Task",
                         "Resource": "arn:aws:states:::glue:startJobRun.sync",
                         "Parameters": {
-                            "JobName": "FSA-DART-EXEC-CNSV-SQL",
+                            "JobName": "__EXEC_SQL_GLUE_JOB_NAME__",
                             "Arguments": {
-                                "--JOB_NAME": "FSA-DART-EXEC-CNSV-SQL",
+                                "--JOB_NAME": "__EXEC_SQL_GLUE_JOB_NAME__",
                                 "--table_name.$": "$.table_name",
                                 "--data_src_nm": "__DATA_SRC_NM__",
                                 "--run_type": "__RUN_TYPE__",
@@ -129,7 +129,7 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::lambda:invoke",
             "Parameters": {
-                "FunctionName": "FSA-PROD-edv-check-results",
+                "FunctionName": "__CHECK_RESULTS_FN_ARN__",
                 "Payload": {
                     "layer": "STG",
                     "results.$": "$.stageResults"
@@ -198,9 +198,9 @@
                                     "Type": "Task",
                                     "Resource": "arn:aws:states:::glue:startJobRun.sync",
                                     "Parameters": {
-                                        "JobName": "FSA-DART-EXEC-CNSV-SQL",
+                                        "JobName": "__EXEC_SQL_GLUE_JOB_NAME__",
                                         "Arguments": {
-                                            "--JOB_NAME": "FSA-DART-EXEC-CNSV-SQL",
+                                            "--JOB_NAME": "__EXEC_SQL_GLUE_JOB_NAME__",
                                             "--table_name.$": "$.table_name",
                                             "--data_src_nm": "__DATA_SRC_NM__",
                                             "--run_type": "__RUN_TYPE__",
@@ -265,7 +265,7 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::lambda:invoke",
             "Parameters": {
-                "FunctionName": "FSA-PROD-edv-check-results",
+                "FunctionName": "__CHECK_RESULTS_FN_ARN__",
                 "Payload": {
                     "layer": "EDV",
                     "results.$": "$.edvResults"
@@ -284,7 +284,7 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::lambda:invoke",
             "Parameters": {
-                "FunctionName": "FSA-PROD-edv-finalize-pipeline",
+                "FunctionName": "__FINALIZE_PIPELINE_FN_ARN__",
                 "Payload": {
                     "data_src_nm": "__DATA_SRC_NM__",
                     "run_type": "__RUN_TYPE__",
@@ -313,7 +313,7 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::lambda:invoke",
             "Parameters": {
-                "FunctionName": "FSA-PROD-edv-handle-failure",
+                "FunctionName": "__HANDLE_FAILURE_FN_ARN__",
                 "Payload": {
                     "error.$": "$.error",
                     "data_src_nm": "__DATA_SRC_NM__",

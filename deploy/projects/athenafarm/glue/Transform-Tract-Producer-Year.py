@@ -491,6 +491,36 @@ if FULL_LOAD:
         s.tract_producer_rma_pcw_exception_code
     )
     """
+    FULL_LOAD_OVERWRITE_SQL = f"""
+    INSERT OVERWRITE TABLE {TARGET_FQN}
+    SELECT
+        core_customer_identifier,
+        tract_year_identifier,
+        producer_involvement_start_date,
+        producer_involvement_end_date,
+        producer_involvement_interrupted_indicator,
+        tract_producer_hel_exception_code,
+        tract_producer_cw_exception_code,
+        tract_producer_pcw_exception_code,
+        data_status_code,
+        creation_date,
+        last_change_date,
+        last_change_user_name,
+        producer_involvement_code,
+        time_period_identifier,
+        state_fsa_code,
+        county_fsa_code,
+        farm_identifier,
+        farm_number,
+        tract_number,
+        hel_appeals_exhausted_date,
+        cw_appeals_exhausted_date,
+        pcw_appeals_exhausted_date,
+        tract_producer_rma_hel_exception_code,
+        tract_producer_rma_cw_exception_code,
+        tract_producer_rma_pcw_exception_code
+    FROM new_tract_producer_year
+    """
     log.info("Full-load mode: MERGE INTO — WHEN NOT MATCHED only")
 else:
     # Incremental: INSERT new rows + UPDATE changed rows (replaces INSERT + UPDATE Athena files)
@@ -583,8 +613,22 @@ else:
     """
     log.info("Incremental mode: MERGE INTO — WHEN MATCHED UPDATE + WHEN NOT MATCHED INSERT")
 
-log.info(f"Executing MERGE INTO {TARGET_FQN}")
-spark.sql(MERGE_SQL)
+if FULL_LOAD:
+    log.info(f"Executing full-load MERGE INTO {TARGET_FQN}")
+    try:
+        spark.sql(MERGE_SQL)
+    except Exception as exc:
+        if "MERGE INTO TABLE is not supported temporarily" in str(exc):
+            log.warning(
+                "MERGE INTO not supported in this runtime/table mode; "
+                "falling back to full-load INSERT OVERWRITE"
+            )
+            spark.sql(FULL_LOAD_OVERWRITE_SQL)
+        else:
+            raise
+else:
+    log.info(f"Executing MERGE INTO {TARGET_FQN}")
+    spark.sql(MERGE_SQL)
 source_df.unpersist()
 log.info("MERGE INTO complete")
 

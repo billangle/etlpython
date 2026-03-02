@@ -478,6 +478,25 @@ class TestFirstRunTargetSafety(unittest.TestCase):
         )
 
 
+class TestMergeFallbackSafety(unittest.TestCase):
+    """
+    Full-load mode must tolerate environments where Spark reports
+    MERGE INTO unsupported and fall back to INSERT OVERWRITE.
+    """
+
+    def test_transform_tract_has_merge_fallback(self):
+        text = _script_text("Transform-Tract-Producer-Year")
+        self.assertIn("FULL_LOAD_OVERWRITE_SQL", text)
+        self.assertIn("MERGE INTO TABLE is not supported temporarily", text)
+        self.assertIn("INSERT OVERWRITE TABLE {TARGET_FQN}", text)
+
+    def test_transform_farm_has_merge_fallback(self):
+        text = _script_text("Transform-Farm-Producer-Year")
+        self.assertIn("FULL_LOAD_OVERWRITE_SQL", text)
+        self.assertIn("MERGE INTO TABLE is not supported temporarily", text)
+        self.assertIn("INSERT OVERWRITE TABLE {TARGET_FQN}", text)
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -492,6 +511,7 @@ if __name__ == "__main__":
         TestDatabaseSemantics,
         TestRequiredArgs,
         TestFirstRunTargetSafety,
+        TestMergeFallbackSafety,
     ]:
         suite.addTests(loader.loadTestsFromTestCase(cls))
 

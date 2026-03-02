@@ -327,7 +327,32 @@ if FULL_LOAD:
     )
     """
     FULL_LOAD_OVERWRITE_SQL = f"""
-    INSERT OVERWRITE TABLE {TARGET_FQN}
+    INSERT OVERWRITE TABLE {TARGET_FQN} (
+        core_customer_identifier,
+        farm_year_identifier,
+        producer_involvement_start_date,
+        producer_involvement_end_date,
+        producer_involvement_interrupted_indicator,
+        farm_producer_hel_exception_code,
+        farm_producer_cw_exception_code,
+        farm_producer_pcw_exception_code,
+        data_status_code,
+        creation_date,
+        last_change_date,
+        last_change_user_name,
+        producer_involvement_code,
+        time_period_identifier,
+        state_fsa_code,
+        county_fsa_code,
+        farm_identifier,
+        farm_number,
+        hel_appeals_exhausted_date,
+        cw_appeals_exhausted_date,
+        pcw_appeals_exhausted_date,
+        farm_producer_rma_hel_exception_code,
+        farm_producer_rma_cw_exception_code,
+        farm_producer_rma_pcw_exception_code
+    )
     SELECT
         core_customer_identifier,
         farm_year_identifier,

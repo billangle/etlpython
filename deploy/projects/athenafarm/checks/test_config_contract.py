@@ -497,6 +497,49 @@ class TestMergeFallbackSafety(unittest.TestCase):
         self.assertIn("INSERT OVERWRITE TABLE {TARGET_FQN}", text)
 
 
+class TestOptionalArgParsingSafety(unittest.TestCase):
+    """
+    getResolvedOptions only returns explicitly requested args; optional
+    values must be read from argv (via _opt), not args.get(...).
+    """
+
+    SCRIPTS = [
+        "Transform-Tract-Producer-Year",
+        "Transform-Farm-Producer-Year",
+        "Sync-Iceberg-To-RDS",
+        "Iceberg-Maintenance",
+    ]
+
+    OPTIONAL_KEYS = (
+        "full_load",
+        "sss_database",
+        "ref_database",
+        "target_database",
+        "target_table",
+        "rds_database",
+        "snapshot_id_param",
+        "snapshot_retention_hours",
+        "debug",
+    )
+
+    def test_scripts_define_opt_helper(self):
+        for stem in self.SCRIPTS:
+            text = _script_text(stem)
+            with self.subTest(script=stem):
+                self.assertIn("def _opt(", text, f"{stem} must define _opt helper")
+
+    def test_no_args_get_for_optional_keys(self):
+        key_alt = "|".join(self.OPTIONAL_KEYS)
+        pat = re.compile(rf"args\.get\(\s*['\"](?:{key_alt})['\"]")
+        for stem in self.SCRIPTS:
+            text = _script_text(stem)
+            with self.subTest(script=stem):
+                self.assertIsNone(
+                    pat.search(text),
+                    f"{stem} still uses args.get for optional Glue args; use _opt instead",
+                )
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -512,6 +555,7 @@ if __name__ == "__main__":
         TestRequiredArgs,
         TestFirstRunTargetSafety,
         TestMergeFallbackSafety,
+        TestOptionalArgParsingSafety,
     ]:
         suite.addTests(loader.loadTestsFromTestCase(cls))
 

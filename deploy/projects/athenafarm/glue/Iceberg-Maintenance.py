@@ -52,14 +52,27 @@ log = logging.getLogger(__name__)
 required_args = ["JOB_NAME", "env", "iceberg_warehouse"]
 args = getResolvedOptions(sys.argv, required_args)
 
+def _opt(name: str, default: str) -> str:
+    flag = f"--{name}"
+    try:
+        idx = sys.argv.index(flag)
+    except ValueError:
+        return default
+    if idx + 1 >= len(sys.argv):
+        return default
+    value = sys.argv[idx + 1]
+    if value.startswith("--"):
+        return default
+    return value
+
 JOB_NAME                  = args["JOB_NAME"]
 ENV                       = args["env"]
 ICEBERG_WAREHOUSE         = args["iceberg_warehouse"]
-RETENTION_HOURS           = int(args.get("snapshot_retention_hours", "168"))
-SSS_DB                    = args.get("sss_database", "athenafarm_prod_raw")
-REF_DB                    = args.get("ref_database", "athenafarm_prod_ref")
-TGT_DB                    = args.get("target_database", "athenafarm_prod_gold")
-DEBUG                     = args.get("debug", "false").strip().lower() == "true"
+RETENTION_HOURS           = int(_opt("snapshot_retention_hours", "168"))
+SSS_DB                    = _opt("sss_database", "athenafarm_prod_raw")
+REF_DB                    = _opt("ref_database", "athenafarm_prod_ref")
+TGT_DB                    = _opt("target_database", "athenafarm_prod_gold")
+DEBUG                     = _opt("debug", "false").strip().lower() == "true"
 
 RETENTION_MS = RETENTION_HOURS * 3600 * 1000   # Iceberg expects milliseconds
 

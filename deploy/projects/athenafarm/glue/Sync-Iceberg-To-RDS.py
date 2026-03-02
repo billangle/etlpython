@@ -54,15 +54,28 @@ log = logging.getLogger(__name__)
 required_args = ["JOB_NAME", "env", "iceberg_warehouse", "secret_id"]
 args = getResolvedOptions(sys.argv, required_args)
 
+def _opt(name: str, default: str) -> str:
+    flag = f"--{name}"
+    try:
+        idx = sys.argv.index(flag)
+    except ValueError:
+        return default
+    if idx + 1 >= len(sys.argv):
+        return default
+    value = sys.argv[idx + 1]
+    if value.startswith("--"):
+        return default
+    return value
+
 JOB_NAME            = args["JOB_NAME"]
 ENV                 = args["env"]
 ICEBERG_WAREHOUSE   = args["iceberg_warehouse"]
 SECRET_ID           = args["secret_id"]
-RDS_DATABASE        = args.get("rds_database", "farm_records_reporting")
-TGT_DB              = args.get("target_database", "athenafarm_prod_gold")
-SNAPSHOT_SSM_PARAM  = args.get("snapshot_id_param", f"/athenafarm/{ENV}/last_sync_snapshot")
-FULL_LOAD           = args.get("full_load", "false").strip().lower() == "true"
-DEBUG               = args.get("debug", "false").strip().lower() == "true"
+RDS_DATABASE        = _opt("rds_database", "farm_records_reporting")
+TGT_DB              = _opt("target_database", "athenafarm_prod_gold")
+SNAPSHOT_SSM_PARAM  = _opt("snapshot_id_param", f"/athenafarm/{ENV}/last_sync_snapshot")
+FULL_LOAD           = _opt("full_load", "false").strip().lower() == "true"
+DEBUG               = _opt("debug", "false").strip().lower() == "true"
 
 if DEBUG:
     logging.getLogger().setLevel(logging.DEBUG)

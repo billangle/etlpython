@@ -77,15 +77,28 @@ log = logging.getLogger(__name__)
 required_args = ["JOB_NAME", "env", "iceberg_warehouse"]
 args = getResolvedOptions(sys.argv, required_args)
 
+def _opt(name: str, default: str) -> str:
+    flag = f"--{name}"
+    try:
+        idx = sys.argv.index(flag)
+    except ValueError:
+        return default
+    if idx + 1 >= len(sys.argv):
+        return default
+    value = sys.argv[idx + 1]
+    if value.startswith("--"):
+        return default
+    return value
+
 JOB_NAME          = args["JOB_NAME"]
 ENV               = args["env"]
 ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
-FULL_LOAD         = args.get("full_load", "false").strip().lower() == "true"
-SSS_DB            = args.get("sss_database", "athenafarm_prod_raw")
-REF_DB            = args.get("ref_database", "athenafarm_prod_ref")
-TGT_DB            = args.get("target_database", "athenafarm_prod_gold")
-TGT_TABLE         = args.get("target_table", "tract_producer_year")
-DEBUG             = args.get("debug", "false").strip().lower() == "true"
+FULL_LOAD         = _opt("full_load", "false").strip().lower() == "true"
+SSS_DB            = _opt("sss_database", "athenafarm_prod_raw")
+REF_DB            = _opt("ref_database", "athenafarm_prod_ref")
+TGT_DB            = _opt("target_database", "athenafarm_prod_gold")
+TGT_TABLE         = _opt("target_table", "tract_producer_year")
+DEBUG             = _opt("debug", "false").strip().lower() == "true"
 
 if DEBUG:
     logging.getLogger().setLevel(logging.DEBUG)
@@ -618,7 +631,12 @@ if FULL_LOAD:
     try:
         spark.sql(MERGE_SQL)
     except Exception as exc:
-        if "MERGE INTO TABLE is not supported temporarily" in str(exc):
+        msg = str(exc)
+        if (
+            "MERGE INTO TABLE is not supported temporarily" in msg
+            or "UnsupportedOperationException" in msg
+            or "MERGE INTO" in msg and "not supported" in msg
+        ):
             log.warning(
                 "MERGE INTO not supported in this runtime/table mode; "
                 "falling back to full-load INSERT OVERWRITE"

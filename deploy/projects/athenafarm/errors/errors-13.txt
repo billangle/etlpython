@@ -1,0 +1,30 @@
+{
+  "cause": {
+    "AllocatedCapacity": 40,
+    "Arguments": {
+      "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+      "--full_load": "true",
+      "--env": "PROD"
+    },
+    "Attempt": 0,
+    "CompletedOn": 1772462298126,
+    "ErrorMessage": "An error occurred while calling o96.sql. MERGE INTO TABLE is not supported temporarily.",
+    "ExecutionTime": 200,
+    "GlueVersion": "4.0",
+    "Id": "jr_9f7379f098504ad115f76d74a96967379dcc7cb9decf19f57d70cfd47a60100e",
+    "JobMode": "SCRIPT",
+    "JobName": "FSA-PROD-ATHENAFARM-Transform-Farm-Producer-Year",
+    "JobRunState": "FAILED",
+    "LastModifiedOn": 1772462298126,
+    "LogGroupName": "/aws-glue/jobs",
+    "MaxCapacity": 40,
+    "NumberOfWorkers": 20,
+    "PredecessorRuns": [],
+    "StartedOn": 1772462090123,
+    "Timeout": 120,
+    "WorkerType": "G.2X"
+  },
+  "error": "States.TaskFailed",
+  "resource": "startJobRun.sync",
+  "resourceType": "glue"
+}

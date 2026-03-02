@@ -327,38 +327,15 @@ if FULL_LOAD:
     )
     """
     FULL_LOAD_INSERT_SQL = f"""
-    INSERT INTO {TARGET_FQN} (
-        core_customer_identifier,
-        farm_year_identifier,
-        producer_involvement_start_date,
-        producer_involvement_end_date,
-        producer_involvement_interrupted_indicator,
-        farm_producer_hel_exception_code,
-        farm_producer_cw_exception_code,
-        farm_producer_pcw_exception_code,
-        data_status_code,
-        creation_date,
-        last_change_date,
-        last_change_user_name,
-        producer_involvement_code,
-        time_period_identifier,
-        state_fsa_code,
-        county_fsa_code,
-        farm_identifier,
-        farm_number,
-        hel_appeals_exhausted_date,
-        cw_appeals_exhausted_date,
-        pcw_appeals_exhausted_date,
-        farm_producer_rma_hel_exception_code,
-        farm_producer_rma_cw_exception_code,
-        farm_producer_rma_pcw_exception_code
-    )
+    INSERT INTO {TARGET_FQN}
     SELECT
+        farm_producer_year_identifier,
         core_customer_identifier,
         farm_year_identifier,
+        producer_involvement_code,
+        producer_involvement_interrupted_indicator,
         producer_involvement_start_date,
         producer_involvement_end_date,
-        producer_involvement_interrupted_indicator,
         farm_producer_hel_exception_code,
         farm_producer_cw_exception_code,
         farm_producer_pcw_exception_code,
@@ -366,7 +343,6 @@ if FULL_LOAD:
         creation_date,
         last_change_date,
         last_change_user_name,
-        producer_involvement_code,
         time_period_identifier,
         state_fsa_code,
         county_fsa_code,

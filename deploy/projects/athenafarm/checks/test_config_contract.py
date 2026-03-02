@@ -496,18 +496,18 @@ class TestMergeFallbackSafety(unittest.TestCase):
         self.assertIn("FULL_LOAD_INSERT_SQL", text)
         self.assertIn("MERGE INTO TABLE is not supported temporarily", text)
         self.assertIn("DELETE FROM {TARGET_FQN} WHERE true", text)
-        self.assertIn("INSERT INTO {TARGET_FQN} (", text)
+        self.assertIn("INSERT INTO {TARGET_FQN}", text)
 
-    def test_transform_farm_overwrite_omits_identity_column(self):
+    def test_transform_farm_insert_includes_identity_column(self):
         text = _script_text("Transform-Farm-Producer-Year")
         m = re.search(r"FULL_LOAD_INSERT_SQL\s*=\s*f\"\"\"(.*?)\"\"\"", text, re.S)
         self.assertIsNotNone(m, "Transform-Farm-Producer-Year must define FULL_LOAD_INSERT_SQL")
         insert_sql = m.group(1)
-        self.assertIn("INSERT INTO {TARGET_FQN} (", insert_sql)
-        self.assertNotIn(
+        self.assertIn("INSERT INTO {TARGET_FQN}", insert_sql)
+        self.assertIn(
             "farm_producer_year_identifier",
             insert_sql,
-            "Full-load INSERT must omit identity/surrogate key farm_producer_year_identifier",
+            "Full-load INSERT must include farm_producer_year_identifier to match table column width",
         )
 
 

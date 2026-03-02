@@ -486,26 +486,28 @@ class TestMergeFallbackSafety(unittest.TestCase):
 
     def test_transform_tract_has_merge_fallback(self):
         text = _script_text("Transform-Tract-Producer-Year")
-        self.assertIn("FULL_LOAD_OVERWRITE_SQL", text)
+        self.assertIn("FULL_LOAD_INSERT_SQL", text)
         self.assertIn("MERGE INTO TABLE is not supported temporarily", text)
-        self.assertIn("INSERT OVERWRITE TABLE {TARGET_FQN} (", text)
+        self.assertIn("DELETE FROM {TARGET_FQN} WHERE true", text)
+        self.assertIn("INSERT INTO {TARGET_FQN} (", text)
 
     def test_transform_farm_has_merge_fallback(self):
         text = _script_text("Transform-Farm-Producer-Year")
-        self.assertIn("FULL_LOAD_OVERWRITE_SQL", text)
+        self.assertIn("FULL_LOAD_INSERT_SQL", text)
         self.assertIn("MERGE INTO TABLE is not supported temporarily", text)
-        self.assertIn("INSERT OVERWRITE TABLE {TARGET_FQN} (", text)
+        self.assertIn("DELETE FROM {TARGET_FQN} WHERE true", text)
+        self.assertIn("INSERT INTO {TARGET_FQN} (", text)
 
     def test_transform_farm_overwrite_omits_identity_column(self):
         text = _script_text("Transform-Farm-Producer-Year")
-        m = re.search(r"FULL_LOAD_OVERWRITE_SQL\s*=\s*f\"\"\"(.*?)\"\"\"", text, re.S)
-        self.assertIsNotNone(m, "Transform-Farm-Producer-Year must define FULL_LOAD_OVERWRITE_SQL")
-        overwrite_sql = m.group(1)
-        self.assertIn("INSERT OVERWRITE TABLE {TARGET_FQN} (", overwrite_sql)
+        m = re.search(r"FULL_LOAD_INSERT_SQL\s*=\s*f\"\"\"(.*?)\"\"\"", text, re.S)
+        self.assertIsNotNone(m, "Transform-Farm-Producer-Year must define FULL_LOAD_INSERT_SQL")
+        insert_sql = m.group(1)
+        self.assertIn("INSERT INTO {TARGET_FQN} (", insert_sql)
         self.assertNotIn(
             "farm_producer_year_identifier",
-            overwrite_sql,
-            "Full-load overwrite must omit identity/surrogate key farm_producer_year_identifier",
+            insert_sql,
+            "Full-load INSERT must omit identity/surrogate key farm_producer_year_identifier",
         )
 
 

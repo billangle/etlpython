@@ -326,8 +326,8 @@ if FULL_LOAD:
         s.farm_producer_rma_pcw_exception_code
     )
     """
-    FULL_LOAD_OVERWRITE_SQL = f"""
-    INSERT OVERWRITE TABLE {TARGET_FQN} (
+    FULL_LOAD_INSERT_SQL = f"""
+    INSERT INTO {TARGET_FQN} (
         core_customer_identifier,
         farm_year_identifier,
         producer_involvement_start_date,
@@ -447,9 +447,10 @@ if FULL_LOAD:
         ):
             log.warning(
                 "MERGE INTO not supported in this runtime/table mode; "
-                "falling back to full-load INSERT OVERWRITE"
+                "falling back to full-load DELETE + INSERT INTO"
             )
-            spark.sql(FULL_LOAD_OVERWRITE_SQL)
+            spark.sql(f"DELETE FROM {TARGET_FQN} WHERE true")
+            spark.sql(FULL_LOAD_INSERT_SQL)
         else:
             raise
 else:

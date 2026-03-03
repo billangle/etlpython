@@ -317,10 +317,8 @@ present_hour = datetime.now().astimezone(pytz.timezone('US/Central')).strftime("
 print(present_hour)
 if (int(present_hour)<20, area.lower() == 'nrrs',environ.lower()=='prod') == (True,True,True):
     print('line 316')
-    datestmp = datetime.utcnow().astimezone(pytz.timezone('US/Central')) + timedelta(days=-1)
-    datestmp = datestmp.strftime("%Y%m%d")
     tmstmp = datetime.now().astimezone(pytz.timezone('US/Central')) + timedelta(days=-1)
-    datestmp = tmstmp.strftime("%Y%m%d%H%M")
+    datestmp = tmstmp.strftime("%Y%m%d")
 
 while i < date_count:
     print(f"inside loop loading date: {datestmp}")

@@ -481,18 +481,18 @@ class TestFirstRunTargetSafety(unittest.TestCase):
 
     def test_transform_tract_creates_target_if_missing(self):
         text = _script_text("Transform-Tract-Producer-Year")
-        self.assertRegex(
+        self.assertIn(
+            'source_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(TARGET_FQN)',
             text,
-            r"CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+\{TARGET_FQN\}",
-            "Transform-Tract-Producer-Year must create target table if missing",
+            "Transform-Tract-Producer-Year must create target table if missing via DataFrame ignore bootstrap",
         )
 
     def test_transform_farm_creates_target_if_missing(self):
         text = _script_text("Transform-Farm-Producer-Year")
-        self.assertRegex(
+        self.assertIn(
+            'source_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(TARGET_FQN)',
             text,
-            r"CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+\{TARGET_FQN\}",
-            "Transform-Farm-Producer-Year must create target table if missing",
+            "Transform-Farm-Producer-Year must create target table if missing via DataFrame ignore bootstrap",
         )
 
 
@@ -514,17 +514,10 @@ class TestMergeFallbackSafety(unittest.TestCase):
         self.assertNotIn("falling back to DELETE + INSERT", text)
         self.assertNotIn("DELETE FROM {TARGET_FQN} WHERE true", text)
 
-    def test_transform_farm_insert_includes_identity_column(self):
+    def test_transform_farm_no_legacy_full_load_insert_sql(self):
         text = _script_text("Transform-Farm-Producer-Year")
-        m = re.search(r"FULL_LOAD_INSERT_SQL\s*=\s*f\"\"\"(.*?)\"\"\"", text, re.S)
-        self.assertIsNotNone(m, "Transform-Farm-Producer-Year must define FULL_LOAD_INSERT_SQL")
-        insert_sql = m.group(1)
-        self.assertIn("INSERT INTO {TARGET_FQN}", insert_sql)
-        self.assertIn(
-            "farm_producer_year_identifier",
-            insert_sql,
-            "Full-load INSERT must include farm_producer_year_identifier to match table column width",
-        )
+        self.assertNotIn("FULL_LOAD_INSERT_SQL", text)
+        self.assertNotIn("FULL_LOAD_OVERWRITE_SQL", text)
 
 
 class TestOptionalArgParsingSafety(unittest.TestCase):
@@ -587,11 +580,11 @@ class TestRuntimeOptimizationSafety(unittest.TestCase):
             with self.subTest(script=stem):
                 self.assertNotIn("source_df.cache()", text)
 
-    def test_tract_incremental_uses_delta_pruned_merge_source(self):
+    def test_tract_no_incremental_delta_merge_path(self):
         text = _script_text("Transform-Tract-Producer-Year")
-        self.assertIn("new_tract_producer_year_delta", text)
-        self.assertIn("USING new_tract_producer_year_delta s", text)
-        self.assertIn("phase_delta_seconds", text)
+        self.assertNotIn("new_tract_producer_year_delta", text)
+        self.assertNotIn("phase_delta_seconds", text)
+        self.assertNotIn("MERGE INTO {TARGET_FQN}", text)
 
     def test_tract_enables_adaptive_and_skew_join(self):
         text = _script_text("Transform-Tract-Producer-Year")

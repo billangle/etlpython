@@ -1,10 +1,10 @@
 {
-  "Comment": "athenafarm — tract/farm producer year ETL pipeline. Parallel ingest of SSS + PG reference + PG CDC tables, followed by Spark MERGE INTO transforms and RDS sync. All infrastructure values substituted at deploy time.",
+  "Comment": "athenafarm — tract/farm producer year ETL pipeline. Parallel ingest of SSS + PG reference + PG CDC tables, followed by Spark DataFrame full-load transforms and optional RDS sync. All infrastructure values substituted at deploy time.",
   "StartAt": "IngestParallel",
   "States": {
     "IngestParallel": {
       "Type": "Parallel",
-      "Comment": "Run all three ingest jobs concurrently — SSS Athena tables, PG reference tables, and PG CDC target snapshots.",
+      "Comment": "Run all three ingest jobs concurrently — SSS source tables, PG reference tables, and PG CDC target snapshots.",
       "Branches": [
         {
           "StartAt": "StartSSSCrawler",
@@ -200,7 +200,7 @@
           "States": {
             "TransformFarmProducerYear": {
               "Type": "Task",
-              "Comment": "Run the farm-level IBase→ZMI→PG CTE join chain and apply MERGE INTO on farm_producer_year.",
+              "Comment": "Run the farm-level DataFrame transform and write a full-load snapshot to farm_producer_year.",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_FARM_PY_GLUE_JOB_NAME__",

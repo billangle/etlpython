@@ -1,0 +1,330 @@
+26/03/03 01:16:24 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] 
+{
+    "Event": "GlueExceptionAnalysisTaskFailed",
+    "Timestamp": 1772500584227,
+    "Failure Reason": "No space left on device",
+    "Stack Trace": [
+        {
+            "Declaring Class": "java.io.FileOutputStream",
+            "Method Name": "writeBytes",
+            "File Name": "FileOutputStream.java",
+            "Line Number": -2
+        },
+        {
+            "Declaring Class": "java.io.FileOutputStream",
+            "Method Name": "write",
+            "File Name": "FileOutputStream.java",
+            "Line Number": 326
+        },
+        {
+            "Declaring Class": "org.apache.spark.storage.TimeTrackingOutputStream",
+            "Method Name": "write",
+            "File Name": "TimeTrackingOutputStream.java",
+            "Line Number": 59
+        },
+        {
+            "Declaring Class": "org.apache.spark.io.MutableCheckedOutputStream",
+            "Method Name": "write",
+            "File Name": "MutableCheckedOutputStream.scala",
+            "Line Number": 43
+        },
+        {
+            "Declaring Class": "java.io.BufferedOutputStream",
+            "Method Name": "flushBuffer",
+            "File Name": "BufferedOutputStream.java",
+            "Line Number": 82
+        },
+        {
+            "Declaring Class": "java.io.BufferedOutputStream",
+            "Method Name": "write",
+            "File Name": "BufferedOutputStream.java",
+            "Line Number": 126
+        },
+        {
+            "Declaring Class": "net.jpountz.lz4.LZ4BlockOutputStream",
+            "Method Name": "flushBufferedData",
+            "File Name": "LZ4BlockOutputStream.java",
+            "Line Number": 225
+        },
+        {
+            "Declaring Class": "net.jpountz.lz4.LZ4BlockOutputStream",
+            "Method Name": "write",
+            "File Name": "LZ4BlockOutputStream.java",
+            "Line Number": 178
+        },
+        {
+            "Declaring Class": "org.apache.commons.io.output.ProxyOutputStream",
+            "Method Name": "write",
+            "File Name": "ProxyOutputStream.java",
+            "Line Number": 92
+        },
+        {
+            "Declaring Class": "java.io.BufferedOutputStream",
+            "Method Name": "flushBuffer",
+            "File Name": "BufferedOutputStream.java",
+            "Line Number": 82
+        },
+        {
+            "Declaring Class": "java.io.BufferedOutputStream",
+            "Method Name": "write",
+            "File Name": "BufferedOutputStream.java",
+            "Line Number": 126
+        },
+        {
+            "Declaring Class": "java.io.DataOutputStream",
+            "Method Name": "write",
+            "File Name": "DataOutputStream.java",
+            "Line Number": 107
+        },
+        {
+            "Declaring Class": "org.apache.spark.sql.catalyst.expressions.UnsafeRow",
+            "Method Name": "writeToStream",
+            "File Name": "UnsafeRow.java",
+            "Line Number": 552
+        },
+        {
+            "Declaring Class": "org.apache.spark.sql.execution.UnsafeRowSerializerInstance$$anon$2",
+            "Method Name": "writeValue",
+            "File Name": "UnsafeRowSerializer.scala",
+            "Line Number": 205
+        },
+        {
+            "Declaring Class": "org.apache.spark.storage.DiskBlockObjectWriter",
+            "Method Name": "write",
+            "File Name": "DiskBlockObjectWriter.scala",
+            "Line Number": 325
+        },
+        {
+            "Declaring Class": "org.apache.spark.shuffle.sort.BypassMergeSortShuffleWriter",
+            "Method Name": "write",
+            "File Name": "BypassMergeSortShuffleWriter.java",
+            "Line Number": 171
+        },
+        {
+            "Declaring Class": "org.apache.spark.shuffle.ShuffleWriteProcessor",
+            "Method Name": "write",
+            "File Name": "ShuffleWriteProcessor.scala",
+            "Line Number": 59
+        },
+        {
+            "Declaring Class": "org.apache.spark.scheduler.ShuffleMapTask",
+            "Method Name": "runTask",
+            "File Name": "ShuffleMapTask.scala",
+            "Line Number": 99
+        },
+        {
+            "Declaring Class": "org.apache.spark.scheduler.ShuffleMapTask",
+            "Method Name": "runTask",
+            "File Name": "ShuffleMapTask.scala",
+            "Line Number": 52
+        },
+        {
+            "Declaring Class": "org.apache.spark.scheduler.Task",
+            "Method Name": "run",
+            "File Name": "Task.scala",
+            "Line Number": 138
+        },
+        {
+            "Declaring Class": "org.apache.spark.executor.Executor$TaskRunner",
+            "Method Name": "$anonfun$run$3",
+            "File Name": "Executor.scala",
+            "Line Number": 548
+        },
+        {
+            "Declaring Class": "org.apache.spark.util.Utils$",
+            "Method Name": "tryWithSafeFinally",
+            "File Name": "Utils.scala",
+            "Line Number": 1516
+        },
+        {
+            "Declaring Class": "org.apache.spark.executor.Executor$TaskRunner",
+            "Method Name": "run",
+            "File Name": "Executor.scala",
+            "Line Number": 551
+        },
+        {
+            "Declaring Class": "java.util.concurrent.ThreadPoolExecutor",
+            "Method Name": "runWorker",
+            "File Name": "ThreadPoolExecutor.java",
+            "Line Number": 1149
+        },
+        {
+            "Declaring Class": "java.util.concurrent.ThreadPoolExecutor$Worker",
+            "Method Name": "run",
+            "File Name": "ThreadPoolExecutor.java",
+            "Line Number": 624
+        },
+        {
+            "Declaring Class": "java.lang.Thread",
+            "Method Name": "run",
+            "File Name": "Thread.java",
+            "Line Number": 750
+        }
+    ],
+    "Task Launch Time": 1772496820334,
+    "Stage ID": 13,
+    "Stage Attempt ID": 0,
+    "Task Type": "ShuffleMapTask",
+    "Executor ID": "10",
+    "Task ID": 2814
+}
+
+2026-03-03T01:16:24.322Z
+[Stage 13 (count at NativeMethodAccessorImpl.java:0):()(4 + 2) / 152][Stage 17 (count at NativeMethodAccessorImpl.java:0):()(0 + 151) / 152][Stage 19 (count at NativeMethodAccessorImpl.java:0):()(0 + 0) / 15][Stage 27 (count at NativeMethodAccessorImpl.java:0):()(0 + 0) / 62]
+2026-03-03T02:14:01.363Z
+[Stage 13 (count at NativeMethodAccessorImpl.java:0):()(4 + 1) / 152][Stage 17 (count at NativeMethodAccessorImpl.java:0):()(0 + 151) / 152][Stage 19 (count at NativeMethodAccessorImpl.java:0):()(0 + 0) / 15][Stage 27 (count at NativeMethodAccessorImpl.java:0):()(0 + 0) / 62]
+
+
+
+2026-03-03T02:14:01.265Z
+26/03/03 02:14:01 ERROR Executor: Exception in task 5.0 in stage 13.0 (TID 2815) java.io.IOException: No space left on device at java.io.FileOutputStream.writeBytes(Native Method) ~[?:1.8.0_472] at java.io.FileOutputStream.write(FileOutputStream.java:326) ~[?:1.8.0_472] at org.apache.spark.storage.TimeTrackingOutputStream.write(TimeTrackingOutputStream.java:59) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.io.MutableCheckedOutputStream.write(MutableCheckedOutputStream.scala:43) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at java.io.BufferedOutputStream.flushBuffer(BufferedOutputStream.java:82) ~[?:1.8.0_472] at java.io.BufferedOutputStream.write(BufferedOutputStream.java:126) ~[?:1.8.0_472] at net.jpountz.lz4.LZ4BlockOutputStream.flushBufferedData(LZ4BlockOutputStream.java:225) ~[lz4-java-1.8.0.jar:?] at net.jpountz.lz4.LZ4BlockOutputStream.write(LZ4BlockOutputStream.java:178) ~[lz4-java-1.8.0.jar:?] at org.apache.commons.io.output.ProxyOutputStream.write(ProxyOutputStream.java:92) ~[commons-io-2.11.0.jar:2.11.0] at java.io.BufferedOutputStream.flushBuffer(BufferedOutputStream.java:82) ~[?:1.8.0_472] at java.io.BufferedOutputStream.write(BufferedOutputStream.java:126) ~[?:1.8.0_472] at java.io.DataOutputStream.write(DataOutputStream.java:107) ~[?:1.8.0_472] at org.apache.spark.sql.catalyst.expressions.UnsafeRow.writeToStream(UnsafeRow.java:552) ~[spark-catalyst_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.sql.execution.UnsafeRowSerializerInstance$$anon$2.writeValue(UnsafeRowSerializer.scala:205) ~[spark-sql_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.storage.DiskBlockObjectWriter.write(DiskBlockObjectWriter.scala:325) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.shuffle.sort.BypassMergeSortShuffleWriter.write(BypassMergeSortShuffleWriter.java:171) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.shuffle.ShuffleWriteProcessor.write(ShuffleWriteProcessor.scala:59) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:99) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:52) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.scheduler.Task.run(Task.scala:138) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.executor.Executor$TaskRunner.$anonfun$run$3(Executor.scala:548) ~[spark-core_2.12-3.3.0-amzn-1.jar:?] at org.apache.spark.util.Utils$.tryWithSafeFinally(Utils.scala:1516) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.executor.Executor$TaskRunner.run(Executor.scala:551) ~[spark-core_2.12-3.3.0-amzn-1.jar:?] at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149) ~[?:1.8.0_472] at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624) ~[?:1.8.0_472] at java.lang.Thread.run(Thread.java:750) ~[?:1.8.0_472]
+2026-03-03T02:14:01.362Z
+26/03/03 02:14:01 INFO CoarseGrainedExecutorBackend: Got assigned task 2816
+2026-03-03T02:14:01.363Z
+26/03/03 02:14:01 INFO Executor: Running task 4.1 in stage 13.0 (TID 2816)
+2026-03-03T02:14:01.369Z
+26/03/03 02:14:01 INFO ShuffleBlockFetcherIterator: Getting 152 (540.4 MiB) non-empty blocks including 8 (27.8 MiB) local and 0 (0.0 B) host-local and 0 (0.0 B) push-merged-local and 144 (512.6 MiB) remote blocks
+2026-03-03T02:14:01.371Z
+26/03/03 02:14:01 INFO ShuffleBlockFetcherIterator: Started 3 remote fetches in 3 ms
+2026-03-03T02:14:01.380Z
+26/03/03 02:14:01 INFO ShuffleBlockFetcherIterator: Getting 420 (204.2 MiB) non-empty blocks including 29 (14.2 MiB) local and 0 (0.0 B) host-local and 0 (0.0 B) push-merged-local and 391 (190.0 MiB) remote blocks
+2026-03-03T02:14:01.382Z
+26/03/03 02:14:01 INFO ShuffleBlockFetcherIterator: Started 5 remote fetches in 2 ms
+2026-03-03T02:14:04.436Z
+26/03/03 02:14:04 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (0 time so far)
+2026-03-03T02:14:09.378Z
+26/03/03 02:14:09 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (1 time so far)
+2026-03-03T02:14:14.317Z
+26/03/03 02:14:14 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (2 times so far)
+2026-03-03T02:14:19.101Z
+26/03/03 02:14:19 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (3 times so far)
+2026-03-03T02:14:24.098Z
+26/03/03 02:14:24 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (4 times so far)
+2026-03-03T02:14:28.951Z
+26/03/03 02:14:28 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (5 times so far)
+2026-03-03T02:14:33.758Z
+26/03/03 02:14:33 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (6 times so far)
+2026-03-03T02:14:38.590Z
+26/03/03 02:14:38 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (7 times so far)
+2026-03-03T02:14:43.447Z
+26/03/03 02:14:43 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (8 times so far)
+2026-03-03T02:14:48.358Z
+26/03/03 02:14:48 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (9 times so far)
+2026-03-03T02:14:53.288Z
+26/03/03 02:14:53 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (10 times so far)
+2026-03-03T02:14:58.202Z
+26/03/03 02:14:58 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (11 times so far)
+2026-03-03T02:15:03.196Z
+26/03/03 02:15:03 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (12 times so far)
+2026-03-03T02:15:08.030Z
+26/03/03 02:15:08 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (13 times so far)
+2026-03-03T02:15:13.095Z
+26/03/03 02:15:13 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (14 times so far)
+2026-03-03T02:15:18.026Z
+26/03/03 02:15:18 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (15 times so far)
+2026-03-03T02:15:22.889Z
+26/03/03 02:15:22 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (16 times so far)
+2026-03-03T02:15:27.860Z
+26/03/03 02:15:27 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (17 times so far)
+2026-03-03T02:15:32.713Z
+26/03/03 02:15:32 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (18 times so far)
+2026-03-03T02:15:37.674Z
+26/03/03 02:15:37 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (19 times so far)
+2026-03-03T02:15:42.522Z
+26/03/03 02:15:42 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (20 times so far)
+2026-03-03T02:15:47.469Z
+26/03/03 02:15:47 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (21 times so far)
+2026-03-03T02:15:52.474Z
+26/03/03 02:15:52 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (22 times so far)
+2026-03-03T02:15:57.347Z
+26/03/03 02:15:57 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (23 times so far)
+2026-03-03T02:16:02.269Z
+26/03/03 02:16:02 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (24 times so far)
+2026-03-03T02:16:07.292Z
+26/03/03 02:16:07 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (25 times so far)
+2026-03-03T02:16:12.239Z
+26/03/03 02:16:12 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (26 times so far)
+2026-03-03T02:16:17.108Z
+26/03/03 02:16:17 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (27 times so far)
+2026-03-03T02:16:22.019Z
+26/03/03 02:16:22 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (28 times so far)
+2026-03-03T02:16:26.970Z
+26/03/03 02:16:26 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (29 times so far)
+2026-03-03T02:16:31.948Z
+26/03/03 02:16:31 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (30 times so far)
+2026-03-03T02:16:36.830Z
+26/03/03 02:16:36 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (31 times so far)
+2026-03-03T02:16:41.781Z
+26/03/03 02:16:41 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (32 times so far)
+2026-03-03T02:16:46.574Z
+26/03/03 02:16:46 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (33 times so far)
+2026-03-03T02:16:51.531Z
+26/03/03 02:16:51 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (34 times so far)
+2026-03-03T02:16:56.341Z
+26/03/03 02:16:56 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (35 times so far)
+2026-03-03T02:17:01.253Z
+26/03/03 02:17:01 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (36 times so far)
+2026-03-03T02:17:06.142Z
+26/03/03 02:17:06 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (37 times so far)
+2026-03-03T02:17:11.054Z
+26/03/03 02:17:11 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (38 times so far)
+2026-03-03T02:17:16.011Z
+26/03/03 02:17:16 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (39 times so far)
+2026-03-03T02:17:20.951Z
+26/03/03 02:17:20 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (40 times so far)
+2026-03-03T02:17:25.849Z
+26/03/03 02:17:25 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (41 times so far)
+2026-03-03T02:17:30.825Z
+26/03/03 02:17:30 INFO UnsafeExternalSorter: Thread 66 spilling sort data of 1472.0 MiB to disk (42 times so far)
+2026-03-03T02:41:02.728Z
+26/03/03 02:41:02 ERROR CoarseGrainedExecutorBackend: Executor self-exiting due to : Driver 172.39.216.214:45651 disassociated! Shutting down.
+
+26/03/03 02:41:02 ERROR CoarseGrainedExecutorBackend: Executor self-exiting due to : Driver 172.39.216.214:45651 disassociated! Shutting down.
+2026-03-03T02:41:02.791Z
+26/03/03 02:41:02 INFO CoarseGrainedExecutorBackend: Driver from 172.39.216.214:45651 disconnected during shutdown
+2026-03-03T02:41:02.813Z
+26/03/03 02:41:02 INFO AWSDILyraSink: AWSDILyraSink: SparkContext stopped - not reporting metrics now.
+2026-03-03T02:41:05.422Z
+26/03/03 02:41:05 INFO MemoryStore: MemoryStore cleared
+2026-03-03T02:41:05.422Z
+26/03/03 02:41:05 INFO BlockManager: BlockManager stopped
+
+
+
+2026-03-03T02:31:33.640Z
+26/03/03 02:31:33 INFO ExecutorTaskManagement: polling for executor task status
+2026-03-03T02:32:33.640Z
+26/03/03 02:32:33 INFO JESSchedulerBackend: polling for JES task status
+2026-03-03T02:32:33.678Z
+26/03/03 02:32:33 INFO ExecutorTaskManagement: polling for executor task status
+2026-03-03T02:33:33.678Z
+26/03/03 02:33:33 INFO JESSchedulerBackend: polling for JES task status
+2026-03-03T02:33:33.719Z
+26/03/03 02:33:33 INFO ExecutorTaskManagement: polling for executor task status
+2026-03-03T02:34:33.720Z
+26/03/03 02:34:33 INFO JESSchedulerBackend: polling for JES task status
+2026-03-03T02:34:33.761Z
+26/03/03 02:34:33 INFO ExecutorTaskManagement: polling for executor task status
+2026-03-03T02:35:33.761Z
+26/03/03 02:35:33 INFO JESSchedulerBackend: polling for JES task status
+2026-03-03T02:35:33.805Z
+26/03/03 02:35:33 INFO ExecutorTaskManagement: polling for executor task status
+2026-03-03T02:36:33.805Z
+26/03/03 02:36:33 INFO JESSchedulerBackend: polling for JES task status
+2026-03-03T02:36:33.844Z
+26/03/03 02:36:33 INFO ExecutorTaskManagement: polling for executor task status
+2026-03-03T02:37:33.844Z
+26/03/03 02:37:33 INFO JESSchedulerBackend: polling for JES task status
+2026-03-03T02:37:33.884Z
+26/03/03 02:37:33 INFO ExecutorTaskManagement: polling for executor task status
+2026-03-03T02:38:33.885Z
+26/03/03 02:38:33 INFO JESSchedulerBackend: polling for JES task status
+2026-03-03T02:38:33.918Z
+26/03/03 02:38:33 INFO ExecutorTaskManagement: polling for executor task status
+2026-03-03T02:39:33.918Z
+26/03/03 02:39:33 INFO JESSchedulerBackend: polling for JES task status
+2026-03-03T02:39:33.960Z
+26/03/03 02:39:33 INFO ExecutorTaskManagement: polling for executor task status
+2026-03-03T02:40:33.960Z
+26/03/03 02:40:33 INFO JESSchedulerBackend: polling for JES task status
+

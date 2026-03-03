@@ -77,6 +77,7 @@ ENV               = args["env"]
 ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
 SECRET_ID         = args["secret_id"]
 TARGET_DATABASE   = _opt("target_database", "athenafarm_prod_cdc")
+SHUFFLE_PARTITIONS = _opt("shuffle_partitions", "800")
 FULL_LOAD         = _opt("full_load", "false").strip().lower() == "true"
 DEBUG             = _opt("debug", "false").strip().lower() == "true"
 
@@ -97,6 +98,9 @@ _conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
 #   "Incoming records violate the writer assumption that records are clustered
 #    by spec and by partition within each spec."
 _conf.set("spark.sql.catalog.glue_catalog.write.spark.fanout.enabled", "true")
+_conf.set("spark.sql.adaptive.enabled", "true")
+_conf.set("spark.sql.adaptive.skewJoin.enabled", "true")
+_conf.set("spark.sql.shuffle.partitions", SHUFFLE_PARTITIONS)
 sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -109,6 +113,7 @@ log.info(f"Env         : {ENV}")
 log.info(f"Warehouse   : {ICEBERG_WAREHOUSE}")
 log.info(f"Secret ID   : {SECRET_ID}")
 log.info(f"Target DB   : {TARGET_DATABASE}")
+log.info(f"Shuffle Parts : {SHUFFLE_PARTITIONS}")
 log.info(f"Debug       : {DEBUG}")
 log.info("=" * 70)
 

@@ -95,6 +95,7 @@ ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
 SOURCE_CATALOG    = _opt("source_catalog", "sss-farmrecords")
 SOURCE_DATABASE   = _opt("source_database", "sss-farmrecords")
 TARGET_DATABASE   = _opt("target_database", "athenafarm_prod_raw")
+SHUFFLE_PARTITIONS = _opt("shuffle_partitions", "800")
 FULL_LOAD         = _opt("full_load", "false").strip().lower() == "true"
 DEBUG             = _opt("debug", "false").strip().lower() == "true"
 
@@ -114,6 +115,9 @@ _conf.set("spark.sql.catalog.glue_catalog.io-impl", "org.apache.iceberg.aws.s3.S
 _conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
 # FanoutWriter at driver level — overrides ClusteredWriter even for createOrReplace
 _conf.set("spark.sql.catalog.glue_catalog.write.spark.fanout.enabled", "true")
+_conf.set("spark.sql.adaptive.enabled", "true")
+_conf.set("spark.sql.adaptive.skewJoin.enabled", "true")
+_conf.set("spark.sql.shuffle.partitions", SHUFFLE_PARTITIONS)
 sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -127,6 +131,7 @@ log.info(f"Warehouse      : {ICEBERG_WAREHOUSE}")
 log.info(f"Source catalog : {SOURCE_CATALOG}")
 log.info(f"Source DB      : {SOURCE_DATABASE}")
 log.info(f"Target DB      : {TARGET_DATABASE}")
+log.info(f"Shuffle Parts  : {SHUFFLE_PARTITIONS}")
 log.info(f"Full load      : {FULL_LOAD}")
 log.info(f"Debug          : {DEBUG}")
 log.info("=" * 70)

@@ -735,16 +735,8 @@ else:
 
 if FULL_LOAD:
     write_t0 = time.perf_counter()
-    log.info(f"Executing full-load overwrite for {TARGET_FQN} (INSERT OVERWRITE)")
-    try:
-        spark.sql(FULL_LOAD_OVERWRITE_SQL)
-    except Exception as overwrite_exc:
-        log.warning(
-            f"Full-load overwrite failed for {TARGET_FQN}; falling back to DELETE + INSERT. "
-            f"Reason: {overwrite_exc}"
-        )
-        spark.sql(f"DELETE FROM {TARGET_FQN} WHERE true")
-        spark.sql(FULL_LOAD_INSERT_SQL)
+    log.info(f"Executing full-load overwrite for {TARGET_FQN} (DataFrameWriter + Iceberg)")
+    source_df.write.format("iceberg").mode("overwrite").saveAsTable(TARGET_FQN)
 else:
     write_t0 = time.perf_counter()
     log.info(f"Executing MERGE INTO {TARGET_FQN}")

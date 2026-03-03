@@ -89,6 +89,7 @@ SSS_DB            = _opt("sss_database", "athenafarm_prod_raw")
 REF_DB            = _opt("ref_database", "athenafarm_prod_ref")
 TGT_DB            = _opt("target_database", "athenafarm_prod_gold")
 TGT_TABLE         = _opt("target_table", "farm_producer_year")
+SHUFFLE_PARTITIONS = _opt("shuffle_partitions", "800")
 DEBUG             = _opt("debug", "false").strip().lower() == "true"
 
 if DEBUG:
@@ -105,6 +106,9 @@ _conf.set("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws
 _conf.set("spark.sql.catalog.glue_catalog.io-impl",      "org.apache.iceberg.aws.s3.S3FileIO")
 _conf.set("spark.sql.catalog.glue_catalog.warehouse",    ICEBERG_WAREHOUSE)
 _conf.set("spark.sql.autoBroadcastJoinThreshold",        str(50 * 1024 * 1024))
+_conf.set("spark.sql.adaptive.enabled",                  "true")
+_conf.set("spark.sql.adaptive.skewJoin.enabled",         "true")
+_conf.set("spark.sql.shuffle.partitions",                SHUFFLE_PARTITIONS)
 sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -121,6 +125,7 @@ log.info(f"SSS DB         : {SSS_DB}")
 log.info(f"Ref DB         : {REF_DB}")
 log.info(f"Target DB      : {TGT_DB}")
 log.info(f"Target Table   : {TGT_TABLE}")
+log.info(f"Shuffle Parts  : {SHUFFLE_PARTITIONS}")
 log.info(f"Full Load      : {FULL_LOAD}")
 log.info(f"[METRIC] mode={'full_load' if FULL_LOAD else 'incremental'}")
 log.info(f"Debug          : {DEBUG}")
@@ -463,16 +468,8 @@ else:
 
 if FULL_LOAD:
     write_t0 = time.perf_counter()
-    log.info(f"Executing full-load overwrite for {TARGET_FQN} (INSERT OVERWRITE)")
-    try:
-        spark.sql(FULL_LOAD_OVERWRITE_SQL)
-    except Exception as overwrite_exc:
-        log.warning(
-            f"Full-load overwrite failed for {TARGET_FQN}; falling back to DELETE + INSERT. "
-            f"Reason: {overwrite_exc}"
-        )
-        spark.sql(f"DELETE FROM {TARGET_FQN} WHERE true")
-        spark.sql(FULL_LOAD_INSERT_SQL)
+    log.info(f"Executing full-load overwrite for {TARGET_FQN} (DataFrameWriter + Iceberg)")
+    source_df.write.format("iceberg").mode("overwrite").saveAsTable(TARGET_FQN)
 else:
     write_t0 = time.perf_counter()
     log.info(f"Executing MERGE INTO {TARGET_FQN}")

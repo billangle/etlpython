@@ -37,6 +37,7 @@ import sys
 import logging
 import datetime
 from awsglue.utils import getResolvedOptions
+from pyspark import SparkConf
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
@@ -72,6 +73,7 @@ RETENTION_HOURS           = int(_opt("snapshot_retention_hours", "168"))
 SSS_DB                    = _opt("sss_database", "athenafarm_prod_raw")
 REF_DB                    = _opt("ref_database", "athenafarm_prod_ref")
 TGT_DB                    = _opt("target_database", "athenafarm_prod_gold")
+SHUFFLE_PARTITIONS        = _opt("shuffle_partitions", "200")
 DEBUG                     = _opt("debug", "false").strip().lower() == "true"
 
 RETENTION_MS = RETENTION_HOURS * 3600 * 1000   # Iceberg expects milliseconds
@@ -81,13 +83,19 @@ if DEBUG:
     log.setLevel(logging.DEBUG)
     log.debug("DEBUG logging enabled")
 
-sc = SparkContext()
+_conf = SparkConf()
+_conf.set("spark.sql.catalog.glue_catalog",              "org.apache.iceberg.spark.SparkCatalog")
+_conf.set("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws.glue.GlueCatalog")
+_conf.set("spark.sql.catalog.glue_catalog.io-impl",      "org.apache.iceberg.aws.s3.S3FileIO")
+_conf.set("spark.sql.catalog.glue_catalog.warehouse",    ICEBERG_WAREHOUSE)
+_conf.set("spark.sql.adaptive.enabled",                  "true")
+_conf.set("spark.sql.adaptive.skewJoin.enabled",         "true")
+_conf.set("spark.sql.shuffle.partitions",                SHUFFLE_PARTITIONS)
+sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(JOB_NAME, args)
-
-spark.conf.set("spark.sql.catalog.glue_catalog.warehouse", ICEBERG_WAREHOUSE)
 
 log.info("=" * 70)
 log.info(f"Job                : {JOB_NAME}")
@@ -97,6 +105,7 @@ log.info(f"Retention (hours)  : {RETENTION_HOURS}")
 log.info(f"SSS DB             : {SSS_DB}")
 log.info(f"Ref DB             : {REF_DB}")
 log.info(f"Target DB          : {TGT_DB}")
+log.info(f"Shuffle Parts      : {SHUFFLE_PARTITIONS}")
 log.info(f"Debug              : {DEBUG}")
 log.info("=" * 70)
 

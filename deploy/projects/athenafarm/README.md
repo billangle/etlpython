@@ -18,8 +18,8 @@ deploy/projects/athenafarm/
 │   ├── Ingest-PG-Reference-Tables.py       # PG reference tables → S3 Iceberg
 │   ├── Ingest-PG-CDC-Targets.py            # PG CDC targets → S3 Iceberg
 │   ├── Transform-Tract-Producer-Year.py    # Tract transform (full-load only)
-│   ├── Transform-Farm-Producer-Year.py     # CTE + MERGE INTO farm_producer_year
-│   ├── Sync-Iceberg-To-RDS.py             # Delta sync Iceberg → RDS PostgreSQL
+│   ├── Transform-Farm-Producer-Year.py     # Farm transform (full-load only)
+│   ├── Sync-Iceberg-To-RDS.py             # Iceberg → RDS PostgreSQL sync (optional)
 │   └── Iceberg-Maintenance.py             # Weekly OPTIMIZE + EXPIRE SNAPSHOTS
 ├── lambda/
 │   └── notify_pipeline/
@@ -56,10 +56,10 @@ Manual / Lambda / CI trigger (no EventBridge — see "Running Without EventBridg
         │
         ├─ [TransformParallel]                  (both transforms run concurrently)
         │    ├─ Transform-Tract-Producer-Year   (full-load only)
-        │    └─ Transform-Farm-Producer-Year    (CTE + MERGE INTO farm_producer_year)
+        │    └─ Transform-Farm-Producer-Year    (full-load only)
         │
         ├─ CheckSkipRDSSync                     (default: skip — must pass skip_rds_sync=false to run sync)
-        ├─ Sync-Iceberg-To-RDS                  (delta → RDS PostgreSQL)  [opt-in only]
+        ├─ Sync-Iceberg-To-RDS                  (Iceberg → RDS PostgreSQL) [opt-in only]
         └─ Notify                               (FSA-{ENV}-ATHENAFARM-NotifyPipeline Lambda)
 
 Manual / Lambda / CI trigger (on schedule — no EventBridge)
@@ -95,11 +95,12 @@ python deploy.py --config ../../config/athenafarm/dev.json --dry-run
 python deploy.py --config ../../config/athenafarm/prod.json
 ```
 
-### 2. Trigger a full-load run
+### 2. Trigger a main pipeline run
 
-Pass `full_load: "true"` in the Step Functions input to force a full snapshot
-(equivalent to `INSERT_NO_COMPARE` — rebuilds all Iceberg tables from scratch
-and truncates RDS target tables before re-inserting):
+The transform jobs run full-load only. `full_load` is retained for compatibility
+and defaults to `true` at orchestration level.
+
+Run full-load with RDS sync:
 
 ```json
 { "full_load": "true", "skip_rds_sync": false }
@@ -110,16 +111,16 @@ and truncates RDS target tables before re-inserting):
 `skip_rds_sync` defaults to **true** — the sync step is **opt-in**. If `skip_rds_sync`
 is absent from the execution input or is `true`, `Sync-Iceberg-To-RDS` is skipped.
 
-Normal incremental run (no RDS sync):
+Default run (full-load, no RDS sync):
 
 ```json
-{ "full_load": "false" }
+{}
 ```
 
 To explicitly enable the RDS sync, pass `skip_rds_sync: false`:
 
 ```json
-{ "full_load": "false", "skip_rds_sync": false }
+{ "skip_rds_sync": false }
 ```
 
 ---
@@ -151,13 +152,6 @@ aws stepfunctions start-execution \
   --name "manual-sync-$(date +%Y%m%d-%H%M%S)" \
   --input '{"full_load": "true", "skip_rds_sync": false}'
 
-# ------- Full load + RDS sync -------
-aws stepfunctions start-execution \
-  --region "${REGION}" \
-  --state-machine-arn "arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:FSA-${ENV}-ATHENAFARM-Main" \
-  --name "fullload-$(date +%Y%m%d-%H%M%S)" \
-  --input '{"full_load": "true", "skip_rds_sync": false}'
-
 # ------- Weekly Maintenance pipeline -------
 aws stepfunctions start-execution \
   --region "${REGION}" \
@@ -182,10 +176,8 @@ aws stepfunctions describe-execution \
 3. Search for `FSA-{ENV}-ATHENAFARM-Main` (or `Maintenance`).
 4. Click **Start execution**.
 5. In the **Input** box enter one of:
-  - `{ "full_load": "true" }` — full-load, no RDS sync (**default**)
-  - `{ "full_load": "true", "skip_rds_sync": false }` — full-load + RDS sync
-   - `{ "full_load": "true", "skip_rds_sync": false }` — full rebuild + RDS sync
-   - `{ "full_load": "true" }` — full rebuild, no RDS sync
+  - `{}` — full-load, no RDS sync (**default**)
+  - `{ "skip_rds_sync": false }` — full-load + RDS sync
 6. Click **Start execution**.
 
 Monitor progress in the **Graph inspector** tab; each node goes green when
@@ -205,8 +197,7 @@ aws glue start-job-run \
   --job-name "FSA-${ENV}-ATHENAFARM-Ingest-SSS-Farmrecords" \
   --arguments '{
     "--env":              "'"${ENV}"'",
-    "--iceberg_warehouse":"'"${WAREHOUSE}"'",
-    "--full_load":        "false"
+    "--iceberg_warehouse":"'"${WAREHOUSE}"'"
   }'
 
 # Example: re-run the tract/producer-year transform only
@@ -246,7 +237,7 @@ def lambda_handler(event, context):
     sfn.start_execution(
         stateMachineArn=SFN_ARN,
         name=f"s3trigger-{ts}",
-        input='{"full_load": "false"}'
+    input='{"full_load": "true"}'
     )
 ```
 
@@ -270,7 +261,7 @@ stage('Run ETL') {
     aws stepfunctions start-execution \
       --state-machine-arn "${STATE_MACHINE_ARN}" \
       --name "ci-\$(date +%Y%m%d-%H%M%S)" \
-      --input '{"full_load": "false"}'
+      --input '{"full_load": "true"}'
   """
 }
 ```
@@ -335,9 +326,9 @@ CheckSSSCrawlerStatus
 | Ingest-SSS-Farmrecords | 10 | 5–15 min | Reads SSS Parquet, writes Iceberg with partition sort |
 | Ingest-PG-Reference-Tables | 4 | 10–30 min | Parallel JDBC reads (20 partitions per table, PK range) |
 | Ingest-PG-CDC-Targets | 4 | 10–30 min | Same parallel JDBC approach |
-| Transform-Tract-Producer-Year | 20 | 5–20 min | Full reset path (`INSERT OVERWRITE`, fallback `DELETE + INSERT`) |
-| Transform-Farm-Producer-Year | 20 | 3–12 min | Incremental MERGE; full load uses direct reset (`DELETE + INSERT`) |
-| Sync-Iceberg-To-RDS | 4 | 2–15 min | Delta-only (snapshot diff); full load is longer |
+| Transform-Tract-Producer-Year | 20 | 5–20 min | Full-load overwrite via Iceberg DataFrameWriter |
+| Transform-Farm-Producer-Year | 20 | 3–12 min | Full-load overwrite via Iceberg DataFrameWriter |
+| Sync-Iceberg-To-RDS | 4 | 2–15 min | Distributed partition upsert to RDS (full-load truncates first) |
 | Iceberg-Maintenance | 2 | 5–20 min | OPTIMIZE + EXPIRE SNAPSHOTS across all tables |
 
 IngestParallel and TransformParallel branches run concurrently, so total wall-clock time
@@ -346,7 +337,7 @@ for a normal full-load run (no RDS sync) is roughly:
 ```
 max(Crawler + IngestSSS, IngestPGRefs, IngestPGCDC)   ~30 min
 + max(TransformTract, TransformFarm)                   ~20 min
-= ~50 min worst-case incremental
+= ~50 min worst-case full-load
 ```
 
 ---
@@ -387,7 +378,7 @@ All Iceberg table reads use `spark.table("glue_catalog.db.table")` — **not**
 `spark.table()` routes through Spark's `CatalogManager`, which is correctly configured
 by `--datalake-formats iceberg`.
 
-Exception: the incremental `#changes` read in `Sync-Iceberg-To-RDS` uses a direct S3
+Exception: the delta `#changes` read in `Sync-Iceberg-To-RDS` uses a direct S3
 path (`{warehouse}/{db}/{table}#changes`) because the `#changes` suffix is an Iceberg
 S3-path convention and cannot be used with a catalog FQN.
 
@@ -397,22 +388,14 @@ S3-path convention and cannot be used with a catalog FQN.
 reference/dimension tables are broadcast-joined rather than shuffle-joined, avoiding
 expensive all-to-all data shuffles in the transform CTE chains.
 
-### NULL-safe MERGE conditions
+### Transform full-load write path
 
-MERGE INTO `WHEN MATCHED` conditions use `NOT (t.col <=> s.col)` (NULL-safe equality)
-instead of `t.col <> s.col`. Standard `<>` returns `NULL` when either side is `NULL`,
-which means rows with any NULL column would never match the update condition and would
-accumulate as duplicates. `<=>` is always `true` or `false`.
+Both transform jobs now write through the Iceberg DataFrame API:
 
-### Transform full-load write path (MERGE-free)
+1. Build transformed source DataFrame
+2. `write.format("iceberg").mode("overwrite").saveAsTable(...)`
 
-Both transform jobs now use a direct reset path for `full_load=true`:
-
-1. `DELETE FROM glue_catalog.{target_db}.{table}`
-2. `INSERT INTO glue_catalog.{target_db}.{table} (...) SELECT ...`
-
-This avoids MERGE planner/runtime edge cases on large rewrites and guarantees a
-complete replacement of table contents for full loads.
+This keeps write behavior deterministic and fail-fast for full-load replacements.
 
 ### Runtime optimization safeguards
 
@@ -421,13 +404,13 @@ The transform scripts intentionally avoid `source_df.cache()` and
 shuffle spill and disk pressure (`No space left on device`) on large runs.
 
 Current behavior:
-- incremental mode computes and writes delta rows
-- full-load mode skips existing-target snapshot reads in Farm transform
-- both modes emit phase timings for CloudWatch-based performance tracking
+- full-load transforms avoid debug cache/count actions and write once via overwrite
+- sync writes use distributed `foreachPartition` JDBC upserts (no driver-side collect)
+- jobs emit phase timings for CloudWatch-based performance tracking
 
 ### Iceberg snapshot count (no full scan)
 
-Post-MERGE row counts are read from Iceberg snapshot metadata
+Post-write row counts are read from Iceberg snapshot metadata
 (`spark.table("glue_catalog.db.table.snapshots")`) rather than running a full
 `SELECT COUNT(*)` scan over all Parquet files.
 
@@ -440,7 +423,7 @@ Post-MERGE row counts are read from Iceberg snapshot metadata
 | `--env` | all | Deployment environment | (required) |
 | `--iceberg_warehouse` | all | S3 URI for Iceberg warehouse root | (required) |
 | `--secret_id` | PG ingest, Sync | AWS Secrets Manager secret ID for PG credentials | from config |
-| `--full_load` | Transform-Farm, Sync | `true` = full rebuild; Sync also truncates RDS before insert | `false` |
+| `--full_load` | Transform-Tract, Transform-Farm, Sync | Compatibility flag; transforms are full-load only. For Sync, `true` truncates RDS target tables before insert. | `true` |
 | `--sss_database` | Transform | Glue catalog DB for SSS Iceberg tables | `athenafarm_prod_raw` |
 | `--ref_database` | Transform | Glue catalog DB for PG reference Iceberg tables | `athenafarm_prod_ref` |
 | `--target_database` | Ingest PG, Transform | Glue catalog DB for target Iceberg tables | `athenafarm_prod_gold` |
@@ -542,7 +525,7 @@ This is the fastest way to identify root cause without reading raw log output.
 `Transform-Tract-Producer-Year` and `Transform-Farm-Producer-Year` emit
 structured metric lines to the driver log for every run:
 
-- `[METRIC] mode=incremental|full_load`
+- `[METRIC] mode=full_load`
 - `[METRIC] phase_extract_seconds=<float>`
 - `[METRIC] phase_transform_seconds=<float>`
 - `[METRIC] phase_write_seconds=<float>`
@@ -577,6 +560,8 @@ This suite validates:
 - optional Glue arg parsing safety (`_opt` behavior)
 - first-run table creation and full-load write-path expectations
 - transform optimization guardrails (no debug cache/count regressions)
+- adaptive Spark settings across all Glue scripts
+- distributed sync write contract (`foreachPartition`, no driver `collect()`)
 
 For targeted CloudShell reruns of the two transform jobs updated during
 `errors-14` troubleshooting:

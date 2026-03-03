@@ -504,21 +504,15 @@ class TestMergeFallbackSafety(unittest.TestCase):
 
     def test_transform_tract_has_merge_fallback(self):
         text = _script_text("Transform-Tract-Producer-Year")
-        self.assertIn("FULL_LOAD_INSERT_SQL", text)
-        self.assertIn("FULL_LOAD_OVERWRITE_SQL", text)
-        self.assertIn("INSERT OVERWRITE {TARGET_FQN}", text)
-        self.assertIn("DELETE FROM {TARGET_FQN} WHERE true", text)
-        self.assertIn("Executing full-load overwrite", text)
-        self.assertIn("INSERT INTO {TARGET_FQN} (", text)
+        self.assertIn('write.format("iceberg").mode("overwrite").saveAsTable(TARGET_FQN)', text)
+        self.assertNotIn("falling back to DELETE + INSERT", text)
+        self.assertNotIn("DELETE FROM {TARGET_FQN} WHERE true", text)
 
     def test_transform_farm_has_merge_fallback(self):
         text = _script_text("Transform-Farm-Producer-Year")
-        self.assertIn("FULL_LOAD_INSERT_SQL", text)
-        self.assertIn("FULL_LOAD_OVERWRITE_SQL", text)
-        self.assertIn("INSERT OVERWRITE {TARGET_FQN}", text)
-        self.assertIn("DELETE FROM {TARGET_FQN} WHERE true", text)
-        self.assertIn("Executing full-load overwrite", text)
-        self.assertIn("INSERT INTO {TARGET_FQN}", text)
+        self.assertIn('write.format("iceberg").mode("overwrite").saveAsTable(TARGET_FQN)', text)
+        self.assertNotIn("falling back to DELETE + INSERT", text)
+        self.assertNotIn("DELETE FROM {TARGET_FQN} WHERE true", text)
 
     def test_transform_farm_insert_includes_identity_column(self):
         text = _script_text("Transform-Farm-Producer-Year")
@@ -604,6 +598,34 @@ class TestRuntimeOptimizationSafety(unittest.TestCase):
         self.assertIn('"spark.sql.adaptive.enabled"', text)
         self.assertIn('"spark.sql.adaptive.skewJoin.enabled"', text)
         self.assertIn('"spark.sql.shuffle.partitions"', text)
+
+    def test_full_load_uses_dataframe_iceberg_overwrite(self):
+        for stem in ["Transform-Tract-Producer-Year", "Transform-Farm-Producer-Year"]:
+            text = _script_text(stem)
+            with self.subTest(script=stem):
+                self.assertIn('write.format("iceberg").mode("overwrite").saveAsTable(TARGET_FQN)', text)
+
+    def test_all_glue_jobs_enable_adaptive_settings(self):
+        scripts = [
+            "Ingest-SSS-Farmrecords",
+            "Ingest-PG-Reference-Tables",
+            "Ingest-PG-CDC-Targets",
+            "Transform-Tract-Producer-Year",
+            "Transform-Farm-Producer-Year",
+            "Sync-Iceberg-To-RDS",
+            "Iceberg-Maintenance",
+        ]
+        for stem in scripts:
+            text = _script_text(stem)
+            with self.subTest(script=stem):
+                self.assertIn('"spark.sql.adaptive.enabled"', text)
+                self.assertIn('"spark.sql.adaptive.skewJoin.enabled"', text)
+                self.assertIn('"spark.sql.shuffle.partitions"', text)
+
+    def test_sync_uses_distributed_partition_writes(self):
+        text = _script_text("Sync-Iceberg-To-RDS")
+        self.assertIn("foreachPartition", text)
+        self.assertNotIn("delta_df.collect()", text)
 
 
 class TestTractModeDispatchContract(unittest.TestCase):

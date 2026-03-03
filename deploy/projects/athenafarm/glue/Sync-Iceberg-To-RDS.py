@@ -74,6 +74,7 @@ SECRET_ID           = args["secret_id"]
 RDS_DATABASE        = _opt("rds_database", "farm_records_reporting")
 TGT_DB              = _opt("target_database", "athenafarm_prod_gold")
 SNAPSHOT_SSM_PARAM  = _opt("snapshot_id_param", f"/athenafarm/{ENV}/last_sync_snapshot")
+SHUFFLE_PARTITIONS  = _opt("shuffle_partitions", "400")
 FULL_LOAD           = _opt("full_load", "false").strip().lower() == "true"
 DEBUG               = _opt("debug", "false").strip().lower() == "true"
 
@@ -87,6 +88,9 @@ _conf.set("spark.sql.catalog.glue_catalog",              "org.apache.iceberg.spa
 _conf.set("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws.glue.GlueCatalog")
 _conf.set("spark.sql.catalog.glue_catalog.io-impl",      "org.apache.iceberg.aws.s3.S3FileIO")
 _conf.set("spark.sql.catalog.glue_catalog.warehouse",    ICEBERG_WAREHOUSE)
+_conf.set("spark.sql.adaptive.enabled",                  "true")
+_conf.set("spark.sql.adaptive.skewJoin.enabled",         "true")
+_conf.set("spark.sql.shuffle.partitions",                SHUFFLE_PARTITIONS)
 sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -101,6 +105,7 @@ log.info(f"Secret ID      : {SECRET_ID}")
 log.info(f"Target DB      : {TGT_DB}")
 log.info(f"RDS Database   : {RDS_DATABASE}")
 log.info(f"Snapshot Param : {SNAPSHOT_SSM_PARAM}")
+log.info(f"Shuffle Parts  : {SHUFFLE_PARTITIONS}")
 log.info(f"Full Load      : {FULL_LOAD}")
 log.info(f"Debug          : {DEBUG}")
 log.info("=" * 70)
@@ -188,7 +193,7 @@ def sync_table(iceberg_table: str, pg_schema: str, pg_table: str, pk_cols: list)
             log.info(f"[{iceberg_table}] No previous snapshot found — full sync")
             delta_df = spark.table(iceberg_fqn)
 
-    # Cache so count() and collect() share one Spark scan.
+    # Cache so count() and distributed writes share one Spark scan.
     delta_df.cache()
     try:
         row_count = delta_df.count()
@@ -211,27 +216,41 @@ def sync_table(iceberg_table: str, pg_schema: str, pg_table: str, pk_cols: list)
             f"VALUES ({values_placeholder}) "
             f"ON CONFLICT ({pk_cols_str}) DO UPDATE SET {update_set}"
         )
+        if FULL_LOAD:
+            # Full load: truncate first so deleted-from-source rows
+            # don't silently persist as stale orphans in RDS.
+            conn = psycopg2.connect(
+                host=PG_HOST, port=PG_PORT, dbname=PG_DB,
+                user=PG_USER, password=PG_PASS, sslmode="require",
+            )
+            try:
+                with conn:
+                    with conn.cursor() as cur:
+                        cur.execute(f"TRUNCATE TABLE {pg_schema}.{pg_table}")
+                log.info(f"[{iceberg_table}] Truncated {pg_schema}.{pg_table} for full load")
+            finally:
+                conn.close()
 
-        rows = [tuple(row[c] for c in all_cols) for row in delta_df.collect()]
-    finally:
-        delta_df.unpersist()
+        def _upsert_partition(rows_iter):
+            conn_part = psycopg2.connect(
+                host=PG_HOST, port=PG_PORT, dbname=PG_DB,
+                user=PG_USER, password=PG_PASS, sslmode="require",
+            )
+            try:
+                batch_rows = [tuple(row[c] for c in all_cols) for row in rows_iter]
+                if not batch_rows:
+                    return
+                with conn_part:
+                    with conn_part.cursor() as cur:
+                        psycopg2.extras.execute_batch(cur, upsert_sql, batch_rows, page_size=1000)
+            finally:
+                conn_part.close()
 
-    conn = psycopg2.connect(
-        host=PG_HOST, port=PG_PORT, dbname=PG_DB,
-        user=PG_USER, password=PG_PASS, sslmode="require",
-    )
-    try:
-        with conn:
-            with conn.cursor() as cur:
-                if FULL_LOAD:
-                    # Full load: truncate first so deleted-from-source rows
-                    # don't silently persist as stale orphans in RDS.
-                    cur.execute(f"TRUNCATE TABLE {pg_schema}.{pg_table}")
-                    log.info(f"[{iceberg_table}] Truncated {pg_schema}.{pg_table} for full load")
-                psycopg2.extras.execute_batch(cur, upsert_sql, rows, page_size=1000)
+        # Distributed write: avoids collecting all rows to the driver.
+        delta_df.select(*all_cols).foreachPartition(_upsert_partition)
         log.info(f"[{iceberg_table}] {'Full load' if FULL_LOAD else 'Upserted'} {row_count:,} rows → {pg_schema}.{pg_table}")
     finally:
-        conn.close()
+        delta_df.unpersist()
 
     # ── Store current snapshot for next incremental run ───────────────────
     # Use .first() instead of .count() + .collect() — avoids evaluating the

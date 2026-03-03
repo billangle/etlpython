@@ -76,6 +76,14 @@ def _opt(name: str, default: str) -> str:
         return default
     return value
 
+def _opt_int(name: str, default: int) -> int:
+    value = _opt(name, str(default)).strip()
+    try:
+        parsed = int(value)
+        return parsed if parsed >= 0 else default
+    except Exception:
+        return default
+
 JOB_NAME          = args["JOB_NAME"]
 ENV               = args["env"]
 ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
@@ -85,7 +93,8 @@ SSS_DB            = _opt("sss_database", "athenafarm_prod_raw")
 REF_DB            = _opt("ref_database", "athenafarm_prod_ref")
 TGT_DB            = _opt("target_database", "athenafarm_prod_gold")
 TGT_TABLE         = _opt("target_table", "farm_producer_year")
-SHUFFLE_PARTITIONS = _opt("shuffle_partitions", "200")
+SHUFFLE_PARTITIONS = _opt_int("shuffle_partitions", 0)
+ADVISORY_PARTITION_SIZE_MB = _opt_int("advisory_partition_size_mb", 128)
 DEBUG             = _opt("debug", "false").strip().lower() == "true"
 
 if DEBUG:
@@ -106,7 +115,12 @@ _conf.set("spark.sql.adaptive.enabled",                  "true")
 _conf.set("spark.sql.adaptive.skewJoin.enabled",         "true")
 _conf.set("spark.sql.adaptive.coalescePartitions.enabled", "true")
 _conf.set("spark.sql.adaptive.localShuffleReader.enabled", "true")
-_conf.set("spark.sql.shuffle.partitions",                SHUFFLE_PARTITIONS)
+_conf.set(
+    "spark.sql.adaptive.advisoryPartitionSizeInBytes",
+    str(ADVISORY_PARTITION_SIZE_MB * 1024 * 1024),
+)
+if SHUFFLE_PARTITIONS > 0:
+    _conf.set("spark.sql.shuffle.partitions", str(SHUFFLE_PARTITIONS))
 sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -123,7 +137,11 @@ log.info(f"SSS DB         : {SSS_DB}")
 log.info(f"Ref DB         : {REF_DB}")
 log.info(f"Target DB      : {TGT_DB}")
 log.info(f"Target Table   : {TGT_TABLE}")
-log.info(f"Shuffle Parts  : {SHUFFLE_PARTITIONS}")
+if SHUFFLE_PARTITIONS > 0:
+    log.info(f"Shuffle Parts  : {SHUFFLE_PARTITIONS} (manual override)")
+else:
+    log.info("Shuffle Parts  : adaptive (AQE-managed)")
+log.info(f"Advisory Part MB: {ADVISORY_PARTITION_SIZE_MB}")
 log.info(f"Full Load      : {FULL_LOAD}")
 log.info(f"[METRIC] mode={'full_load' if FULL_LOAD else 'incremental'}")
 log.info(f"Debug          : {DEBUG}")

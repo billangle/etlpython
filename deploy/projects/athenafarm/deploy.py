@@ -432,6 +432,13 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
         # Enable native Iceberg support on Glue 4.0 (required for .using("iceberg"))
         job_params.setdefault("--datalake-formats", "iceberg")
 
+        # Transform runtime profile defaults (AQE-first partition sizing).
+        # Keep these as setdefault so config-level/per-job overrides still win.
+        if stem == "Transform-Tract-Producer-Year":
+            job_params.setdefault("--advisory_partition_size_mb", "96")
+        elif stem == "Transform-Farm-Producer-Year":
+            job_params.setdefault("--advisory_partition_size_mb", "128")
+
         # Map AdditionalPythonModulesPath → --extra-py-files (WHL/egg/zip on S3)
         extra_py = _as_str(per.get("AdditionalPythonModulesPath"))
         if extra_py:

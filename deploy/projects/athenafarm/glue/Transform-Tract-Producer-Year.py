@@ -4,24 +4,15 @@ AWS Glue Job: Transform-Tract-Producer-Year
 ================================================================================
 
 PURPOSE:
-    Replaces three Athena SQL files:
-        - TRACT_PRODUCER_YEAR_INSERT_ATHENA.sql
-        - TRACT_PRODUCER_YEAR_INSERT_NO_COMPARE_ATHENA.sql
-        - TRACT_PRODUCER_YEAR_UPDATE_ATHENA.sql
-
-    Executes the same IBase → ZMI → PG resolution CTE chain entirely inside
-    Spark (all sources are pre-materialised S3 Iceberg — zero federated hops)
-    and applies the result via a single Iceberg MERGE INTO statement that
-    handles INSERT (WHEN NOT MATCHED) and UPDATE (WHEN MATCHED AND changed)
-    in one atomic S3 pass.
-
-    Expected runtime: 30–90 seconds vs. hours with the original Athena queries.
+    Builds tract-producer-year records with a Spark DataFrame pipeline over
+    pre-materialised S3 Iceberg sources (zero federated hops), then writes a
+    full snapshot to the target Iceberg table in overwrite mode.
 
 GLUE JOB ARGUMENTS:
     --JOB_NAME            : Glue job name
     --env                 : Deployment environment
     --iceberg_warehouse   : s3:// URI for Iceberg warehouse root
-    --full_load           : "true" skips WHEN MATCHED clause (bulk-load mode)
+    --full_load           : accepted for compatibility; job always runs full-load
     --sss_database        : Glue catalog db for SSS Iceberg tables  (default: athenafarm_prod_raw)
     --ref_database        : Glue catalog db for PG ref Iceberg tables (default: athenafarm_prod_ref)
     --target_database     : Glue catalog db for target table (default: athenafarm_prod_gold)
@@ -52,7 +43,7 @@ ICEBERG CONFIGURATION (set via --conf in Glue job definition):
 
 VERSION HISTORY:
     v1.0.0 - 2026-02-25 - Initial implementation (athenafarm project)
-              Replaces TRACT_PRODUCER_YEAR_INSERT/UPDATE Athena SQL files.
+              Initial Spark DataFrame transform for tract_producer_year.
 
 ================================================================================
 """
@@ -63,6 +54,8 @@ import traceback
 import time
 from awsglue.utils import getResolvedOptions
 from pyspark import SparkConf
+from pyspark.sql import functions as F
+from pyspark.sql.window import Window
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
@@ -100,7 +93,7 @@ SSS_DB            = _opt("sss_database", "athenafarm_prod_raw")
 REF_DB            = _opt("ref_database", "athenafarm_prod_ref")
 TGT_DB            = _opt("target_database", "athenafarm_prod_gold")
 TGT_TABLE         = _opt("target_table", "tract_producer_year")
-SHUFFLE_PARTITIONS = _opt("shuffle_partitions", "800")
+SHUFFLE_PARTITIONS = _opt("shuffle_partitions", "200")
 DEBUG             = _opt("debug", "false").strip().lower() == "true"
 
 if DEBUG:
@@ -126,6 +119,8 @@ _conf.set("spark.sql.catalog.glue_catalog.warehouse",    ICEBERG_WAREHOUSE)
 _conf.set("spark.sql.autoBroadcastJoinThreshold",        str(50 * 1024 * 1024))
 _conf.set("spark.sql.adaptive.enabled",                  "true")
 _conf.set("spark.sql.adaptive.skewJoin.enabled",         "true")
+_conf.set("spark.sql.adaptive.coalescePartitions.enabled", "true")
+_conf.set("spark.sql.adaptive.localShuffleReader.enabled", "true")
 _conf.set("spark.sql.shuffle.partitions",                SHUFFLE_PARTITIONS)
 sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
@@ -149,601 +144,307 @@ log.info(f"[METRIC] mode={'full_load' if FULL_LOAD else 'incremental'}")
 log.info(f"Debug          : {DEBUG}")
 log.info("=" * 70)
 
-# ---------------------------------------------------------------------------
-# Register all Iceberg source tables as temporary views so the CTE SQL
-# matches the structure of the original Athena queries as closely as possible.
-# ---------------------------------------------------------------------------
+log.info("Running tract transform (DataFrame API)")
+phase_t0 = time.perf_counter()
 
-def register_view(catalog_db: str, table: str, view_name: str = None):
-    fqn = f"glue_catalog.{catalog_db}.{table}"
-    vn = view_name or table
-    spark.table(fqn).createOrReplaceTempView(vn)
-    log.info(f"Registered view [{vn}] → {fqn}")
+ibsp = spark.table(f"glue_catalog.{SSS_DB}.ibsp").alias("sp")
+ibst = spark.table(f"glue_catalog.{SSS_DB}.ibst").alias("st")
+ibib = spark.table(f"glue_catalog.{SSS_DB}.ibib").alias("ib")
+ibin = spark.table(f"glue_catalog.{SSS_DB}.ibin").alias("ni")
+ibpart = spark.table(f"glue_catalog.{SSS_DB}.ibpart").alias("pt")
+crmd_partner = spark.table(f"glue_catalog.{SSS_DB}.crmd_partner").alias("cr")
+z_ibase_comp_detail = spark.table(f"glue_catalog.{SSS_DB}.z_ibase_comp_detail").alias("zd")
+comm_pr_frg_rel = spark.table(f"glue_catalog.{SSS_DB}.comm_pr_frg_rel").alias("cf")
+zmi_farm_partn = spark.table(f"glue_catalog.{SSS_DB}.zmi_farm_partn").alias("zm")
 
-# SSS tables — raw SAP column names are preserved; CTE SQL references them directly
-for tbl in ["ibib", "ibsp", "ibst", "ibin", "ibpart", "crmd_partner",
-            "z_ibase_comp_detail", "comm_pr_frg_rel", "zmi_farm_partn"]:
-    register_view(SSS_DB, tbl)
+time_period = spark.table(f"glue_catalog.{REF_DB}.time_period").alias("timepd")
+county_office_control = spark.table(f"glue_catalog.{REF_DB}.county_office_control").alias("coc")
+farm = spark.table(f"glue_catalog.{REF_DB}.farm").alias("farmpg")
+tract = spark.table(f"glue_catalog.{REF_DB}.tract").alias("tractpg")
+farm_year = spark.table(f"glue_catalog.{REF_DB}.farm_year").alias("fy")
+tract_year = spark.table(f"glue_catalog.{REF_DB}.tract_year").alias("ty")
+but000 = spark.table(f"glue_catalog.{REF_DB}.but000").alias("c")
 
-# PG reference tables
-for tbl in ["time_period", "county_office_control", "farm", "tract", "farm_year", "tract_year", "but000"]:
-    register_view(REF_DB, tbl)
-
-log.info("All source views registered — executing CTE transform")
-
-# ---------------------------------------------------------------------------
-# CTE transform query
-# Mirrors the join chain from TRACT_PRODUCER_YEAR_INSERT_ATHENA.sql /
-# TRACT_PRODUCER_YEAR_UPDATE_ATHENA.sql with no federated hops.
-# ---------------------------------------------------------------------------
-TRANSFORM_SQL = f"""
--- ==========================================================================
--- Faithful Spark translation of TRACT_PRODUCER_YEAR_INSERT_ATHENA.sql and
--- TRACT_PRODUCER_YEAR_UPDATE_ATHENA.sql.  All source tables are pre-
--- materialised S3 Iceberg (no federated hops).  SAP raw column names (ZZFLD*)
--- are preserved exactly as they exist in the Athena/Iceberg catalog.
--- ==========================================================================
-
-WITH time_pd AS (
-    SELECT time_period_identifier,
-           time_period_name,
-           time_period_start_date,
-           time_period_end_date
-    FROM   time_period
-    WHERE  data_status_code = 'A'
-),
-
--- ── IBase chain: ibsp → ibst (parent='0') → ibib ──────────────────────────
--- plus ibin, ibpart (segment=2, non-expired), crmd_partner
--- Mirrors the sss_details CTE in the original SQL.
-sss_details AS (
-    SELECT
-        -- Farm header (ibib) fields
-        ib.ibase                                        AS f_ibase,
-        TO_DATE(date_format(
-            COALESCE(ib.crtim, CURRENT_TIMESTAMP), 'yyyy-MM-dd'))  AS f_creation_date,
-        TO_DATE(date_format(
-            COALESCE(ib.UPTIM, CURRENT_TIMESTAMP), 'yyyy-MM-dd'))  AS f_last_change_date,
-        LPAD(ib.ZZFLD000002, 2, '0')                   AS state_fsa_code,
-        LPAD(ib.ZZFLD000003, 3, '0')                   AS county_fsa_code,
-        ib.ZZFLD000000                                  AS farm_number,   -- farm number (raw, no LPAD yet)
-
-        -- Tract component (ibsp) fields
-        CASE
-            WHEN sp.ZZFLD00000T IS NOT NULL AND sp.ZZFLD00000T <> '0'
-                THEN LPAD(sp.ZZFLD00000T, 7, '0')
-            WHEN sp.ZZFLD00001O IS NOT NULL AND TRIM(sp.ZZFLD00001O) <> ' '
-                THEN LPAD(SPLIT(sp.ZZFLD00001O, '-')[3], 7, '0')
-            ELSE '0000000'
-        END                                             AS tract_number,
-        sp.instance                                     AS t_instance,
-        LPAD(sp.ZZFLD00001Z, 2, '0')                   AS admin_state,    -- ibsp admin state FSA code
-        LPAD(sp.ZZFLD000020, 3, '0')                   AS admin_county,   -- ibsp admin county FSA code
-        CASE sp.ZZFLD0000B8
-            WHEN 'ACTV' THEN 'A'  WHEN 'IACT' THEN 'I'
-            WHEN 'DELE' THEN 'D'  WHEN 'PEND' THEN 'P'  ELSE 'A'
-        END                                             AS t_data_status_code,
-        TO_DATE(date_format(
-            COALESCE(sp.crtim, CURRENT_TIMESTAMP), 'yyyy-MM-dd'))  AS t_creation_date,
-        TO_DATE(date_format(
-            COALESCE(sp.UPTIM, CURRENT_TIMESTAMP), 'yyyy-MM-dd'))  AS t_last_change_date,
-        CASE
-            WHEN sp.upnam IS NOT NULL AND TRIM(sp.upnam) NOT IN ('0', '', ')')
-                THEN TRIM(sp.upnam)
-            WHEN sp.crnam IS NOT NULL AND TRIM(sp.crnam) NOT IN ('0', '', ')')
-                THEN TRIM(sp.crnam)
-            ELSE 'BLANK'
-        END                                             AS t_last_change_user_name,
-
-        -- IBase instance link (ibin)
-        ni.instance                                     AS i_instance,
-        ni.ibase                                        AS r_ibase,
-
-        -- CRM partner role fields
-        cr.partner_fct,
-        cr.partner_no
-
-    FROM ibsp sp
-    JOIN ibst         st ON st.instance  = sp.instance AND st.parent = '0'
-    JOIN ibib         ib ON ib.ibase     = st.ibase
-    JOIN ibin         ni ON ni.instance  = sp.instance AND ni.client = sp.client
-    JOIN ibpart       pt ON pt.segment_recno = ni.in_guid
-                         AND pt.segment       = 2
-                         AND pt.valto         = 99991231235959
-    JOIN crmd_partner cr ON cr.guid = pt.partnerset
-),
-
--- ── ZMI chain: z_ibase_comp_detail → comm_pr_frg_rel → zmi_farm_partn ─────
--- All exception codes and involvement dates come from zmi_farm_partn (ZZ* fields).
--- Mirrors the zmi_details CTE in the original SQL.
-zmi_details AS (
-    SELECT
-        CAST(zd.instance AS STRING)           AS instance,
-        CAST(zd.ibase    AS STRING)           AS ibase,
-        zm.ZZK0011,
-
-        -- Tract-level exception codes (CASE mappings identical to original SQL)
-        CASE TRIM(zm.ZZ0011)
-            WHEN 'AE' THEN 41  WHEN 'AR' THEN 40  WHEN 'HA' THEN 40
-            WHEN 'NP' THEN 45  WHEN 'NW' THEN 45  WHEN 'TP' THEN 44
-            WHEN 'TR' THEN 44  ELSE NULL
-        END                                   AS tract_producer_cw_exception_code,
-        CASE TRIM(zm.ZZ0010)
-            WHEN 'GF'  THEN 31  WHEN 'EH'  THEN 34  WHEN 'AE'  THEN 33
-            WHEN 'NAR' THEN 33  WHEN 'AR'  THEN 32  WHEN 'HA'  THEN 32
-            WHEN 'LT'  THEN 30  ELSE NULL
-        END                                   AS tract_producer_hel_exception_code,
-        CASE TRIM(zm.ZZ0012)
-            WHEN 'AR'  THEN 52  WHEN 'HA'  THEN 52  WHEN 'NAR' THEN 50
-            WHEN 'AE'  THEN 50  WHEN 'GF'  THEN 51  ELSE NULL
-        END                                   AS tract_producer_pcw_exception_code,
-
-        -- RMA exception codes
-        CASE TRIM(zm.ZZ0017)
-            WHEN 'WR'  THEN 43  WHEN 'GF'  THEN 42  WHEN 'NAR' THEN 41
-            WHEN 'AR'  THEN 40  WHEN 'NP'  THEN 45  WHEN 'TP'  THEN 44
-            ELSE NULL
-        END                                   AS rma_cw_exception_code,
-        CASE TRIM(zm.ZZ0016)
-            WHEN 'GF'  THEN 31  WHEN 'EH'  THEN 34  WHEN 'NAR' THEN 33
-            WHEN 'AR'  THEN 32  WHEN 'LT'  THEN 30  ELSE NULL
-        END                                   AS rma_hel_exception_code,
-        CASE TRIM(zm.ZZ0018)
-            WHEN 'AR'  THEN 52  WHEN 'HA'  THEN 52  WHEN 'NAR' THEN 50
-            WHEN 'AE'  THEN 50  WHEN 'GF'  THEN 51  ELSE NULL
-        END                                   AS rma_pcw_exception_code,
-
-        -- Appeal exhaustion dates (Athena date_parse → Spark TO_DATE)
-        CASE WHEN zm.ZZ0013 IS NOT NULL
-             THEN TO_DATE(CAST(zm.ZZ0013 AS STRING), 'yyyyMMddHHmmss')
-             ELSE NULL END                    AS hel_appeals_exhausted_date,
-        CASE WHEN zm.ZZ0014 IS NOT NULL
-             THEN TO_DATE(CAST(zm.ZZ0014 AS STRING), 'yyyyMMddHHmmss')
-             ELSE NULL END                    AS cw_appeals_exhausted_date,
-        CASE WHEN zm.ZZ0015 IS NOT NULL
-             THEN TO_DATE(CAST(zm.ZZ0015 AS STRING), 'yyyyMMddHHmmss')
-             ELSE NULL END                    AS pcw_appeals_exhausted_date,
-
-        -- Involvement dates (Athena date_parse with %Y%m%d%H%i%S → Spark TO_DATE)
-        CASE WHEN zm.VALID_FROM IS NOT NULL AND zm.VALID_FROM <> 0
-             THEN TO_DATE(CAST(zm.VALID_FROM AS STRING), 'yyyyMMddHHmmss')
-             ELSE NULL END                    AS producer_involvement_start_date,
-        CASE WHEN zm.VALID_TO IS NOT NULL AND zm.VALID_TO <> 0
-             THEN TO_DATE(CAST(zm.VALID_TO AS STRING), 'yyyyMMddHHmmss')
-             ELSE NULL END                    AS producer_involvement_end_date
-
-    FROM z_ibase_comp_detail zd
-    JOIN comm_pr_frg_rel     cf ON cf.product_guid = zd.prod_objnr
-    JOIN zmi_farm_partn      zm ON zm.frg_guid     = cf.fragment_guid
-),
-
--- ── Resolve current-program-year time period & RDS surrogate keys ──────────
--- Mirrors tract_producer_year_current CTE in original SQL.
--- Note: program year is year+1 when month >= October (FSA fiscal year).
-tract_producer_year_current AS (
-    SELECT
-        /*+ BROADCAST(timepd), BROADCAST(coc) */
-        coc.county_office_control_identifier,
-        timepd.time_period_identifier,
-        CAST(c.bpext AS INT)                            AS core_customer_identifier,
-        z_dets.producer_involvement_start_date,
-        z_dets.producer_involvement_end_date,
-        CAST(NULL AS STRING)                            AS producer_involvement_interrupted_indicator,
-        z_dets.tract_producer_hel_exception_code,
-        z_dets.tract_producer_cw_exception_code,
-        z_dets.tract_producer_pcw_exception_code,
-        sss_dets.t_data_status_code                     AS data_status_code,
-        sss_dets.t_creation_date                        AS creation_date,
-        sss_dets.t_last_change_date                     AS last_change_date,
-        sss_dets.t_last_change_user_name                AS last_change_user_name,
-        -- producer_involvement_code: partner_fct maps to integer (ZFARMONR=162, ZOTNT=163)
-        CASE sss_dets.partner_fct
-            WHEN 'ZFARMONR' THEN 162
-            WHEN 'ZOTNT'    THEN 163
-        END                                             AS producer_involvement_code,
-        sss_dets.admin_state                            AS state_fsa_code,
-        sss_dets.admin_county                           AS county_fsa_code,
-        LPAD(sss_dets.farm_number, 7, '0')              AS farm_number,
-        sss_dets.tract_number,
-        z_dets.hel_appeals_exhausted_date,
-        z_dets.cw_appeals_exhausted_date,
-        z_dets.pcw_appeals_exhausted_date,
-        z_dets.rma_hel_exception_code                   AS tract_producer_rma_hel_exception_code,
-        z_dets.rma_cw_exception_code                    AS tract_producer_rma_cw_exception_code,
-        z_dets.rma_pcw_exception_code                   AS tract_producer_rma_pcw_exception_code
-
-    FROM sss_details sss_dets
-    -- Current program year: month >= 10 → use year+1 (FSA fiscal year boundary)
-    JOIN time_pd timepd
-        ON CAST(
-               CASE WHEN MONTH(CURRENT_DATE) >= 10
-                    THEN YEAR(CURRENT_DATE) + 1
-                    ELSE YEAR(CURRENT_DATE)
-               END AS STRING
-           ) = TRIM(timepd.time_period_name)
-    -- ZMI join on ibase instance (matches z_ibase_comp_detail.instance/ibase)
-    JOIN zmi_details z_dets
-        ON z_dets.instance = sss_dets.i_instance
-        AND z_dets.ibase   = sss_dets.r_ibase
-    -- County office control resolution by admin state/county + time window
-    JOIN county_office_control coc
-        ON LPAD(sss_dets.admin_state,  2, '0') || LPAD(sss_dets.admin_county, 3, '0')
-         = LPAD(coc.state_fsa_code,    2, '0') || LPAD(coc.county_fsa_code,   3, '0')
-        AND timepd.time_period_identifier = coc.time_period_identifier
-    -- Business partner (but000): two-field join matches original SQL exactly
-    LEFT JOIN but000 c
-        ON sss_dets.partner_no = c.partner_guid
-        AND z_dets.ZZK0011     = c.partner
-    WHERE timepd.time_period_name >= '2014'
-      AND c.bpext NOT IN ('DUPLICATE', '11876423_D')
-),
-
--- ── Resolve farm_records_reporting surrogate keys + deduplicate ────────────
--- Mirrors tract_producer_year_tbl CTE in original SQL.
-tract_producer_year_tbl AS (
-    SELECT
-        farmpg.farm_identifier,
-        ty.tract_year_identifier,
-        tprdryr.*,
-        ROW_NUMBER() OVER (
-            PARTITION BY tprdryr.core_customer_identifier,
-                         ty.tract_year_identifier,
-                         tprdryr.producer_involvement_code
-            ORDER BY tprdryr.creation_date DESC, tprdryr.last_change_date DESC
-        ) AS rownum
-    FROM tract_producer_year_current tprdryr
-    JOIN farm     farmpg ON farmpg.county_office_control_identifier = tprdryr.county_office_control_identifier
-                         AND LPAD(CAST(farmpg.farm_number AS STRING), 7, '0')
-                           = LPAD(tprdryr.farm_number, 7, '0')
-    JOIN tract    tractpg ON tractpg.county_office_control_identifier = tprdryr.county_office_control_identifier
-                          AND LPAD(CAST(tractpg.tract_number AS STRING), 7, '0')
-                            = LPAD(tprdryr.tract_number, 7, '0')
-    JOIN farm_year  fy   ON farmpg.farm_identifier       = fy.farm_identifier
-                         AND tprdryr.time_period_identifier = fy.time_period_identifier
-    JOIN tract_year ty   ON fy.farm_year_identifier      = ty.farm_year_identifier
-                         AND tractpg.tract_identifier     = ty.tract_identifier
+time_pd = time_period.where(F.col("data_status_code") == F.lit("A")).select(
+    "time_period_identifier", "time_period_name", "time_period_start_date", "time_period_end_date"
 )
 
-SELECT
-    core_customer_identifier,
-    tract_year_identifier,
-    producer_involvement_start_date,
-    producer_involvement_end_date,
-    producer_involvement_interrupted_indicator,
-    tract_producer_hel_exception_code,
-    tract_producer_cw_exception_code,
-    tract_producer_pcw_exception_code,
-    data_status_code,
-    creation_date,
-    last_change_date,
-    last_change_user_name,
-    producer_involvement_code,
-    time_period_identifier,
-    state_fsa_code,
-    county_fsa_code,
-    farm_identifier,
-    farm_number,
-    tract_number,
-    hel_appeals_exhausted_date,
-    cw_appeals_exhausted_date,
-    pcw_appeals_exhausted_date,
-    tract_producer_rma_hel_exception_code,
-    tract_producer_rma_cw_exception_code,
-    tract_producer_rma_pcw_exception_code
-FROM tract_producer_year_tbl
-WHERE rownum = 1
-"""
+tract_number_expr = (
+    F.when(
+        F.col("sp.ZZFLD00000T").isNotNull() & (F.col("sp.ZZFLD00000T") != F.lit("0")),
+        F.lpad(F.col("sp.ZZFLD00000T").cast("string"), 7, "0"),
+    )
+    .when(
+        F.col("sp.ZZFLD00001O").isNotNull() & (F.trim(F.col("sp.ZZFLD00001O")) != F.lit("")),
+        F.lpad(F.split(F.col("sp.ZZFLD00001O"), "-").getItem(3), 7, "0"),
+    )
+    .otherwise(F.lit("0000000"))
+)
 
-log.info("Running CTE transform query")
-phase_t0 = time.perf_counter()
-source_df = spark.sql(TRANSFORM_SQL)
-source_df.createOrReplaceTempView("new_tract_producer_year")
-log.info("Transform SQL complete; temp view new_tract_producer_year is ready")
+t_status_expr = (
+    F.when(F.col("sp.ZZFLD0000B8") == F.lit("ACTV"), F.lit("A"))
+    .when(F.col("sp.ZZFLD0000B8") == F.lit("IACT"), F.lit("I"))
+    .when(F.col("sp.ZZFLD0000B8") == F.lit("DELE"), F.lit("D"))
+    .when(F.col("sp.ZZFLD0000B8") == F.lit("PEND"), F.lit("P"))
+    .otherwise(F.lit("A"))
+)
+
+upnam_clean = F.trim(F.col("sp.upnam"))
+crnam_clean = F.trim(F.col("sp.crnam"))
+t_last_change_user_expr = (
+    F.when(
+        F.col("sp.upnam").isNotNull() & (~upnam_clean.isin("0", "")),
+        upnam_clean,
+    )
+    .when(
+        F.col("sp.crnam").isNotNull() & (~crnam_clean.isin("0", "")),
+        crnam_clean,
+    )
+    .otherwise(F.lit("BLANK"))
+)
+
+sss_details = (
+    ibsp.join(ibst, (F.col("st.instance") == F.col("sp.instance")) & (F.col("st.parent") == F.lit("0")), "inner")
+    .join(ibib, F.col("ib.ibase") == F.col("st.ibase"), "inner")
+    .join(ibin, (F.col("ni.instance") == F.col("sp.instance")) & (F.col("ni.client") == F.col("sp.client")), "inner")
+    .join(
+        ibpart,
+        (F.col("pt.segment_recno") == F.col("ni.in_guid"))
+        & (F.col("pt.segment") == F.lit(2))
+        & (F.col("pt.valto") == F.lit(99991231235959)),
+        "inner",
+    )
+    .join(crmd_partner, F.col("cr.guid") == F.col("pt.partnerset"), "inner")
+    .select(
+        F.col("ib.ibase").alias("f_ibase"),
+        F.to_date(F.date_format(F.coalesce(F.col("ib.crtim"), F.current_timestamp()), "yyyy-MM-dd")).alias("f_creation_date"),
+        F.to_date(F.date_format(F.coalesce(F.col("ib.UPTIM"), F.current_timestamp()), "yyyy-MM-dd")).alias("f_last_change_date"),
+        F.lpad(F.col("ib.ZZFLD000002").cast("string"), 2, "0").alias("state_fsa_code"),
+        F.lpad(F.col("ib.ZZFLD000003").cast("string"), 3, "0").alias("county_fsa_code"),
+        F.col("ib.ZZFLD000000").alias("farm_number"),
+        tract_number_expr.alias("tract_number"),
+        F.col("sp.instance").alias("t_instance"),
+        F.lpad(F.col("sp.ZZFLD00001Z").cast("string"), 2, "0").alias("admin_state"),
+        F.lpad(F.col("sp.ZZFLD000020").cast("string"), 3, "0").alias("admin_county"),
+        t_status_expr.alias("t_data_status_code"),
+        F.to_date(F.date_format(F.coalesce(F.col("sp.crtim"), F.current_timestamp()), "yyyy-MM-dd")).alias("t_creation_date"),
+        F.to_date(F.date_format(F.coalesce(F.col("sp.UPTIM"), F.current_timestamp()), "yyyy-MM-dd")).alias("t_last_change_date"),
+        t_last_change_user_expr.alias("t_last_change_user_name"),
+        F.col("ni.instance").alias("i_instance"),
+        F.col("ni.ibase").alias("r_ibase"),
+        F.col("cr.partner_fct").alias("partner_fct"),
+        F.col("cr.partner_no").alias("partner_no"),
+    )
+)
+
+cw_exc_expr = (
+    F.when(F.trim(F.col("zm.ZZ0011")) == F.lit("AE"), F.lit(41))
+    .when(F.trim(F.col("zm.ZZ0011")).isin("AR", "HA"), F.lit(40))
+    .when(F.trim(F.col("zm.ZZ0011")).isin("NP", "NW"), F.lit(45))
+    .when(F.trim(F.col("zm.ZZ0011")).isin("TP", "TR"), F.lit(44))
+)
+hel_exc_expr = (
+    F.when(F.trim(F.col("zm.ZZ0010")) == F.lit("GF"), F.lit(31))
+    .when(F.trim(F.col("zm.ZZ0010")) == F.lit("EH"), F.lit(34))
+    .when(F.trim(F.col("zm.ZZ0010")).isin("AE", "NAR"), F.lit(33))
+    .when(F.trim(F.col("zm.ZZ0010")).isin("AR", "HA"), F.lit(32))
+    .when(F.trim(F.col("zm.ZZ0010")) == F.lit("LT"), F.lit(30))
+)
+pcw_exc_expr = (
+    F.when(F.trim(F.col("zm.ZZ0012")).isin("AR", "HA"), F.lit(52))
+    .when(F.trim(F.col("zm.ZZ0012")).isin("NAR", "AE"), F.lit(50))
+    .when(F.trim(F.col("zm.ZZ0012")) == F.lit("GF"), F.lit(51))
+)
+rma_cw_expr = (
+    F.when(F.trim(F.col("zm.ZZ0017")) == F.lit("WR"), F.lit(43))
+    .when(F.trim(F.col("zm.ZZ0017")) == F.lit("GF"), F.lit(42))
+    .when(F.trim(F.col("zm.ZZ0017")) == F.lit("NAR"), F.lit(41))
+    .when(F.trim(F.col("zm.ZZ0017")) == F.lit("AR"), F.lit(40))
+    .when(F.trim(F.col("zm.ZZ0017")) == F.lit("NP"), F.lit(45))
+    .when(F.trim(F.col("zm.ZZ0017")) == F.lit("TP"), F.lit(44))
+)
+rma_hel_expr = (
+    F.when(F.trim(F.col("zm.ZZ0016")) == F.lit("GF"), F.lit(31))
+    .when(F.trim(F.col("zm.ZZ0016")) == F.lit("EH"), F.lit(34))
+    .when(F.trim(F.col("zm.ZZ0016")) == F.lit("NAR"), F.lit(33))
+    .when(F.trim(F.col("zm.ZZ0016")) == F.lit("AR"), F.lit(32))
+    .when(F.trim(F.col("zm.ZZ0016")) == F.lit("LT"), F.lit(30))
+)
+rma_pcw_expr = (
+    F.when(F.trim(F.col("zm.ZZ0018")).isin("AR", "HA"), F.lit(52))
+    .when(F.trim(F.col("zm.ZZ0018")).isin("NAR", "AE"), F.lit(50))
+    .when(F.trim(F.col("zm.ZZ0018")) == F.lit("GF"), F.lit(51))
+)
+
+zmi_details = (
+    z_ibase_comp_detail.join(comm_pr_frg_rel, F.col("cf.product_guid") == F.col("zd.prod_objnr"), "inner")
+    .join(zmi_farm_partn, F.col("zm.frg_guid") == F.col("cf.fragment_guid"), "inner")
+    .select(
+        F.col("zd.instance").cast("string").alias("instance"),
+        F.col("zd.ibase").cast("string").alias("ibase"),
+        F.col("zm.ZZK0011").alias("ZZK0011"),
+        hel_exc_expr.alias("tract_producer_hel_exception_code"),
+        cw_exc_expr.alias("tract_producer_cw_exception_code"),
+        pcw_exc_expr.alias("tract_producer_pcw_exception_code"),
+        rma_cw_expr.alias("rma_cw_exception_code"),
+        rma_hel_expr.alias("rma_hel_exception_code"),
+        rma_pcw_expr.alias("rma_pcw_exception_code"),
+        F.when(F.col("zm.ZZ0013").isNotNull(), F.to_date(F.col("zm.ZZ0013").cast("string"), "yyyyMMddHHmmss")).alias("hel_appeals_exhausted_date"),
+        F.when(F.col("zm.ZZ0014").isNotNull(), F.to_date(F.col("zm.ZZ0014").cast("string"), "yyyyMMddHHmmss")).alias("cw_appeals_exhausted_date"),
+        F.when(F.col("zm.ZZ0015").isNotNull(), F.to_date(F.col("zm.ZZ0015").cast("string"), "yyyyMMddHHmmss")).alias("pcw_appeals_exhausted_date"),
+        F.when(
+            F.col("zm.VALID_FROM").isNotNull() & (F.col("zm.VALID_FROM") != F.lit(0)),
+            F.to_date(F.col("zm.VALID_FROM").cast("string"), "yyyyMMddHHmmss"),
+        ).alias("producer_involvement_start_date"),
+        F.when(
+            F.col("zm.VALID_TO").isNotNull() & (F.col("zm.VALID_TO") != F.lit(0)),
+            F.to_date(F.col("zm.VALID_TO").cast("string"), "yyyyMMddHHmmss"),
+        ).alias("producer_involvement_end_date"),
+    )
+)
+
+program_year_name = F.when(F.month(F.current_date()) >= F.lit(10), F.year(F.current_date()) + F.lit(1)).otherwise(
+    F.year(F.current_date())
+).cast("string")
+
+producer_code_expr = (
+    F.when(F.col("sss_dets.partner_fct") == F.lit("ZFARMONR"), F.lit(162))
+    .when(F.col("sss_dets.partner_fct") == F.lit("ZOTNT"), F.lit(163))
+)
+
+tract_current = (
+    sss_details.alias("sss_dets")
+    .join(time_pd.alias("timepd"), program_year_name == F.trim(F.col("timepd.time_period_name")), "inner")
+    .join(
+        zmi_details.alias("z_dets"),
+        (F.col("z_dets.instance") == F.col("sss_dets.i_instance")) & (F.col("z_dets.ibase") == F.col("sss_dets.r_ibase")),
+        "inner",
+    )
+    .join(
+        county_office_control.alias("coc"),
+        (
+            F.concat(F.lpad(F.col("sss_dets.admin_state"), 2, "0"), F.lpad(F.col("sss_dets.admin_county"), 3, "0"))
+            == F.concat(F.lpad(F.col("coc.state_fsa_code"), 2, "0"), F.lpad(F.col("coc.county_fsa_code"), 3, "0"))
+        )
+        & (F.col("timepd.time_period_identifier") == F.col("coc.time_period_identifier")),
+        "inner",
+    )
+    .join(
+        but000.alias("c"),
+        (F.col("sss_dets.partner_no") == F.col("c.partner_guid")) & (F.col("z_dets.ZZK0011") == F.col("c.partner")),
+        "left",
+    )
+    .where((F.col("timepd.time_period_name") >= F.lit("2014")) & (~F.col("c.bpext").isin("DUPLICATE", "11876423_D")))
+    .select(
+        F.col("coc.county_office_control_identifier").alias("county_office_control_identifier"),
+        F.col("timepd.time_period_identifier").alias("time_period_identifier"),
+        F.col("c.bpext").cast("int").alias("core_customer_identifier"),
+        F.col("z_dets.producer_involvement_start_date").alias("producer_involvement_start_date"),
+        F.col("z_dets.producer_involvement_end_date").alias("producer_involvement_end_date"),
+        F.lit(None).cast("string").alias("producer_involvement_interrupted_indicator"),
+        F.col("z_dets.tract_producer_hel_exception_code").alias("tract_producer_hel_exception_code"),
+        F.col("z_dets.tract_producer_cw_exception_code").alias("tract_producer_cw_exception_code"),
+        F.col("z_dets.tract_producer_pcw_exception_code").alias("tract_producer_pcw_exception_code"),
+        F.col("sss_dets.t_data_status_code").alias("data_status_code"),
+        F.col("sss_dets.t_creation_date").alias("creation_date"),
+        F.col("sss_dets.t_last_change_date").alias("last_change_date"),
+        F.col("sss_dets.t_last_change_user_name").alias("last_change_user_name"),
+        producer_code_expr.alias("producer_involvement_code"),
+        F.col("sss_dets.admin_state").alias("state_fsa_code"),
+        F.col("sss_dets.admin_county").alias("county_fsa_code"),
+        F.lpad(F.col("sss_dets.farm_number"), 7, "0").alias("farm_number"),
+        F.col("sss_dets.tract_number").alias("tract_number"),
+        F.col("z_dets.hel_appeals_exhausted_date").alias("hel_appeals_exhausted_date"),
+        F.col("z_dets.cw_appeals_exhausted_date").alias("cw_appeals_exhausted_date"),
+        F.col("z_dets.pcw_appeals_exhausted_date").alias("pcw_appeals_exhausted_date"),
+        F.col("z_dets.rma_hel_exception_code").alias("tract_producer_rma_hel_exception_code"),
+        F.col("z_dets.rma_cw_exception_code").alias("tract_producer_rma_cw_exception_code"),
+        F.col("z_dets.rma_pcw_exception_code").alias("tract_producer_rma_pcw_exception_code"),
+    )
+)
+
+tract_tbl = (
+    tract_current.alias("tprdryr")
+    .join(
+        farm.alias("farmpg"),
+        (F.col("farmpg.county_office_control_identifier") == F.col("tprdryr.county_office_control_identifier"))
+        & (F.lpad(F.col("farmpg.farm_number").cast("string"), 7, "0") == F.lpad(F.col("tprdryr.farm_number"), 7, "0")),
+        "inner",
+    )
+    .join(
+        tract.alias("tractpg"),
+        (F.col("tractpg.county_office_control_identifier") == F.col("tprdryr.county_office_control_identifier"))
+        & (F.lpad(F.col("tractpg.tract_number").cast("string"), 7, "0") == F.lpad(F.col("tprdryr.tract_number"), 7, "0")),
+        "inner",
+    )
+    .join(
+        farm_year.alias("fy"),
+        (F.col("farmpg.farm_identifier") == F.col("fy.farm_identifier"))
+        & (F.col("tprdryr.time_period_identifier") == F.col("fy.time_period_identifier")),
+        "inner",
+    )
+    .join(
+        tract_year.alias("ty"),
+        (F.col("fy.farm_year_identifier") == F.col("ty.farm_year_identifier"))
+        & (F.col("tractpg.tract_identifier") == F.col("ty.tract_identifier")),
+        "inner",
+    )
+    .select(
+        F.col("farmpg.farm_identifier").alias("farm_identifier"),
+        F.col("ty.tract_year_identifier").alias("tract_year_identifier"),
+        F.col("tprdryr.*"),
+    )
+)
+
+window_spec = Window.partitionBy(
+    "core_customer_identifier", "tract_year_identifier", "producer_involvement_code"
+).orderBy(F.col("creation_date").desc(), F.col("last_change_date").desc())
+
+source_df = (
+    tract_tbl.withColumn("rownum", F.row_number().over(window_spec))
+    .where(F.col("rownum") == F.lit(1))
+    .select(
+        "core_customer_identifier",
+        "tract_year_identifier",
+        "producer_involvement_start_date",
+        "producer_involvement_end_date",
+        "producer_involvement_interrupted_indicator",
+        "tract_producer_hel_exception_code",
+        "tract_producer_cw_exception_code",
+        "tract_producer_pcw_exception_code",
+        "data_status_code",
+        "creation_date",
+        "last_change_date",
+        "last_change_user_name",
+        "producer_involvement_code",
+        "time_period_identifier",
+        "state_fsa_code",
+        "county_fsa_code",
+        "farm_identifier",
+        "farm_number",
+        "tract_number",
+        "hel_appeals_exhausted_date",
+        "cw_appeals_exhausted_date",
+        "pcw_appeals_exhausted_date",
+        "tract_producer_rma_hel_exception_code",
+        "tract_producer_rma_cw_exception_code",
+        "tract_producer_rma_pcw_exception_code",
+    )
+)
+
+log.info("Transform DataFrame build complete")
 log.info(f"[METRIC] phase_transform_seconds={time.perf_counter() - phase_t0:.3f}")
 
-# ---------------------------------------------------------------------------
-# Iceberg MERGE INTO  (arch.md §3.3)
-# Replaces separate INSERT + UPDATE Athena queries in one atomic S3 pass.
-# ---------------------------------------------------------------------------
 TARGET_FQN = f"glue_catalog.{TGT_DB}.{TGT_TABLE}"
 
-# First run safety: create empty Iceberg target table if it does not exist yet.
-# This prevents AnalysisException on initial deploy while still allowing MERGE
-# to perform inserts/updates against a stable schema.
-spark.sql(
-    f"CREATE TABLE IF NOT EXISTS {TARGET_FQN} "
-    f"USING iceberg AS SELECT * FROM new_tract_producer_year WHERE 1 = 0"
-)
+# First-run safety with DataFrame API: create table only if missing.
+source_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(TARGET_FQN)
 
-if FULL_LOAD:
-    # --full_load flag: skip WHEN MATCHED, only insert (replaces INSERT_NO_COMPARE)
-    MERGE_SQL = f"""
-    MERGE INTO {TARGET_FQN} t
-    USING new_tract_producer_year s
-    ON  t.core_customer_identifier  = s.core_customer_identifier
-    AND t.tract_year_identifier     = s.tract_year_identifier
-    AND t.producer_involvement_code = s.producer_involvement_code
-
-    WHEN NOT MATCHED THEN INSERT (
-        core_customer_identifier,
-        tract_year_identifier,
-        producer_involvement_start_date,
-        producer_involvement_end_date,
-        producer_involvement_interrupted_indicator,
-        tract_producer_hel_exception_code,
-        tract_producer_cw_exception_code,
-        tract_producer_pcw_exception_code,
-        data_status_code,
-        creation_date,
-        last_change_date,
-        last_change_user_name,
-        producer_involvement_code,
-        time_period_identifier,
-        state_fsa_code,
-        county_fsa_code,
-        farm_identifier,
-        farm_number,
-        tract_number,
-        hel_appeals_exhausted_date,
-        cw_appeals_exhausted_date,
-        pcw_appeals_exhausted_date,
-        tract_producer_rma_hel_exception_code,
-        tract_producer_rma_cw_exception_code,
-        tract_producer_rma_pcw_exception_code
-    ) VALUES (
-        s.core_customer_identifier,
-        s.tract_year_identifier,
-        s.producer_involvement_start_date,
-        s.producer_involvement_end_date,
-        s.producer_involvement_interrupted_indicator,
-        s.tract_producer_hel_exception_code,
-        s.tract_producer_cw_exception_code,
-        s.tract_producer_pcw_exception_code,
-        s.data_status_code,
-        s.creation_date,
-        s.last_change_date,
-        s.last_change_user_name,
-        s.producer_involvement_code,
-        s.time_period_identifier,
-        s.state_fsa_code,
-        s.county_fsa_code,
-        s.farm_identifier,
-        s.farm_number,
-        s.tract_number,
-        s.hel_appeals_exhausted_date,
-        s.cw_appeals_exhausted_date,
-        s.pcw_appeals_exhausted_date,
-        s.tract_producer_rma_hel_exception_code,
-        s.tract_producer_rma_cw_exception_code,
-        s.tract_producer_rma_pcw_exception_code
-    )
-    """
-    FULL_LOAD_INSERT_SQL = f"""
-    INSERT INTO {TARGET_FQN} (
-        core_customer_identifier,
-        tract_year_identifier,
-        producer_involvement_start_date,
-        producer_involvement_end_date,
-        producer_involvement_interrupted_indicator,
-        tract_producer_hel_exception_code,
-        tract_producer_cw_exception_code,
-        tract_producer_pcw_exception_code,
-        data_status_code,
-        creation_date,
-        last_change_date,
-        last_change_user_name,
-        producer_involvement_code,
-        time_period_identifier,
-        state_fsa_code,
-        county_fsa_code,
-        farm_identifier,
-        farm_number,
-        tract_number,
-        hel_appeals_exhausted_date,
-        cw_appeals_exhausted_date,
-        pcw_appeals_exhausted_date,
-        tract_producer_rma_hel_exception_code,
-        tract_producer_rma_cw_exception_code,
-        tract_producer_rma_pcw_exception_code
-    )
-    SELECT
-        core_customer_identifier,
-        tract_year_identifier,
-        producer_involvement_start_date,
-        producer_involvement_end_date,
-        producer_involvement_interrupted_indicator,
-        tract_producer_hel_exception_code,
-        tract_producer_cw_exception_code,
-        tract_producer_pcw_exception_code,
-        data_status_code,
-        creation_date,
-        last_change_date,
-        last_change_user_name,
-        producer_involvement_code,
-        time_period_identifier,
-        state_fsa_code,
-        county_fsa_code,
-        farm_identifier,
-        farm_number,
-        tract_number,
-        hel_appeals_exhausted_date,
-        cw_appeals_exhausted_date,
-        pcw_appeals_exhausted_date,
-        tract_producer_rma_hel_exception_code,
-        tract_producer_rma_cw_exception_code,
-        tract_producer_rma_pcw_exception_code
-    FROM new_tract_producer_year
-    """
-    FULL_LOAD_OVERWRITE_SQL = f"""
-    INSERT OVERWRITE {TARGET_FQN} (
-        core_customer_identifier,
-        tract_year_identifier,
-        producer_involvement_start_date,
-        producer_involvement_end_date,
-        producer_involvement_interrupted_indicator,
-        tract_producer_hel_exception_code,
-        tract_producer_cw_exception_code,
-        tract_producer_pcw_exception_code,
-        data_status_code,
-        creation_date,
-        last_change_date,
-        last_change_user_name,
-        producer_involvement_code,
-        time_period_identifier,
-        state_fsa_code,
-        county_fsa_code,
-        farm_identifier,
-        farm_number,
-        tract_number,
-        hel_appeals_exhausted_date,
-        cw_appeals_exhausted_date,
-        pcw_appeals_exhausted_date,
-        tract_producer_rma_hel_exception_code,
-        tract_producer_rma_cw_exception_code,
-        tract_producer_rma_pcw_exception_code
-    )
-    SELECT
-        core_customer_identifier,
-        tract_year_identifier,
-        producer_involvement_start_date,
-        producer_involvement_end_date,
-        producer_involvement_interrupted_indicator,
-        tract_producer_hel_exception_code,
-        tract_producer_cw_exception_code,
-        tract_producer_pcw_exception_code,
-        data_status_code,
-        creation_date,
-        last_change_date,
-        last_change_user_name,
-        producer_involvement_code,
-        time_period_identifier,
-        state_fsa_code,
-        county_fsa_code,
-        farm_identifier,
-        farm_number,
-        tract_number,
-        hel_appeals_exhausted_date,
-        cw_appeals_exhausted_date,
-        pcw_appeals_exhausted_date,
-        tract_producer_rma_hel_exception_code,
-        tract_producer_rma_cw_exception_code,
-        tract_producer_rma_pcw_exception_code
-    FROM new_tract_producer_year
-    """
-    log.info("Full-load mode: MERGE INTO — WHEN NOT MATCHED only")
-else:
-    delta_t0 = time.perf_counter()
-    DELTA_SQL = f"""
-    SELECT
-        s.*
-    FROM new_tract_producer_year s
-    LEFT JOIN {TARGET_FQN} t
-      ON t.core_customer_identifier  = s.core_customer_identifier
-     AND t.tract_year_identifier     = s.tract_year_identifier
-     AND t.producer_involvement_code = s.producer_involvement_code
-    WHERE t.core_customer_identifier IS NULL
-       OR NOT (t.producer_involvement_start_date   <=> s.producer_involvement_start_date)
-       OR NOT (t.producer_involvement_end_date     <=> s.producer_involvement_end_date)
-       OR NOT (t.tract_producer_hel_exception_code <=> s.tract_producer_hel_exception_code)
-       OR NOT (t.tract_producer_cw_exception_code  <=> s.tract_producer_cw_exception_code)
-       OR NOT (t.tract_producer_pcw_exception_code <=> s.tract_producer_pcw_exception_code)
-       OR NOT (t.data_status_code                  <=> s.data_status_code)
-    """
-    spark.sql(DELTA_SQL).createOrReplaceTempView("new_tract_producer_year_delta")
-    log.info("Incremental mode: prepared delta-only source view new_tract_producer_year_delta")
-    log.info(f"[METRIC] phase_delta_seconds={time.perf_counter() - delta_t0:.3f}")
-
-    # Incremental: INSERT new rows + UPDATE changed rows (replaces INSERT + UPDATE Athena files)
-    MERGE_SQL = f"""
-    MERGE INTO {TARGET_FQN} t
-    USING new_tract_producer_year_delta s
-    ON  t.core_customer_identifier  = s.core_customer_identifier
-    AND t.tract_year_identifier     = s.tract_year_identifier
-    AND t.producer_involvement_code = s.producer_involvement_code
-
-    WHEN MATCHED THEN UPDATE SET
-        producer_involvement_start_date       = s.producer_involvement_start_date,
-        producer_involvement_end_date         = s.producer_involvement_end_date,
-        tract_producer_hel_exception_code     = s.tract_producer_hel_exception_code,
-        tract_producer_cw_exception_code      = s.tract_producer_cw_exception_code,
-        tract_producer_pcw_exception_code     = s.tract_producer_pcw_exception_code,
-        data_status_code                      = s.data_status_code,
-        last_change_date                      = s.last_change_date,
-        last_change_user_name                 = s.last_change_user_name,
-        hel_appeals_exhausted_date            = s.hel_appeals_exhausted_date,
-        cw_appeals_exhausted_date             = s.cw_appeals_exhausted_date,
-        pcw_appeals_exhausted_date            = s.pcw_appeals_exhausted_date,
-        tract_producer_rma_hel_exception_code = s.tract_producer_rma_hel_exception_code,
-        tract_producer_rma_cw_exception_code  = s.tract_producer_rma_cw_exception_code,
-        tract_producer_rma_pcw_exception_code = s.tract_producer_rma_pcw_exception_code
-
-    WHEN NOT MATCHED THEN INSERT (
-        core_customer_identifier,
-        tract_year_identifier,
-        producer_involvement_start_date,
-        producer_involvement_end_date,
-        producer_involvement_interrupted_indicator,
-        tract_producer_hel_exception_code,
-        tract_producer_cw_exception_code,
-        tract_producer_pcw_exception_code,
-        data_status_code,
-        creation_date,
-        last_change_date,
-        last_change_user_name,
-        producer_involvement_code,
-        time_period_identifier,
-        state_fsa_code,
-        county_fsa_code,
-        farm_identifier,
-        farm_number,
-        tract_number,
-        hel_appeals_exhausted_date,
-        cw_appeals_exhausted_date,
-        pcw_appeals_exhausted_date,
-        tract_producer_rma_hel_exception_code,
-        tract_producer_rma_cw_exception_code,
-        tract_producer_rma_pcw_exception_code
-    ) VALUES (
-        s.core_customer_identifier,
-        s.tract_year_identifier,
-        s.producer_involvement_start_date,
-        s.producer_involvement_end_date,
-        s.producer_involvement_interrupted_indicator,
-        s.tract_producer_hel_exception_code,
-        s.tract_producer_cw_exception_code,
-        s.tract_producer_pcw_exception_code,
-        s.data_status_code,
-        s.creation_date,
-        s.last_change_date,
-        s.last_change_user_name,
-        s.producer_involvement_code,
-        s.time_period_identifier,
-        s.state_fsa_code,
-        s.county_fsa_code,
-        s.farm_identifier,
-        s.farm_number,
-        s.tract_number,
-        s.hel_appeals_exhausted_date,
-        s.cw_appeals_exhausted_date,
-        s.pcw_appeals_exhausted_date,
-        s.tract_producer_rma_hel_exception_code,
-        s.tract_producer_rma_cw_exception_code,
-        s.tract_producer_rma_pcw_exception_code
-    )
-    """
-    log.info("Incremental mode: MERGE INTO — WHEN MATCHED UPDATE + WHEN NOT MATCHED INSERT")
-
-if FULL_LOAD:
-    write_t0 = time.perf_counter()
-    log.info(f"Executing full-load overwrite for {TARGET_FQN} (DataFrameWriter + Iceberg)")
-    source_df.write.format("iceberg").mode("overwrite").saveAsTable(TARGET_FQN)
-else:
-    write_t0 = time.perf_counter()
-    log.info(f"Executing MERGE INTO {TARGET_FQN}")
-    spark.sql(MERGE_SQL)
+write_t0 = time.perf_counter()
+log.info(f"Executing full-load overwrite for {TARGET_FQN} (DataFrameWriter + Iceberg)")
+source_df.write.format("iceberg").mode("overwrite").saveAsTable(TARGET_FQN)
 log.info(f"[METRIC] phase_write_seconds={time.perf_counter() - write_t0:.3f}")
-source_df.unpersist(blocking=False)
-log.info("MERGE INTO complete")
+log.info("Write complete")
 
 # ---------------------------------------------------------------------------
 # Post-merge row-count metric from Iceberg snapshot metadata — reads one
@@ -751,12 +452,10 @@ log.info("MERGE INTO complete")
 # ---------------------------------------------------------------------------
 try:
     snap_t0 = time.perf_counter()
-    snap_row = spark.sql(
-        f"SELECT summary['total-records'] AS n "
-        f"FROM glue_catalog.{TGT_DB}.{TGT_TABLE}.snapshots "
-        f"ORDER BY committed_at DESC LIMIT 1"
-    ).first()
-    final_count = int(snap_row["n"]) if snap_row else -1
+    snapshots_df = spark.table(f"glue_catalog.{TGT_DB}.{TGT_TABLE}.snapshots")
+    snap_row = snapshots_df.orderBy(snapshots_df.committed_at.desc()).select("summary").first()
+    summary = snap_row["summary"] if snap_row else None
+    final_count = int(summary.get("total-records", -1)) if summary else -1
 except Exception:
     final_count = -1  # metadata unavailable — non-fatal
 log.info(f"[METRIC] phase_snapshot_metric_seconds={time.perf_counter() - snap_t0:.3f}")

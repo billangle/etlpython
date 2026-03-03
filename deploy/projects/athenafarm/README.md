@@ -1,7 +1,7 @@
 # athenafarm — tract/farm Producer Year Iceberg Pipeline
 
-Replaces four Athena SQL files with an eight-job AWS Glue + Step Functions pipeline
-that runs in **30–90 seconds** instead of hours.
+Modernized eight-job AWS Glue + Step Functions pipeline using DataFrame-first
+full-load transforms over Iceberg tables.
 
 See [prjhelpers/postgres/athena/arch.md](../../../../prjhelpers/postgres/athena/arch.md)
 for the full architecture rationale.
@@ -31,9 +31,9 @@ deploy/projects/athenafarm/
 
 ---
 
-## Old SQL → New Glue Job Mapping
+## Legacy Query Artifacts → Current Glue Job Mapping
 
-| Original Athena SQL file | Replaced by |
+| Legacy query artifact | Current Glue job |
 |---|---|
 | `TRACT_PRODUCER_YEAR_INSERT_ATHENA.sql` | `Transform-Tract-Producer-Year` (full-load reset path) |
 | `TRACT_PRODUCER_YEAR_INSERT_NO_COMPARE_ATHENA.sql` | `Transform-Tract-Producer-Year` (full-load reset path) |
@@ -386,7 +386,7 @@ S3-path convention and cannot be used with a catalog FQN.
 
 `spark.sql.autoBroadcastJoinThreshold=52428800` (50 MB) is set globally so that small
 reference/dimension tables are broadcast-joined rather than shuffle-joined, avoiding
-expensive all-to-all data shuffles in the transform CTE chains.
+expensive all-to-all data shuffles in transform join stages.
 
 ### Transform full-load write path
 

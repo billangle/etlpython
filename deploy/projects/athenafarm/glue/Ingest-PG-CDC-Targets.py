@@ -5,12 +5,11 @@ AWS Glue Job: Ingest-PG-CDC-Targets
 
 PURPOSE:
     Snapshots the two CDC target tables from FSA-PROD-rds-pg-edv into S3
-    Iceberg so the downstream Transform job can run the MERGE INTO comparison
-    logic entirely inside Spark without any federated JDBC reads.
+    Iceberg so downstream transform and sync jobs can compare against current
+    target state entirely inside Spark without federated JDBC reads.
 
     By keeping a local Iceberg copy of the current target state, the Transform
-    job's WHEN MATCHED / WHEN NOT MATCHED determination becomes a pure S3 join
-    rather than a serialised JDBC lookup.
+    and sync logic run as pure S3 joins/scans rather than serialised JDBC lookups.
 
 TABLES PROCESSED:
     farm_records_reporting.tract_producer_year  → farm_records_reporting.tract_producer_year
@@ -77,7 +76,7 @@ ENV               = args["env"]
 ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
 SECRET_ID         = args["secret_id"]
 TARGET_DATABASE   = _opt("target_database", "athenafarm_prod_cdc")
-SHUFFLE_PARTITIONS = _opt("shuffle_partitions", "800")
+SHUFFLE_PARTITIONS = _opt("shuffle_partitions", "200")
 FULL_LOAD         = _opt("full_load", "false").strip().lower() == "true"
 DEBUG             = _opt("debug", "false").strip().lower() == "true"
 
@@ -264,51 +263,32 @@ def ingest_cdc_target(pg_schema: str, pg_table: str, tgt_table: str, partition_c
         log.exception(f"[{source_label}] JDBC READ FAILED — full traceback:")
         raise
 
-    # Cache before count so Spark does not re-execute the JDBC query a second
-    # time during the Iceberg write.  Without cache(), df.count() triggers a
-    # full table fetch over JDBC, then createOrReplace() triggers another
-    # full fetch — doubling runtime for every large table.
-    df.cache()
-
-    row_count = df.count()
-    log.info(f"[{source_label}] Rows read   : {row_count:,}")
+    # Avoid pre-write count/cache for large CDC tables. Counting forces a full
+    # extra scan and cache pressure before createOrReplace(), which increases
+    # wall-clock runtime without improving write correctness.
+    log.info(f"[{source_label}] JDBC read complete; starting Iceberg write")
 
     if DEBUG:
         log.debug(f"[{source_label}] Schema:")
         for field in df.schema.fields:
             log.debug(f"  {field.name}: {field.dataType}")
 
-    # Sort by partition column before writing — must happen before writeTo()
-    # since the writer is bound to df at construction time.
-    # Hold a reference to the cached JDBC df so the repartition rebind
-    # doesn't prevent unpersist() from releasing the original cached data.
-    df_cached = df
+    writer = df.writeTo(target_fqn).using("iceberg") \
+        .tableProperty("write.format.default", "parquet") \
+        .tableProperty("write.parquet.compression-codec", "snappy") \
+        .tableProperty("write.distribution-mode", "none") \
+        .tableProperty("write.spark.fanout.enabled", "true")
+
+    if partition_col and partition_col in df.columns:
+        writer = writer.partitionedBy(partition_col)
+
+    log.info(f"[{source_label}] Writing createOrReplace → {target_fqn}")
     try:
-        if partition_col and partition_col in df.columns:
-            log.info(f"[{source_label}] Repartitioning + sorting by '{partition_col}' for Iceberg write ordering")
-            df = df.repartition(partition_col).sortWithinPartitions(partition_col)
-        elif partition_col:
-            log.warning(f"[{source_label}] Partition column '{partition_col}' not in DataFrame — skipping sort. Columns: {df.columns}")
-
-        writer = df.writeTo(target_fqn).using("iceberg") \
-            .tableProperty("write.format.default", "parquet") \
-            .tableProperty("write.parquet.compression-codec", "snappy") \
-            .tableProperty("write.distribution-mode", "none") \
-            .tableProperty("write.spark.fanout.enabled", "true") \
-            .tableProperty("write.merge.mode", "merge-on-read")
-
-        if partition_col and partition_col in df.columns:
-            writer = writer.partitionedBy(partition_col)
-
-        log.info(f"[{source_label}] Writing createOrReplace → {target_fqn}")
-        try:
-            writer.createOrReplace()
-        except Exception:
-            log.exception(f"[{source_label}] ICEBERG WRITE FAILED — full traceback:")
-            raise
-        log.info(f"[{source_label}] --- DONE ---")
-    finally:
-        df_cached.unpersist()
+        writer.createOrReplace()
+    except Exception:
+        log.exception(f"[{source_label}] ICEBERG WRITE FAILED — full traceback:")
+        raise
+    log.info(f"[{source_label}] --- DONE ---")
 
 
 errors = []

@@ -124,7 +124,8 @@ class Names:
     ingest_sss_job: str
     ingest_pg_refs_job: str
     ingest_pg_cdc_job: str
-    transform_tpy_job: str
+    transform_tpy_incr_job: str
+    transform_tpy_full_job: str
     transform_fpy_job: str
     sync_rds_job: str
     iceberg_maint_job: str
@@ -148,7 +149,8 @@ def build_names(deploy_env: str, project: str) -> Names:
         ingest_sss_job=f"{pfx}-Ingest-SSS-Farmrecords",
         ingest_pg_refs_job=f"{pfx}-Ingest-PG-Reference-Tables",
         ingest_pg_cdc_job=f"{pfx}-Ingest-PG-CDC-Targets",
-        transform_tpy_job=f"{pfx}-Transform-Tract-Producer-Year",
+        transform_tpy_incr_job=f"{pfx}-Transform-Tract-Producer-Year-Incremental",
+        transform_tpy_full_job=f"{pfx}-Transform-Tract-Producer-Year-FullLoad",
         transform_fpy_job=f"{pfx}-Transform-Farm-Producer-Year",
         sync_rds_job=f"{pfx}-Sync-Iceberg-To-RDS",
         iceberg_maint_job=f"{pfx}-Iceberg-Maintenance",
@@ -273,7 +275,8 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
         ("Ingest-SSS-Farmrecords",          names.ingest_sss_job),
         ("Ingest-PG-Reference-Tables",      names.ingest_pg_refs_job),
         ("Ingest-PG-CDC-Targets",           names.ingest_pg_cdc_job),
-        ("Transform-Tract-Producer-Year",   names.transform_tpy_job),
+        ("Transform-Tract-Producer-Year-Incremental", names.transform_tpy_incr_job),
+        ("Transform-Tract-Producer-Year-FullLoad",    names.transform_tpy_full_job),
         ("Transform-Farm-Producer-Year",    names.transform_fpy_job),
         ("Sync-Iceberg-To-RDS",             names.sync_rds_job),
         ("Iceberg-Maintenance",             names.iceberg_maint_job),
@@ -469,7 +472,8 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
         "__INGEST_SSS_GLUE_JOB_NAME__":      names.ingest_sss_job,
         "__INGEST_PG_REFS_GLUE_JOB_NAME__":  names.ingest_pg_refs_job,
         "__INGEST_PG_CDC_GLUE_JOB_NAME__":   names.ingest_pg_cdc_job,
-        "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__": names.transform_tpy_job,
+        "__TRANSFORM_TRACT_PY_INCR_GLUE_JOB_NAME__": names.transform_tpy_incr_job,
+        "__TRANSFORM_TRACT_PY_FULL_GLUE_JOB_NAME__": names.transform_tpy_full_job,
         "__TRANSFORM_FARM_PY_GLUE_JOB_NAME__": names.transform_fpy_job,
         "__SYNC_RDS_GLUE_JOB_NAME__":        names.sync_rds_job,
         "__ICEBERG_MAINT_GLUE_JOB_NAME__":   names.iceberg_maint_job,
@@ -511,7 +515,9 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
         "glue_job_ingest_sss": names.ingest_sss_job,
         "glue_job_ingest_pg_refs": names.ingest_pg_refs_job,
         "glue_job_ingest_pg_cdc": names.ingest_pg_cdc_job,
-        "glue_job_transform_tpy": names.transform_tpy_job,
+        "glue_job_transform_tpy": names.transform_tpy_incr_job,
+        "glue_job_transform_tpy_incremental": names.transform_tpy_incr_job,
+        "glue_job_transform_tpy_full": names.transform_tpy_full_job,
         "glue_job_transform_fpy": names.transform_fpy_job,
         "glue_job_sync_rds": names.sync_rds_job,
         "glue_job_iceberg_maint": names.iceberg_maint_job,

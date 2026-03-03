@@ -38,7 +38,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 PREFIX=$(printf "$PREFIX_TEMPLATE" "$ENV_NAME")
-TRACT_JOB="${PREFIX}-Transform-Tract-Producer-Year"
+if [[ "${FULL_LOAD,,}" == "true" ]]; then
+  TRACT_JOB="${PREFIX}-Transform-Tract-Producer-Year-FullLoad"
+else
+  TRACT_JOB="${PREFIX}-Transform-Tract-Producer-Year-Incremental"
+fi
 FARM_JOB="${PREFIX}-Transform-Farm-Producer-Year"
 
 run_and_wait() {
@@ -47,10 +51,17 @@ run_and_wait() {
   echo "Starting: ${job_name}"
 
   local run_id
+  local arg_string
+  if [[ "$job_name" == *"Transform-Tract-Producer-Year-"* ]]; then
+    arg_string="--env=${ENV_NAME},--iceberg_warehouse=${WAREHOUSE}"
+  else
+    arg_string="--env=${ENV_NAME},--full_load=${FULL_LOAD},--iceberg_warehouse=${WAREHOUSE}"
+  fi
+
   run_id=$(aws glue start-job-run \
     --region "$REGION" \
     --job-name "$job_name" \
-    --arguments "--env=${ENV_NAME},--full_load=${FULL_LOAD},--iceberg_warehouse=${WAREHOUSE}" \
+    --arguments "$arg_string" \
     --query 'JobRunId' \
     --output text)
 

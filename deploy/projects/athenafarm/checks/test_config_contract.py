@@ -36,6 +36,7 @@ _HERE = Path(__file__).resolve().parent
 _PROJ = _HERE.parent
 _GLUE_DIR = _PROJ / "glue"
 _CONFIG_DIR = _PROJ.parent.parent / "config" / "athenafarm"
+_STATE_FILE = _PROJ / "states" / "Main.param.asl.json"
 
 # ---------------------------------------------------------------------------
 # Scripts under test.
@@ -55,7 +56,8 @@ ALL_SCRIPT_STEMS: List[str] = [
     "Ingest-SSS-Farmrecords",
     "Ingest-PG-Reference-Tables",
     "Ingest-PG-CDC-Targets",
-    "Transform-Tract-Producer-Year",
+    "Transform-Tract-Producer-Year-Incremental",
+    "Transform-Tract-Producer-Year-FullLoad",
     "Transform-Farm-Producer-Year",
     "Sync-Iceberg-To-RDS",
     "Iceberg-Maintenance",
@@ -122,6 +124,16 @@ def _extract_all_arg_keys(stem: str) -> Set[str]:
     — used to check that config params are actually consumed.
     """
     text = _script_text(stem)
+
+    # Wrapper scripts delegate execution to Transform-Tract-Producer-Year.py.
+    # Validate config keys against the delegated script contract.
+    if (
+        stem != "Transform-Tract-Producer-Year"
+        and "runpy.run_path" in text
+        and "Transform-Tract-Producer-Year.py" in text
+    ):
+        return _extract_all_arg_keys("Transform-Tract-Producer-Year")
+
     keys: Set[str] = set()
     # args.get("key") and _opt("key", ...)
     for m in re.finditer(r"""(?:args\.get|_opt)\(\s*['"](\w+)['"]""", text):
@@ -149,6 +161,10 @@ def _job_params(config: Dict, stem: str) -> Dict[str, str]:
 def _strip_dashes(key: str) -> str:
     """'--sss_database' → 'sss_database'"""
     return key.lstrip("-")
+
+
+def _state_text() -> str:
+    return _STATE_FILE.read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -267,9 +283,13 @@ class TestConfigScriptContract(unittest.TestCase):
                     f"args.get('{key}') — likely a parameter name mismatch",
                 )
 
-    def test_transform_tract_all_configs(self):
+    def test_transform_tract_incremental_all_configs(self):
         for cfg in CONFIG_FILES:
-            self._check(cfg, "Transform-Tract-Producer-Year")
+            self._check(cfg, "Transform-Tract-Producer-Year-Incremental")
+
+    def test_transform_tract_full_load_all_configs(self):
+        for cfg in CONFIG_FILES:
+            self._check(cfg, "Transform-Tract-Producer-Year-FullLoad")
 
     def test_transform_farm_all_configs(self):
         for cfg in CONFIG_FILES:
@@ -290,7 +310,11 @@ class TestConfigScriptContract(unittest.TestCase):
         """
         for cfg_file in CONFIG_FILES:
             config = _load_config(cfg_file)
-            for stem in ["Transform-Tract-Producer-Year", "Transform-Farm-Producer-Year"]:
+            for stem in [
+                "Transform-Tract-Producer-Year-Incremental",
+                "Transform-Tract-Producer-Year-FullLoad",
+                "Transform-Farm-Producer-Year",
+            ]:
                 params = _job_params(config, stem)
                 with self.subTest(config=cfg_file, script=stem):
                     self.assertNotIn(
@@ -332,7 +356,8 @@ class TestDatabaseSemantics(unittest.TestCase):
     """
 
     TRANSFORM_STEMS = [
-        "Transform-Tract-Producer-Year",
+        "Transform-Tract-Producer-Year-Incremental",
+        "Transform-Tract-Producer-Year-FullLoad",
         "Transform-Farm-Producer-Year",
         "Sync-Iceberg-To-RDS",
         "Iceberg-Maintenance",
@@ -365,9 +390,13 @@ class TestDatabaseSemantics(unittest.TestCase):
         if tgt is not None and stem in self.TRANSFORM_STEMS:
             self._assert_suffix(tgt, _GOLD_SUFFIX, f"{ctx}: --target_database")
 
-    def test_all_configs_transform_tract(self):
+    def test_all_configs_transform_tract_incremental(self):
         for cfg in CONFIG_FILES:
-            self._check_config(cfg, "Transform-Tract-Producer-Year")
+            self._check_config(cfg, "Transform-Tract-Producer-Year-Incremental")
+
+    def test_all_configs_transform_tract_full_load(self):
+        for cfg in CONFIG_FILES:
+            self._check_config(cfg, "Transform-Tract-Producer-Year-FullLoad")
 
     def test_all_configs_transform_farm(self):
         for cfg in CONFIG_FILES:
@@ -487,15 +516,19 @@ class TestMergeFallbackSafety(unittest.TestCase):
     def test_transform_tract_has_merge_fallback(self):
         text = _script_text("Transform-Tract-Producer-Year")
         self.assertIn("FULL_LOAD_INSERT_SQL", text)
+        self.assertIn("FULL_LOAD_OVERWRITE_SQL", text)
+        self.assertIn("INSERT OVERWRITE {TARGET_FQN}", text)
         self.assertIn("DELETE FROM {TARGET_FQN} WHERE true", text)
-        self.assertIn("Executing full-load direct reset", text)
+        self.assertIn("Executing full-load overwrite", text)
         self.assertIn("INSERT INTO {TARGET_FQN} (", text)
 
     def test_transform_farm_has_merge_fallback(self):
         text = _script_text("Transform-Farm-Producer-Year")
         self.assertIn("FULL_LOAD_INSERT_SQL", text)
+        self.assertIn("FULL_LOAD_OVERWRITE_SQL", text)
+        self.assertIn("INSERT OVERWRITE {TARGET_FQN}", text)
         self.assertIn("DELETE FROM {TARGET_FQN} WHERE true", text)
-        self.assertIn("Executing full-load direct reset", text)
+        self.assertIn("Executing full-load overwrite", text)
         self.assertIn("INSERT INTO {TARGET_FQN}", text)
 
     def test_transform_farm_insert_includes_identity_column(self):
@@ -571,6 +604,46 @@ class TestRuntimeOptimizationSafety(unittest.TestCase):
             with self.subTest(script=stem):
                 self.assertNotIn("source_df.cache()", text)
 
+    def test_tract_incremental_uses_delta_pruned_merge_source(self):
+        text = _script_text("Transform-Tract-Producer-Year")
+        self.assertIn("new_tract_producer_year_delta", text)
+        self.assertIn("USING new_tract_producer_year_delta s", text)
+        self.assertIn("phase_delta_seconds", text)
+
+    def test_tract_enables_adaptive_and_skew_join(self):
+        text = _script_text("Transform-Tract-Producer-Year")
+        self.assertIn('"spark.sql.adaptive.enabled"', text)
+        self.assertIn('"spark.sql.adaptive.skewJoin.enabled"', text)
+        self.assertIn('"spark.sql.shuffle.partitions"', text)
+
+
+class TestTractModeDispatchContract(unittest.TestCase):
+    """
+    Step Functions must dispatch tract transform via explicit job names
+    (incremental vs full-load) instead of passing --full_load into a single job.
+    """
+
+    def test_state_machine_uses_split_tract_placeholders(self):
+        text = _state_text()
+        self.assertIn("__TRANSFORM_TRACT_PY_INCR_GLUE_JOB_NAME__", text)
+        self.assertIn("__TRANSFORM_TRACT_PY_FULL_GLUE_JOB_NAME__", text)
+
+    def test_state_machine_no_full_load_arg_on_tract_tasks(self):
+        text = _state_text()
+        tract_branch = re.search(
+            r'"ChooseTransformTractMode".*?"TransformFarmProducerYear"',
+            text,
+            re.S,
+        )
+        self.assertIsNotNone(tract_branch, "Tract transform branch not found in state machine")
+        self.assertNotIn("--full_load.$", tract_branch.group(0))
+
+    def test_wrapper_scripts_force_mode(self):
+        incr = _script_text("Transform-Tract-Producer-Year-Incremental")
+        full = _script_text("Transform-Tract-Producer-Year-FullLoad")
+        self.assertIn('_set_or_add_flag("--full_load", "false")', incr)
+        self.assertIn('_set_or_add_flag("--full_load", "true")', full)
+
 
 # ---------------------------------------------------------------------------
 # Entry point
@@ -589,6 +662,7 @@ if __name__ == "__main__":
         TestMergeFallbackSafety,
         TestOptionalArgParsingSafety,
         TestRuntimeOptimizationSafety,
+        TestTractModeDispatchContract,
     ]:
         suite.addTests(loader.loadTestsFromTestCase(cls))
 

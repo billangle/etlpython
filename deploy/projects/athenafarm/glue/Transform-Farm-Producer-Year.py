@@ -373,6 +373,36 @@ if FULL_LOAD:
         farm_producer_rma_pcw_exception_code
     FROM new_farm_producer_year
     """
+    FULL_LOAD_OVERWRITE_SQL = f"""
+    INSERT OVERWRITE {TARGET_FQN}
+    SELECT
+        farm_producer_year_identifier,
+        core_customer_identifier,
+        farm_year_identifier,
+        producer_involvement_code,
+        producer_involvement_interrupted_indicator,
+        producer_involvement_start_date,
+        producer_involvement_end_date,
+        farm_producer_hel_exception_code,
+        farm_producer_cw_exception_code,
+        farm_producer_pcw_exception_code,
+        data_status_code,
+        creation_date,
+        last_change_date,
+        last_change_user_name,
+        time_period_identifier,
+        state_fsa_code,
+        county_fsa_code,
+        farm_identifier,
+        farm_number,
+        hel_appeals_exhausted_date,
+        cw_appeals_exhausted_date,
+        pcw_appeals_exhausted_date,
+        farm_producer_rma_hel_exception_code,
+        farm_producer_rma_cw_exception_code,
+        farm_producer_rma_pcw_exception_code
+    FROM new_farm_producer_year
+    """
     log.info("Full-load mode: MERGE INTO — WHEN NOT MATCHED only")
 else:
     MERGE_SQL = f"""
@@ -429,9 +459,16 @@ else:
 
 if FULL_LOAD:
     write_t0 = time.perf_counter()
-    log.info(f"Executing full-load direct reset for {TARGET_FQN} (DELETE + INSERT)")
-    spark.sql(f"DELETE FROM {TARGET_FQN} WHERE true")
-    spark.sql(FULL_LOAD_INSERT_SQL)
+    log.info(f"Executing full-load overwrite for {TARGET_FQN} (INSERT OVERWRITE)")
+    try:
+        spark.sql(FULL_LOAD_OVERWRITE_SQL)
+    except Exception as overwrite_exc:
+        log.warning(
+            f"Full-load overwrite failed for {TARGET_FQN}; falling back to DELETE + INSERT. "
+            f"Reason: {overwrite_exc}"
+        )
+        spark.sql(f"DELETE FROM {TARGET_FQN} WHERE true")
+        spark.sql(FULL_LOAD_INSERT_SQL)
 else:
     write_t0 = time.perf_counter()
     log.info(f"Executing MERGE INTO {TARGET_FQN}")

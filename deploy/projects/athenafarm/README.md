@@ -1,6 +1,6 @@
 # athenafarm — tract/farm Producer Year Iceberg Pipeline
 
-Replaces four Athena SQL files with a six-job AWS Glue + Step Functions pipeline
+Replaces four Athena SQL files with an eight-job AWS Glue + Step Functions pipeline
 that runs in **30–90 seconds** instead of hours.
 
 See [prjhelpers/postgres/athena/arch.md](../../../../prjhelpers/postgres/athena/arch.md)
@@ -17,7 +17,9 @@ deploy/projects/athenafarm/
 │   ├── Ingest-SSS-Farmrecords.py           # SSS Athena → S3 Iceberg
 │   ├── Ingest-PG-Reference-Tables.py       # PG reference tables → S3 Iceberg
 │   ├── Ingest-PG-CDC-Targets.py            # PG CDC targets → S3 Iceberg
-│   ├── Transform-Tract-Producer-Year.py    # CTE + MERGE INTO tract_producer_year
+│   ├── Transform-Tract-Producer-Year.py             # Shared tract transform implementation
+│   ├── Transform-Tract-Producer-Year-Incremental.py # Wrapper: forces full_load=false
+│   ├── Transform-Tract-Producer-Year-FullLoad.py    # Wrapper: forces full_load=true
 │   ├── Transform-Farm-Producer-Year.py     # CTE + MERGE INTO farm_producer_year
 │   ├── Sync-Iceberg-To-RDS.py             # Delta sync Iceberg → RDS PostgreSQL
 │   └── Iceberg-Maintenance.py             # Weekly OPTIMIZE + EXPIRE SNAPSHOTS
@@ -35,9 +37,9 @@ deploy/projects/athenafarm/
 
 | Original Athena SQL file | Replaced by |
 |---|---|
-| `TRACT_PRODUCER_YEAR_INSERT_ATHENA.sql` | `Transform-Tract-Producer-Year` (MERGE INTO — `WHEN NOT MATCHED`) |
-| `TRACT_PRODUCER_YEAR_INSERT_NO_COMPARE_ATHENA.sql` | `Transform-Tract-Producer-Year` with `--full_load=true` |
-| `TRACT_PRODUCER_YEAR_UPDATE_ATHENA.sql` | `Transform-Tract-Producer-Year` (MERGE INTO — `WHEN MATCHED`) |
+| `TRACT_PRODUCER_YEAR_INSERT_ATHENA.sql` | `Transform-Tract-Producer-Year-Incremental` (MERGE path) |
+| `TRACT_PRODUCER_YEAR_INSERT_NO_COMPARE_ATHENA.sql` | `Transform-Tract-Producer-Year-FullLoad` (direct reset path) |
+| `TRACT_PRODUCER_YEAR_UPDATE_ATHENA.sql` | `Transform-Tract-Producer-Year-Incremental` (MERGE path) |
 | `TRACT_PRODUCER_YEAR_SELECT.sql` | `Transform-Farm-Producer-Year` |
 
 ---
@@ -55,7 +57,9 @@ Manual / Lambda / CI trigger (no EventBridge — see "Running Without EventBridg
         │    └─ Ingest-PG-CDC-Targets           (PG CDC → athenafarm_prod_cdc Iceberg)
         │
         ├─ [TransformParallel]                  (both transforms run concurrently)
-        │    ├─ Transform-Tract-Producer-Year   (CTE + MERGE INTO tract_producer_year)
+        │    ├─ ChooseTransformTractMode        (Choice on full_load)
+        │    │    ├─ full_load=true  → Transform-Tract-Producer-Year-FullLoad
+        │    │    └─ default         → Transform-Tract-Producer-Year-Incremental
         │    └─ Transform-Farm-Producer-Year    (CTE + MERGE INTO farm_producer_year)
         │
         ├─ CheckSkipRDSSync                     (default: skip — must pass skip_rds_sync=false to run sync)
@@ -209,14 +213,22 @@ aws glue start-job-run \
     "--full_load":        "false"
   }'
 
-# Example: re-run the tract/producer-year transform only
+# Example: re-run the tract/producer-year transform only (incremental variant)
 aws glue start-job-run \
   --region us-east-1 \
-  --job-name "FSA-${ENV}-ATHENAFARM-Transform-Tract-Producer-Year" \
+  --job-name "FSA-${ENV}-ATHENAFARM-Transform-Tract-Producer-Year-Incremental" \
   --arguments '{
     "--env":              "'"${ENV}"'",
-    "--iceberg_warehouse":"'"${WAREHOUSE}"'",
-    "--full_load":        "false"
+    "--iceberg_warehouse":"'"${WAREHOUSE}"'"
+  }'
+
+# Example: tract full-load variant
+aws glue start-job-run \
+  --region us-east-1 \
+  --job-name "FSA-${ENV}-ATHENAFARM-Transform-Tract-Producer-Year-FullLoad" \
+  --arguments '{
+    "--env":              "'"${ENV}"'",
+    "--iceberg_warehouse":"'"${WAREHOUSE}"'"
   }'
 ```
 
@@ -225,7 +237,7 @@ Wait for the run to finish:
 ```bash
 aws glue get-job-run \
   --region us-east-1 \
-  --job-name "FSA-${ENV}-ATHENAFARM-Transform-Tract-Producer-Year" \
+  --job-name "FSA-${ENV}-ATHENAFARM-Transform-Tract-Producer-Year-Incremental" \
   --run-id "<JobRunId from start-job-run output>" \
   --query 'JobRun.JobRunState'
 ```
@@ -336,7 +348,8 @@ CheckSSSCrawlerStatus
 | Ingest-SSS-Farmrecords | 10 | 5–15 min | Reads SSS Parquet, writes Iceberg with partition sort |
 | Ingest-PG-Reference-Tables | 4 | 10–30 min | Parallel JDBC reads (20 partitions per table, PK range) |
 | Ingest-PG-CDC-Targets | 4 | 10–30 min | Same parallel JDBC approach |
-| Transform-Tract-Producer-Year | 20 | 5–20 min | Incremental MERGE; full load uses direct reset (`DELETE + INSERT`) |
+| Transform-Tract-Producer-Year-Incremental | 20 | 5–20 min | Incremental MERGE with delta-pruned source |
+| Transform-Tract-Producer-Year-FullLoad | 20 | 5–20 min | Full reset path (`DELETE + INSERT`) |
 | Transform-Farm-Producer-Year | 20 | 3–12 min | Incremental MERGE; full load uses direct reset (`DELETE + INSERT`) |
 | Sync-Iceberg-To-RDS | 4 | 2–15 min | Delta-only (snapshot diff); full load is longer |
 | Iceberg-Maintenance | 2 | 5–20 min | OPTIMIZE + EXPIRE SNAPSHOTS across all tables |
@@ -441,7 +454,7 @@ Post-MERGE row counts are read from Iceberg snapshot metadata
 | `--env` | all | Deployment environment | (required) |
 | `--iceberg_warehouse` | all | S3 URI for Iceberg warehouse root | (required) |
 | `--secret_id` | PG ingest, Sync | AWS Secrets Manager secret ID for PG credentials | from config |
-| `--full_load` | Transform, Sync | `true` = full rebuild; Sync also truncates RDS before insert | `false` |
+| `--full_load` | Transform-Farm, Sync | `true` = full rebuild; Sync also truncates RDS before insert | `false` |
 | `--sss_database` | Transform | Glue catalog DB for SSS Iceberg tables | `athenafarm_prod_raw` |
 | `--ref_database` | Transform | Glue catalog DB for PG reference Iceberg tables | `athenafarm_prod_ref` |
 | `--target_database` | Ingest PG, Transform | Glue catalog DB for target Iceberg tables | `athenafarm_prod_gold` |
@@ -452,7 +465,7 @@ Post-MERGE row counts are read from Iceberg snapshot metadata
 
 | Parameter | Type | Description | Default |
 |---|---|---|---|
-| `full_load` | boolean/string | Force full rebuild of all Iceberg tables; Sync truncates RDS before reload | `false` |
+| `full_load` | boolean/string | Controls tract mode dispatch in Step Functions (incremental vs full-load tract job); also passed to Farm and Sync | `false` |
 | `skip_rds_sync` | boolean | Skip `Sync-Iceberg-To-RDS`. **Default is `true` (absent = skip)**. Pass `false` explicitly to run the sync. | `true` |
 
 ---
@@ -490,7 +503,8 @@ All Glue jobs write continuous logs to CloudWatch. Three args are injected by
 | Ingest-SSS-Farmrecords | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Ingest-SSS-Farmrecords` |
 | Ingest-PG-Reference-Tables | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Ingest-PG-Reference-Tables` |
 | Ingest-PG-CDC-Targets | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Ingest-PG-CDC-Targets` |
-| Transform-Tract-Producer-Year | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year` |
+| Transform-Tract-Producer-Year-Incremental | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year-Incremental` |
+| Transform-Tract-Producer-Year-FullLoad | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year-FullLoad` |
 | Transform-Farm-Producer-Year | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Transform-Farm-Producer-Year` |
 | Sync-Iceberg-To-RDS | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Sync-Iceberg-To-RDS` |
 | Iceberg-Maintenance | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Iceberg-Maintenance` |
@@ -513,7 +527,7 @@ block (field `Id`). Use it to go directly to the relevant stream:
 
 ```bash
 ENV="PROD"
-JOB="FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year"
+JOB="FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year-Incremental"
 RUN_ID="jr_abc123..."
 
 aws logs get-log-events \
@@ -540,7 +554,8 @@ This is the fastest way to identify root cause without reading raw log output.
 
 ### Runtime metrics emitted by transform jobs
 
-`Transform-Tract-Producer-Year` and `Transform-Farm-Producer-Year` emit
+`Transform-Tract-Producer-Year-Incremental`, `Transform-Tract-Producer-Year-FullLoad`,
+and `Transform-Farm-Producer-Year` emit
 structured metric lines to the driver log for every run:
 
 - `[METRIC] mode=incremental|full_load`
@@ -584,7 +599,7 @@ For targeted CloudShell reruns of the two transform jobs updated during
 
 ```bash
 chmod +x deploy/projects/athenafarm/tests/run_errors14_glue_jobs.sh
-deploy/projects/athenafarm/tests/run_errors14_glue_jobs.sh PROD us-east-1
+deploy/projects/athenafarm/tests/run_errors14_glue_jobs.sh --env PROD --region us-east-1 --full-load true
 ```
 
 The script starts both jobs, polls status, and exits non-zero if either fails.

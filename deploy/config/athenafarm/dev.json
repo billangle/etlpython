@@ -115,7 +115,7 @@
       }
     },
     {
-      "Transform-Tract-Producer-Year": {
+      "Transform-Tract-Producer-Year-Incremental": {
         "Connections": [{ "ConnectionName": "" }],
         "MaxConcurrency": "1",
         "MaxRetries": "0",
@@ -138,8 +138,35 @@
           "--sss_database": "athenafarm_dev_raw",
           "--ref_database": "athenafarm_dev_ref",
           "--target_database": "athenafarm_dev_gold",
-          "--target_table": "tract_producer_year",
-          "--full_load": "false"
+          "--target_table": "tract_producer_year"
+        }
+      }
+    },
+    {
+      "Transform-Tract-Producer-Year-FullLoad": {
+        "Connections": [{ "ConnectionName": "" }],
+        "MaxConcurrency": "1",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "120",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/athenafarm/",
+        "NumberOfWorkers": "10",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://fsa-dev-ops/temp/glue/",
+        "PythonLibraryPath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--sss_database": "athenafarm_dev_raw",
+          "--ref_database": "athenafarm_dev_ref",
+          "--target_database": "athenafarm_dev_gold",
+          "--target_table": "tract_producer_year"
         }
       }
     },

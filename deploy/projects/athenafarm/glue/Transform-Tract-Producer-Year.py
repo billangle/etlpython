@@ -511,8 +511,8 @@ output_cols = [
 ]
 
 latest_row_struct = F.struct(
-    F.col("creation_date"),
-    F.col("last_change_date"),
+    F.col("creation_date").alias("_ord_creation_date"),
+    F.col("last_change_date").alias("_ord_last_change_date"),
     *[F.col(col_name) for col_name in output_cols],
 )
 

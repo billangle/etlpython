@@ -598,6 +598,11 @@ class TestRuntimeOptimizationSafety(unittest.TestCase):
             with self.subTest(script=stem):
                 self.assertIn('write.format("iceberg").mode("overwrite").saveAsTable(TARGET_FQN)', text)
 
+    def test_tract_dedupe_struct_uses_unique_order_field_names(self):
+        text = _script_text("Transform-Tract-Producer-Year")
+        self.assertIn('F.col("creation_date").alias("_ord_creation_date")', text)
+        self.assertIn('F.col("last_change_date").alias("_ord_last_change_date")', text)
+
     def test_all_glue_jobs_enable_adaptive_settings(self):
         scripts = [
             "Ingest-SSS-Farmrecords",

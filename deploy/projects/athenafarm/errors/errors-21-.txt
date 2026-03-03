@@ -1,0 +1,473 @@
+{
+  "full_load": "true",
+  "ingest_results": [
+    {
+      "AllocatedCapacity": 20,
+      "Arguments": {
+        "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+        "--env": "PROD"
+      },
+      "Attempt": 0,
+      "CompletedOn": 1772573564871,
+      "ExecutionTime": 1426,
+      "GlueVersion": "4.0",
+      "Id": "jr_029540d6e86387826c123d8ed9dab60788859b7fcd65e7fe63c473e21eb24b3c",
+      "JobMode": "SCRIPT",
+      "JobName": "FSA-PROD-ATHENAFARM-Ingest-SSS-Farmrecords",
+      "JobRunState": "SUCCEEDED",
+      "LastModifiedOn": 1772573564871,
+      "LogGroupName": "/aws-glue/jobs",
+      "MaxCapacity": 20,
+      "NumberOfWorkers": 10,
+      "PredecessorRuns": [],
+      "StartedOn": 1772572132645,
+      "Timeout": 120,
+      "WorkerType": "G.2X"
+    },
+    {
+      "AllocatedCapacity": 8,
+      "Arguments": {
+        "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+        "--env": "PROD"
+      },
+      "Attempt": 0,
+      "CompletedOn": 1772573872233,
+      "ExecutionTime": 1781,
+      "GlueVersion": "4.0",
+      "Id": "jr_80f8b3a5e250aa75e73ca0d7c24476f879d5ba446a68d84e728fb747b44dd81b",
+      "JobMode": "SCRIPT",
+      "JobName": "FSA-PROD-ATHENAFARM-Ingest-PG-Reference-Tables",
+      "JobRunState": "SUCCEEDED",
+      "LastModifiedOn": 1772573872233,
+      "LogGroupName": "/aws-glue/jobs",
+      "MaxCapacity": 8,
+      "NumberOfWorkers": 4,
+      "PredecessorRuns": [],
+      "StartedOn": 1772572071561,
+      "Timeout": 480,
+      "WorkerType": "G.2X"
+    },
+    {
+      "AllocatedCapacity": 8,
+      "Arguments": {
+        "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+        "--env": "PROD"
+      },
+      "Attempt": 0,
+      "CompletedOn": 1772572778194,
+      "ExecutionTime": 687,
+      "GlueVersion": "4.0",
+      "Id": "jr_92176d032118244c45b97a54464fed312a0ae826b0d5cc247d9bbf137184c2f9",
+      "JobMode": "SCRIPT",
+      "JobName": "FSA-PROD-ATHENAFARM-Ingest-PG-CDC-Targets",
+      "JobRunState": "SUCCEEDED",
+      "LastModifiedOn": 1772572778194,
+      "LogGroupName": "/aws-glue/jobs",
+      "MaxCapacity": 8,
+      "NumberOfWorkers": 4,
+      "PredecessorRuns": [],
+      "StartedOn": 1772572071541,
+      "Timeout": 480,
+      "WorkerType": "G.2X"
+    }
+  ]
+}
+
+
+{
+  "JobRunId": "jr_b5ea39c738bf852b355e7d7caa4de219fa95dac8f5491f5504f4a880a0ad3577",
+  "SdkHttpMetadata": {
+    "AllHttpHeaders": {
+      "Cache-Control": [
+        "no-cache"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "x-amzn-RequestId": [
+        "184ee820-d594-47f9-b446-4549ab418fff"
+      ],
+      "Content-Length": [
+        "82"
+      ],
+      "Date": [
+        "Tue, 03 Mar 2026 21:42:19 GMT"
+      ],
+      "Content-Type": [
+        "application/x-amz-json-1.1"
+      ]
+    },
+    "HttpHeaders": {
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "Content-Length": "82",
+      "Content-Type": "application/x-amz-json-1.1",
+      "Date": "Tue, 03 Mar 2026 21:42:19 GMT",
+      "x-amzn-RequestId": "184ee820-d594-47f9-b446-4549ab418fff"
+    },
+    "HttpStatusCode": 200
+  },
+  "SdkResponseMetadata": {
+    "RequestId": "184ee820-d594-47f9-b446-4549ab418fff"
+  },
+  "JobName": "FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year"
+}
+
+
+2026-03-03T22:04:37.643Z
+26/03/03 22:04:37 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] {"Event":"GlueExceptionAnalysisTaskFailed","Timestamp":1772575477639,"Failure Reason":"Executor Lost Failure (executor ID: 13): Some(Remote RPC client disassociated. Likely due to containers exceeding thresholds, or network issues. Check driver logs for WARN messages.)","Stack Trace":[],"Task Launch Time":1772574501319,"Stage ID":30,"Stage Attempt ID":0,"Task Type":"ShuffleMapTask","Executor ID":"13","Task ID":3618}
+2026-03-03T22:04:37.717Z
+26/03/03 22:04:37 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] {"Event":"GlueExceptionAnalysisTaskFailed","Timestamp":1772575477717,"Failure Reason":"Executor Lost Failure (executor ID: 13): Some(Remote RPC client disassociated. Likely due to containers exceeding thresholds, or network issues. Check driver logs for WARN messages.)","Stack Trace":[],"Task Launch Time":1772575449764,"Stage ID":35,"Stage Attempt ID":0,"Task Type":"ShuffleMapTask","Executor ID":"13","Task ID":3762}
+2026-03-03T22:04:44.607Z
+26/03/03 22:04:44 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] {"Event":"GlueExceptionAnalysisStageFailed","Timestamp":1772575484600,"Failure Reason":"org.apache.spark.shuffle.FetchFailedException","Stack Trace":[{"Declaring Class":"org.apache.spark.errors.SparkCoreErrors$","Method Name":"fetchFailedError","File Name":"SparkCoreErrors.scala","Line Number":312},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"throwFetchFailedException","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":1202},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"next","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":940},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"next","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":83},{"Declaring Class":"org.apache.spark.util.CompletionIterator","Method Name":"next","File Name":"CompletionIterator.scala","Line Number":29},{"Declaring Class":"scala.collection.Iterator$$anon$11","Method Name":"nextCur","File Name":"Iterator.scala","Line Number":486},{"Declaring Class":"scala.collection.Iterator$$anon$11","Method Name":"hasNext","File Name":"Iterator.scala","Line Number":492},{"Declaring Class":"scala.collection.Iterator$$anon$10","Method Name":"hasNext","File Name":"Iterator.scala","Line Number":460},{"Declaring Class":"org.apache.spark.util.CompletionIterator","Method Name":"hasNext","File Name":"CompletionIterator.scala","Line Number":31},{"Declaring Class":"org.apache.spark.InterruptibleIterator","Method Name":"hasNext","File Name":"InterruptibleIterator.scala","Line Number":37},{"Declaring Class":"scala.collection.Iterator$$anon$10","Method Name":"hasNext","File Name":"Iterator.scala","Line Number":460},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage23","Method Name":"sort_addToSorter_0$","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage23","Method Name":"sort_doSort_0$","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage23","Method Name":"processNext","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.execution.BufferedRowIterator","Method Name":"hasNext","File Name":"BufferedRowIterator.java","Line Number":35},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage23","Method Name":"hasNext","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.execution.WholeStageCodegenExec$$anon$1","Method Name":"hasNext","File Name":"WholeStageCodegenExec.scala","Line Number":968},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage25","Method Name":"smj_findNextJoinRows_0$","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage25","Method Name":"processNext","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.execution.BufferedRowIterator","Method Name":"hasNext","File Name":"BufferedRowIterator.java","Line Number":35},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage25","Method Name":"hasNext","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.execution.WholeStageCodegenExec$$anon$2","Method Name":"hasNext","File Name":"WholeStageCodegenExec.scala","Line Number":987},{"Declaring Class":"scala.collection.Iterator$$anon$10","Method Name":"hasNext","File Name":"Iterator.scala","Line Number":460},{"Declaring Class":"org.apache.spark.shuffle.sort.BypassMergeSortShuffleWriter","Method Name":"write","File Name":"BypassMergeSortShuffleWriter.java","Line Number":142},{"Declaring Class":"org.apache.spark.shuffle.ShuffleWriteProcessor","Method Name":"write","File Name":"ShuffleWriteProcessor.scala","Line Number":59},{"Declaring Class":"org.apache.spark.scheduler.ShuffleMapTask","Method Name":"runTask","File Name":"ShuffleMapTask.scala","Line Number":99},{"Declaring Class":"org.apache.spark.scheduler.ShuffleMapTask","Method Name":"runTask","File Name":"ShuffleMapTask.scala","Line Number":52},{"Declaring Class":"org.apache.spark.scheduler.Task","Method Name":"run","File Name":"Task.scala","Line Number":138},{"Declaring Class":"org.apache.spark.executor.Executor$TaskRunner","Method Name":"$anonfun$run$3","File Name":"Executor.scala","Line Number":548},{"Declaring Class":"org.apache.spark.util.Utils$","Method Name":"tryWithSafeFinally","File Name":"Utils.scala","Line Number":1516},{"Declaring Class":"org.apache.spark.executor.Executor$TaskRunner","Method Name":"run","File Name":"Executor.scala","Line Number":551},{"Declaring Class":"java.util.concurrent.ThreadPoolExecutor","Method Name":"runWorker","File Name":"ThreadPoolExecutor.java","Line Number":1149},{"Declaring Class":"java.util.concurrent.ThreadPoolExecutor$Worker","Method Name":"run","File Name":"ThreadPoolExecutor.java","Line Number":624},{"Declaring Class":"java.lang.Thread","Method Name":"run","File Name":"Thread.java","Line Number":750},{"Declaring Class":" org.apache.spark.ExecutorDeadException: The relative remote executor(Id: 13), which maintains the block data to fetch is dead.","Method Name":"CausedBy","File Name":"CausedBy","Line Number":-1},{"Declaring Class":"org.apache.spark.network.netty.NettyBlockTransferService$$anon$2","Method Name":"createAndStart","File Name":"NettyBlockTransferService.scala","Line Number":136},{"Declaring Class":"org.apache.spark.network.shuffle.RetryingBlockTransferor","Method Name":"transferAllOutstanding","File Name":"RetryingBlockTransferor.java","Line Number":154},{"Declaring Class":"org.apache.spark.network.shuffle.RetryingBlockTransferor","Method Name":"start","File Name":"RetryingBlockTransferor.java","Line Number":133},{"Declaring Class":"org.apache.spark.network.netty.NettyBlockTransferService","Method Name":"fetchBlocks","File Name":"NettyBlockTransferService.scala","Line Number":146},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"sendRequest","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":369},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"send$1","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":1172},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"fetchUpToMaxBytes","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":1164},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"next","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":1037}],"Stage ID":30,"Stage Attempt ID":0,"Number of Tasks":152}
+2026-03-03T22:05:04.480Z
+26/03/03 22:05:04 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] {"Event":"GlueExceptionAnalysisStageFailed","Timestamp":1772575504478,"Failure Reason":"org.apache.spark.shuffle.FetchFailedException","Stack Trace":[{"Declaring Class":"org.apache.spark.errors.SparkCoreErrors$","Method Name":"fetchFailedError","File Name":"SparkCoreErrors.scala","Line Number":312},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"throwFetchFailedException","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":1202},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"next","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":940},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"next","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":83},{"Declaring Class":"org.apache.spark.util.CompletionIterator","Method Name":"next","File Name":"CompletionIterator.scala","Line Number":29},{"Declaring Class":"scala.collection.Iterator$$anon$11","Method Name":"nextCur","File Name":"Iterator.scala","Line Number":486},{"Declaring Class":"scala.collection.Iterator$$anon$11","Method Name":"hasNext","File Name":"Iterator.scala","Line Number":492},{"Declaring Class":"scala.collection.Iterator$$anon$10","Method Name":"hasNext","File Name":"Iterator.scala","Line Number":460},{"Declaring Class":"org.apache.spark.util.CompletionIterator","Method Name":"hasNext","File Name":"CompletionIterator.scala","Line Number":31},{"Declaring Class":"org.apache.spark.InterruptibleIterator","Method Name":"hasNext","File Name":"InterruptibleIterator.scala","Line Number":37},{"Declaring Class":"scala.collection.Iterator$$anon$10","Method Name":"hasNext","File Name":"Iterator.scala","Line Number":460},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage27","Method Name":"sort_addToSorter_0$","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage27","Method Name":"sort_doSort_0$","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage27","Method Name":"processNext","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.execution.BufferedRowIterator","Method Name":"hasNext","File Name":"BufferedRowIterator.java","Line Number":35},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage27","Method Name":"hasNext","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.execution.WholeStageCodegenExec$$anon$1","Method Name":"hasNext","File Name":"WholeStageCodegenExec.scala","Line Number":968},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage28","Method Name":"smj_findNextJoinRows_0$","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage28","Method Name":"processNext","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.execution.BufferedRowIterator","Method Name":"hasNext","File Name":"BufferedRowIterator.java","Line Number":35},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage28","Method Name":"hasNext","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.execution.WholeStageCodegenExec$$anon$2","Method Name":"hasNext","File Name":"WholeStageCodegenExec.scala","Line Number":987},{"Declaring Class":"scala.collection.Iterator$$anon$10","Method Name":"hasNext","File Name":"Iterator.scala","Line Number":460},{"Declaring Class":"org.apache.spark.shuffle.sort.BypassMergeSortShuffleWriter","Method Name":"write","File Name":"BypassMergeSortShuffleWriter.java","Line Number":142},{"Declaring Class":"org.apache.spark.shuffle.ShuffleWriteProcessor","Method Name":"write","File Name":"ShuffleWriteProcessor.scala","Line Number":59},{"Declaring Class":"org.apache.spark.scheduler.ShuffleMapTask","Method Name":"runTask","File Name":"ShuffleMapTask.scala","Line Number":99},{"Declaring Class":"org.apache.spark.scheduler.ShuffleMapTask","Method Name":"runTask","File Name":"ShuffleMapTask.scala","Line Number":52},{"Declaring Class":"org.apache.spark.scheduler.Task","Method Name":"run","File Name":"Task.scala","Line Number":138},{"Declaring Class":"org.apache.spark.executor.Executor$TaskRunner","Method Name":"$anonfun$run$3","File Name":"Executor.scala","Line Number":548},{"Declaring Class":"org.apache.spark.util.Utils$","Method Name":"tryWithSafeFinally","File Name":"Utils.scala","Line Number":1516},{"Declaring Class":"org.apache.spark.executor.Executor$TaskRunner","Method Name":"run","File Name":"Executor.scala","Line Number":551},{"Declaring Class":"java.util.concurrent.ThreadPoolExecutor","Method Name":"runWorker","File Name":"ThreadPoolExecutor.java","Line Number":1149},{"Declaring Class":"java.util.concurrent.ThreadPoolExecutor$Worker","Method Name":"run","File Name":"ThreadPoolExecutor.java","Line Number":624},{"Declaring Class":"java.lang.Thread","Method Name":"run","File Name":"Thread.java","Line Number":750},{"Declaring Class":" org.apache.spark.ExecutorDeadException: The relative remote executor(Id: 19), which maintains the block data to fetch is dead.","Method Name":"CausedBy","File Name":"CausedBy","Line Number":-1},{"Declaring Class":"org.apache.spark.network.netty.NettyBlockTransferService$$anon$2","Method Name":"createAndStart","File Name":"NettyBlockTransferService.scala","Line Number":136},{"Declaring Class":"org.apache.spark.network.shuffle.RetryingBlockTransferor","Method Name":"transferAllOutstanding","File Name":"RetryingBlockTransferor.java","Line Number":154},{"Declaring Class":"org.apache.spark.network.shuffle.RetryingBlockTransferor","Method Name":"start","File Name":"RetryingBlockTransferor.java","Line Number":133},{"Declaring Class":"org.apache.spark.network.netty.NettyBlockTransferService","Method Name":"fetchBlocks","File Name":"NettyBlockTransferService.scala","Line Number":146},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"sendRequest","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":369},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"send$1","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":1172},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"fetchUpToMaxBytes","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":1164},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"next","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":1037}],"Stage ID":35,"Stage Attempt ID":0,"Number of Tasks":152}
+2026-03-03T22:08:07.043Z
+26/03/03 22:08:07 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] {"Event":"GlueExceptionAnalysisStageFailed","Timestamp":1772575687008,"Failure Reason":"org.apache.spark.shuffle.FetchFailedException","Stack Trace":[{"Declaring Class":"org.apache.spark.errors.SparkCoreErrors$","Method Name":"fetchFailedError","File Name":"SparkCoreErrors.scala","Line Number":312},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"throwFetchFailedException","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":1202},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"next","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":940},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"next","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":83},{"Declaring Class":"org.apache.spark.util.CompletionIterator","Method Name":"next","File Name":"CompletionIterator.scala","Line Number":29},{"Declaring Class":"scala.collection.Iterator$$anon$11","Method Name":"nextCur","File Name":"Iterator.scala","Line Number":486},{"Declaring Class":"scala.collection.Iterator$$anon$11","Method Name":"hasNext","File Name":"Iterator.scala","Line Number":492},{"Declaring Class":"scala.collection.Iterator$$anon$10","Method Name":"hasNext","File Name":"Iterator.scala","Line Number":460},{"Declaring Class":"org.apache.spark.util.CompletionIterator","Method Name":"hasNext","File Name":"CompletionIterator.scala","Line Number":31},{"Declaring Class":"org.apache.spark.InterruptibleIterator","Method Name":"hasNext","File Name":"InterruptibleIterator.scala","Line Number":37},{"Declaring Class":"scala.collection.Iterator$$anon$10","Method Name":"hasNext","File Name":"Iterator.scala","Line Number":460},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage23","Method Name":"sort_addToSorter_0$","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage23","Method Name":"sort_doSort_0$","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage23","Method Name":"processNext","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.execution.BufferedRowIterator","Method Name":"hasNext","File Name":"BufferedRowIterator.java","Line Number":35},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage23","Method Name":"hasNext","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.execution.WholeStageCodegenExec$$anon$1","Method Name":"hasNext","File Name":"WholeStageCodegenExec.scala","Line Number":968},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage25","Method Name":"smj_findNextJoinRows_0$","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage25","Method Name":"processNext","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.execution.BufferedRowIterator","Method Name":"hasNext","File Name":"BufferedRowIterator.java","Line Number":35},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage25","Method Name":"hasNext","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.execution.WholeStageCodegenExec$$anon$2","Method Name":"hasNext","File Name":"WholeStageCodegenExec.scala","Line Number":987},{"Declaring Class":"scala.collection.Iterator$$anon$10","Method Name":"hasNext","File Name":"Iterator.scala","Line Number":460},{"Declaring Class":"org.apache.spark.shuffle.sort.BypassMergeSortShuffleWriter","Method Name":"write","File Name":"BypassMergeSortShuffleWriter.java","Line Number":142},{"Declaring Class":"org.apache.spark.shuffle.ShuffleWriteProcessor","Method Name":"write","File Name":"ShuffleWriteProcessor.scala","Line Number":59},{"Declaring Class":"org.apache.spark.scheduler.ShuffleMapTask","Method Name":"runTask","File Name":"ShuffleMapTask.scala","Line Number":99},{"Declaring Class":"org.apache.spark.scheduler.ShuffleMapTask","Method Name":"runTask","File Name":"ShuffleMapTask.scala","Line Number":52},{"Declaring Class":"org.apache.spark.scheduler.Task","Method Name":"run","File Name":"Task.scala","Line Number":138},{"Declaring Class":"org.apache.spark.executor.Executor$TaskRunner","Method Name":"$anonfun$run$3","File Name":"Executor.scala","Line Number":548},{"Declaring Class":"org.apache.spark.util.Utils$","Method Name":"tryWithSafeFinally","File Name":"Utils.scala","Line Number":1516},{"Declaring Class":"org.apache.spark.executor.Executor$TaskRunner","Method Name":"run","File Name":"Executor.scala","Line Number":551},{"Declaring Class":"java.util.concurrent.ThreadPoolExecutor","Method Name":"runWorker","File Name":"ThreadPoolExecutor.java","Line Number":1149},{"Declaring Class":"java.util.concurrent.ThreadPoolExecutor$Worker","Method Name":"run","File Name":"ThreadPoolExecutor.java","Line Number":624},{"Declaring Class":"java.lang.Thread","Method Name":"run","File Name":"Thread.java","Line Number":750},{"Declaring Class":" org.apache.spark.ExecutorDeadException: The relative remote executor(Id: 7), which maintains the block data to fetch is dead.","Method Name":"CausedBy","File Name":"CausedBy","Line Number":-1},{"Declaring Class":"org.apache.spark.network.netty.NettyBlockTransferService$$anon$2","Method Name":"createAndStart","File Name":"NettyBlockTransferService.scala","Line Number":136},{"Declaring Class":"org.apache.spark.network.shuffle.RetryingBlockTransferor","Method Name":"transferAllOutstanding","File Name":"RetryingBlockTransferor.java","Line Number":154},{"Declaring Class":"org.apache.spark.network.shuffle.RetryingBlockTransferor","Method Name":"start","File Name":"RetryingBlockTransferor.java","Line Number":133},{"Declaring Class":"org.apache.spark.network.netty.NettyBlockTransferService","Method Name":"fetchBlocks","File Name":"NettyBlockTransferService.scala","Line Number":146},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"sendRequest","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":369},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"send$1","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":1172},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"fetchUpToMaxBytes","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":1164},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"next","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":1037}],"Stage ID":30,"Stage Attempt ID":1,"Number of Tasks":39}
+2026-03-03T22:08:27.671Z
+26/03/03 22:08:27 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] {"Event":"GlueExceptionAnalysisStageFailed","Timestamp":1772575707670,"Failure Reason":"org.apache.spark.shuffle.FetchFailedException","Stack Trace":[{"Declaring Class":"org.apache.spark.errors.SparkCoreErrors$","Method Name":"fetchFailedError","File Name":"SparkCoreErrors.scala","Line Number":312},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"throwFetchFailedException","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":1202},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"next","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":940},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"next","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":83},{"Declaring Class":"org.apache.spark.util.CompletionIterator","Method Name":"next","File Name":"CompletionIterator.scala","Line Number":29},{"Declaring Class":"scala.collection.Iterator$$anon$11","Method Name":"nextCur","File Name":"Iterator.scala","Line Number":486},{"Declaring Class":"scala.collection.Iterator$$anon$11","Method Name":"hasNext","File Name":"Iterator.scala","Line Number":492},{"Declaring Class":"scala.collection.Iterator$$anon$10","Method Name":"hasNext","File Name":"Iterator.scala","Line Number":460},{"Declaring Class":"org.apache.spark.util.CompletionIterator","Method Name":"hasNext","File Name":"CompletionIterator.scala","Line Number":31},{"Declaring Class":"org.apache.spark.InterruptibleIterator","Method Name":"hasNext","File Name":"InterruptibleIterator.scala","Line Number":37},{"Declaring Class":"scala.collection.Iterator$$anon$10","Method Name":"hasNext","File Name":"Iterator.scala","Line Number":460},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage26","Method Name":"sort_addToSorter_0$","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage26","Method Name":"sort_doSort_0$","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage26","Method Name":"processNext","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.execution.BufferedRowIterator","Method Name":"hasNext","File Name":"BufferedRowIterator.java","Line Number":35},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage26","Method Name":"hasNext","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.execution.WholeStageCodegenExec$$anon$1","Method Name":"hasNext","File Name":"WholeStageCodegenExec.scala","Line Number":968},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage28","Method Name":"smj_findNextJoinRows_0$","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage28","Method Name":"processNext","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.execution.BufferedRowIterator","Method Name":"hasNext","File Name":"BufferedRowIterator.java","Line Number":35},{"Declaring Class":"org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage28","Method Name":"hasNext","File Name":"Unknown Source","Line Number":-1},{"Declaring Class":"org.apache.spark.sql.execution.WholeStageCodegenExec$$anon$2","Method Name":"hasNext","File Name":"WholeStageCodegenExec.scala","Line Number":987},{"Declaring Class":"scala.collection.Iterator$$anon$10","Method Name":"hasNext","File Name":"Iterator.scala","Line Number":460},{"Declaring Class":"org.apache.spark.shuffle.sort.BypassMergeSortShuffleWriter","Method Name":"write","File Name":"BypassMergeSortShuffleWriter.java","Line Number":142},{"Declaring Class":"org.apache.spark.shuffle.ShuffleWriteProcessor","Method Name":"write","File Name":"ShuffleWriteProcessor.scala","Line Number":59},{"Declaring Class":"org.apache.spark.scheduler.ShuffleMapTask","Method Name":"runTask","File Name":"ShuffleMapTask.scala","Line Number":99},{"Declaring Class":"org.apache.spark.scheduler.ShuffleMapTask","Method Name":"runTask","File Name":"ShuffleMapTask.scala","Line Number":52},{"Declaring Class":"org.apache.spark.scheduler.Task","Method Name":"run","File Name":"Task.scala","Line Number":138},{"Declaring Class":"org.apache.spark.executor.Executor$TaskRunner","Method Name":"$anonfun$run$3","File Name":"Executor.scala","Line Number":548},{"Declaring Class":"org.apache.spark.util.Utils$","Method Name":"tryWithSafeFinally","File Name":"Utils.scala","Line Number":1516},{"Declaring Class":"org.apache.spark.executor.Executor$TaskRunner","Method Name":"run","File Name":"Executor.scala","Line Number":551},{"Declaring Class":"java.util.concurrent.ThreadPoolExecutor","Method Name":"runWorker","File Name":"ThreadPoolExecutor.java","Line Number":1149},{"Declaring Class":"java.util.concurrent.ThreadPoolExecutor$Worker","Method Name":"run","File Name":"ThreadPoolExecutor.java","Line Number":624},{"Declaring Class":"java.lang.Thread","Method Name":"run","File Name":"Thread.java","Line Number":750},{"Declaring Class":" org.apache.spark.ExecutorDeadException: The relative remote executor(Id: 7), which maintains the block data to fetch is dead.","Method Name":"CausedBy","File Name":"CausedBy","Line Number":-1},{"Declaring Class":"org.apache.spark.network.netty.NettyBlockTransferService$$anon$2","Method Name":"createAndStart","File Name":"NettyBlockTransferService.scala","Line Number":136},{"Declaring Class":"org.apache.spark.network.shuffle.RetryingBlockTransferor","Method Name":"transferAllOutstanding","File Name":"RetryingBlockTransferor.java","Line Number":154},{"Declaring Class":"org.apache.spark.network.shuffle.RetryingBlockTransferor","Method Name":"start","File Name":"RetryingBlockTransferor.java","Line Number":133},{"Declaring Class":"org.apache.spark.network.netty.NettyBlockTransferService","Method Name":"fetchBlocks","File Name":"NettyBlockTransferService.scala","Line Number":146},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"sendRequest","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":369},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"send$1","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":1172},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"fetchUpToMaxBytes","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":1164},{"Declaring Class":"org.apache.spark.storage.ShuffleBlockFetcherIterator","Method Name":"next","File Name":"ShuffleBlockFetcherIterator.scala","Line Number":1037}],"Stage ID":35,"Stage Attempt ID":1,"Number of Tasks":152}
+
+
+26/03/03 20:58:30 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] 
+{
+    "Event": "GlueETLJobExceptionEvent",
+    "Timestamp": 1772571510689,
+    "Failure Reason": "Traceback (most recent call last):\n  File \"/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py\", line 509, in <module>\n    tract_tbl.groupBy(*dedupe_keys)\n  File \"/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/dataframe.py\", line 2024, in select\n    jdf = self._jdf.select(self._jcols(*cols))\n  File \"/opt/amazon/spark/python/lib/py4j-0.10.9.5-src.zip/py4j/java_gateway.py\", line 1321, in __call__\n    return_value = get_return_value(\n  File \"/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/utils.py\", line 196, in deco\n    raise converted from None\npyspark.sql.utils.AnalysisException: Ambiguous reference to fields StructField(creation_date,DateType,true), StructField(creation_date,DateType,true)",
+    "Stack Trace": [
+        {
+            "Declaring Class": "deco",
+            "Method Name": "raise converted from None",
+            "File Name": "/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/utils.py",
+            "Line Number": 196
+        },
+        {
+            "Declaring Class": "__call__",
+            "Method Name": "return_value = get_return_value(",
+            "File Name": "/opt/amazon/spark/python/lib/py4j-0.10.9.5-src.zip/py4j/java_gateway.py",
+            "Line Number": 1321
+        },
+        {
+            "Declaring Class": "select",
+            "Method Name": "jdf = self._jdf.select(self._jcols(*cols))",
+            "File Name": "/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/dataframe.py",
+            "Line Number": 2024
+        },
+        {
+            "Declaring Class": "<module>",
+            "Method Name": "tract_tbl.groupBy(*dedupe_keys)",
+            "File Name": "/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py",
+            "Line Number": 509
+        }
+    ],
+    "Last Executed Line number": 509,
+    "script": "FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py"
+}
+
+
+26/03/03 20:58:30 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] {"Event":"GlueETLJobExceptionEvent","Timestamp":1772571510689,"Failure Reason":"Traceback (most recent call last):\n File \"/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py\", line 509, in <module>\n tract_tbl.groupBy(*dedupe_keys)\n File \"/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/dataframe.py\", line 2024, in select\n jdf = self._jdf.select(self._jcols(*cols))\n File \"/opt/amazon/spark/python/lib/py4j-0.10.9.5-src.zip/py4j/java_gateway.py\", line 1321, in __call__\n return_value = get_return_value(\n File \"/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/utils.py\", line 196, in deco\n raise converted from None\npyspark.sql.utils.AnalysisException: Ambiguous reference to fields StructField(creation_date,DateType,true), StructField(creation_date,DateType,true)","Stack Trace":[{"Declaring Class":"deco","Method Name":"raise converted from None","File Name":"/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/utils.py","Line Number":196},{"Declaring Class":"__call__","Method Name":"return_value = get_return_value(","File Name":"/opt/amazon/spark/python/lib/py4j-0.10.9.5-src.zip/py4j/java_gateway.py","Line Number":1321},{"Declaring Class":"select","Method Name":"jdf = self._jdf.select(self._jcols(*cols))","File Name":"/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/dataframe.py","Line Number":2024},{"Declaring Class":"<module>","Method Name":"tract_tbl.groupBy(*dedupe_keys)","File Name":"/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py","Line Number":509}],"Last Executed Line number":509,"script":"FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py"}
+2026-03-03T20:58:30.753Z
+26/03/03 20:58:30 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] Last Executed Line number from script FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py: 509
+
+26/03/03 22:24:54 INFO JESSchedulerBackend: polling for JES task status
+26/03/03 22:23:54 INFO ExecutorTaskManagement: polling for executor task status
+26/03/03 22:23:54 INFO JESSchedulerBackend: polling for JES task status
+26/03/03 22:22:54 INFO ExecutorTaskManagement: polling for executor task status
+26/03/03 22:22:54 INFO JESSchedulerBackend: polling for JES task status
+26/03/03 22:21:54 INFO ExecutorTaskManagement: polling for executor task status
+26/03/03 22:21:54 INFO JESSchedulerBackend: polling for JES task status
+26/03/03 22:20:54 INFO ExecutorTaskManagement: polling for executor task status
+26/03/03 22:20:54 INFO JESSchedulerBackend: polling for JES task status
+26/03/03 22:19:54 INFO ExecutorTaskManagement: polling for executor task status
+26/03/03 22:19:54 INFO JESSchedulerBackend: polling for JES task status
+26/03/03 22:18:54 INFO ExecutorTaskManagement: polling for executor task status
+26/03/03 22:18:54 INFO JESSchedulerBackend: polling for JES task status
+26/03/03 22:17:54 INFO ExecutorTaskManagement: polling for executor task status
+26/03/03 22:17:54 INFO JESSchedulerBackend: polling for JES task status
+26/03/03 22:16:54 INFO ExecutorTaskManagement: polling for executor task status
+26/03/03 22:16:54 INFO JESSchedulerBackend: polling for JES task status
+26/03/03 22:15:54 INFO ExecutorTaskManagement: polling for executor task status
+26/03/03 22:15:53 INFO JESSchedulerBackend: polling for JES task status
+26/03/03 22:14:53 INFO ExecutorTaskManagement: polling for executor task status
+26/03/03 22:14:53 INFO JESSchedulerBackend: polling for JES task status
+26/03/03 22:13:53 INFO ExecutorTaskManagement: polling for executor task status
+26/03/03 22:13:53 INFO JESSchedulerBackend: polling for JES task status
+26/03/03 22:12:53 INFO JESSchedulerBackend: polling for JES task status
+26/03/03 22:12:53 INFO ExecutorTaskManagement: polling for executor task status
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_85_piece0 on 172.36.250.172:39621 in memory (size: 23.1 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_85_piece0 on 172.36.30.84:41145 in memory (size: 23.1 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_85_piece0 on 172.39.225.216:41343 in memory (size: 23.1 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_85_piece0 on 172.34.211.100:35403 in memory (size: 23.1 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_85_piece0 on 172.35.181.37:40321 in memory (size: 23.1 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_85_piece0 on 172.38.66.184:39625 in memory (size: 23.1 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_85_piece0 on 172.38.67.101:43045 in memory (size: 23.1 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_85_piece0 on 172.36.60.213:33053 in memory (size: 23.1 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_85_piece0 on 172.39.204.66:35843 in memory (size: 23.1 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_85_piece0 on 172.36.20.89:42269 in memory (size: 23.1 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_65_piece0 on 172.39.240.193:43619 in memory (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_65_piece0 on 172.36.30.84:41145 in memory (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_65_piece0 on 172.36.225.151:43873 in memory (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_65_piece0 on 172.36.60.213:33053 in memory (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_65_piece0 on 172.35.181.37:40321 in memory (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_65_piece0 on 172.35.43.92:42219 in memory (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_65_piece0 on 172.34.52.94:41495 in memory (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_65_piece0 on 172.34.230.69:38891 in memory (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_65_piece0 on 172.38.181.157:33745 in memory (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_65_piece0 on 172.38.67.101:43045 in memory (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_65_piece0 on 172.35.226.55:41771 in memory (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_65_piece0 on 172.39.225.216:41343 in memory (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_65_piece0 on 172.38.102.51:44665 in memory (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_65_piece0 on 172.39.204.66:35843 in memory (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_65_piece0 on 172.38.32.102:41111 in memory (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_65_piece0 on 172.38.66.184:39625 in memory (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_65_piece0 on 172.36.20.89:42269 in memory (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_86_piece0 on 172.39.240.193:43619 in memory (size: 20.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_86_piece0 on 172.34.211.100:35403 in memory (size: 20.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_86_piece0 on 172.34.52.94:41495 in memory (size: 20.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_86_piece0 on 172.34.230.69:38891 in memory (size: 20.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_86_piece0 on 172.34.129.174:41773 in memory (size: 20.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_86_piece0 on 172.38.67.101:43045 in memory (size: 20.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_86_piece0 on 172.38.102.51:44665 in memory (size: 20.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_86_piece0 on 172.38.181.157:33745 in memory (size: 20.2 KiB, free: 11.8 GiB)
+26/03/03 22:12:53 INFO BlockManagerInfo: Removed broadcast_86_piece0 on 172.36.20.89:42269 in memory (size: 20.2 KiB, free: 11.8 GiB)
+26/03/03 22:11:53 INFO ExecutorTaskManagement: polling for executor task status
+26/03/03 22:11:53 INFO JESSchedulerBackend: polling for JES task status
+26/03/03 22:10:53 INFO ExecutorTaskManagement: polling for executor task status
+26/03/03 22:10:53 INFO JESSchedulerBackend: polling for JES task status
+26/03/03 22:09:53 INFO ExecutorTaskManagement: polling for executor task status
+26/03/03 22:09:53 INFO JESSchedulerBackend: polling for JES task status
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.34.129.174:47134
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.39.240.193:39266
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.34.129.174:47134
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.34.230.69:52052
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.39.240.193:39266
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.36.250.172:36888
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.34.211.100:34434
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.34.230.69:52052
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.34.52.94:50740
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.38.67.101:41768
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.39.204.66:51912
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.34.230.69:38891 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.36.60.213:34882
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.36.225.151:41358
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.35.226.55:43984
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.36.30.84:35000
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.38.181.157:36864
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.38.102.51:43560
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.39.240.193:43619 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.38.66.184:57732
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.35.181.37:53686
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.39.225.216:36558
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.34.211.100:34434
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.38.32.102:36126
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.38.67.101:41768
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 9 to 172.35.43.92:49258
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.34.52.94:50740
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.38.66.184:57732
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.35.181.37:53686
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.38.102.51:43560
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.34.129.174:41773 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.36.250.172:36888
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.35.226.55:43984
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.38.181.157:36864
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.35.43.92:49258
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.36.225.151:41358
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.36.60.213:34882
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.36.30.84:35000
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.39.204.66:51912
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.38.32.102:36126
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.34.211.100:35403 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.38.67.101:43045 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.34.52.94:41495 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.38.66.184:39625 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 16 to 172.39.225.216:36558
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.35.181.37:40321 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.38.102.51:44665 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.35.43.92:42219 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.38.181.157:33745 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.36.30.84:41145 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.36.250.172:39621 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.35.226.55:41771 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.36.60.213:33053 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.36.225.151:43873 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.38.32.102:41111 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.39.204.66:35843 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.39.225.216:41343 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 106.0 in stage 35.2 (TID 4392) (172.38.181.157, executor 18, partition 106, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 107.0 in stage 35.2 (TID 4393) (172.34.230.69, executor 16, partition 107, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 108.0 in stage 35.2 (TID 4394) (172.38.67.101, executor 6, partition 108, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 100.0 in stage 35.2 (TID 4386) (172.36.250.172, executor 25, partition 100, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 101.0 in stage 35.2 (TID 4387) (172.36.30.84, executor 3, partition 101, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 102.0 in stage 35.2 (TID 4388) (172.35.181.37, executor 17, partition 102, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 103.0 in stage 35.2 (TID 4389) (172.38.66.184, executor 15, partition 103, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 104.0 in stage 35.2 (TID 4390) (172.38.67.101, executor 6, partition 104, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 105.0 in stage 35.2 (TID 4391) (172.39.225.216, executor 8, partition 105, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 95.0 in stage 35.2 (TID 4381) (172.38.181.157, executor 18, partition 95, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 96.0 in stage 35.2 (TID 4382) (172.35.43.92, executor 4, partition 96, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 97.0 in stage 35.2 (TID 4383) (172.39.204.66, executor 12, partition 97, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 98.0 in stage 35.2 (TID 4384) (172.34.230.69, executor 16, partition 98, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 99.0 in stage 35.2 (TID 4385) (172.34.129.174, executor 27, partition 99, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 91.0 in stage 35.2 (TID 4377) (172.38.67.101, executor 6, partition 91, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 92.0 in stage 35.2 (TID 4378) (172.39.225.216, executor 8, partition 92, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 93.0 in stage 35.2 (TID 4379) (172.36.225.151, executor 9, partition 93, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 94.0 in stage 35.2 (TID 4380) (172.38.32.102, executor 5, partition 94, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 86.0 in stage 35.2 (TID 4372) (172.34.52.94, executor 1, partition 86, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 87.0 in stage 35.2 (TID 4373) (172.36.30.84, executor 3, partition 87, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 88.0 in stage 35.2 (TID 4374) (172.34.211.100, executor 23, partition 88, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 89.0 in stage 35.2 (TID 4375) (172.35.181.37, executor 17, partition 89, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 90.0 in stage 35.2 (TID 4376) (172.38.66.184, executor 15, partition 90, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 80.0 in stage 35.2 (TID 4366) (172.35.43.92, executor 4, partition 80, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 81.0 in stage 35.2 (TID 4367) (172.39.204.66, executor 12, partition 81, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 82.0 in stage 35.2 (TID 4368) (172.38.102.51, executor 2, partition 82, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 83.0 in stage 35.2 (TID 4369) (172.34.230.69, executor 16, partition 83, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 84.0 in stage 35.2 (TID 4370) (172.34.129.174, executor 27, partition 84, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 85.0 in stage 35.2 (TID 4371) (172.36.250.172, executor 25, partition 85, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 75.0 in stage 35.2 (TID 4361) (172.38.67.101, executor 6, partition 75, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 76.0 in stage 35.2 (TID 4362) (172.39.225.216, executor 8, partition 76, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 77.0 in stage 35.2 (TID 4363) (172.36.225.151, executor 9, partition 77, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 78.0 in stage 35.2 (TID 4364) (172.38.32.102, executor 5, partition 78, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 79.0 in stage 35.2 (TID 4365) (172.38.181.157, executor 18, partition 79, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 70.0 in stage 35.2 (TID 4356) (172.34.52.94, executor 1, partition 70, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 71.0 in stage 35.2 (TID 4357) (172.36.30.84, executor 3, partition 71, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 72.0 in stage 35.2 (TID 4358) (172.34.211.100, executor 23, partition 72, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 73.0 in stage 35.2 (TID 4359) (172.35.181.37, executor 17, partition 73, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 74.0 in stage 35.2 (TID 4360) (172.38.66.184, executor 15, partition 74, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 65.0 in stage 35.2 (TID 4351) (172.39.204.66, executor 12, partition 65, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 66.0 in stage 35.2 (TID 4352) (172.38.102.51, executor 2, partition 66, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 67.0 in stage 35.2 (TID 4353) (172.34.230.69, executor 16, partition 67, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 68.0 in stage 35.2 (TID 4354) (172.34.129.174, executor 27, partition 68, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 69.0 in stage 35.2 (TID 4355) (172.36.250.172, executor 25, partition 69, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 60.0 in stage 35.2 (TID 4346) (172.36.225.151, executor 9, partition 60, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 61.0 in stage 35.2 (TID 4347) (172.38.32.102, executor 5, partition 61, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 62.0 in stage 35.2 (TID 4348) (172.36.60.213, executor 10, partition 62, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 63.0 in stage 35.2 (TID 4349) (172.38.181.157, executor 18, partition 63, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 64.0 in stage 35.2 (TID 4350) (172.35.43.92, executor 4, partition 64, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 55.0 in stage 35.2 (TID 4341) (172.38.66.184, executor 15, partition 55, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 56.0 in stage 35.2 (TID 4342) (172.38.67.101, executor 6, partition 56, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 57.0 in stage 35.2 (TID 4343) (172.39.240.193, executor 11, partition 57, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 58.0 in stage 35.2 (TID 4344) (172.35.226.55, executor 14, partition 58, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 59.0 in stage 35.2 (TID 4345) (172.39.225.216, executor 8, partition 59, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 50.0 in stage 35.2 (TID 4336) (172.36.250.172, executor 25, partition 50, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 51.0 in stage 35.2 (TID 4337) (172.34.52.94, executor 1, partition 51, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 52.0 in stage 35.2 (TID 4338) (172.36.30.84, executor 3, partition 52, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 53.0 in stage 35.2 (TID 4339) (172.34.211.100, executor 23, partition 53, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 54.0 in stage 35.2 (TID 4340) (172.35.181.37, executor 17, partition 54, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 45.0 in stage 35.2 (TID 4331) (172.35.43.92, executor 4, partition 45, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 46.0 in stage 35.2 (TID 4332) (172.39.204.66, executor 12, partition 46, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 47.0 in stage 35.2 (TID 4333) (172.38.102.51, executor 2, partition 47, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 48.0 in stage 35.2 (TID 4334) (172.34.230.69, executor 16, partition 48, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 49.0 in stage 35.2 (TID 4335) (172.34.129.174, executor 27, partition 49, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 40.0 in stage 35.2 (TID 4326) (172.39.225.216, executor 8, partition 40, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 41.0 in stage 35.2 (TID 4327) (172.36.225.151, executor 9, partition 41, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 42.0 in stage 35.2 (TID 4328) (172.38.32.102, executor 5, partition 42, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 43.0 in stage 35.2 (TID 4329) (172.36.60.213, executor 10, partition 43, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 44.0 in stage 35.2 (TID 4330) (172.38.181.157, executor 18, partition 44, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 35.0 in stage 35.2 (TID 4321) (172.35.181.37, executor 17, partition 35, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 36.0 in stage 35.2 (TID 4322) (172.38.66.184, executor 15, partition 36, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 37.0 in stage 35.2 (TID 4323) (172.38.67.101, executor 6, partition 37, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 38.0 in stage 35.2 (TID 4324) (172.39.240.193, executor 11, partition 38, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 39.0 in stage 35.2 (TID 4325) (172.35.226.55, executor 14, partition 39, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 30.0 in stage 35.2 (TID 4316) (172.34.129.174, executor 27, partition 30, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 31.0 in stage 35.2 (TID 4317) (172.36.250.172, executor 25, partition 31, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 32.0 in stage 35.2 (TID 4318) (172.34.52.94, executor 1, partition 32, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 33.0 in stage 35.2 (TID 4319) (172.36.30.84, executor 3, partition 33, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 34.0 in stage 35.2 (TID 4320) (172.34.211.100, executor 23, partition 34, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 25.0 in stage 35.2 (TID 4311) (172.38.181.157, executor 18, partition 25, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 26.0 in stage 35.2 (TID 4312) (172.35.43.92, executor 4, partition 26, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 27.0 in stage 35.2 (TID 4313) (172.39.204.66, executor 12, partition 27, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 28.0 in stage 35.2 (TID 4314) (172.38.102.51, executor 2, partition 28, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 29.0 in stage 35.2 (TID 4315) (172.34.230.69, executor 16, partition 29, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 20.0 in stage 35.2 (TID 4306) (172.35.226.55, executor 14, partition 20, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 21.0 in stage 35.2 (TID 4307) (172.39.225.216, executor 8, partition 21, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 22.0 in stage 35.2 (TID 4308) (172.36.225.151, executor 9, partition 22, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 23.0 in stage 35.2 (TID 4309) (172.38.32.102, executor 5, partition 23, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 24.0 in stage 35.2 (TID 4310) (172.36.60.213, executor 10, partition 24, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 15.0 in stage 35.2 (TID 4301) (172.34.211.100, executor 23, partition 15, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 16.0 in stage 35.2 (TID 4302) (172.35.181.37, executor 17, partition 16, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 17.0 in stage 35.2 (TID 4303) (172.38.66.184, executor 15, partition 17, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 18.0 in stage 35.2 (TID 4304) (172.38.67.101, executor 6, partition 18, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 19.0 in stage 35.2 (TID 4305) (172.39.240.193, executor 11, partition 19, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 10.0 in stage 35.2 (TID 4296) (172.34.230.69, executor 16, partition 10, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 11.0 in stage 35.2 (TID 4297) (172.34.129.174, executor 27, partition 11, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 12.0 in stage 35.2 (TID 4298) (172.36.250.172, executor 25, partition 12, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 13.0 in stage 35.2 (TID 4299) (172.34.52.94, executor 1, partition 13, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 14.0 in stage 35.2 (TID 4300) (172.36.30.84, executor 3, partition 14, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 5.0 in stage 35.2 (TID 4291) (172.36.60.213, executor 10, partition 5, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 6.0 in stage 35.2 (TID 4292) (172.38.181.157, executor 18, partition 6, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 7.0 in stage 35.2 (TID 4293) (172.35.43.92, executor 4, partition 7, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 8.0 in stage 35.2 (TID 4294) (172.39.204.66, executor 12, partition 8, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 9.0 in stage 35.2 (TID 4295) (172.38.102.51, executor 2, partition 9, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 0.0 in stage 35.2 (TID 4286) (172.39.240.193, executor 11, partition 0, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 1.0 in stage 35.2 (TID 4287) (172.35.226.55, executor 14, partition 1, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 2.0 in stage 35.2 (TID 4288) (172.39.225.216, executor 8, partition 2, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 3.0 in stage 35.2 (TID 4289) (172.36.225.151, executor 9, partition 3, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO TaskSetManager: Starting task 4.0 in stage 35.2 (TID 4290) (172.38.32.102, executor 5, partition 4, PROCESS_LOCAL, 4736 bytes) taskResourceAssignments Map()
+26/03/03 22:09:42 INFO DAGScheduler: Submitting 152 missing tasks from ShuffleMapStage 35 (MapPartitionsRDD[114] at saveAsTable at NativeMethodAccessorImpl.java:0) (first 15 tasks are for partitions Vector(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14))
+26/03/03 22:09:42 INFO TaskSchedulerImpl: Adding task set 35.2 with 152 tasks resource profile 0
+26/03/03 22:09:42 INFO BlockManagerInfo: Added broadcast_95_piece0 in memory on 172.36.20.89:42269 (size: 35.6 KiB, free: 11.8 GiB)
+26/03/03 22:09:42 INFO SparkContext: Created broadcast 95 from broadcast at DAGScheduler.scala:1570
+26/03/03 22:09:42 INFO MemoryStore: Block broadcast_95_piece0 stored as bytes in memory (estimated size 35.6 KiB, free 11.8 GiB)
+26/03/03 22:09:42 INFO MemoryStore: Block broadcast_95 stored as values in memory (estimated size 98.6 KiB, free 11.8 GiB)
+26/03/03 22:09:42 INFO DAGScheduler: looking for newly runnable stages
+26/03/03 22:09:42 INFO DAGScheduler: running: Set(ShuffleMapStage 30)
+26/03/03 22:09:42 INFO DAGScheduler: waiting: Set(ShuffleMapStage 35)
+26/03/03 22:09:42 INFO DAGScheduler: failed: Set()
+26/03/03 22:09:42 INFO DAGScheduler: Submitting ShuffleMapStage 35 (MapPartitionsRDD[114] at saveAsTable at NativeMethodAccessorImpl.java:0), which has no missing parents
+26/03/03 22:09:42 INFO OutputCommitCoordinator: Reusing state from previous attempt of stage 35.
+26/03/03 22:09:42 INFO TaskSetManager: Finished task 0.0 in stage 33.2 (TID 4254) in 56148 ms on 172.38.67.101 (executor 6) (8/8)
+26/03/03 22:09:42 INFO TaskSchedulerImpl: Removed TaskSet 33.2, whose tasks have all completed, from pool 
+26/03/03 22:09:42 INFO DAGScheduler: ShuffleMapStage 33 (saveAsTable at NativeMethodAccessorImpl.java:0) finished in 56.152 s
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.34.129.174:47134
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.36.250.172:36888
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.34.211.100:34434
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.34.129.174:47134
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.36.250.172:36888
+26/03/03 22:09:40 INFO BlockManagerInfo: Added broadcast_94_piece0 in memory on 172.36.250.172:39621 (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.35.226.55:43984
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.34.211.100:34434
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.35.226.55:43984
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.36.30.84:35000
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.35.181.37:53686
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.39.204.66:51912
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.38.32.102:36126
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.35.43.92:49258
+26/03/03 22:09:40 INFO BlockManagerInfo: Added broadcast_94_piece0 in memory on 172.35.226.55:41771 (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.38.102.51:43560
+26/03/03 22:09:40 INFO BlockManagerInfo: Added broadcast_94_piece0 in memory on 172.34.211.100:35403 (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.36.30.84:35000
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.39.240.193:39266
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.35.181.37:53686
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.36.225.151:41358
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.35.43.92:49258
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.38.181.157:36864
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.39.204.66:51912
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.39.225.216:36558
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.38.66.184:57732
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.38.32.102:36126
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.38.102.51:43560
+26/03/03 22:09:40 INFO BlockManagerInfo: Added broadcast_94_piece0 in memory on 172.36.30.84:41145 (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:09:40 INFO BlockManagerInfo: Added broadcast_94_piece0 in memory on 172.35.181.37:40321 (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.36.225.151:41358
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.39.225.216:36558
+26/03/03 22:09:40 INFO BlockManagerInfo: Added broadcast_94_piece0 in memory on 172.34.129.174:41773 (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:09:40 INFO BlockManagerInfo: Added broadcast_94_piece0 in memory on 172.39.204.66:35843 (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:09:40 INFO BlockManagerInfo: Added broadcast_94_piece0 in memory on 172.38.32.102:41111 (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:09:40 INFO BlockManagerInfo: Added broadcast_94_piece0 in memory on 172.35.43.92:42219 (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.39.240.193:39266
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.38.181.157:36864
+26/03/03 22:09:40 INFO BlockManagerInfo: Added broadcast_94_piece0 in memory on 172.38.102.51:44665 (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.38.66.184:57732
+26/03/03 22:09:40 INFO BlockManagerInfo: Added broadcast_94_piece0 in memory on 172.36.225.151:43873 (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:09:40 INFO BlockManagerInfo: Added broadcast_94_piece0 in memory on 172.39.225.216:41343 (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:09:40 INFO BlockManagerInfo: Added broadcast_94_piece0 in memory on 172.38.66.184:39625 (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:09:40 INFO BlockManagerInfo: Added broadcast_94_piece0 in memory on 172.39.240.193:43619 (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:09:40 INFO BlockManagerInfo: Added broadcast_94_piece0 in memory on 172.38.181.157:33745 (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.36.60.213:34882
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.34.52.94:50740
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.36.60.213:34882
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.34.52.94:50740
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.38.67.101:41768
+26/03/03 22:09:40 INFO BlockManagerInfo: Added broadcast_94_piece0 in memory on 172.34.52.94:41495 (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:09:40 INFO BlockManagerInfo: Added broadcast_94_piece0 in memory on 172.36.60.213:33053 (size: 26.2 KiB, free: 11.8 GiB)
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 3 to 172.34.230.69:52052
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.38.67.101:41768
+26/03/03 22:09:40 INFO MapOutputTrackerMasterEndpoint: Asked to send map output locations for shuffle 15 to 172.34.230.69:52052

@@ -336,8 +336,8 @@ CheckSSSCrawlerStatus
 | Ingest-SSS-Farmrecords | 10 | 5–15 min | Reads SSS Parquet, writes Iceberg with partition sort |
 | Ingest-PG-Reference-Tables | 4 | 10–30 min | Parallel JDBC reads (20 partitions per table, PK range) |
 | Ingest-PG-CDC-Targets | 4 | 10–30 min | Same parallel JDBC approach |
-| Transform-Tract-Producer-Year | 20 | 15–45 min | Large CTE join; incremental MERGE is fastest |
-| Transform-Farm-Producer-Year | 20 | 5–20 min | Smaller dataset than tract |
+| Transform-Tract-Producer-Year | 20 | 5–20 min | Incremental MERGE; full load uses direct reset (`DELETE + INSERT`) |
+| Transform-Farm-Producer-Year | 20 | 3–12 min | Incremental MERGE; full load uses direct reset (`DELETE + INSERT`) |
 | Sync-Iceberg-To-RDS | 4 | 2–15 min | Delta-only (snapshot diff); full load is longer |
 | Iceberg-Maintenance | 2 | 5–20 min | OPTIMIZE + EXPIRE SNAPSHOTS across all tables |
 
@@ -346,8 +346,8 @@ for a normal incremental run (no RDS sync) is roughly:
 
 ```
 max(Crawler + IngestSSS, IngestPGRefs, IngestPGCDC)   ~30 min
-+ max(TransformTract, TransformFarm)                   ~45 min
-= ~75 min worst-case incremental
++ max(TransformTract, TransformFarm)                   ~20 min
+= ~50 min worst-case incremental
 ```
 
 ---
@@ -404,6 +404,27 @@ MERGE INTO `WHEN MATCHED` conditions use `NOT (t.col <=> s.col)` (NULL-safe equa
 instead of `t.col <> s.col`. Standard `<>` returns `NULL` when either side is `NULL`,
 which means rows with any NULL column would never match the update condition and would
 accumulate as duplicates. `<=>` is always `true` or `false`.
+
+### Transform full-load write path (MERGE-free)
+
+Both transform jobs now use a direct reset path for `full_load=true`:
+
+1. `DELETE FROM glue_catalog.{target_db}.{table}`
+2. `INSERT INTO glue_catalog.{target_db}.{table} (...) SELECT ...`
+
+This avoids MERGE planner/runtime edge cases on large rewrites and guarantees a
+complete replacement of table contents for full loads.
+
+### Runtime optimization safeguards
+
+The transform scripts intentionally avoid `source_df.cache()` and
+`source_df.count()` before writes. Those debug-only actions caused expensive
+shuffle spill and disk pressure (`No space left on device`) on large runs.
+
+Current behavior:
+- incremental mode computes and writes delta rows
+- full-load mode skips existing-target snapshot reads in Farm transform
+- both modes emit phase timings for CloudWatch-based performance tracking
 
 ### Iceberg snapshot count (no full scan)
 
@@ -516,6 +537,57 @@ Glue 4.0 also emits a structured `GlueExceptionAnalysisListener` event to the
 - `script` — the script filename that failed
 
 This is the fastest way to identify root cause without reading raw log output.
+
+### Runtime metrics emitted by transform jobs
+
+`Transform-Tract-Producer-Year` and `Transform-Farm-Producer-Year` emit
+structured metric lines to the driver log for every run:
+
+- `[METRIC] mode=incremental|full_load`
+- `[METRIC] phase_extract_seconds=<float>`
+- `[METRIC] phase_transform_seconds=<float>`
+- `[METRIC] phase_write_seconds=<float>`
+- `[METRIC] phase_snapshot_metric_seconds=<float>`
+- `[METRIC] total_job_seconds=<float>`
+
+Sample CloudWatch Logs Insights query (replace log group as needed):
+
+```sql
+fields @timestamp, @message
+| filter @message like /\[METRIC\]/
+| sort @timestamp desc
+| limit 200
+```
+
+---
+
+## Regression Tests
+
+The contract/regression suite for deployment + transform safety checks is:
+
+- `deploy/projects/athenafarm/checks/test_config_contract.py`
+
+Run from repository root:
+
+```bash
+python3 -m unittest deploy.projects.athenafarm.checks.test_config_contract -v
+```
+
+This suite validates:
+- config key and default contracts (including environment-specific DB names)
+- optional Glue arg parsing safety (`_opt` behavior)
+- first-run table creation and full-load write-path expectations
+- transform optimization guardrails (no debug cache/count regressions)
+
+For targeted CloudShell reruns of the two transform jobs updated during
+`errors-14` troubleshooting:
+
+```bash
+chmod +x deploy/projects/athenafarm/tests/run_errors14_glue_jobs.sh
+deploy/projects/athenafarm/tests/run_errors14_glue_jobs.sh PROD us-east-1
+```
+
+The script starts both jobs, polls status, and exits non-zero if either fails.
 
 ---
 

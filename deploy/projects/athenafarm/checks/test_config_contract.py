@@ -487,15 +487,15 @@ class TestMergeFallbackSafety(unittest.TestCase):
     def test_transform_tract_has_merge_fallback(self):
         text = _script_text("Transform-Tract-Producer-Year")
         self.assertIn("FULL_LOAD_INSERT_SQL", text)
-        self.assertIn("MERGE INTO TABLE is not supported temporarily", text)
         self.assertIn("DELETE FROM {TARGET_FQN} WHERE true", text)
+        self.assertIn("Executing full-load direct reset", text)
         self.assertIn("INSERT INTO {TARGET_FQN} (", text)
 
     def test_transform_farm_has_merge_fallback(self):
         text = _script_text("Transform-Farm-Producer-Year")
         self.assertIn("FULL_LOAD_INSERT_SQL", text)
-        self.assertIn("MERGE INTO TABLE is not supported temporarily", text)
         self.assertIn("DELETE FROM {TARGET_FQN} WHERE true", text)
+        self.assertIn("Executing full-load direct reset", text)
         self.assertIn("INSERT INTO {TARGET_FQN}", text)
 
     def test_transform_farm_insert_includes_identity_column(self):
@@ -554,6 +554,24 @@ class TestOptionalArgParsingSafety(unittest.TestCase):
                 )
 
 
+class TestRuntimeOptimizationSafety(unittest.TestCase):
+    """
+    Guard against heavy debug actions that trigger large shuffles/spills.
+    """
+
+    def test_no_source_df_count_in_transforms(self):
+        for stem in ["Transform-Tract-Producer-Year", "Transform-Farm-Producer-Year"]:
+            text = _script_text(stem)
+            with self.subTest(script=stem):
+                self.assertNotIn("source_df.count()", text)
+
+    def test_no_source_df_cache_in_transforms(self):
+        for stem in ["Transform-Tract-Producer-Year", "Transform-Farm-Producer-Year"]:
+            text = _script_text(stem)
+            with self.subTest(script=stem):
+                self.assertNotIn("source_df.cache()", text)
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -570,6 +588,7 @@ if __name__ == "__main__":
         TestFirstRunTargetSafety,
         TestMergeFallbackSafety,
         TestOptionalArgParsingSafety,
+        TestRuntimeOptimizationSafety,
     ]:
         suite.addTests(loader.loadTestsFromTestCase(cls))
 

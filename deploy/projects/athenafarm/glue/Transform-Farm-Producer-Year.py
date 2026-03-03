@@ -49,6 +49,7 @@ VERSION HISTORY:
 import sys
 import logging
 import traceback
+import time
 from awsglue.utils import getResolvedOptions
 from pyspark import SparkConf
 from pyspark.context import SparkContext
@@ -107,6 +108,8 @@ job = Job(glueContext)
 job.init(JOB_NAME, args)
 
 log.info("=" * 70)
+
+job_t0 = time.perf_counter()
 log.info(f"Job            : {JOB_NAME}")
 log.info(f"Env            : {ENV}")
 log.info(f"Warehouse      : {ICEBERG_WAREHOUSE}")
@@ -115,6 +118,7 @@ log.info(f"Ref DB         : {REF_DB}")
 log.info(f"Target DB      : {TGT_DB}")
 log.info(f"Target Table   : {TGT_TABLE}")
 log.info(f"Full Load      : {FULL_LOAD}")
+log.info(f"[METRIC] mode={'full_load' if FULL_LOAD else 'incremental'}")
 log.info(f"Debug          : {DEBUG}")
 log.info("=" * 70)
 
@@ -136,11 +140,9 @@ register_view(REF_DB, "county_office_control")
 register_view(REF_DB, "farm",      "farm_rds")   # PG farm table — different from fsa_farm_records_farm
 register_view(REF_DB, "farm_year")
 
-try:
-    register_view(TGT_DB, TGT_TABLE, "farm_producer_year_existing")
-except Exception:
-    # First run safety: table may not exist yet.
-    # Provide an empty compatible view so the transform SQL can compile.
+if FULL_LOAD:
+    # Full-load optimization: do not scan/join the existing target table.
+    # Provide an empty compatible view so the SQL compiles and produces NULL id.
     spark.sql(
         """
         SELECT
@@ -149,10 +151,25 @@ except Exception:
         WHERE 1 = 0
         """
     ).createOrReplaceTempView("farm_producer_year_existing")
-    log.warning(
-        f"Target snapshot glue_catalog.{TGT_DB}.{TGT_TABLE} not found; "
-        "using empty farm_producer_year_existing view for initial load"
-    )
+    log.info("Full-load mode: using empty farm_producer_year_existing view (skip target snapshot read)")
+else:
+    try:
+        register_view(TGT_DB, TGT_TABLE, "farm_producer_year_existing")
+    except Exception:
+        # First run safety: table may not exist yet.
+        # Provide an empty compatible view so the transform SQL can compile.
+        spark.sql(
+            """
+            SELECT
+                CAST(NULL AS BIGINT) AS farm_producer_year_identifier,
+                CAST(NULL AS BIGINT) AS farm_year_identifier
+            WHERE 1 = 0
+            """
+        ).createOrReplaceTempView("farm_producer_year_existing")
+        log.warning(
+            f"Target snapshot glue_catalog.{TGT_DB}.{TGT_TABLE} not found; "
+            "using empty farm_producer_year_existing view for initial load"
+        )
 
 log.info("All source views registered — executing farm_producer_year CTE transform")
 
@@ -277,11 +294,11 @@ FROM (
 # extend the LEFT JOIN condition above to include those fields as well.
 
 log.info("Running farm_producer_year CTE transform")
+phase_t0 = time.perf_counter()
 source_df = spark.sql(TRANSFORM_SQL)
-# Cache so .count() and the subsequent MERGE INTO share one materialisation.
-source_df.cache()
 source_df.createOrReplaceTempView("new_farm_producer_year")
-log.info(f"Transform produced {source_df.count():,} source rows")
+log.info("Transform SQL complete; temp view new_farm_producer_year is ready")
+log.info(f"[METRIC] phase_transform_seconds={time.perf_counter() - phase_t0:.3f}")
 
 TARGET_FQN = f"glue_catalog.{TGT_DB}.{TGT_TABLE}"
 
@@ -411,30 +428,19 @@ else:
     log.info("Incremental mode: MERGE INTO — WHEN MATCHED UPDATE + WHEN NOT MATCHED INSERT")
 
 if FULL_LOAD:
-    log.info(f"Executing full-load MERGE INTO {TARGET_FQN}")
-    try:
-        spark.sql(MERGE_SQL)
-    except Exception as exc:
-        msg = str(exc)
-        if (
-            "MERGE INTO TABLE is not supported temporarily" in msg
-            or "UnsupportedOperationException" in msg
-            or "MERGE INTO" in msg and "not supported" in msg
-        ):
-            log.warning(
-                "MERGE INTO not supported in this runtime/table mode; "
-                "falling back to full-load DELETE + INSERT INTO"
-            )
-            spark.sql(f"DELETE FROM {TARGET_FQN} WHERE true")
-            spark.sql(FULL_LOAD_INSERT_SQL)
-        else:
-            raise
+    write_t0 = time.perf_counter()
+    log.info(f"Executing full-load direct reset for {TARGET_FQN} (DELETE + INSERT)")
+    spark.sql(f"DELETE FROM {TARGET_FQN} WHERE true")
+    spark.sql(FULL_LOAD_INSERT_SQL)
 else:
+    write_t0 = time.perf_counter()
     log.info(f"Executing MERGE INTO {TARGET_FQN}")
     spark.sql(MERGE_SQL)
-source_df.unpersist()
+log.info(f"[METRIC] phase_write_seconds={time.perf_counter() - write_t0:.3f}")
+source_df.unpersist(blocking=False)
 
 try:
+    snap_t0 = time.perf_counter()
     snap_row = spark.sql(
         f"SELECT summary['total-records'] AS n "
         f"FROM glue_catalog.{TGT_DB}.{TGT_TABLE}.snapshots "
@@ -443,7 +449,9 @@ try:
     final_count = int(snap_row["n"]) if snap_row else -1
 except Exception:
     final_count = -1
+log.info(f"[METRIC] phase_snapshot_metric_seconds={time.perf_counter() - snap_t0:.3f}")
 log.info(f"[METRIC] {TGT_TABLE}_row_count={final_count}")
 
 job.commit()
+log.info(f"[METRIC] total_job_seconds={time.perf_counter() - job_t0:.3f}")
 log.info("Transform-Farm-Producer-Year: completed successfully")

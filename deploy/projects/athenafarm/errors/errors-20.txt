@@ -1,0 +1,29 @@
+{
+  "cause": {
+    "AllocatedCapacity": 40,
+    "Arguments": {
+      "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+      "--env": "PROD"
+    },
+    "Attempt": 0,
+    "CompletedOn": 1772571525042,
+    "ErrorMessage": "AnalysisException: Ambiguous reference to fields StructField(creation_date,DateType,true), StructField(creation_date,DateType,true)",
+    "ExecutionTime": 74,
+    "GlueVersion": "4.0",
+    "Id": "jr_0cc0b7d1ee79c483b6b06708e6370ee5567f25b08ae0e012881871b6eb7fb748",
+    "JobMode": "SCRIPT",
+    "JobName": "FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year",
+    "JobRunState": "FAILED",
+    "LastModifiedOn": 1772571525042,
+    "LogGroupName": "/aws-glue/jobs",
+    "MaxCapacity": 40,
+    "NumberOfWorkers": 20,
+    "PredecessorRuns": [],
+    "StartedOn": 1772571443956,
+    "Timeout": 480,
+    "WorkerType": "G.2X"
+  },
+  "error": "States.TaskFailed",
+  "resource": "startJobRun.sync",
+  "resourceType": "glue"
+}

@@ -83,7 +83,8 @@ def _opt(name: str, default: str) -> str:
 JOB_NAME          = args["JOB_NAME"]
 ENV               = args["env"]
 ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
-FULL_LOAD         = _opt("full_load", "false").strip().lower() == "true"
+_requested_full_load = _opt("full_load", "true").strip().lower() == "true"
+FULL_LOAD         = True
 SSS_DB            = _opt("sss_database", "athenafarm_prod_raw")
 REF_DB            = _opt("ref_database", "athenafarm_prod_ref")
 TGT_DB            = _opt("target_database", "athenafarm_prod_gold")
@@ -94,6 +95,9 @@ if DEBUG:
     logging.getLogger().setLevel(logging.DEBUG)
     log.setLevel(logging.DEBUG)
     log.debug("DEBUG logging enabled")
+
+if not _requested_full_load:
+    log.warning("Incremental mode is disabled for this job; forcing full-load execution")
 
 _conf = SparkConf()
 _conf.set("spark.sql.catalog.glue_catalog",              "org.apache.iceberg.spark.SparkCatalog")

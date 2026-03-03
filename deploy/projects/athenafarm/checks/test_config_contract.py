@@ -56,8 +56,7 @@ ALL_SCRIPT_STEMS: List[str] = [
     "Ingest-SSS-Farmrecords",
     "Ingest-PG-Reference-Tables",
     "Ingest-PG-CDC-Targets",
-    "Transform-Tract-Producer-Year-Incremental",
-    "Transform-Tract-Producer-Year-FullLoad",
+    "Transform-Tract-Producer-Year",
     "Transform-Farm-Producer-Year",
     "Sync-Iceberg-To-RDS",
     "Iceberg-Maintenance",
@@ -283,13 +282,9 @@ class TestConfigScriptContract(unittest.TestCase):
                     f"args.get('{key}') — likely a parameter name mismatch",
                 )
 
-    def test_transform_tract_incremental_all_configs(self):
-        for cfg in CONFIG_FILES:
-            self._check(cfg, "Transform-Tract-Producer-Year-Incremental")
-
     def test_transform_tract_full_load_all_configs(self):
         for cfg in CONFIG_FILES:
-            self._check(cfg, "Transform-Tract-Producer-Year-FullLoad")
+            self._check(cfg, "Transform-Tract-Producer-Year")
 
     def test_transform_farm_all_configs(self):
         for cfg in CONFIG_FILES:
@@ -311,8 +306,7 @@ class TestConfigScriptContract(unittest.TestCase):
         for cfg_file in CONFIG_FILES:
             config = _load_config(cfg_file)
             for stem in [
-                "Transform-Tract-Producer-Year-Incremental",
-                "Transform-Tract-Producer-Year-FullLoad",
+                "Transform-Tract-Producer-Year",
                 "Transform-Farm-Producer-Year",
             ]:
                 params = _job_params(config, stem)
@@ -356,8 +350,7 @@ class TestDatabaseSemantics(unittest.TestCase):
     """
 
     TRANSFORM_STEMS = [
-        "Transform-Tract-Producer-Year-Incremental",
-        "Transform-Tract-Producer-Year-FullLoad",
+        "Transform-Tract-Producer-Year",
         "Transform-Farm-Producer-Year",
         "Sync-Iceberg-To-RDS",
         "Iceberg-Maintenance",
@@ -390,13 +383,9 @@ class TestDatabaseSemantics(unittest.TestCase):
         if tgt is not None and stem in self.TRANSFORM_STEMS:
             self._assert_suffix(tgt, _GOLD_SUFFIX, f"{ctx}: --target_database")
 
-    def test_all_configs_transform_tract_incremental(self):
-        for cfg in CONFIG_FILES:
-            self._check_config(cfg, "Transform-Tract-Producer-Year-Incremental")
-
     def test_all_configs_transform_tract_full_load(self):
         for cfg in CONFIG_FILES:
-            self._check_config(cfg, "Transform-Tract-Producer-Year-FullLoad")
+            self._check_config(cfg, "Transform-Tract-Producer-Year")
 
     def test_all_configs_transform_farm(self):
         for cfg in CONFIG_FILES:
@@ -619,30 +608,22 @@ class TestRuntimeOptimizationSafety(unittest.TestCase):
 
 class TestTractModeDispatchContract(unittest.TestCase):
     """
-    Step Functions must dispatch tract transform via explicit job names
-    (incremental vs full-load) instead of passing --full_load into a single job.
+    Step Functions must dispatch tract transform via explicit full-load job only.
     """
 
-    def test_state_machine_uses_split_tract_placeholders(self):
+    def test_state_machine_uses_full_load_tract_placeholder(self):
         text = _state_text()
-        self.assertIn("__TRANSFORM_TRACT_PY_INCR_GLUE_JOB_NAME__", text)
-        self.assertIn("__TRANSFORM_TRACT_PY_FULL_GLUE_JOB_NAME__", text)
+        self.assertIn("__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__", text)
+        self.assertNotIn("__TRANSFORM_TRACT_PY_INCR_GLUE_JOB_NAME__", text)
 
-    def test_state_machine_no_full_load_arg_on_tract_tasks(self):
+    def test_state_machine_no_choice_for_tract_mode(self):
         text = _state_text()
-        tract_branch = re.search(
-            r'"ChooseTransformTractMode".*?"TransformFarmProducerYear"',
-            text,
-            re.S,
-        )
-        self.assertIsNotNone(tract_branch, "Tract transform branch not found in state machine")
-        self.assertNotIn("--full_load.$", tract_branch.group(0))
+        self.assertNotIn("ChooseTransformTractMode", text)
 
-    def test_wrapper_scripts_force_mode(self):
-        incr = _script_text("Transform-Tract-Producer-Year-Incremental")
-        full = _script_text("Transform-Tract-Producer-Year-FullLoad")
-        self.assertIn('_set_or_add_flag("--full_load", "false")', incr)
-        self.assertIn('_set_or_add_flag("--full_load", "true")', full)
+    def test_core_tract_script_forces_full_mode(self):
+        text = _script_text("Transform-Tract-Producer-Year")
+        self.assertIn("FULL_LOAD         = True", text)
+        self.assertIn("forcing full-load execution", text)
 
 
 # ---------------------------------------------------------------------------

@@ -176,41 +176,14 @@
       "Comment": "Run tract and farm producer year transforms concurrently. Both read from S3 Iceberg only (no shared write targets, no locks).",
       "Branches": [
         {
-          "StartAt": "ChooseTransformTractMode",
+          "StartAt": "TransformTractProducerYearFullLoad",
           "States": {
-            "ChooseTransformTractMode": {
-              "Type": "Choice",
-              "Comment": "Dispatch to explicit tract Glue job variant; full_load=true uses dedicated full-load job, otherwise incremental job.",
-              "Choices": [
-                {
-                  "Variable": "$.full_load",
-                  "BooleanEquals": true,
-                  "Next": "TransformTractProducerYearFullLoad"
-                }
-              ],
-              "Default": "TransformTractProducerYearIncremental"
-            },
-            "TransformTractProducerYearIncremental": {
-              "Type": "Task",
-              "Comment": "Run tract incremental transform job (explicit incremental mode).",
-              "Resource": "arn:aws:states:::glue:startJobRun.sync",
-              "Parameters": {
-                "JobName": "__TRANSFORM_TRACT_PY_INCR_GLUE_JOB_NAME__",
-                "Arguments": {
-                  "--env": "__ENV__",
-                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__"
-                }
-              },
-              "TimeoutSeconds": 28800,
-              "ResultPath": "$.transform_tpy_result",
-              "End": true
-            },
             "TransformTractProducerYearFullLoad": {
               "Type": "Task",
-              "Comment": "Run tract full-load transform job (explicit full-load mode).",
+              "Comment": "Run tract transform job (full-load only).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
-                "JobName": "__TRANSFORM_TRACT_PY_FULL_GLUE_JOB_NAME__",
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__"
@@ -234,7 +207,7 @@
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
-                  "--full_load.$": "$.full_load"
+                  "--full_load": "true"
                 }
               },
               "TimeoutSeconds": 28800,
@@ -285,7 +258,7 @@
         "Arguments": {
           "--env": "__ENV__",
           "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
-          "--full_load.$": "$.full_load"
+          "--full_load": "true"
         }
       },
       "TimeoutSeconds": 28800,

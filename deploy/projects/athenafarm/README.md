@@ -17,9 +17,7 @@ deploy/projects/athenafarm/
 │   ├── Ingest-SSS-Farmrecords.py           # SSS Athena → S3 Iceberg
 │   ├── Ingest-PG-Reference-Tables.py       # PG reference tables → S3 Iceberg
 │   ├── Ingest-PG-CDC-Targets.py            # PG CDC targets → S3 Iceberg
-│   ├── Transform-Tract-Producer-Year.py             # Shared tract transform implementation
-│   ├── Transform-Tract-Producer-Year-Incremental.py # Wrapper: forces full_load=false
-│   ├── Transform-Tract-Producer-Year-FullLoad.py    # Wrapper: forces full_load=true
+│   ├── Transform-Tract-Producer-Year.py    # Tract transform (full-load only)
 │   ├── Transform-Farm-Producer-Year.py     # CTE + MERGE INTO farm_producer_year
 │   ├── Sync-Iceberg-To-RDS.py             # Delta sync Iceberg → RDS PostgreSQL
 │   └── Iceberg-Maintenance.py             # Weekly OPTIMIZE + EXPIRE SNAPSHOTS
@@ -37,9 +35,9 @@ deploy/projects/athenafarm/
 
 | Original Athena SQL file | Replaced by |
 |---|---|
-| `TRACT_PRODUCER_YEAR_INSERT_ATHENA.sql` | `Transform-Tract-Producer-Year-Incremental` (MERGE path) |
-| `TRACT_PRODUCER_YEAR_INSERT_NO_COMPARE_ATHENA.sql` | `Transform-Tract-Producer-Year-FullLoad` (direct reset path) |
-| `TRACT_PRODUCER_YEAR_UPDATE_ATHENA.sql` | `Transform-Tract-Producer-Year-Incremental` (MERGE path) |
+| `TRACT_PRODUCER_YEAR_INSERT_ATHENA.sql` | `Transform-Tract-Producer-Year` (full-load reset path) |
+| `TRACT_PRODUCER_YEAR_INSERT_NO_COMPARE_ATHENA.sql` | `Transform-Tract-Producer-Year` (full-load reset path) |
+| `TRACT_PRODUCER_YEAR_UPDATE_ATHENA.sql` | `Transform-Tract-Producer-Year` (full-load reset path) |
 | `TRACT_PRODUCER_YEAR_SELECT.sql` | `Transform-Farm-Producer-Year` |
 
 ---
@@ -57,9 +55,7 @@ Manual / Lambda / CI trigger (no EventBridge — see "Running Without EventBridg
         │    └─ Ingest-PG-CDC-Targets           (PG CDC → athenafarm_prod_cdc Iceberg)
         │
         ├─ [TransformParallel]                  (both transforms run concurrently)
-        │    ├─ ChooseTransformTractMode        (Choice on full_load)
-        │    │    ├─ full_load=true  → Transform-Tract-Producer-Year-FullLoad
-        │    │    └─ default         → Transform-Tract-Producer-Year-Incremental
+        │    ├─ Transform-Tract-Producer-Year   (full-load only)
         │    └─ Transform-Farm-Producer-Year    (CTE + MERGE INTO farm_producer_year)
         │
         ├─ CheckSkipRDSSync                     (default: skip — must pass skip_rds_sync=false to run sync)
@@ -141,19 +137,19 @@ ACCOUNT="241533156429"   # change per environment
 ENV="FPACDEV"            # FPACDEV | STEAMDEV | PROD
 REGION="us-east-1"
 
-# ------- Main ETL pipeline (incremental, no RDS sync — DEFAULT) -------
+# ------- Main ETL pipeline (full-load, no RDS sync — DEFAULT) -------
 aws stepfunctions start-execution \
   --region "${REGION}" \
   --state-machine-arn "arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:FSA-${ENV}-ATHENAFARM-Main" \
   --name "manual-$(date +%Y%m%d-%H%M%S)" \
-  --input '{"full_load": "false"}'
+  --input '{"full_load": "true"}'
 
-# ------- Main ETL pipeline (incremental, WITH RDS sync) -------
+# ------- Main ETL pipeline (full-load, WITH RDS sync) -------
 aws stepfunctions start-execution \
   --region "${REGION}" \
   --state-machine-arn "arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:FSA-${ENV}-ATHENAFARM-Main" \
   --name "manual-sync-$(date +%Y%m%d-%H%M%S)" \
-  --input '{"full_load": "false", "skip_rds_sync": false}'
+  --input '{"full_load": "true", "skip_rds_sync": false}'
 
 # ------- Full load + RDS sync -------
 aws stepfunctions start-execution \
@@ -186,8 +182,8 @@ aws stepfunctions describe-execution \
 3. Search for `FSA-{ENV}-ATHENAFARM-Main` (or `Maintenance`).
 4. Click **Start execution**.
 5. In the **Input** box enter one of:
-   - `{ "full_load": "false" }` — incremental MERGE, no RDS sync (**default**)
-   - `{ "full_load": "false", "skip_rds_sync": false }` — incremental MERGE + RDS sync
+  - `{ "full_load": "true" }` — full-load, no RDS sync (**default**)
+  - `{ "full_load": "true", "skip_rds_sync": false }` — full-load + RDS sync
    - `{ "full_load": "true", "skip_rds_sync": false }` — full rebuild + RDS sync
    - `{ "full_load": "true" }` — full rebuild, no RDS sync
 6. Click **Start execution**.
@@ -213,19 +209,10 @@ aws glue start-job-run \
     "--full_load":        "false"
   }'
 
-# Example: re-run the tract/producer-year transform only (incremental variant)
+# Example: re-run the tract/producer-year transform only
 aws glue start-job-run \
   --region us-east-1 \
-  --job-name "FSA-${ENV}-ATHENAFARM-Transform-Tract-Producer-Year-Incremental" \
-  --arguments '{
-    "--env":              "'"${ENV}"'",
-    "--iceberg_warehouse":"'"${WAREHOUSE}"'"
-  }'
-
-# Example: tract full-load variant
-aws glue start-job-run \
-  --region us-east-1 \
-  --job-name "FSA-${ENV}-ATHENAFARM-Transform-Tract-Producer-Year-FullLoad" \
+  --job-name "FSA-${ENV}-ATHENAFARM-Transform-Tract-Producer-Year" \
   --arguments '{
     "--env":              "'"${ENV}"'",
     "--iceberg_warehouse":"'"${WAREHOUSE}"'"
@@ -237,7 +224,7 @@ Wait for the run to finish:
 ```bash
 aws glue get-job-run \
   --region us-east-1 \
-  --job-name "FSA-${ENV}-ATHENAFARM-Transform-Tract-Producer-Year-Incremental" \
+  --job-name "FSA-${ENV}-ATHENAFARM-Transform-Tract-Producer-Year" \
   --run-id "<JobRunId from start-job-run output>" \
   --query 'JobRun.JobRunState'
 ```
@@ -348,14 +335,13 @@ CheckSSSCrawlerStatus
 | Ingest-SSS-Farmrecords | 10 | 5–15 min | Reads SSS Parquet, writes Iceberg with partition sort |
 | Ingest-PG-Reference-Tables | 4 | 10–30 min | Parallel JDBC reads (20 partitions per table, PK range) |
 | Ingest-PG-CDC-Targets | 4 | 10–30 min | Same parallel JDBC approach |
-| Transform-Tract-Producer-Year-Incremental | 20 | 5–20 min | Incremental MERGE with delta-pruned source |
-| Transform-Tract-Producer-Year-FullLoad | 20 | 5–20 min | Full reset path (`DELETE + INSERT`) |
+| Transform-Tract-Producer-Year | 20 | 5–20 min | Full reset path (`INSERT OVERWRITE`, fallback `DELETE + INSERT`) |
 | Transform-Farm-Producer-Year | 20 | 3–12 min | Incremental MERGE; full load uses direct reset (`DELETE + INSERT`) |
 | Sync-Iceberg-To-RDS | 4 | 2–15 min | Delta-only (snapshot diff); full load is longer |
 | Iceberg-Maintenance | 2 | 5–20 min | OPTIMIZE + EXPIRE SNAPSHOTS across all tables |
 
 IngestParallel and TransformParallel branches run concurrently, so total wall-clock time
-for a normal incremental run (no RDS sync) is roughly:
+for a normal full-load run (no RDS sync) is roughly:
 
 ```
 max(Crawler + IngestSSS, IngestPGRefs, IngestPGCDC)   ~30 min
@@ -465,7 +451,7 @@ Post-MERGE row counts are read from Iceberg snapshot metadata
 
 | Parameter | Type | Description | Default |
 |---|---|---|---|
-| `full_load` | boolean/string | Controls tract mode dispatch in Step Functions (incremental vs full-load tract job); also passed to Farm and Sync | `false` |
+| `full_load` | boolean/string | Retained for compatibility; tract and farm transforms run full-load only | `true` |
 | `skip_rds_sync` | boolean | Skip `Sync-Iceberg-To-RDS`. **Default is `true` (absent = skip)**. Pass `false` explicitly to run the sync. | `true` |
 
 ---
@@ -503,8 +489,7 @@ All Glue jobs write continuous logs to CloudWatch. Three args are injected by
 | Ingest-SSS-Farmrecords | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Ingest-SSS-Farmrecords` |
 | Ingest-PG-Reference-Tables | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Ingest-PG-Reference-Tables` |
 | Ingest-PG-CDC-Targets | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Ingest-PG-CDC-Targets` |
-| Transform-Tract-Producer-Year-Incremental | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year-Incremental` |
-| Transform-Tract-Producer-Year-FullLoad | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year-FullLoad` |
+| Transform-Tract-Producer-Year | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year` |
 | Transform-Farm-Producer-Year | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Transform-Farm-Producer-Year` |
 | Sync-Iceberg-To-RDS | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Sync-Iceberg-To-RDS` |
 | Iceberg-Maintenance | `/aws-glue/jobs/FSA-PROD-ATHENAFARM-Iceberg-Maintenance` |
@@ -527,7 +512,7 @@ block (field `Id`). Use it to go directly to the relevant stream:
 
 ```bash
 ENV="PROD"
-JOB="FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year-Incremental"
+JOB="FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year"
 RUN_ID="jr_abc123..."
 
 aws logs get-log-events \
@@ -554,8 +539,7 @@ This is the fastest way to identify root cause without reading raw log output.
 
 ### Runtime metrics emitted by transform jobs
 
-`Transform-Tract-Producer-Year-Incremental`, `Transform-Tract-Producer-Year-FullLoad`,
-and `Transform-Farm-Producer-Year` emit
+`Transform-Tract-Producer-Year` and `Transform-Farm-Producer-Year` emit
 structured metric lines to the driver log for every run:
 
 - `[METRIC] mode=incremental|full_load`

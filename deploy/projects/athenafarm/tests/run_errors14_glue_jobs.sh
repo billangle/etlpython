@@ -25,7 +25,8 @@ while [[ $# -gt 0 ]]; do
     --warehouse)
       WAREHOUSE="$2"; shift 2 ;;
     --full-load)
-      FULL_LOAD="$2"; shift 2 ;;
+      echo "--full-load is deprecated; full-load is always enforced for this runner." >&2
+      shift 2 ;;
     --poll-seconds)
       POLL_SECONDS="$2"; shift 2 ;;
     -h|--help)
@@ -38,11 +39,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 PREFIX=$(printf "$PREFIX_TEMPLATE" "$ENV_NAME")
-if [[ "${FULL_LOAD,,}" == "true" ]]; then
-  TRACT_JOB="${PREFIX}-Transform-Tract-Producer-Year-FullLoad"
-else
-  TRACT_JOB="${PREFIX}-Transform-Tract-Producer-Year-Incremental"
-fi
+TRACT_JOB="${PREFIX}-Transform-Tract-Producer-Year"
 FARM_JOB="${PREFIX}-Transform-Farm-Producer-Year"
 
 run_and_wait() {

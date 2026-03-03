@@ -116,35 +116,7 @@
       }
     },
     {
-      "Transform-Tract-Producer-Year-Incremental": {
-        "Connections": [{ "ConnectionName": "" }],
-        "MaxConcurrency": "1",
-        "MaxRetries": "0",
-        "TimeoutMinutes": "120",
-        "WorkerType": "G.2X",
-        "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/athenafarm/",
-        "NumberOfWorkers": "4",
-        "AutomaticScalingEnabled": "true",
-        "GlueVersion": "4.0",
-        "JobLanguage": "python",
-        "GenerateMetrics": "true",
-        "EnableJobBookmarks": "false",
-        "JobObservabilityMetrics": "ENABLED",
-        "JobContinuousLogging": "ENABLED",
-        "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
-        "PythonLibraryPath": "",
-        "AdditionalPythonModulesPath": "",
-        "UseGlueDataCatalogAsTheHiveMetastore": "true",
-        "JobParameters": {
-          "--sss_database": "athenafarm_steam_raw",
-          "--ref_database": "athenafarm_steam_ref",
-          "--target_database": "athenafarm_steam_gold",
-          "--target_table": "tract_producer_year"
-        }
-      }
-    },
-    {
-      "Transform-Tract-Producer-Year-FullLoad": {
+      "Transform-Tract-Producer-Year": {
         "Connections": [{ "ConnectionName": "" }],
         "MaxConcurrency": "1",
         "MaxRetries": "0",
@@ -196,7 +168,7 @@
           "--ref_database": "athenafarm_steam_ref",
           "--target_database": "athenafarm_steam_gold",
           "--target_table": "farm_producer_year",
-          "--full_load": "false"
+          "--full_load": "true"
         }
       }
     },

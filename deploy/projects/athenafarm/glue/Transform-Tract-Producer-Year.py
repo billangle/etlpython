@@ -17,6 +17,10 @@ GLUE JOB ARGUMENTS:
     --ref_database        : Glue catalog db for PG ref Iceberg tables (default: athenafarm_prod_ref)
     --target_database     : Glue catalog db for target table (default: athenafarm_prod_gold)
     --target_table        : Target Iceberg table name (default: tract_producer_year)
+    --advisory_partition_size_mb : AQE advisory partition size in MB (default: 128)
+    --shuffle_partitions  : optional manual shuffle override; <=0 keeps AQE-managed partitions (default: 0)
+    --max_phase_seconds   : fail-fast timeout per major phase (default: 900)
+    --max_job_seconds     : fail-fast timeout for total job runtime (default: 3600)
     --debug               : "true" to enable DEBUG-level CloudWatch logging (default: false)
 
 KEY SAP COLUMN NAMES (raw, as stored in S3 Iceberg after ingest):
@@ -42,6 +46,13 @@ ICEBERG CONFIGURATION (set via --conf in Glue job definition):
     spark.sql.autoBroadcastJoinThreshold=52428800   (50 MB — broadcasts small ref tables)
 
 VERSION HISTORY:
+    v1.7.0 - 2026-03-03 - Added startup dimension profiling logs (`[DIM]`) for broadcast candidates.
+    v1.6.0 - 2026-03-03 - Added targeted broadcast hints + early column pruning on reference joins.
+    v1.5.0 - 2026-03-03 - Switched to AQE-first partitioning profile (`advisoryPartitionSizeInBytes`) with optional manual shuffle override.
+    v1.4.0 - 2026-03-03 - Added fail-fast runtime guards (`max_phase_seconds`, `max_job_seconds`).
+    v1.3.0 - 2026-03-03 - Replaced window-sort dedupe with aggregate-based latest-row selection to reduce spill-heavy sort stages.
+    v1.2.0 - 2026-03-03 - Removed remaining SQL execution path and standardized DataFrame-only write flow.
+    v1.1.0 - 2026-03-03 - Added AQE coalesce/local shuffle reader tuning and reduced default shuffle pressure.
     v1.0.0 - 2026-02-25 - Initial implementation (athenafarm project)
               Initial Spark DataFrame transform for tract_producer_year.
 

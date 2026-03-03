@@ -23,6 +23,8 @@ GLUE JOB ARGUMENTS:
     --ref_database        : Glue catalog db for PG ref Iceberg tables (default: athenafarm_prod_ref)
     --target_database     : Glue catalog db for target table (default: athenafarm_prod_gold)
     --target_table        : Target Iceberg table name (default: farm_producer_year)
+    --advisory_partition_size_mb : AQE advisory partition size in MB (default: 128)
+    --shuffle_partitions  : optional manual shuffle override; <=0 keeps AQE-managed partitions (default: 0)
     --debug               : "true" to enable DEBUG-level CloudWatch logging (default: false)
 
 KEY SOURCE TABLE COLUMNS (fsa-prod-farm-records.farm, stored as fsa_farm_records_farm):
@@ -34,6 +36,10 @@ KEY SOURCE TABLE COLUMNS (fsa-prod-farm-records.farm, stored as fsa_farm_records
     farm_number  → joined to farm_records_reporting.farm for farm_identifier
 
 VERSION HISTORY:
+    v1.4.0 - 2026-03-03 - Switched to AQE-first partitioning profile (`advisoryPartitionSizeInBytes`) with optional manual shuffle override.
+    v1.3.0 - 2026-03-03 - Removed remaining SQL execution path and standardized DataFrame-only write flow.
+    v1.2.0 - 2026-03-03 - Added AQE coalesce/local shuffle reader tuning and reduced shuffle pressure.
+    v1.1.0 - 2026-03-03 - Converted core transform logic from SQL/CTE chain to Spark DataFrame API.
     v1.0.0 - 2026-02-25 - Initial implementation (athenafarm project)
               Initial Spark DataFrame transform for farm_producer_year.
 

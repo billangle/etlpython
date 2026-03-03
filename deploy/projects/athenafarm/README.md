@@ -8,6 +8,22 @@ for the full architecture rationale.
 
 ---
 
+## Recent Optimizations (2026-03)
+
+- Tract transform dedupe changed from window sort (`row_number`) to aggregate-based latest-row selection to reduce spill-heavy sort stages.
+- Tract transform now prunes reference-table columns early and applies targeted broadcast hints for `time_pd` and `county_office_control`.
+- Transform jobs now use AQE-first partitioning by default (adaptive shuffle sizing) with optional `--shuffle_partitions` override.
+- Deployer injects transform defaults for AQE advisory sizing:
+  - Tract: `--advisory_partition_size_mb=96`
+  - Farm: `--advisory_partition_size_mb=128`
+- Tract transform adds fail-fast runtime guards:
+  - `--max_phase_seconds` (default 900)
+  - `--max_job_seconds` (default 3600)
+- Main state machine tract task timeout is set to 3600 seconds to prevent indefinite execution.
+- PG CDC ingest removed expensive pre-write cache/count and pre-write repartition/sort passes to reduce ingest runtime.
+
+---
+
 ## Folder Structure
 
 ```

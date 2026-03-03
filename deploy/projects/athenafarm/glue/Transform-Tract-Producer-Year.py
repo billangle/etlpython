@@ -173,6 +173,12 @@ def _enforce_timeout(scope: str, elapsed_seconds: float, max_seconds: int) -> No
             f"{scope} exceeded timeout: elapsed={elapsed_seconds:.3f}s, max={max_seconds}s"
         )
 
+def _log_dim_profile(name: str, df) -> None:
+    t0 = time.perf_counter()
+    row_count = df.count()
+    partitions = df.rdd.getNumPartitions()
+    log.info(f"[DIM] {name}: rows={row_count:,}, partitions={partitions}, profile_seconds={time.perf_counter() - t0:.3f}")
+
 log.info("Running tract transform (DataFrame API)")
 phase_t0 = time.perf_counter()
 
@@ -186,17 +192,51 @@ z_ibase_comp_detail = spark.table(f"glue_catalog.{SSS_DB}.z_ibase_comp_detail").
 comm_pr_frg_rel = spark.table(f"glue_catalog.{SSS_DB}.comm_pr_frg_rel").alias("cf")
 zmi_farm_partn = spark.table(f"glue_catalog.{SSS_DB}.zmi_farm_partn").alias("zm")
 
-time_period = spark.table(f"glue_catalog.{REF_DB}.time_period").alias("timepd")
-county_office_control = spark.table(f"glue_catalog.{REF_DB}.county_office_control").alias("coc")
-farm = spark.table(f"glue_catalog.{REF_DB}.farm").alias("farmpg")
-tract = spark.table(f"glue_catalog.{REF_DB}.tract").alias("tractpg")
-farm_year = spark.table(f"glue_catalog.{REF_DB}.farm_year").alias("fy")
-tract_year = spark.table(f"glue_catalog.{REF_DB}.tract_year").alias("ty")
-but000 = spark.table(f"glue_catalog.{REF_DB}.but000").alias("c")
-
-time_pd = time_period.where(F.col("data_status_code") == F.lit("A")).select(
-    "time_period_identifier", "time_period_name", "time_period_start_date", "time_period_end_date"
+time_pd = (
+    spark.table(f"glue_catalog.{REF_DB}.time_period")
+    .where(F.col("data_status_code") == F.lit("A"))
+    .select("time_period_identifier", "time_period_name")
 )
+
+county_office_control = spark.table(f"glue_catalog.{REF_DB}.county_office_control").select(
+    "county_office_control_identifier",
+    "state_fsa_code",
+    "county_fsa_code",
+    "time_period_identifier",
+)
+
+farm = spark.table(f"glue_catalog.{REF_DB}.farm").select(
+    "farm_identifier",
+    "county_office_control_identifier",
+    "farm_number",
+)
+
+tract = spark.table(f"glue_catalog.{REF_DB}.tract").select(
+    "tract_identifier",
+    "county_office_control_identifier",
+    "tract_number",
+)
+
+farm_year = spark.table(f"glue_catalog.{REF_DB}.farm_year").select(
+    "farm_year_identifier",
+    "farm_identifier",
+    "time_period_identifier",
+)
+
+tract_year = spark.table(f"glue_catalog.{REF_DB}.tract_year").select(
+    "tract_year_identifier",
+    "farm_year_identifier",
+    "tract_identifier",
+)
+
+but000 = spark.table(f"glue_catalog.{REF_DB}.but000").select(
+    "partner_guid",
+    "partner",
+    "bpext",
+)
+
+_log_dim_profile("time_pd", time_pd)
+_log_dim_profile("county_office_control", county_office_control)
 
 tract_number_expr = (
     F.when(
@@ -343,14 +383,14 @@ producer_code_expr = (
 
 tract_current = (
     sss_details.alias("sss_dets")
-    .join(time_pd.alias("timepd"), program_year_name == F.trim(F.col("timepd.time_period_name")), "inner")
+    .join(F.broadcast(time_pd).alias("timepd"), program_year_name == F.trim(F.col("timepd.time_period_name")), "inner")
     .join(
         zmi_details.alias("z_dets"),
         (F.col("z_dets.instance") == F.col("sss_dets.i_instance")) & (F.col("z_dets.ibase") == F.col("sss_dets.r_ibase")),
         "inner",
     )
     .join(
-        county_office_control.alias("coc"),
+        F.broadcast(county_office_control).alias("coc"),
         (
             F.concat(F.lpad(F.col("sss_dets.admin_state"), 2, "0"), F.lpad(F.col("sss_dets.admin_county"), 3, "0"))
             == F.concat(F.lpad(F.col("coc.state_fsa_code"), 2, "0"), F.lpad(F.col("coc.county_fsa_code"), 3, "0"))

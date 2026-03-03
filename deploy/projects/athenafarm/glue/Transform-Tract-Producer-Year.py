@@ -55,7 +55,6 @@ import time
 from awsglue.utils import getResolvedOptions
 from pyspark import SparkConf
 from pyspark.sql import functions as F
-from pyspark.sql.window import Window
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
@@ -84,6 +83,14 @@ def _opt(name: str, default: str) -> str:
         return default
     return value
 
+def _opt_int(name: str, default: int) -> int:
+    value = _opt(name, str(default)).strip()
+    try:
+        parsed = int(value)
+        return parsed if parsed >= 0 else default
+    except Exception:
+        return default
+
 JOB_NAME          = args["JOB_NAME"]
 ENV               = args["env"]
 ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
@@ -94,6 +101,8 @@ REF_DB            = _opt("ref_database", "athenafarm_prod_ref")
 TGT_DB            = _opt("target_database", "athenafarm_prod_gold")
 TGT_TABLE         = _opt("target_table", "tract_producer_year")
 SHUFFLE_PARTITIONS = _opt("shuffle_partitions", "200")
+MAX_PHASE_SECONDS = _opt_int("max_phase_seconds", 900)
+MAX_JOB_SECONDS   = _opt_int("max_job_seconds", 3600)
 DEBUG             = _opt("debug", "false").strip().lower() == "true"
 
 if DEBUG:
@@ -139,10 +148,20 @@ log.info(f"Ref DB         : {REF_DB}")
 log.info(f"Target DB      : {TGT_DB}")
 log.info(f"Target Table   : {TGT_TABLE}")
 log.info(f"Shuffle Parts  : {SHUFFLE_PARTITIONS}")
+log.info(f"Max Phase Sec  : {MAX_PHASE_SECONDS}")
+log.info(f"Max Job Sec    : {MAX_JOB_SECONDS}")
 log.info(f"Full Load      : {FULL_LOAD}")
 log.info(f"[METRIC] mode={'full_load' if FULL_LOAD else 'incremental'}")
 log.info(f"Debug          : {DEBUG}")
 log.info("=" * 70)
+
+def _enforce_timeout(scope: str, elapsed_seconds: float, max_seconds: int) -> None:
+    if max_seconds <= 0:
+        return
+    if elapsed_seconds > float(max_seconds):
+        raise TimeoutError(
+            f"{scope} exceeded timeout: elapsed={elapsed_seconds:.3f}s, max={max_seconds}s"
+        )
 
 log.info("Running tract transform (DataFrame API)")
 phase_t0 = time.perf_counter()
@@ -396,44 +415,56 @@ tract_tbl = (
     )
 )
 
-window_spec = Window.partitionBy(
-    "core_customer_identifier", "tract_year_identifier", "producer_involvement_code"
-).orderBy(F.col("creation_date").desc(), F.col("last_change_date").desc())
+dedupe_keys = [
+    "core_customer_identifier",
+    "tract_year_identifier",
+    "producer_involvement_code",
+]
+
+output_cols = [
+    "core_customer_identifier",
+    "tract_year_identifier",
+    "producer_involvement_start_date",
+    "producer_involvement_end_date",
+    "producer_involvement_interrupted_indicator",
+    "tract_producer_hel_exception_code",
+    "tract_producer_cw_exception_code",
+    "tract_producer_pcw_exception_code",
+    "data_status_code",
+    "creation_date",
+    "last_change_date",
+    "last_change_user_name",
+    "producer_involvement_code",
+    "time_period_identifier",
+    "state_fsa_code",
+    "county_fsa_code",
+    "farm_identifier",
+    "farm_number",
+    "tract_number",
+    "hel_appeals_exhausted_date",
+    "cw_appeals_exhausted_date",
+    "pcw_appeals_exhausted_date",
+    "tract_producer_rma_hel_exception_code",
+    "tract_producer_rma_cw_exception_code",
+    "tract_producer_rma_pcw_exception_code",
+]
+
+latest_row_struct = F.struct(
+    F.col("creation_date"),
+    F.col("last_change_date"),
+    *[F.col(col_name) for col_name in output_cols],
+)
 
 source_df = (
-    tract_tbl.withColumn("rownum", F.row_number().over(window_spec))
-    .where(F.col("rownum") == F.lit(1))
-    .select(
-        "core_customer_identifier",
-        "tract_year_identifier",
-        "producer_involvement_start_date",
-        "producer_involvement_end_date",
-        "producer_involvement_interrupted_indicator",
-        "tract_producer_hel_exception_code",
-        "tract_producer_cw_exception_code",
-        "tract_producer_pcw_exception_code",
-        "data_status_code",
-        "creation_date",
-        "last_change_date",
-        "last_change_user_name",
-        "producer_involvement_code",
-        "time_period_identifier",
-        "state_fsa_code",
-        "county_fsa_code",
-        "farm_identifier",
-        "farm_number",
-        "tract_number",
-        "hel_appeals_exhausted_date",
-        "cw_appeals_exhausted_date",
-        "pcw_appeals_exhausted_date",
-        "tract_producer_rma_hel_exception_code",
-        "tract_producer_rma_cw_exception_code",
-        "tract_producer_rma_pcw_exception_code",
-    )
+    tract_tbl.groupBy(*dedupe_keys)
+    .agg(F.max(latest_row_struct).alias("latest_row"))
+    .select(*[F.col(f"latest_row.{col_name}").alias(col_name) for col_name in output_cols])
 )
 
 log.info("Transform DataFrame build complete")
-log.info(f"[METRIC] phase_transform_seconds={time.perf_counter() - phase_t0:.3f}")
+phase_transform_seconds = time.perf_counter() - phase_t0
+log.info(f"[METRIC] phase_transform_seconds={phase_transform_seconds:.3f}")
+_enforce_timeout("phase_transform", phase_transform_seconds, MAX_PHASE_SECONDS)
 
 TARGET_FQN = f"glue_catalog.{TGT_DB}.{TGT_TABLE}"
 
@@ -443,7 +474,9 @@ source_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(TARGET_FQN
 write_t0 = time.perf_counter()
 log.info(f"Executing full-load overwrite for {TARGET_FQN} (DataFrameWriter + Iceberg)")
 source_df.write.format("iceberg").mode("overwrite").saveAsTable(TARGET_FQN)
-log.info(f"[METRIC] phase_write_seconds={time.perf_counter() - write_t0:.3f}")
+phase_write_seconds = time.perf_counter() - write_t0
+log.info(f"[METRIC] phase_write_seconds={phase_write_seconds:.3f}")
+_enforce_timeout("phase_write", phase_write_seconds, MAX_PHASE_SECONDS)
 log.info("Write complete")
 
 # ---------------------------------------------------------------------------
@@ -462,5 +495,7 @@ log.info(f"[METRIC] phase_snapshot_metric_seconds={time.perf_counter() - snap_t0
 log.info(f"[METRIC] {TGT_TABLE}_row_count={final_count}")
 
 job.commit()
-log.info(f"[METRIC] total_job_seconds={time.perf_counter() - job_t0:.3f}")
+total_job_seconds = time.perf_counter() - job_t0
+log.info(f"[METRIC] total_job_seconds={total_job_seconds:.3f}")
+_enforce_timeout("job_total", total_job_seconds, MAX_JOB_SECONDS)
 log.info("Transform-Tract-Producer-Year: completed successfully")

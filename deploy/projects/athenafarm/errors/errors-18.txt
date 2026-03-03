@@ -1,0 +1,106 @@
+
+{
+  "full_load": "true",
+  "ingest_results": [
+    {
+      "AllocatedCapacity": 20,
+      "Arguments": {
+        "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+        "--env": "PROD"
+      },
+      "Attempt": 0,
+      "CompletedOn": 1772550684835,
+      "ExecutionTime": 1457,
+      "GlueVersion": "4.0",
+      "Id": "jr_23d5581bd0602449926777710b330f483c5abcf857b3517a061322d409c93024",
+      "JobMode": "SCRIPT",
+      "JobName": "FSA-PROD-ATHENAFARM-Ingest-SSS-Farmrecords",
+      "JobRunState": "SUCCEEDED",
+      "LastModifiedOn": 1772550684835,
+      "LogGroupName": "/aws-glue/jobs",
+      "MaxCapacity": 20,
+      "NumberOfWorkers": 10,
+      "PredecessorRuns": [],
+      "StartedOn": 1772549220953,
+      "Timeout": 120,
+      "WorkerType": "G.2X"
+    },
+    {
+      "AllocatedCapacity": 8,
+      "Arguments": {
+        "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+        "--env": "PROD"
+      },
+      "Attempt": 0,
+      "CompletedOn": 1772550813791,
+      "ExecutionTime": 1771,
+      "GlueVersion": "4.0",
+      "Id": "jr_9094f202dac4c1701c67d64f590e8d5d6596711089603c8215e5dd0aaa739d48",
+      "JobMode": "SCRIPT",
+      "JobName": "FSA-PROD-ATHENAFARM-Ingest-PG-Reference-Tables",
+      "JobRunState": "SUCCEEDED",
+      "LastModifiedOn": 1772550813791,
+      "LogGroupName": "/aws-glue/jobs",
+      "MaxCapacity": 8,
+      "NumberOfWorkers": 4,
+      "PredecessorRuns": [],
+      "StartedOn": 1772549027924,
+      "Timeout": 480,
+      "WorkerType": "G.2X"
+    },
+    {
+      "AllocatedCapacity": 8,
+      "Arguments": {
+        "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+        "--env": "PROD"
+      },
+      "Attempt": 0,
+      "CompletedOn": 1772550215690,
+      "ExecutionTime": 1174,
+      "GlueVersion": "4.0",
+      "Id": "jr_1f28a97ce2f700ca22f69314e3f1293d780cff7ee42db82a95806a2dddd1299a",
+      "JobMode": "SCRIPT",
+      "JobName": "FSA-PROD-ATHENAFARM-Ingest-PG-CDC-Targets",
+      "JobRunState": "SUCCEEDED",
+      "LastModifiedOn": 1772550215690,
+      "LogGroupName": "/aws-glue/jobs",
+      "MaxCapacity": 8,
+      "NumberOfWorkers": 4,
+      "PredecessorRuns": [],
+      "StartedOn": 1772549027931,
+      "Timeout": 480,
+      "WorkerType": "G.2X"
+    }
+  ]
+}
+
+
+{
+  "cause": {
+    "AllocatedCapacity": 40,
+    "Arguments": {
+      "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+      "--env": "PROD"
+    },
+    "Attempt": 0,
+    "CompletedOn": 1772551027934,
+    "ErrorMessage": "FileNotFoundError: [Errno 2] No such file or directory: '/tmp/Transform-Tract-Producer-Year.py'",
+    "ExecutionTime": 30,
+    "GlueVersion": "4.0",
+    "Id": "jr_84dada42700c83a6209332610ffdc8bb91b8bc5aac253de01e9556596cb859b3",
+    "JobMode": "SCRIPT",
+    "JobName": "FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year-Incremental",
+    "JobRunState": "FAILED",
+    "LastModifiedOn": 1772551027934,
+    "LogGroupName": "/aws-glue/jobs",
+    "MaxCapacity": 40,
+    "NumberOfWorkers": 20,
+    "PredecessorRuns": [],
+    "StartedOn": 1772550991056,
+    "Timeout": 480,
+    "WorkerType": "G.2X"
+  },
+  "error": "States.TaskFailed",
+  "resource": "startJobRun.sync",
+  "resourceType": "glue"
+}

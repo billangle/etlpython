@@ -23,8 +23,6 @@ GLUE JOB ARGUMENTS:
     --ref_database        : Glue catalog db for PG ref Iceberg tables (default: athenafarm_prod_ref)
     --target_database     : Glue catalog db for target table (default: athenafarm_prod_gold)
     --target_table        : Target Iceberg table name (default: farm_producer_year)
-    --advisory_partition_size_mb : AQE advisory partition size in MB (default: 128)
-    --shuffle_partitions  : optional manual shuffle override; <=0 keeps AQE-managed partitions (default: 0)
     --debug               : "true" to enable DEBUG-level CloudWatch logging (default: false)
 
 KEY SOURCE TABLE COLUMNS (fsa-prod-farm-records.farm, stored as fsa_farm_records_farm):
@@ -36,10 +34,6 @@ KEY SOURCE TABLE COLUMNS (fsa-prod-farm-records.farm, stored as fsa_farm_records
     farm_number  → joined to farm_records_reporting.farm for farm_identifier
 
 VERSION HISTORY:
-    v1.4.0 - 2026-03-03 - Switched to AQE-first partitioning profile (`advisoryPartitionSizeInBytes`) with optional manual shuffle override.
-    v1.3.0 - 2026-03-03 - Removed remaining SQL execution path and standardized DataFrame-only write flow.
-    v1.2.0 - 2026-03-03 - Added AQE coalesce/local shuffle reader tuning and reduced shuffle pressure.
-    v1.1.0 - 2026-03-03 - Converted core transform logic from SQL/CTE chain to Spark DataFrame API.
     v1.0.0 - 2026-02-25 - Initial implementation (athenafarm project)
               Initial Spark DataFrame transform for farm_producer_year.
 
@@ -82,14 +76,6 @@ def _opt(name: str, default: str) -> str:
         return default
     return value
 
-def _opt_int(name: str, default: int) -> int:
-    value = _opt(name, str(default)).strip()
-    try:
-        parsed = int(value)
-        return parsed if parsed >= 0 else default
-    except Exception:
-        return default
-
 JOB_NAME          = args["JOB_NAME"]
 ENV               = args["env"]
 ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
@@ -99,8 +85,7 @@ SSS_DB            = _opt("sss_database", "athenafarm_prod_raw")
 REF_DB            = _opt("ref_database", "athenafarm_prod_ref")
 TGT_DB            = _opt("target_database", "athenafarm_prod_gold")
 TGT_TABLE         = _opt("target_table", "farm_producer_year")
-SHUFFLE_PARTITIONS = _opt_int("shuffle_partitions", 0)
-ADVISORY_PARTITION_SIZE_MB = _opt_int("advisory_partition_size_mb", 128)
+SHUFFLE_PARTITIONS = _opt("shuffle_partitions", "200")
 DEBUG             = _opt("debug", "false").strip().lower() == "true"
 
 if DEBUG:
@@ -121,12 +106,7 @@ _conf.set("spark.sql.adaptive.enabled",                  "true")
 _conf.set("spark.sql.adaptive.skewJoin.enabled",         "true")
 _conf.set("spark.sql.adaptive.coalescePartitions.enabled", "true")
 _conf.set("spark.sql.adaptive.localShuffleReader.enabled", "true")
-_conf.set(
-    "spark.sql.adaptive.advisoryPartitionSizeInBytes",
-    str(ADVISORY_PARTITION_SIZE_MB * 1024 * 1024),
-)
-if SHUFFLE_PARTITIONS > 0:
-    _conf.set("spark.sql.shuffle.partitions", str(SHUFFLE_PARTITIONS))
+_conf.set("spark.sql.shuffle.partitions",                SHUFFLE_PARTITIONS)
 sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -143,11 +123,7 @@ log.info(f"SSS DB         : {SSS_DB}")
 log.info(f"Ref DB         : {REF_DB}")
 log.info(f"Target DB      : {TGT_DB}")
 log.info(f"Target Table   : {TGT_TABLE}")
-if SHUFFLE_PARTITIONS > 0:
-    log.info(f"Shuffle Parts  : {SHUFFLE_PARTITIONS} (manual override)")
-else:
-    log.info("Shuffle Parts  : adaptive (AQE-managed)")
-log.info(f"Advisory Part MB: {ADVISORY_PARTITION_SIZE_MB}")
+log.info(f"Shuffle Parts  : {SHUFFLE_PARTITIONS}")
 log.info(f"Full Load      : {FULL_LOAD}")
 log.info(f"[METRIC] mode={'full_load' if FULL_LOAD else 'incremental'}")
 log.info(f"Debug          : {DEBUG}")

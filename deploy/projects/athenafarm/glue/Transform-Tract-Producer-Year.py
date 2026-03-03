@@ -17,10 +17,6 @@ GLUE JOB ARGUMENTS:
     --ref_database        : Glue catalog db for PG ref Iceberg tables (default: athenafarm_prod_ref)
     --target_database     : Glue catalog db for target table (default: athenafarm_prod_gold)
     --target_table        : Target Iceberg table name (default: tract_producer_year)
-    --advisory_partition_size_mb : AQE advisory partition size in MB (default: 128)
-    --shuffle_partitions  : optional manual shuffle override; <=0 keeps AQE-managed partitions (default: 0)
-    --max_phase_seconds   : fail-fast timeout per major phase (default: 900)
-    --max_job_seconds     : fail-fast timeout for total job runtime (default: 3600)
     --debug               : "true" to enable DEBUG-level CloudWatch logging (default: false)
 
 KEY SAP COLUMN NAMES (raw, as stored in S3 Iceberg after ingest):
@@ -46,13 +42,6 @@ ICEBERG CONFIGURATION (set via --conf in Glue job definition):
     spark.sql.autoBroadcastJoinThreshold=52428800   (50 MB — broadcasts small ref tables)
 
 VERSION HISTORY:
-    v1.7.0 - 2026-03-03 - Added startup dimension profiling logs (`[DIM]`) for broadcast candidates.
-    v1.6.0 - 2026-03-03 - Added targeted broadcast hints + early column pruning on reference joins.
-    v1.5.0 - 2026-03-03 - Switched to AQE-first partitioning profile (`advisoryPartitionSizeInBytes`) with optional manual shuffle override.
-    v1.4.0 - 2026-03-03 - Added fail-fast runtime guards (`max_phase_seconds`, `max_job_seconds`).
-    v1.3.0 - 2026-03-03 - Replaced window-sort dedupe with aggregate-based latest-row selection to reduce spill-heavy sort stages.
-    v1.2.0 - 2026-03-03 - Removed remaining SQL execution path and standardized DataFrame-only write flow.
-    v1.1.0 - 2026-03-03 - Added AQE coalesce/local shuffle reader tuning and reduced default shuffle pressure.
     v1.0.0 - 2026-02-25 - Initial implementation (athenafarm project)
               Initial Spark DataFrame transform for tract_producer_year.
 
@@ -94,14 +83,6 @@ def _opt(name: str, default: str) -> str:
         return default
     return value
 
-def _opt_int(name: str, default: int) -> int:
-    value = _opt(name, str(default)).strip()
-    try:
-        parsed = int(value)
-        return parsed if parsed >= 0 else default
-    except Exception:
-        return default
-
 JOB_NAME          = args["JOB_NAME"]
 ENV               = args["env"]
 ICEBERG_WAREHOUSE = args["iceberg_warehouse"]
@@ -111,10 +92,8 @@ SSS_DB            = _opt("sss_database", "athenafarm_prod_raw")
 REF_DB            = _opt("ref_database", "athenafarm_prod_ref")
 TGT_DB            = _opt("target_database", "athenafarm_prod_gold")
 TGT_TABLE         = _opt("target_table", "tract_producer_year")
-SHUFFLE_PARTITIONS = _opt_int("shuffle_partitions", 0)
-ADVISORY_PARTITION_SIZE_MB = _opt_int("advisory_partition_size_mb", 128)
-MAX_PHASE_SECONDS = _opt_int("max_phase_seconds", 900)
-MAX_JOB_SECONDS   = _opt_int("max_job_seconds", 3600)
+SHUFFLE_PARTITIONS = _opt("shuffle_partitions", "200")
+MAX_JOB_SECONDS   = int(_opt("max_job_seconds", "1800"))
 DEBUG             = _opt("debug", "false").strip().lower() == "true"
 
 if DEBUG:
@@ -142,12 +121,7 @@ _conf.set("spark.sql.adaptive.enabled",                  "true")
 _conf.set("spark.sql.adaptive.skewJoin.enabled",         "true")
 _conf.set("spark.sql.adaptive.coalescePartitions.enabled", "true")
 _conf.set("spark.sql.adaptive.localShuffleReader.enabled", "true")
-_conf.set(
-    "spark.sql.adaptive.advisoryPartitionSizeInBytes",
-    str(ADVISORY_PARTITION_SIZE_MB * 1024 * 1024),
-)
-if SHUFFLE_PARTITIONS > 0:
-    _conf.set("spark.sql.shuffle.partitions", str(SHUFFLE_PARTITIONS))
+_conf.set("spark.sql.shuffle.partitions",                SHUFFLE_PARTITIONS)
 sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -164,31 +138,12 @@ log.info(f"SSS DB         : {SSS_DB}")
 log.info(f"Ref DB         : {REF_DB}")
 log.info(f"Target DB      : {TGT_DB}")
 log.info(f"Target Table   : {TGT_TABLE}")
-if SHUFFLE_PARTITIONS > 0:
-    log.info(f"Shuffle Parts  : {SHUFFLE_PARTITIONS} (manual override)")
-else:
-    log.info("Shuffle Parts  : adaptive (AQE-managed)")
-log.info(f"Advisory Part MB: {ADVISORY_PARTITION_SIZE_MB}")
-log.info(f"Max Phase Sec  : {MAX_PHASE_SECONDS}")
+log.info(f"Shuffle Parts  : {SHUFFLE_PARTITIONS}")
 log.info(f"Max Job Sec    : {MAX_JOB_SECONDS}")
 log.info(f"Full Load      : {FULL_LOAD}")
 log.info(f"[METRIC] mode={'full_load' if FULL_LOAD else 'incremental'}")
 log.info(f"Debug          : {DEBUG}")
 log.info("=" * 70)
-
-def _enforce_timeout(scope: str, elapsed_seconds: float, max_seconds: int) -> None:
-    if max_seconds <= 0:
-        return
-    if elapsed_seconds > float(max_seconds):
-        raise TimeoutError(
-            f"{scope} exceeded timeout: elapsed={elapsed_seconds:.3f}s, max={max_seconds}s"
-        )
-
-def _log_dim_profile(name: str, df) -> None:
-    t0 = time.perf_counter()
-    row_count = df.count()
-    partitions = df.rdd.getNumPartitions()
-    log.info(f"[DIM] {name}: rows={row_count:,}, partitions={partitions}, profile_seconds={time.perf_counter() - t0:.3f}")
 
 log.info("Running tract transform (DataFrame API)")
 phase_t0 = time.perf_counter()
@@ -203,51 +158,32 @@ z_ibase_comp_detail = spark.table(f"glue_catalog.{SSS_DB}.z_ibase_comp_detail").
 comm_pr_frg_rel = spark.table(f"glue_catalog.{SSS_DB}.comm_pr_frg_rel").alias("cf")
 zmi_farm_partn = spark.table(f"glue_catalog.{SSS_DB}.zmi_farm_partn").alias("zm")
 
-time_pd = (
-    spark.table(f"glue_catalog.{REF_DB}.time_period")
-    .where(F.col("data_status_code") == F.lit("A"))
-    .select("time_period_identifier", "time_period_name")
+time_period = spark.table(f"glue_catalog.{REF_DB}.time_period").alias("timepd")
+county_office_control = (
+    spark.table(f"glue_catalog.{REF_DB}.county_office_control")
+    .withColumn(
+        "geo_key",
+        F.concat(F.lpad(F.col("state_fsa_code"), 2, "0"), F.lpad(F.col("county_fsa_code"), 3, "0")),
+    )
+    .alias("coc")
 )
-
-county_office_control = spark.table(f"glue_catalog.{REF_DB}.county_office_control").select(
-    "county_office_control_identifier",
-    "state_fsa_code",
-    "county_fsa_code",
-    "time_period_identifier",
+farm = (
+    spark.table(f"glue_catalog.{REF_DB}.farm")
+    .withColumn("farm_number_padded", F.lpad(F.col("farm_number").cast("string"), 7, "0"))
+    .alias("farmpg")
 )
-
-farm = spark.table(f"glue_catalog.{REF_DB}.farm").select(
-    "farm_identifier",
-    "county_office_control_identifier",
-    "farm_number",
+tract = (
+    spark.table(f"glue_catalog.{REF_DB}.tract")
+    .withColumn("tract_number_padded", F.lpad(F.col("tract_number").cast("string"), 7, "0"))
+    .alias("tractpg")
 )
+farm_year = spark.table(f"glue_catalog.{REF_DB}.farm_year").alias("fy")
+tract_year = spark.table(f"glue_catalog.{REF_DB}.tract_year").alias("ty")
+but000 = spark.table(f"glue_catalog.{REF_DB}.but000").alias("c")
 
-tract = spark.table(f"glue_catalog.{REF_DB}.tract").select(
-    "tract_identifier",
-    "county_office_control_identifier",
-    "tract_number",
+time_pd = time_period.where(F.col("data_status_code") == F.lit("A")).select(
+    "time_period_identifier", "time_period_name", "time_period_start_date", "time_period_end_date"
 )
-
-farm_year = spark.table(f"glue_catalog.{REF_DB}.farm_year").select(
-    "farm_year_identifier",
-    "farm_identifier",
-    "time_period_identifier",
-)
-
-tract_year = spark.table(f"glue_catalog.{REF_DB}.tract_year").select(
-    "tract_year_identifier",
-    "farm_year_identifier",
-    "tract_identifier",
-)
-
-but000 = spark.table(f"glue_catalog.{REF_DB}.but000").select(
-    "partner_guid",
-    "partner",
-    "bpext",
-)
-
-_log_dim_profile("time_pd", time_pd)
-_log_dim_profile("county_office_control", county_office_control)
 
 tract_number_expr = (
     F.when(
@@ -306,6 +242,10 @@ sss_details = (
         F.col("sp.instance").alias("t_instance"),
         F.lpad(F.col("sp.ZZFLD00001Z").cast("string"), 2, "0").alias("admin_state"),
         F.lpad(F.col("sp.ZZFLD000020").cast("string"), 3, "0").alias("admin_county"),
+        F.concat(
+            F.lpad(F.col("sp.ZZFLD00001Z").cast("string"), 2, "0"),
+            F.lpad(F.col("sp.ZZFLD000020").cast("string"), 3, "0"),
+        ).alias("admin_geo_key"),
         t_status_expr.alias("t_data_status_code"),
         F.to_date(F.date_format(F.coalesce(F.col("sp.crtim"), F.current_timestamp()), "yyyy-MM-dd")).alias("t_creation_date"),
         F.to_date(F.date_format(F.coalesce(F.col("sp.UPTIM"), F.current_timestamp()), "yyyy-MM-dd")).alias("t_last_change_date"),
@@ -402,10 +342,7 @@ tract_current = (
     )
     .join(
         F.broadcast(county_office_control).alias("coc"),
-        (
-            F.concat(F.lpad(F.col("sss_dets.admin_state"), 2, "0"), F.lpad(F.col("sss_dets.admin_county"), 3, "0"))
-            == F.concat(F.lpad(F.col("coc.state_fsa_code"), 2, "0"), F.lpad(F.col("coc.county_fsa_code"), 3, "0"))
-        )
+        (F.col("sss_dets.admin_geo_key") == F.col("coc.geo_key"))
         & (F.col("timepd.time_period_identifier") == F.col("coc.time_period_identifier")),
         "inner",
     )
@@ -448,13 +385,13 @@ tract_tbl = (
     .join(
         farm.alias("farmpg"),
         (F.col("farmpg.county_office_control_identifier") == F.col("tprdryr.county_office_control_identifier"))
-        & (F.lpad(F.col("farmpg.farm_number").cast("string"), 7, "0") == F.lpad(F.col("tprdryr.farm_number"), 7, "0")),
+        & (F.col("farmpg.farm_number_padded") == F.col("tprdryr.farm_number")),
         "inner",
     )
     .join(
         tract.alias("tractpg"),
         (F.col("tractpg.county_office_control_identifier") == F.col("tprdryr.county_office_control_identifier"))
-        & (F.lpad(F.col("tractpg.tract_number").cast("string"), 7, "0") == F.lpad(F.col("tprdryr.tract_number"), 7, "0")),
+        & (F.col("tractpg.tract_number_padded") == F.col("tprdryr.tract_number")),
         "inner",
     )
     .join(
@@ -523,9 +460,7 @@ source_df = (
 )
 
 log.info("Transform DataFrame build complete")
-phase_transform_seconds = time.perf_counter() - phase_t0
-log.info(f"[METRIC] phase_transform_seconds={phase_transform_seconds:.3f}")
-_enforce_timeout("phase_transform", phase_transform_seconds, MAX_PHASE_SECONDS)
+log.info(f"[METRIC] phase_transform_seconds={time.perf_counter() - phase_t0:.3f}")
 
 TARGET_FQN = f"glue_catalog.{TGT_DB}.{TGT_TABLE}"
 
@@ -535,9 +470,7 @@ source_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(TARGET_FQN
 write_t0 = time.perf_counter()
 log.info(f"Executing full-load overwrite for {TARGET_FQN} (DataFrameWriter + Iceberg)")
 source_df.write.format("iceberg").mode("overwrite").saveAsTable(TARGET_FQN)
-phase_write_seconds = time.perf_counter() - write_t0
-log.info(f"[METRIC] phase_write_seconds={phase_write_seconds:.3f}")
-_enforce_timeout("phase_write", phase_write_seconds, MAX_PHASE_SECONDS)
+log.info(f"[METRIC] phase_write_seconds={time.perf_counter() - write_t0:.3f}")
 log.info("Write complete")
 
 # ---------------------------------------------------------------------------
@@ -558,5 +491,8 @@ log.info(f"[METRIC] {TGT_TABLE}_row_count={final_count}")
 job.commit()
 total_job_seconds = time.perf_counter() - job_t0
 log.info(f"[METRIC] total_job_seconds={total_job_seconds:.3f}")
-_enforce_timeout("job_total", total_job_seconds, MAX_JOB_SECONDS)
+if MAX_JOB_SECONDS > 0 and total_job_seconds > float(MAX_JOB_SECONDS):
+    raise TimeoutError(
+        f"job_total exceeded timeout: elapsed={total_job_seconds:.3f}s, max={MAX_JOB_SECONDS}s"
+    )
 log.info("Transform-Tract-Producer-Year: completed successfully")

@@ -82,7 +82,7 @@
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__"
                 }
               },
-              "TimeoutSeconds": 3600,
+              "TimeoutSeconds": 1800,
               "Catch": [
                 {
                   "ErrorEquals": ["States.ALL"],

@@ -590,7 +590,9 @@ except Exception as e:
 
 print(conn_options)
 fpath = f's3://c108-{environ.lower()}-fpacfsa-final-zone/dmart/fwadm/nps/{tablename}'
-final_df.write.mode("overwrite").parquet(fpath)
+if final_df.count() > 0:
+    final_df.write.mode("overwrite").parquet(fpath)
+    print(f'Wrote parquet to {fpath}')
 
 ### Print to RDS (try DynamicFrame if not use COPY CMD)
 logger.info("Writing Transformed data to Redshift")
@@ -602,9 +604,6 @@ glueContext.write_dynamic_frame.from_jdbc_conf(
         connection_options=conn_options,
         redshift_tmp_dir=finalzone_path
         )
-fpath = f's3://c108-{environ.lower()}-fpacfsa-final-zone/dmart/fwadm/nps/{tablename}'
-final_df.write.mode("overwrite").parquet(fpath)
-logger.info(f"Data successfully saved to the PMRDS Final Zone in Parquet format at: {fpath}")
 
 
 

@@ -1258,8 +1258,9 @@ final_df.select(length_exprs).show()
 # Write to S3 in Parquet format with Snappy compression
 ###############################################################################################
 final_df = final_df.repartition(10)
-final_df.write.mode("overwrite").parquet(destination_path, compression="snappy")
-print(f"Final Data Frame written to S3 at: {destination_path}")
+if (final_df.count() > 0):
+    final_df.write.mode("overwrite").parquet(destination_path, compression="snappy")
+    print(f"Final Data Frame written to S3 at: {destination_path}")
 
 #############################################################################################
 # Run a validation and handle quarantining and logging

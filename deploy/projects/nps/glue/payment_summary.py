@@ -512,8 +512,9 @@ try:
         )
     # add write to final per PMRDS dgsprous 20260224
     fpath = f's3://c108-{environ.lower()}-fpacfsa-final-zone/dmart/fwadm/nps/{tablename}'
-    final_df.write.mode("overwrite").parquet(fpath)
-    logger.info(f"Data successfully saved to the PMRDS Final Zone in Parquet format at: {fpath}")
+    if final_df.count() > 0:
+        final_df.write.mode("overwrite").parquet(fpath)
+        logger.info(f"Data successfully saved to the PMRDS Final Zone in Parquet format at: {fpath}")
 except Exception as e:
   print(f"An error occurred: {e}") # e contains the error message
 

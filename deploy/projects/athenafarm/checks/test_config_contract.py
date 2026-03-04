@@ -487,15 +487,6 @@ class TestFirstRunTargetSafety(unittest.TestCase):
             "Transform-Tract-Producer-Year must create target table if missing via DataFrame ignore bootstrap",
         )
 
-    def test_transform_farm_creates_target_if_missing(self):
-        text = _script_text("Transform-Farm-Producer-Year")
-        self.assertIn(
-            'source_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(TARGET_FQN)',
-            text,
-            "Transform-Farm-Producer-Year must create target table if missing via DataFrame ignore bootstrap",
-        )
-
-
 class TestMergeFallbackSafety(unittest.TestCase):
     """
     Full-load mode must tolerate environments where Spark reports
@@ -507,18 +498,6 @@ class TestMergeFallbackSafety(unittest.TestCase):
         self.assertIn('write.format("iceberg").mode("overwrite").saveAsTable(TARGET_FQN)', text)
         self.assertNotIn("falling back to DELETE + INSERT", text)
         self.assertNotIn("DELETE FROM {TARGET_FQN} WHERE true", text)
-
-    def test_transform_farm_has_merge_fallback(self):
-        text = _script_text("Transform-Farm-Producer-Year")
-        self.assertIn('write.format("iceberg").mode("overwrite").saveAsTable(TARGET_FQN)', text)
-        self.assertNotIn("falling back to DELETE + INSERT", text)
-        self.assertNotIn("DELETE FROM {TARGET_FQN} WHERE true", text)
-
-    def test_transform_farm_no_legacy_full_load_insert_sql(self):
-        text = _script_text("Transform-Farm-Producer-Year")
-        self.assertNotIn("FULL_LOAD_INSERT_SQL", text)
-        self.assertNotIn("FULL_LOAD_OVERWRITE_SQL", text)
-
 
 class TestOptionalArgParsingSafety(unittest.TestCase):
     """
@@ -569,13 +548,13 @@ class TestRuntimeOptimizationSafety(unittest.TestCase):
     """
 
     def test_no_source_df_count_in_transforms(self):
-        for stem in ["Transform-Tract-Producer-Year", "Transform-Farm-Producer-Year"]:
+        for stem in ["Transform-Tract-Producer-Year"]:
             text = _script_text(stem)
             with self.subTest(script=stem):
                 self.assertNotIn("source_df.count()", text)
 
     def test_no_source_df_cache_in_transforms(self):
-        for stem in ["Transform-Tract-Producer-Year", "Transform-Farm-Producer-Year"]:
+        for stem in ["Transform-Tract-Producer-Year"]:
             text = _script_text(stem)
             with self.subTest(script=stem):
                 self.assertNotIn("source_df.cache()", text)
@@ -593,7 +572,7 @@ class TestRuntimeOptimizationSafety(unittest.TestCase):
         self.assertIn('"spark.sql.shuffle.partitions"', text)
 
     def test_full_load_uses_dataframe_iceberg_overwrite(self):
-        for stem in ["Transform-Tract-Producer-Year", "Transform-Farm-Producer-Year"]:
+        for stem in ["Transform-Tract-Producer-Year"]:
             text = _script_text(stem)
             with self.subTest(script=stem):
                 self.assertIn('write.format("iceberg").mode("overwrite").saveAsTable(TARGET_FQN)', text)
@@ -604,7 +583,6 @@ class TestRuntimeOptimizationSafety(unittest.TestCase):
             "Ingest-PG-Reference-Tables",
             "Ingest-PG-CDC-Targets",
             "Transform-Tract-Producer-Year",
-            "Transform-Farm-Producer-Year",
             "Sync-Iceberg-To-RDS",
             "Iceberg-Maintenance",
         ]

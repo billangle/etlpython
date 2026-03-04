@@ -176,21 +176,38 @@
       "Comment": "Run tract and farm producer year transforms concurrently. Both read from S3 Iceberg only (no shared write targets, no locks).",
       "Branches": [
         {
-          "StartAt": "TransformTractProducerYearFullLoad",
+          "StartAt": "TransformTractProducerYearPreprocess",
           "States": {
-            "TransformTractProducerYearFullLoad": {
+            "TransformTractProducerYearPreprocess": {
               "Type": "Task",
-              "Comment": "Run tract transform job (full-load only).",
+              "Comment": "Run tract preprocess stage to materialise tract_current stage table.",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
                 "Arguments": {
                   "--env": "__ENV__",
-                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__"
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--task_mode": "preprocess"
                 }
               },
-              "TimeoutSeconds": 28800,
-              "ResultPath": "$.transform_tpy_result",
+              "TimeoutSeconds": 1800,
+              "ResultPath": "$.transform_tpy_preprocess_result",
+              "Next": "TransformTractProducerYearFinalize"
+            },
+            "TransformTractProducerYearFinalize": {
+              "Type": "Task",
+              "Comment": "Run tract finalize stage to publish final tract_producer_year snapshot.",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--task_mode": "finalize"
+                }
+              },
+              "TimeoutSeconds": 1800,
+              "ResultPath": "$.transform_tpy_finalize_result",
               "End": true
             }
           }

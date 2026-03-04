@@ -625,7 +625,7 @@ def run_ods():
             logger.warning(f"[STG] Failed to read {stg_name}: {e}")
             landing_row_count[t] = 0
 
-    # 1. RELOAD TABLES
+    #RELOAD TABLES
     logger.info("[ODS] Starting RELOAD tables")
     for t in reload_tables:
         if landing_row_count.get(t, 0) == 0:
@@ -639,14 +639,31 @@ def run_ods():
             stg_name = normalize_table_name(t)
             df = read_stg_parquet(stg_name)
             before_count = df.count()
-            logger.info(f"[ODS][RELOAD] STG row count for table={t}: {before_count}")
-            landing_row_count[t] = before_count
+            
+            # NEW SAFETY GUARD — prevents double-run wiping
+            ods_table_name = ods_name_map.get(t, normalize_table_name(t)) 
+            ods_table_name_map[t] = ods_table_name 
+            # Read existing ODS table 
+            existing = read_ods_if_exists(ods_table_name) 
+            partition_exists = False
+            if existing is not None and "load_date" in existing.columns:
+                partition_exists = (existing.filter(F.col("load_date") == landing_date).count() > 0)
+
+            #STG empty skip reload do not delete any
             if before_count == 0:
-                df = spark.createDataFrame([], df.schema)
-            ods_table_name = ods_name_map.get(t, normalize_table_name(t))
-            ods_table_name_map[t] = ods_table_name
-            base_prefix = f"fmmi/{ods_prefix}/{ods_table_name}"
-            delete_s3_prefix(ods_bucket, base_prefix)
+                logger.info(f"[ODS] STG empty for {ods_table_name} on {landing_date} → skipping reload.")
+                continue
+
+            #stg has data overwrite or create today's partition
+            if partition_exists:
+                logger.info(f"[ODS] Overwriting existing partition for {ods_table_name} on {landing_date}.") 
+            else:
+                logger.info(f"[ODS] Overwriting existing partition for {ods_table_name} on {landing_date}.")
+                
+            #delete all old partitions (only because STG has data) 
+            table_prefix = f"fmmi/{ods_prefix}/{ods_table_name}/" 
+            delete_s3_prefix(ods_bucket, table_prefix)
+            # write todas's partition
             write_ods_table(ods_table_name, df, landing_date)
             logger.info(f"[ODS][RELOAD] Wrote table={ods_table_name} with row count={before_count}")
             ods_row_count[t] = before_count
@@ -926,55 +943,108 @@ def run_ods():
             .mode("overwrite") \
             .partitionBy("load_date") \
             .parquet(path)
-
+         
         logger.info("[FINAL] GL_SUMMARY table refreshed successfully.")
     except Exception as e:
         logger.error(f"[FINAL] Failed to refresh GL_SUMMARY: {e}")
+        
+    # ---- retrun msg values for driver ----
+    return {
+        "success_tables": success_tables,
+        "failed_tables": failed_tables,
+        "landing_row_count": landing_row_count,
+        "ods_row_count": ods_row_count,
+        "ods_table_name_map": ods_table_name_map,
+        "gl_count": gl_count,
+        "sa_count": sa_count,
+        "diff_cnt": diff_cnt,
+        "landing_date": landing_date
+    }    
 
-    # RESULT MESSAGE
+# ---------------- DRIVER ----------------
+try:
+    if job_type == "STG":
+        logger.info("[JOB] Running STG only")
+        run_stg()
+        ods_result = None
+
+    elif job_type == "ODS":
+        logger.info("[JOB] Running ODS only")
+        ods_result = run_ods()
+
+    else:  # BOTH
+        logger.info("[JOB] Running STG then ODS")
+        run_stg()
+        ods_result = run_ods()
+
+    logger.info("[JOB] Job completed successfully")
+
     # ---------------- RESULT MESSAGE ----------------
-    expected_tables = list(reload_tables) + list(append_tables)
+    if ods_result is None:
+        # STG-only run
+        result_message = {
+            "status": "STG_ONLY",
+            "message": "STG load completed successfully"
+        }
 
-    missing_tables = [
-        t for t in expected_tables
-        if landing_row_count.get(t, 0) == 0 and t not in success_tables
-    ]
+    else:
+        # Extract values returned from run_ods()
+        success_tables      = ods_result["success_tables"]
+        failed_tables       = ods_result["failed_tables"]
+        landing_row_count   = ods_result["landing_row_count"]
+        ods_row_count       = ods_result["ods_row_count"]
+        ods_table_name_map  = ods_result["ods_table_name_map"]
+        gl_count            = ods_result["gl_count"]
+        sa_count            = ods_result["sa_count"]
+        diff_cnt            = ods_result["diff_cnt"]
+        landing_date        = ods_result["landing_date"]
 
-    failed_tables = [t for t in failed_tables if t not in missing_tables]
+        expected_tables = list(reload_tables) + list(append_tables)
 
-    all_missing = len(missing_tables) == len(expected_tables)
+        # Identify missing tables
+        missing_tables = [
+            t for t in expected_tables
+            if landing_row_count.get(t, 0) == 0 and t not in success_tables
+        ]
 
-    try:
+        # Remove missing tables from failed list
+        failed_tables = [t for t in failed_tables if t not in missing_tables]
+
+        all_missing = len(missing_tables) == len(expected_tables)
+
+        # Build final result message
         if all_missing:
             result_message = {
-                "status": "NO_FILES",
+                "status": "No_Files",
                 "landing_date": landing_date,
                 "success_tables": success_tables,
                 "missing_tables": missing_tables,
-                "failed_tables": ["NONE"],
+                "failed_tables": ["None"],
                 "gl_count": gl_count,
                 "sa_count": sa_count,
-                "gl_sa_status": "NO_DATA"
+                "gl_sa_status": "No_Data"
             }
 
-        elif failure_count > 0 and len(success_tables) == 0:
+        elif len(failed_tables) == 0:
             result_message = {
-                "status": "FAILED",
+                "status": "Success",
                 "landing_date": landing_date,
                 "success_tables": success_tables,
                 "missing_tables": missing_tables,
-                "failed_tables": ["ALL_FAILED"],
+                "failed_tables": [],
                 "gl_count": gl_count,
                 "sa_count": sa_count,
                 "gl_sa_status": (
-                    "FILES_MISSING" if gl_count == 0 or sa_count == 0
-                    else "MISMATCH - The FMMI_ODS-SA & GL load process aborted"
+                    "MATCH-The FMMI_ODS-GL & SA are in sync"
+                    if gl_count > 0 and sa_count > 0 and diff_cnt == 0
+                    else "FILES_MISSING" if gl_count == 0 or sa_count == 0
+                    else "MISMATCH - The FMMI_ODS-GL & SA load process aborted"
                 )
             }
 
         else:
             result_message = {
-                "status": "SUCCESS" if failure_count == 0 else "PARTIAL",
+                "status": "Partial load",
                 "landing_date": landing_date,
                 "success_tables": success_tables,
                 "missing_tables": missing_tables,
@@ -982,38 +1052,19 @@ def run_ods():
                 "gl_count": gl_count,
                 "sa_count": sa_count,
                 "gl_sa_status": (
-                    "MATCH-The FMMI_ODS-SA & GL are in sync"
+                    "MATCH-The FMMI_ODS-GL & SA are in sync"
                     if gl_count > 0 and sa_count > 0 and diff_cnt == 0
                     else "FILES_MISSING" if gl_count == 0 or sa_count == 0
-                    else "MISMATCH - The FMMI_ODS-SA & GL load process aborted"
+                    else "MISMATCH - The FMMI_ODS-GL & SA load process aborted"
                 )
             }
 
-    except Exception as e:
-        result_message = {
-            "status": "FAILED",
-            "error": str(e)
-        }
-
-    print(json.dumps(result_message))
-
-# ---------------- DRIVER ----------------
-try:
-    if job_type == "STG":
-        logger.info("[JOB] Running STG only")
-        run_stg()
-    elif job_type == "ODS":
-        logger.info("[JOB] Running ODS only")
-        run_ods()
-    else:  # BOTH or anything else defaults to BOTH
-        logger.info("[JOB] Running STG then ODS")
-        run_stg()
-        run_ods()
-
-    logger.info("[JOB] Job completed successfully")
+    print(json.dumps({"result": result_message}))
     job.commit()
 
 except Exception as e:
     logger.error(f"[JOB] Job failed with exception: {e}")
     logger.error(traceback.format_exc())
+    print(json.dumps({"result": {"status": "FAILED", "error": str(e)}}))
+    job.commit()
     raise

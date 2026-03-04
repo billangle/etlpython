@@ -1,0 +1,316 @@
+{
+  "full_load": "true",
+  "skip_rds_sync": true,
+  "ingest_results": [
+    {
+      "AllocatedCapacity": 20,
+      "Arguments": {
+        "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+        "--env": "PROD"
+      },
+      "Attempt": 0,
+      "CompletedOn": 1772657784568,
+      "ExecutionTime": 1419,
+      "GlueVersion": "4.0",
+      "Id": "jr_e68c068d5aa3a1b52c542a4da0c1de8ec1ffffdba3f1fea41b2be2d48e49e38b",
+      "JobMode": "SCRIPT",
+      "JobName": "FSA-PROD-ATHENAFARM-Ingest-SSS-Farmrecords",
+      "JobRunState": "SUCCEEDED",
+      "LastModifiedOn": 1772657784568,
+      "LogGroupName": "/aws-glue/jobs",
+      "MaxCapacity": 20,
+      "NumberOfWorkers": 10,
+      "PredecessorRuns": [],
+      "StartedOn": 1772656357358,
+      "Timeout": 120,
+      "WorkerType": "G.2X"
+    },
+    {
+      "AllocatedCapacity": 8,
+      "Arguments": {
+        "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+        "--env": "PROD"
+      },
+      "Attempt": 0,
+      "CompletedOn": 1772657933607,
+      "ExecutionTime": 1770,
+      "GlueVersion": "4.0",
+      "Id": "jr_d8adad6aeeee7b07be110ae36106a40be29c874ec5644fe77f7c7d2b9bd6a6bd",
+      "JobMode": "SCRIPT",
+      "JobName": "FSA-PROD-ATHENAFARM-Ingest-PG-Reference-Tables",
+      "JobRunState": "SUCCEEDED",
+      "LastModifiedOn": 1772657933607,
+      "LogGroupName": "/aws-glue/jobs",
+      "MaxCapacity": 8,
+      "NumberOfWorkers": 4,
+      "PredecessorRuns": [],
+      "StartedOn": 1772656140550,
+      "Timeout": 480,
+      "WorkerType": "G.2X"
+    },
+    {
+      "AllocatedCapacity": 8,
+      "Arguments": {
+        "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+        "--env": "PROD"
+      },
+      "Attempt": 0,
+      "CompletedOn": 1772656842975,
+      "ExecutionTime": 682,
+      "GlueVersion": "4.0",
+      "Id": "jr_a5d17569abe9bd5fd459125453cdc633a6245b0ff244cff53fac6fd6adbcd1a4",
+      "JobMode": "SCRIPT",
+      "JobName": "FSA-PROD-ATHENAFARM-Ingest-PG-CDC-Targets",
+      "JobRunState": "SUCCEEDED",
+      "LastModifiedOn": 1772656842975,
+      "LogGroupName": "/aws-glue/jobs",
+      "MaxCapacity": 8,
+      "NumberOfWorkers": 4,
+      "PredecessorRuns": [],
+      "StartedOn": 1772656140554,
+      "Timeout": 480,
+      "WorkerType": "G.2X"
+    }
+  ],
+  "transform_tpy_preprocess_spine_result": {
+    "AllocatedCapacity": 80,
+    "Arguments": {
+      "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+      "--max_job_seconds": "1020",
+      "--shuffle_partitions": "1400",
+      "--task_mode": "preprocess_spine",
+      "--env": "PROD"
+    },
+    "Attempt": 0,
+    "CompletedOn": 1772658391843,
+    "ExecutionTime": 163,
+    "GlueVersion": "4.0",
+    "Id": "jr_d41de4f9e30ac2871265cb447553ca0b5aca672b64ba3706e9aa1c1cb3496d00",
+    "JobMode": "SCRIPT",
+    "JobName": "FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year",
+    "JobRunState": "SUCCEEDED",
+    "LastModifiedOn": 1772658391843,
+    "LogGroupName": "/aws-glue/jobs",
+    "MaxCapacity": 80,
+    "NumberOfWorkers": 40,
+    "PredecessorRuns": [],
+    "StartedOn": 1772658213952,
+    "Timeout": 480,
+    "WorkerType": "G.2X"
+  }
+}
+
+{
+  "JobRunId": "jr_3949c2a197ada8bd2a1bb1f994aa1b1e5b5940a807448813733b49aa19eb5bff",
+  "SdkHttpMetadata": {
+    "AllHttpHeaders": {
+      "Cache-Control": [
+        "no-cache"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "x-amzn-RequestId": [
+        "33a1aa3d-fb1c-454b-a0d5-e98929c1a8cf"
+      ],
+      "Content-Length": [
+        "82"
+      ],
+      "Date": [
+        "Wed, 04 Mar 2026 21:07:37 GMT"
+      ],
+      "Content-Type": [
+        "application/x-amz-json-1.1"
+      ]
+    },
+    "HttpHeaders": {
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "Content-Length": "82",
+      "Content-Type": "application/x-amz-json-1.1",
+      "Date": "Wed, 04 Mar 2026 21:07:37 GMT",
+      "x-amzn-RequestId": "33a1aa3d-fb1c-454b-a0d5-e98929c1a8cf"
+    },
+    "HttpStatusCode": 200
+  },
+  "SdkResponseMetadata": {
+    "RequestId": "33a1aa3d-fb1c-454b-a0d5-e98929c1a8cf"
+  },
+  "JobName": "FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year"
+}
+
+26/03/04 21:08:31 INFO BaseMetastoreTableOperations: Refreshing table metadata from new version: s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg/athenafarm_prod_raw.db/ibst/metadata/00028-14f90e4f-7423-49cf-8846-ef95ce4eba86.metadata.json
+26/03/04 21:08:30 INFO TaskGroupInterface: createChildTask API response code 200
+26/03/04 21:08:30 INFO ExecutorTaskManagement: executor task g-5199e4baf2b1394af13466a39f24cc241f01d9ca created for executor 31
+26/03/04 21:08:30 INFO ExecutorTaskManagement: executor task g-d3d63c58993e8bb19290bbfc1740ced93025f826 created for executor 30
+26/03/04 21:08:30 INFO TaskGroupInterface: creating executor task for executor 31; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_31_a_spark-application-1772658504118
+26/03/04 21:08:30 INFO TaskGroupInterface: creating executor task for executor 30; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_30_a_spark-application-1772658504118
+26/03/04 21:08:30 INFO ExecutorTaskManagement: executor task g-fd3ff8c0c71ee6b7a3aae555867aac4b1642a5af created for executor 29
+26/03/04 21:08:30 INFO CatalogUtil: Loading custom FileIO implementation: org.apache.iceberg.aws.s3.S3FileIO
+26/03/04 21:08:30 INFO ExecutorTaskManagement: executor task g-bc2f2e2321e3e27c6abad5d9f369dec64ef1481c created for executor 28
+26/03/04 21:08:30 INFO TaskGroupInterface: creating executor task for executor 29; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_29_a_spark-application-1772658504118
+26/03/04 21:08:29 INFO ExecutorTaskManagement: executor task g-820ff778898f3df2882aa02d5eb257269fb8b9fc created for executor 27
+26/03/04 21:08:29 INFO TaskGroupInterface: creating executor task for executor 28; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_28_a_spark-application-1772658504118
+26/03/04 21:08:29 INFO TaskGroupInterface: createChildTask API response code 200
+26/03/04 21:08:29 INFO ExecutorTaskManagement: executor task g-ccaf51a422c4032842b3f260864f313c5010315a created for executor 26
+26/03/04 21:08:29 INFO TaskGroupInterface: creating executor task for executor 27; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_27_a_spark-application-1772658504118
+26/03/04 21:08:29 INFO ExecutorTaskManagement: executor task g-973bebc0b97d78b228ec1aa1d773af25574c3c98 created for executor 25
+26/03/04 21:08:29 INFO TaskGroupInterface: creating executor task for executor 26; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_26_a_spark-application-1772658504118
+26/03/04 21:08:29 INFO TaskGroupInterface: creating executor task for executor 25; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_25_a_spark-application-1772658504118
+26/03/04 21:08:29 INFO ExecutorTaskManagement: executor task g-f220687e2aa57620a017df27cf01874f9f50bd6c created for executor 24
+26/03/04 21:08:28 INFO ExecutorTaskManagement: executor task g-4f047bc2a375c0fd9f2d9e39b7635b37cbc9fa67 created for executor 23
+26/03/04 21:08:28 INFO TaskGroupInterface: creating executor task for executor 24; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_24_a_spark-application-1772658504118
+26/03/04 21:08:28 INFO TaskGroupInterface: createChildTask API response code 200
+26/03/04 21:08:28 INFO ExecutorTaskManagement: executor task g-4b32be71fbf43a6ba239f8369e25c4fa832d4d51 created for executor 22
+26/03/04 21:08:28 INFO TaskGroupInterface: creating executor task for executor 23; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_23_a_spark-application-1772658504118
+26/03/04 21:08:28 INFO CatalogUtil: Loading custom FileIO implementation: org.apache.iceberg.aws.s3.S3FileIO
+26/03/04 21:08:28 INFO ExecutorTaskManagement: executor task g-7b8c30dea54a4c47d9ffdc4fac2a269b16f350f0 created for executor 21
+26/03/04 21:08:28 INFO TaskGroupInterface: creating executor task for executor 22; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_22_a_spark-application-1772658504118
+26/03/04 21:08:28 INFO ExecutorTaskManagement: executor task g-e56187e9a7ed43a0cff6392865d408e7d3279e5f created for executor 20
+26/03/04 21:08:28 INFO TaskGroupInterface: creating executor task for executor 21; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_21_a_spark-application-1772658504118
+26/03/04 21:08:27 INFO ExecutorTaskManagement: executor task g-d99bcc929593f467029928244624dc5e06cc68e9 created for executor 19
+26/03/04 21:08:27 INFO TaskGroupInterface: creating executor task for executor 20; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_20_a_spark-application-1772658504118
+26/03/04 21:08:27 INFO TaskGroupInterface: createChildTask API response code 200
+26/03/04 21:08:27 INFO ExecutorTaskManagement: executor task g-58040f9b4874264ec8e990836a318b12351d7d1f created for executor 18
+26/03/04 21:08:27 INFO TaskGroupInterface: creating executor task for executor 19; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_19_a_spark-application-1772658504118
+26/03/04 21:08:27 INFO TaskGroupInterface: creating executor task for executor 18; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_18_a_spark-application-1772658504118
+26/03/04 21:08:27 INFO ExecutorTaskManagement: executor task g-b78ed4da251ad1d8a4ac00c482b8c8bfa83eaad4 created for executor 17
+26/03/04 21:08:27 INFO AnalyzerLogHelper$: 21:08:27.537 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.GlueJobEventReplayListener - Initialized rule engine session
+26/03/04 21:08:27 INFO AnalyzerLogHelper$: 21:08:27.537 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.app.GlueJobEventsInputHandler - GlueJobEventReplayListener initialized
+26/03/04 21:08:27 INFO ExecutorTaskManagement: executor task g-144f427dc74ed77e627db3ed0196f7d1b6df93bc created for executor 16
+26/03/04 21:08:27 INFO TaskGroupInterface: creating executor task for executor 17; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_17_a_spark-application-1772658504118
+26/03/04 21:08:27 INFO ExecutorTaskManagement: executor task g-d72024c42d099abd235af424358abe4abcf5a5e5 created for executor 15
+26/03/04 21:08:27 INFO TaskGroupInterface: creating executor task for executor 16; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_16_a_spark-application-1772658504118
+26/03/04 21:08:27 INFO TaskGroupInterface: creating executor task for executor 15; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_15_a_spark-application-1772658504118
+26/03/04 21:08:27 INFO ExecutorTaskManagement: executor task g-8982879aa06df4167e73f16fb7061619ed207b8f created for executor 14
+26/03/04 21:08:27 INFO ExecutorTaskManagement: executor task g-b41bde9e59f717843134ade8f3abf9922ad0ab59 created for executor 13
+26/03/04 21:08:27 INFO TaskGroupInterface: creating executor task for executor 14; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_14_a_spark-application-1772658504118
+26/03/04 21:08:26 INFO TaskGroupInterface: creating executor task for executor 13; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_13_a_spark-application-1772658504118
+26/03/04 21:08:26 INFO TaskGroupInterface: createChildTask API response code 200
+26/03/04 21:08:26 INFO ExecutorTaskManagement: executor task g-c1e3d0aa5b428c02abdfb5a3c82992c8721d69af created for executor 12
+26/03/04 21:08:26 INFO BlockManagerInfo: Removed broadcast_0_piece0 on 172.36.150.211:34641 in memory (size: 33.5 KiB, free: 11.8 GiB)
+26/03/04 21:08:26 INFO BlockManagerInfo: Removed broadcast_1_piece0 on 172.36.150.211:34641 in memory (size: 33.5 KiB, free: 11.8 GiB)
+26/03/04 21:08:26 INFO TaskGroupInterface: creating executor task for executor 12; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_12_a_spark-application-1772658504118
+26/03/04 21:08:26 INFO ExecutorTaskManagement: executor task g-fa64da6dacd9b86fd92437caac7c40f94bca4392 created for executor 11
+26/03/04 21:08:26 INFO ExecutorTaskManagement: executor task g-d358b13587bea526e9535fe892d1697255d0bad1 created for executor 10
+26/03/04 21:08:26 INFO TaskGroupInterface: creating executor task for executor 11; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_11_a_spark-application-1772658504118
+26/03/04 21:08:26 INFO TaskGroupInterface: creating executor task for executor 10; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_10_a_spark-application-1772658504118
+26/03/04 21:08:26 INFO ExecutorTaskManagement: executor task g-c46b15461f5c43a9d86132702e3793476f6a8040 created for executor 9
+26/03/04 21:08:26 INFO SharedState: Warehouse path is 'file:/tmp/spark-warehouse'.
+26/03/04 21:08:26 INFO SharedState: spark.sql.warehouse.dir is not set, but hive.metastore.warehouse.dir is set. Setting spark.sql.warehouse.dir to the value of hive.metastore.warehouse.dir.
+26/03/04 21:08:26 INFO JobBookmark$: jobbookmark is not enabled, do not init AWSGlueJobBookMarkService
+26/03/04 21:08:26 INFO SparkContext: Created broadcast 1 from broadcast at DynamoConnection.scala:52
+26/03/04 21:08:26 INFO BlockManagerInfo: Added broadcast_1_piece0 in memory on 172.36.150.211:34641 (size: 33.5 KiB, free: 11.8 GiB)
+26/03/04 21:08:26 INFO MemoryStore: Block broadcast_1_piece0 stored as bytes in memory (estimated size 33.5 KiB, free 11.8 GiB)
+26/03/04 21:08:26 INFO MemoryStore: Block broadcast_1 stored as values in memory (estimated size 358.4 KiB, free 11.8 GiB)
+26/03/04 21:08:26 INFO SparkContext: Created broadcast 0 from broadcast at DynamoConnection.scala:52
+26/03/04 21:08:26 INFO BlockManagerInfo: Added broadcast_0_piece0 in memory on 172.36.150.211:34641 (size: 33.5 KiB, free: 11.8 GiB)
+26/03/04 21:08:26 INFO MemoryStore: Block broadcast_0_piece0 stored as bytes in memory (estimated size 33.5 KiB, free 11.8 GiB)
+26/03/04 21:08:26 INFO TaskGroupInterface: creating executor task for executor 9; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_9_a_spark-application-1772658504118
+26/03/04 21:08:26 INFO ExecutorTaskManagement: executor task g-1383f5306b8ed58be988f331d3e4ac3f5547a0c3 created for executor 8
+26/03/04 21:08:26 INFO MemoryStore: Block broadcast_0 stored as values in memory (estimated size 358.4 KiB, free 11.8 GiB)
+26/03/04 21:08:25 INFO TaskGroupInterface: createChildTask API response code 200
+26/03/04 21:08:25 INFO ExecutorTaskManagement: executor task g-fbd68734b149a35b3e2b2af1168edbec9ff0af2d created for executor 7
+26/03/04 21:08:25 INFO TaskGroupInterface: creating executor task for executor 8; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_8_a_spark-application-1772658504118
+26/03/04 21:08:25 INFO AvroReaderUtil$: Creating default Avro field parser for version 1.7.
+26/03/04 21:08:25 INFO Job$: runId Method is Invoked 
+26/03/04 21:08:25 INFO Job$: Job run ID under runId method is jr_3949c2a197ada8bd2a1bb1f994aa1b1e5b5940a807448813733b49aa19eb5bff 
+26/03/04 21:08:25 INFO LzoCodec: Successfully loaded & initialized native-lzo library [hadoop-lzo rev 049362b7cf53ff5f739d6b1532457f2c6cd495e8]
+26/03/04 21:08:25 INFO GPLNativeCodeLoader: Loaded native gpl library
+26/03/04 21:08:25 INFO GlueContext: GlueMetrics not configured
+26/03/04 21:08:25 INFO GlueContext: ObservabilityMetrics not configured
+26/03/04 21:08:25 INFO TaskGroupInterface: creating executor task for executor 7; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_7_a_spark-application-1772658504118
+26/03/04 21:08:25 INFO ExecutorTaskManagement: executor task g-ab8144879f93de00f7db7a450b5458dc68ff06e6 created for executor 6
+26/03/04 21:08:25 INFO ExecutorTaskManagement: executor task g-203eebb5b2fffc9812ee96cf0df20fca28c0bd9d created for executor 5
+26/03/04 21:08:25 INFO TaskGroupInterface: creating executor task for executor 6; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_6_a_spark-application-1772658504118
+26/03/04 21:08:25 INFO TaskGroupInterface: creating executor task for executor 5; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_5_a_spark-application-1772658504118
+26/03/04 21:08:25 INFO ExecutorTaskManagement: executor task g-436ad83732baf7aa33b606adc0df77e1236a66a0 created for executor 4
+26/03/04 21:08:25 INFO TaskGroupInterface: creating executor task for executor 4; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_4_a_spark-application-1772658504118
+26/03/04 21:08:25 INFO ExecutorTaskManagement: executor task g-e9c29017f3c278c9beed13204f4001997f3e0a18 created for executor 3
+26/03/04 21:08:25 INFO JESSchedulerBackend: SchedulerBackend is ready for scheduling beginning after reached minRegisteredResourcesRatio: 0.0
+26/03/04 21:08:25 INFO log: Logging initialized @12337ms to org.sparkproject.jetty.util.log.Slf4jLog
+26/03/04 21:08:25 INFO JESSchedulerBackend: getDriverLogUrls Map()
+26/03/04 21:08:25 INFO ExecutorTaskManagement: executor task g-108a2d1b15198967381d5eb6d4512f71018c3527 created for executor 2
+26/03/04 21:08:25 INFO TaskGroupInterface: creating executor task for executor 3; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_3_a_spark-application-1772658504118
+26/03/04 21:08:25 INFO SparkContext: Registered listener glue.ch.cern.sparkmeasure.FlightRecorderStageMetrics
+26/03/04 21:08:25 INFO SparkContext: Registered listener glue.ch.cern.sparkmeasure.FlightRecorderTaskMetrics
+26/03/04 21:08:25 INFO SparkContext: Registered listener com.amazonaws.services.glueexceptionanalysis.GlueExceptionAnalysisListener
+26/03/04 21:08:25 INFO SparkContext: Registered listener com.amazonaws.services.gluedi.sensei.autodebugging.AutoDebuggingListener
+26/03/04 21:08:25 INFO FlightRecorderTaskMetrics: Writing output to /tmp/taskMetrics_flightRecorder
+26/03/04 21:08:25 INFO FlightRecorderTaskMetrics: Using json as serialization format.
+26/03/04 21:08:25 INFO FlightRecorderStageMetrics: Writing output to /tmp/stageMetrics_flightRecorder
+26/03/04 21:08:25 INFO FlightRecorderStageMetrics: Using json as serialization format.
+26/03/04 21:08:25 INFO AutoDebuggingEventLogFileWriter: Started file writer.
+26/03/04 21:08:24 INFO EventLogSocketWriter: Socket client for com.amazonaws.services.glueexceptionanalysis.EventLogSocketWriter started correctly
+26/03/04 21:08:24 INFO TaskGroupInterface: creating executor task for executor 2; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_2_a_spark-application-1772658504118
+26/03/04 21:08:24 INFO ExecutorTaskManagement: executor task g-a5a554ea5332a4b41b03b25cb3d69157d3f25304 created for executor 1
+26/03/04 21:08:24 INFO TaskGroupInterface: createChildTask API response code 200
+26/03/04 21:08:24 INFO EventLogFileWriter: Started file writer for com.amazonaws.services.glueexceptionanalysis.EventLogFileWriter
+26/03/04 21:08:24 INFO BlockManagerMaster: Registered BlockManager BlockManagerId(driver, 172.36.150.211, 34641, None)
+26/03/04 21:08:24 INFO BlockManager: Initialized BlockManager: BlockManagerId(driver, 172.36.150.211, 34641, None)
+26/03/04 21:08:24 INFO BlockManagerMasterEndpoint: Registering block manager 172.36.150.211:34641 with 11.8 GiB RAM, BlockManagerId(driver, 172.36.150.211, 34641, None)
+26/03/04 21:08:24 INFO BlockManagerMaster: Registering BlockManager BlockManagerId(driver, 172.36.150.211, 34641, None)
+26/03/04 21:08:24 INFO BlockManager: Using org.apache.spark.storage.RandomBlockReplicationPolicy for block replication policy
+26/03/04 21:08:24 INFO Utils: Successfully started service 'org.apache.spark.network.netty.NettyBlockTransferService' on port 34641.
+26/03/04 21:08:24 INFO NettyBlockTransferService: Server created on 172.36.150.211:34641
+26/03/04 21:08:24 INFO TaskGroupInterface: creating executor task for executor 1; clientToken gr_tg-be821227ec3fb5d657d08ac3a0719e870fd62322_e_1_a_spark-application-1772658504118
+26/03/04 21:08:24 INFO JESSchedulerBackend: JESClusterManager: Initializing JES client with proxy: host: null, port: -1
+26/03/04 21:08:24 INFO JESSchedulerBackend: JESSchedulerBackend
+26/03/04 21:08:24 INFO JESSchedulerBackend$JESAsSchedulerBackendEndpoint: JESAsSchedulerBackendEndpoint
+26/03/04 21:08:24 INFO SubResultCacheManager: Sub-result caches are disabled.
+26/03/04 21:08:24 INFO SparkEnv: Registering OutputCommitCoordinator
+26/03/04 21:08:24 INFO MemoryStore: MemoryStore started with capacity 11.8 GiB
+26/03/04 21:08:24 INFO DiskBlockManager: Created local directory at /tmp/blockmgr-3c34ce39-d5e6-4702-a396-ae4429437399
+26/03/04 21:08:23 INFO SparkEnv: Registering BlockManagerMasterHeartbeat
+26/03/04 21:08:23 INFO BlockManagerMasterEndpoint: BlockManagerMasterEndpoint up
+26/03/04 21:08:23 INFO BlockManagerMasterEndpoint: Using org.apache.spark.storage.DefaultTopologyMapper for getting topology information
+26/03/04 21:08:23 INFO SparkEnv: Registering BlockManagerMaster
+26/03/04 21:08:23 INFO SparkEnv: Registering MapOutputTracker
+26/03/04 21:08:23 INFO Utils: Successfully started service 'sparkDriver' on port 34535.
+26/03/04 21:08:23 INFO SecurityManager: Changing modify acls groups to: 
+26/03/04 21:08:23 INFO SecurityManager: SecurityManager: authentication enabled; ui acls disabled; users  with view permissions: Set(spark); groups with view permissions: Set(); users  with modify permissions: Set(spark); groups with modify permissions: Set()
+26/03/04 21:08:23 INFO SecurityManager: Changing view acls groups to: 
+26/03/04 21:08:23 INFO SecurityManager: Changing view acls to: spark
+26/03/04 21:08:23 INFO SecurityManager: Changing modify acls to: spark
+26/03/04 21:08:23 INFO ResourceProfileManager: Added ResourceProfile id: 0
+26/03/04 21:08:23 INFO ResourceProfile: Limiting resource is cpus at 8 tasks per executor
+26/03/04 21:08:23 INFO ResourceProfile: Default ResourceProfile created, executor resources: Map(cores -> name: cores, amount: 8, script: , vendor: , memory -> name: memory, amount: 20480, script: , vendor: , offHeap -> name: offHeap, amount: 0, script: , vendor: ), task resources: Map(cpus -> name: cpus, amount: 1.0)
+26/03/04 21:08:23 INFO SparkContext: Submitted application: nativespark-FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year-jr_3949c2a197ada8bd2a1bb1f994aa1b1e5b5940a807448813733b49aa19eb5bff
+26/03/04 21:08:23 INFO ResourceUtils: ==============================================================
+26/03/04 21:08:23 INFO ResourceUtils: No custom resources configured for spark.driver.
+26/03/04 21:08:23 INFO SparkContext: Running Spark version 3.3.0-amzn-1
+26/03/04 21:08:21 INFO AnalyzerLogHelper$: 21:08:21.508 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Missing_optional_dependency_XLRD.drl
+26/03/04 21:08:21 INFO AnalyzerLogHelper$: 21:08:21.509 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Type_error_on_endpoint_config.drl
+26/03/04 21:08:21 INFO AnalyzerLogHelper$: 21:08:21.509 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Name_error_in_glue_app.drl
+26/03/04 21:08:21 INFO AnalyzerLogHelper$: 21:08:21.508 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Data_with_invalid_value.drl
+26/03/04 21:08:21 INFO AnalyzerLogHelper$: 21:08:21.508 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/OOM_on_driver_no_heap_space_with_G2X.drl
+26/03/04 21:08:21 INFO AnalyzerLogHelper$: 21:08:21.508 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/OOM_on_driver_no_heap_space_non_G2X.drl
+26/03/04 21:08:21 INFO AnalyzerLogHelper$: 21:08:21.508 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Missing_required_glue_argument.drl
+26/03/04 21:08:21 INFO AnalyzerLogHelper$: 21:08:21.507 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Analysis_Exception_Cannot_Resolve.drl
+26/03/04 21:08:21 INFO AnalyzerLogHelper$: 21:08:21.508 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/JDBC_connection_failed.drl
+26/03/04 21:08:21 INFO AnalyzerLogHelper$: 21:08:21.507 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Arithmetic_Exception_in_Glue_job.drl
+26/03/04 21:08:21 INFO AnalyzerLogHelper$: 21:08:21.504 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Module_Not_Found_Error.drl
+26/03/04 21:08:21 INFO AnalyzerLogHelper$: 21:08:21.011 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.RulesEngineConfig - Loaded Drools Files : [com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@572fb182, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@6a127f14, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@556047c3, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@2b21e183, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@128e6c4, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@78bbc32a, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@2fb2dda1, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@bbb1c2d, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@4d63d558, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@6be7ed4d, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@52816a45]
+26/03/04 21:08:20 INFO AnalyzerLogHelper$: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149) ~[?:1.8.0_472]
+26/03/04 21:08:20 INFO AnalyzerLogHelper$: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624) ~[?:1.8.0_472]
+26/03/04 21:08:20 INFO AnalyzerLogHelper$: 	at java.lang.Thread.run(Thread.java:750) ~[?:1.8.0_472]
+26/03/04 21:08:20 INFO AnalyzerLogHelper$: 21:08:20.905 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.utils.FileUtils - Reading file using thread context class loader FailureAnalysisRules.csv
+26/03/04 21:08:20 INFO AnalyzerLogHelper$: 	at java.io.InputStreamReader.<init>(InputStreamReader.java:97) ~[?:1.8.0_472]
+26/03/04 21:08:20 INFO AnalyzerLogHelper$: 	at com.amazonaws.gluejob.utils.FileUtils.readCsvFile(FileUtils.java:25) ~[AWSGlueJobLogsAnalysisLib.jar:?]
+26/03/04 21:08:20 INFO AnalyzerLogHelper$: 	at com.amazonaws.gluejob.utils.rules_generator.DroolsRuleGenerator.readCsvToGenerateDrools(DroolsRuleGenerator.java:34) ~[AWSGlueJobLogsAnalysisLib.jar:?]
+26/03/04 21:08:20 INFO AnalyzerLogHelper$: 	at com.amazonaws.gluejob.app.GlueJobEventsInputHandler.run(GlueJobEventsInputHandler.scala:36) ~[AWSGlueJobLogsAnalysisLib.jar:?]
+26/03/04 21:08:20 INFO AnalyzerLogHelper$: 21:08:20.900 [pool-3-thread-1] ERROR [] com.amazonaws.gluejob.utils.FileUtils - Error getting file with getResourceAsStream 
+26/03/04 21:08:20 INFO AnalyzerLogHelper$: java.lang.NullPointerException: null
+26/03/04 21:08:20 INFO AnalyzerLogHelper$: 	at java.io.Reader.<init>(Reader.java:78) ~[?:1.8.0_472]
+26/03/04 21:08:20 INFO AnalyzerLogHelper$: 21:08:20.893 [main] INFO  [] com.amazonaws.gluejob.app.GlueJobEventsInputHandler - Initialized events handler
+26/03/04 21:08:20 INFO AnalyzerLogHelper$: input rulesFilePath=/tmp/glue_app_analyzer_rules
+26/03/04 21:08:20 INFO AnalyzerLogHelper$: ==== Netty Server Started ====
+26/03/04 21:08:20 INFO SafeLogging: Initializing logging subsystem
+26/03/04 21:08:20 INFO AnalyzerLogHelper$: 21:08:20.248 [main] INFO  [] com.amazonaws.gluejob.app.LogFileWriter - Started file writer for com.amazonaws.gluejob.app.LogFileWriter
+26/03/04 21:08:18 INFO AnalyzerLogHelper$: SLF4J: Actual binding is of type [org.apache.logging.slf4j.Log4jLoggerFactory]
+26/03/04 21:08:18 INFO AnalyzerLogHelper$: SLF4J: See http://www.slf4j.org/codes.html#multiple_bindings for an explanation.
+26/03/04 21:08:18 INFO AnalyzerLogHelper$: SLF4J: Found binding in [jar:file:/opt/amazon/lib/slf4j-log4j12-1.7.10.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+26/03/04 21:08:18 INFO AnalyzerLogHelper$: SLF4J: Found binding in [jar:file:/opt/amazon/spark/jars/slf4j-reload4j-1.7.36.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+26/03/04 21:08:18 INFO AnalyzerLogHelper$: SLF4J: Found binding in [jar:file:/opt/amazon/lib/Log4j-slf4j-2.x.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+26/03/04 21:08:18 INFO AnalyzerLogHelper$: SLF4J: Found binding in [jar:file:/opt/amazon/spark/jars/log4j-slf4j-impl-2.17.2.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+26/03/04 21:08:18 INFO AnalyzerLogHelper$: SLF4J: Class path contains multiple SLF4J bindings.

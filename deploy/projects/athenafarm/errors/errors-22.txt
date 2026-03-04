@@ -1,0 +1,134 @@
+{
+  "cause": {
+    "AllocatedCapacity": 80,
+    "Arguments": {
+      "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+      "--max_job_seconds": "1020",
+      "--shuffle_partitions": "1400",
+      "--task_mode": "preprocess_spine",
+      "--env": "PROD"
+    },
+    "Attempt": 0,
+    "CompletedOn": 1772654286574,
+    "ErrorMessage": "SystemExit: 0",
+    "ExecutionTime": 135,
+    "GlueVersion": "4.0",
+    "Id": "jr_00d27f9afbe56c3a569e820a5dd909091ce00f95fc5ee9058161255a0ec85e34",
+    "JobMode": "SCRIPT",
+    "JobName": "FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year",
+    "JobRunState": "FAILED",
+    "LastModifiedOn": 1772654286574,
+    "LogGroupName": "/aws-glue/jobs",
+    "MaxCapacity": 80,
+    "NumberOfWorkers": 40,
+    "PredecessorRuns": [],
+    "StartedOn": 1772654145130,
+    "Timeout": 480,
+    "WorkerType": "G.2X"
+  },
+  "error": "States.TaskFailed",
+  "resource": "startJobRun.sync",
+  "resourceType": "glue"
+}
+
+
+2026-03-04T20:05:03.455Z
+26/03/04 20:05:03 INFO DataWritingSparkTask: Commit authorized for partition 1080 (task 1080, attempt 0, stage 0.0)
+2026-03-04T20:05:03.463Z
+26/03/04 20:05:03 INFO DataWritingSparkTask: Commit authorized for partition 1082 (task 1082, attempt 0, stage 0.0)
+2026-03-04T20:05:03.467Z
+26/03/04 20:05:03 INFO DataWritingSparkTask: Committed partition 1071 (task 1071, attempt 0, stage 0.0)
+2026-03-04T20:05:03.468Z
+26/03/04 20:05:03 INFO Executor: Finished task 1071.0 in stage 0.0 (TID 1071). 4758 bytes result sent to driver
+2026-03-04T20:05:03.649Z
+26/03/04 20:05:03 INFO DataWritingSparkTask: Commit authorized for partition 1078 (task 1078, attempt 0, stage 0.0)
+2026-03-04T20:05:03.660Z
+26/03/04 20:05:03 INFO DataWritingSparkTask: Committed partition 1082 (task 1082, attempt 0, stage 0.0)
+2026-03-04T20:05:03.661Z
+26/03/04 20:05:03 INFO Executor: Finished task 1082.0 in stage 0.0 (TID 1082). 4759 bytes result sent to driver
+2026-03-04T20:05:03.685Z
+26/03/04 20:05:03 INFO DataWritingSparkTask: Committed partition 1080 (task 1080, attempt 0, stage 0.0)
+2026-03-04T20:05:03.687Z
+26/03/04 20:05:03 INFO Executor: Finished task 1080.0 in stage 0.0 (TID 1080). 4757 bytes result sent to driver
+2026-03-04T20:05:03.795Z
+26/03/04 20:05:03 INFO DataWritingSparkTask: Commit authorized for partition 1084 (task 1084, attempt 0, stage 0.0)
+2026-03-04T20:05:03.841Z
+26/03/04 20:05:03 INFO DataWritingSparkTask: Committed partition 1078 (task 1078, attempt 0, stage 0.0)
+2026-03-04T20:05:03.842Z
+26/03/04 20:05:03 INFO Executor: Finished task 1078.0 in stage 0.0 (TID 1078). 4749 bytes result sent to driver
+2026-03-04T20:05:03.999Z
+26/03/04 20:05:03 INFO DataWritingSparkTask: Committed partition 1084 (task 1084, attempt 0, stage 0.0)
+2026-03-04T20:05:04.000Z
+26/03/04 20:05:04 INFO Executor: Finished task 1084.0 in stage 0.0 (TID 1084). 4759 bytes result sent to driver
+2026-03-04T20:05:15.389Z
+26/03/04 20:05:15 INFO CoarseGrainedExecutorBackend: Driver commanded a shutdown
+2026-03-04T20:05:15.427Z
+26/03/04 20:05:15 INFO AWSDILyraSink: AWSDILyraSink: SparkContext stopped - not reporting metrics now.
+2026-03-04T20:05:15.444Z
+26/03/04 20:05:15 INFO MemoryStore: MemoryStore cleared
+2026-03-04T20:05:15.444Z
+26/03/04 20:05:15 INFO BlockManager: BlockManager stopped
+
+
+26/03/04 20:05:12 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] 
+{
+    "Event": "GlueETLJobExceptionEvent",
+    "Timestamp": 1772654712190,
+    "Failure Reason": "Traceback (most recent call last):\n  File \"/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py\", line 547, in <module>\n    finish_and_exit(\"[PP_SPINE_STAGE] Transform-Tract-Producer-Year preprocess_spine: completed successfully\")\n  File \"/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py\", line 218, in finish_and_exit\n    sys.exit(0)\nSystemExit: 0",
+    "Stack Trace": [
+        {
+            "Declaring Class": "finish_and_exit",
+            "Method Name": "sys.exit(0)",
+            "File Name": "/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py",
+            "Line Number": 218
+        },
+        {
+            "Declaring Class": "<module>",
+            "Method Name": "finish_and_exit(\"[PP_SPINE_STAGE] Transform-Tract-Producer-Year preprocess_spine: completed successfully\")",
+            "File Name": "/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py",
+            "Line Number": 547
+        }
+    ],
+    "Last Executed Line number": 547,
+    "script": "FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py"
+}
+
+26/03/04 20:05:12 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] Last Executed Line number from script FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py: 547
+
+
+2026-03-04T20:05:12.000Z
+26/03/04 20:05:12 INFO DAGScheduler: Job 1 is finished. Cancelling potential speculative or zombie tasks for this job
+2026-03-04T20:05:12.000Z
+26/03/04 20:05:12 INFO TaskSchedulerImpl: Killing all running tasks in stage 1: Stage finished
+2026-03-04T20:05:12.001Z
+26/03/04 20:05:12 INFO DAGScheduler: Job 1 finished: first at /tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py:198, took 0.562594 s
+2026-03-04T20:05:12.026Z
+26/03/04 20:05:12 INFO CodeGenerator: Code generated in 19.095501 ms
+2026-03-04T20:05:12.170Z
+26/03/04 20:05:12 ERROR ProcessLauncher: Error from Python:Traceback (most recent call last): File "/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py", line 547, in <module> finish_and_exit("[PP_SPINE_STAGE] Transform-Tract-Producer-Year preprocess_spine: completed successfully") File "/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py", line 218, in finish_and_exit sys.exit(0) SystemExit: 0
+2026-03-04T20:05:12.191Z
+26/03/04 20:05:12 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] {"Event":"GlueETLJobExceptionEvent","Timestamp":1772654712190,"Failure Reason":"Traceback (most recent call last):\n File \"/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py\", line 547, in <module>\n finish_and_exit(\"[PP_SPINE_STAGE] Transform-Tract-Producer-Year preprocess_spine: completed successfully\")\n File \"/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py\", line 218, in finish_and_exit\n sys.exit(0)\nSystemExit: 0","Stack Trace":[{"Declaring Class":"finish_and_exit","Method Name":"sys.exit(0)","File Name":"/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py","Line Number":218},{"Declaring Class":"<module>","Method Name":"finish_and_exit(\"[PP_SPINE_STAGE] Transform-Tract-Producer-Year preprocess_spine: completed successfully\")","File Name":"/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py","Line Number":547}],"Last Executed Line number":547,"script":"FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py"}
+2026-03-04T20:05:12.256Z
+26/03/04 20:05:12 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] Last Executed Line number from script FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py: 547
+2026-03-04T20:05:12.260Z
+26/03/04 20:05:12 INFO ResourceManagerSocketWriter: Socket client for com.amazonaws.services.glue.ResourceManagerSocketWriter started correctly
+2026-03-04T20:05:12.264Z
+26/03/04 20:05:12 INFO ProcessLauncher: postprocessing
+2026-03-04T20:05:12.314Z
+26/03/04 20:05:12 INFO AnalyzerLogHelper$: GlueJobEventsInputHandler Interrupted Last event of a job received. Stop event handling.
+2026-03-04T20:05:12.314Z
+26/03/04 20:05:12 INFO AnalyzerLogHelper$: Stopping - analyzer netty server
+2026-03-04T20:05:12.317Z
+26/03/04 20:05:12 INFO AnalyzerLogHelper$: Stopped - analyzer netty server
+2026-03-04T20:05:12.317Z
+26/03/04 20:05:12 INFO AnalyzerLogHelper$: Closing rules engine
+2026-03-04T20:05:12.317Z
+26/03/04 20:05:12 INFO AnalyzerLogHelper$: Stopping analyzer log writer
+2026-03-04T20:05:12.318Z
+26/03/04 20:05:12 INFO AnalyzerLogHelper$: 20:05:12.318 [pool-3-thread-1] INFO [] com.amazonaws.gluejob.app.LogFileWriter - Logs, events processed and insights are written to file /tmp/glue-app-insights-logs//glue_app_analyzer
+2026-03-04T20:05:15.322Z
+26/03/04 20:05:15 INFO AnalyzerLogHelper$: 20:05:15.322 [Thread-4] INFO [] com.amazonaws.gluejob.app.GlueJobEventsInputHandler - Running analyzer shutdown hook..
+2026-03-04T20:05:15.356Z
+26/03/04 20:05:15 INFO AnalyzerLogHelper$: Analyzer stopped
+2026-03-04T20:05:15.365Z
+26/03/04 20:05:15 INFO ProcessLauncher: postprocessing finished

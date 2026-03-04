@@ -45,6 +45,7 @@ GLUE JOB ARGUMENTS:
     --debug               : DEBUG logging flag (default: false)
 
 VERSION HISTORY:
+    v3.1.1 - 2026-03-04 - Remove sys.exit-based early completion; use explicit mode dispatch so stage-only runs complete as SUCCESS in Glue.
     v3.1.0 - 2026-03-04 - Split heavy preprocessing further into 7 stages and enforce sub-20-minute orchestration profile.
     v3.0.0 - 2026-03-04 - Split tract flow into 6 stages to address >37 minute phase-1 runtime.
     v2.2.0 - 2026-03-04 - Split preprocess_base into preprocess_base_core + preprocess_base_partner.
@@ -215,7 +216,6 @@ def finish_and_exit(message: str):
     job.commit()
     enforce_job_timeout()
     log.info(message)
-    sys.exit(0)
 
 
 PREPROCESS_SPINE_SQL = """
@@ -541,37 +541,56 @@ def run_finalize_publish():
     stage_log("FINALIZE_PUBLISH_STAGE", f"[METRIC] {TGT_TABLE}_row_count={latest_snapshot_row_count(TARGET_FQN)}")
 
 
-if TASK_MODE in ("single", "preprocess", "preprocess_base", "preprocess_spine"):
+if TASK_MODE == "preprocess_spine":
     run_preprocess_spine()
-    if TASK_MODE == "preprocess_spine":
-        finish_and_exit("[PP_SPINE_STAGE] Transform-Tract-Producer-Year preprocess_spine: completed successfully")
-
-if TASK_MODE in ("single", "preprocess", "preprocess_base", "preprocess_structure"):
+    finish_and_exit("[PP_SPINE_STAGE] Transform-Tract-Producer-Year preprocess_spine: completed successfully")
+elif TASK_MODE == "preprocess_structure":
     run_preprocess_structure()
-    if TASK_MODE == "preprocess_structure":
-        finish_and_exit("[PP_STRUCTURE_STAGE] Transform-Tract-Producer-Year preprocess_structure: completed successfully")
-
-if TASK_MODE in ("single", "preprocess", "preprocess_base", "preprocess_core2"):
+    finish_and_exit("[PP_STRUCTURE_STAGE] Transform-Tract-Producer-Year preprocess_structure: completed successfully")
+elif TASK_MODE == "preprocess_core2":
     run_preprocess_core2()
-    if TASK_MODE == "preprocess_core2":
-        finish_and_exit("[PP_CORE2_STAGE] Transform-Tract-Producer-Year preprocess_core2: completed successfully")
-
-if TASK_MODE in ("single", "preprocess", "preprocess_base", "preprocess_partner"):
+    finish_and_exit("[PP_CORE2_STAGE] Transform-Tract-Producer-Year preprocess_core2: completed successfully")
+elif TASK_MODE == "preprocess_partner":
     run_preprocess_partner()
-    if TASK_MODE in ("preprocess_base", "preprocess_partner"):
-        finish_and_exit(f"[PP_PARTNER_STAGE] Transform-Tract-Producer-Year {TASK_MODE}: completed successfully")
-
-if TASK_MODE in ("single", "preprocess", "preprocess_enrich"):
+    finish_and_exit("[PP_PARTNER_STAGE] Transform-Tract-Producer-Year preprocess_partner: completed successfully")
+elif TASK_MODE == "preprocess_enrich":
     run_preprocess_enrich()
-    if TASK_MODE in ("preprocess", "preprocess_enrich"):
-        finish_and_exit(f"[PP_ENRICH_STAGE] Transform-Tract-Producer-Year {TASK_MODE}: completed successfully")
-
-if TASK_MODE in ("single", "finalize", "finalize_resolve"):
+    finish_and_exit("[PP_ENRICH_STAGE] Transform-Tract-Producer-Year preprocess_enrich: completed successfully")
+elif TASK_MODE == "preprocess_base":
+    run_preprocess_spine()
+    run_preprocess_structure()
+    run_preprocess_core2()
+    run_preprocess_partner()
+    finish_and_exit("[PP_PARTNER_STAGE] Transform-Tract-Producer-Year preprocess_base: completed successfully")
+elif TASK_MODE == "preprocess":
+    run_preprocess_spine()
+    run_preprocess_structure()
+    run_preprocess_core2()
+    run_preprocess_partner()
+    run_preprocess_enrich()
+    finish_and_exit("[PP_ENRICH_STAGE] Transform-Tract-Producer-Year preprocess: completed successfully")
+elif TASK_MODE == "finalize_resolve":
     run_finalize_resolve()
-    if TASK_MODE == "finalize_resolve":
-        finish_and_exit("[FINALIZE_RESOLVE_STAGE] Transform-Tract-Producer-Year finalize_resolve: completed successfully")
-
-run_finalize_publish()
-job.commit()
-enforce_job_timeout()
-log.info("[FINALIZE_PUBLISH_STAGE] Transform-Tract-Producer-Year: completed successfully")
+    finish_and_exit("[FINALIZE_RESOLVE_STAGE] Transform-Tract-Producer-Year finalize_resolve: completed successfully")
+elif TASK_MODE == "finalize_publish":
+    run_finalize_publish()
+    job.commit()
+    enforce_job_timeout()
+    log.info("[FINALIZE_PUBLISH_STAGE] Transform-Tract-Producer-Year finalize_publish: completed successfully")
+elif TASK_MODE == "finalize":
+    run_finalize_resolve()
+    run_finalize_publish()
+    job.commit()
+    enforce_job_timeout()
+    log.info("[FINALIZE_PUBLISH_STAGE] Transform-Tract-Producer-Year finalize: completed successfully")
+else:
+    run_preprocess_spine()
+    run_preprocess_structure()
+    run_preprocess_core2()
+    run_preprocess_partner()
+    run_preprocess_enrich()
+    run_finalize_resolve()
+    run_finalize_publish()
+    job.commit()
+    enforce_job_timeout()
+    log.info("[FINALIZE_PUBLISH_STAGE] Transform-Tract-Producer-Year: completed successfully")

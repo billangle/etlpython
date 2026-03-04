@@ -5,15 +5,18 @@ AWS Glue Job: Transform-Tract-Producer-Year
 
 PURPOSE:
     Builds tract_producer_year in Step Functions-manageable modes:
-      - preprocess: build and persist tract current-stage dataset
-      - finalize  : read stage, resolve surrogate keys, publish full snapshot
-      - single    : run preprocess + finalize in one invocation (default)
+    - preprocess_base   : build and persist base SSS-stage dataset
+    - preprocess_enrich : enrich base stage and persist tract current-stage dataset
+    - finalize          : read enriched stage, resolve surrogate keys, publish full snapshot
+    - preprocess        : run preprocess_base + preprocess_enrich then exit
+    - single            : run all three stages in one invocation (default)
 
 GLUE JOB ARGUMENTS:
     --JOB_NAME            : Glue job name
     --env                 : Deployment environment
     --iceberg_warehouse   : s3:// URI for Iceberg warehouse root
-    --task_mode           : single | preprocess | finalize (default: single)
+    --task_mode           : single | preprocess | preprocess_base | preprocess_enrich | finalize (default: single)
+    --stage_base_table    : Base stage Iceberg table (default: tract_producer_year_stage_base)
     --stage_table         : Stage Iceberg table (default: tract_producer_year_stage)
     --full_load           : accepted for compatibility; job always full-load
     --sss_database        : SSS Iceberg db (default: athenafarm_prod_raw)
@@ -25,6 +28,7 @@ GLUE JOB ARGUMENTS:
     --debug               : DEBUG logging flag (default: false)
 
 VERSION HISTORY:
+    v2.1.0 - 2026-03-04 - Split tract flow into three Step Functions-manageable jobs: preprocess_base, preprocess_enrich, finalize.
     v2.0.1 - 2026-03-04 - Version metadata refresh after Step Functions preprocess/finalize split rollout; no functional logic change.
     v2.0.0 - 2026-03-04 - Split into preprocess/finalize modes for Step Functions orchestration.
     v1.0.0 - 2026-02-25 - Initial implementation.
@@ -77,6 +81,7 @@ REF_DB            = _opt("ref_database", "athenafarm_prod_ref")
 TGT_DB            = _opt("target_database", "athenafarm_prod_gold")
 TGT_TABLE         = _opt("target_table", "tract_producer_year")
 STAGE_TABLE       = _opt("stage_table", "tract_producer_year_stage")
+STAGE_BASE_TABLE  = _opt("stage_base_table", "tract_producer_year_stage_base")
 TASK_MODE         = _opt("task_mode", "single").strip().lower()
 SHUFFLE_PARTITIONS = _opt("shuffle_partitions", "800")
 MAX_JOB_SECONDS   = int(_opt("max_job_seconds", "1800"))
@@ -89,8 +94,10 @@ if DEBUG:
 if not _requested_full_load:
     log.warning("Incremental mode is disabled for this job; forcing full-load execution")
 
-if TASK_MODE not in ("single", "preprocess", "finalize"):
-    raise ValueError(f"Unsupported --task_mode '{TASK_MODE}'. Expected single|preprocess|finalize")
+if TASK_MODE not in ("single", "preprocess", "preprocess_base", "preprocess_enrich", "finalize"):
+    raise ValueError(
+        f"Unsupported --task_mode '{TASK_MODE}'. Expected single|preprocess|preprocess_base|preprocess_enrich|finalize"
+    )
 
 _conf = SparkConf()
 _conf.set("spark.sql.catalog.glue_catalog", "org.apache.iceberg.spark.SparkCatalog")
@@ -112,6 +119,7 @@ job.init(JOB_NAME, args)
 
 job_t0 = time.perf_counter()
 STAGE_FQN = f"glue_catalog.{TGT_DB}.{STAGE_TABLE}"
+STAGE_BASE_FQN = f"glue_catalog.{TGT_DB}.{STAGE_BASE_TABLE}"
 TARGET_FQN = f"glue_catalog.{TGT_DB}.{TGT_TABLE}"
 
 log.info("=" * 70)
@@ -123,6 +131,7 @@ log.info(f"SSS DB         : {SSS_DB}")
 log.info(f"Ref DB         : {REF_DB}")
 log.info(f"Target DB      : {TGT_DB}")
 log.info(f"Target Table   : {TGT_TABLE}")
+log.info(f"Stage Base Tbl : {STAGE_BASE_TABLE}")
 log.info(f"Stage Table    : {STAGE_TABLE}")
 log.info(f"Shuffle Parts  : {SHUFFLE_PARTITIONS}")
 log.info(f"Max Job Sec    : {MAX_JOB_SECONDS}")
@@ -138,23 +147,10 @@ def register_view(catalog_db: str, table: str, view_name: str = None):
     spark.table(fqn).createOrReplaceTempView(vn)
 
 
-for tbl in ["ibib", "ibsp", "ibst", "ibin", "ibpart", "crmd_partner", "z_ibase_comp_detail", "comm_pr_frg_rel", "zmi_farm_partn"]:
-    register_view(SSS_DB, tbl)
-
-for tbl in ["time_period", "county_office_control", "farm", "tract", "farm_year", "tract_year", "but000"]:
-    register_view(REF_DB, tbl)
-
-TRACT_CURRENT_SQL = """
-WITH time_pd AS (
-    SELECT time_period_identifier, time_period_name
-    FROM time_period
-    WHERE data_status_code = 'A'
-),
-sss_details AS (
+PREPROCESS_BASE_SQL = """
+WITH sss_details AS (
     SELECT
         ib.ibase AS f_ibase,
-        LPAD(ib.ZZFLD000002, 2, '0') AS state_fsa_code,
-        LPAD(ib.ZZFLD000003, 3, '0') AS county_fsa_code,
         ib.ZZFLD000000 AS farm_number,
         CASE
             WHEN sp.ZZFLD00000T IS NOT NULL AND sp.ZZFLD00000T <> '0' THEN LPAD(sp.ZZFLD00000T, 7, '0')
@@ -181,6 +177,16 @@ sss_details AS (
     JOIN ibin ni ON ni.instance = sp.instance AND ni.client = sp.client
     JOIN ibpart pt ON pt.segment_recno = ni.in_guid AND pt.segment = 2 AND pt.valto = 99991231235959
     JOIN crmd_partner cr ON cr.guid = pt.partnerset
+)
+SELECT *
+FROM sss_details
+"""
+
+PREPROCESS_ENRICH_SQL = """
+WITH time_pd AS (
+    SELECT time_period_identifier, time_period_name
+    FROM time_period
+    WHERE data_status_code = 'A'
 ),
 zmi_details AS (
     SELECT
@@ -247,7 +253,7 @@ SELECT
     z_dets.rma_hel_exception_code AS tract_producer_rma_hel_exception_code,
     z_dets.rma_cw_exception_code AS tract_producer_rma_cw_exception_code,
     z_dets.rma_pcw_exception_code AS tract_producer_rma_pcw_exception_code
-FROM sss_details sss_dets
+FROM sss_details_stage sss_dets
 JOIN time_pd timepd
   ON CAST(CASE WHEN MONTH(CURRENT_DATE) >= 10 THEN YEAR(CURRENT_DATE) + 1 ELSE YEAR(CURRENT_DATE) END AS STRING)
    = TRIM(timepd.time_period_name)
@@ -321,54 +327,94 @@ FROM tract_producer_year_tbl
 WHERE rownum = 1
 """
 
-phase_t0 = time.perf_counter()
 
-if TASK_MODE in ("single", "preprocess"):
-    log.info("Running preprocess stage")
-    stage_df = spark.sql(TRACT_CURRENT_SQL)
+def enforce_job_timeout():
+    total_job_seconds = time.perf_counter() - job_t0
+    log.info(f"[JOB_STAGE] [METRIC] total_job_seconds={total_job_seconds:.3f}")
+    if MAX_JOB_SECONDS > 0 and total_job_seconds > float(MAX_JOB_SECONDS):
+        raise TimeoutError(
+            f"job_total exceeded timeout: elapsed={total_job_seconds:.3f}s, max={MAX_JOB_SECONDS}s"
+        )
+
+
+def finish_and_exit(message: str):
+    job.commit()
+    enforce_job_timeout()
+    log.info(message)
+    sys.exit(0)
+
+
+def stage_log(stage_prefix: str, message: str):
+    log.info(f"[{stage_prefix}] {message}")
+
+
+def run_preprocess_base():
+    for tbl in ["ibib", "ibsp", "ibst", "ibin", "ibpart", "crmd_partner"]:
+        register_view(SSS_DB, tbl)
+
+    phase_t0 = time.perf_counter()
+    stage_log("PP_BASE_STAGE", "Running preprocess_base stage")
+    base_df = spark.sql(PREPROCESS_BASE_SQL)
+    base_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(STAGE_BASE_FQN)
+    base_df.write.format("iceberg").mode("overwrite").saveAsTable(STAGE_BASE_FQN)
+    stage_log("PP_BASE_STAGE", f"[METRIC] phase_preprocess_base_seconds={time.perf_counter() - phase_t0:.3f}")
+
+
+def run_preprocess_enrich():
+    for tbl in ["z_ibase_comp_detail", "comm_pr_frg_rel", "zmi_farm_partn"]:
+        register_view(SSS_DB, tbl)
+    for tbl in ["time_period", "county_office_control", "but000"]:
+        register_view(REF_DB, tbl)
+
+    spark.table(STAGE_BASE_FQN).createOrReplaceTempView("sss_details_stage")
+
+    phase_t0 = time.perf_counter()
+    stage_log("PP_ENRICH_STAGE", "Running preprocess_enrich stage")
+    stage_df = spark.sql(PREPROCESS_ENRICH_SQL)
     stage_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(STAGE_FQN)
     stage_df.write.format("iceberg").mode("overwrite").saveAsTable(STAGE_FQN)
-    if TASK_MODE == "preprocess":
-        log.info(f"[METRIC] phase_transform_seconds={time.perf_counter() - phase_t0:.3f}")
-        job.commit()
-        total_job_seconds = time.perf_counter() - job_t0
-        log.info(f"[METRIC] total_job_seconds={total_job_seconds:.3f}")
-        if MAX_JOB_SECONDS > 0 and total_job_seconds > float(MAX_JOB_SECONDS):
-            raise TimeoutError(
-                f"job_total exceeded timeout: elapsed={total_job_seconds:.3f}s, max={MAX_JOB_SECONDS}s"
-            )
-        log.info("Transform-Tract-Producer-Year preprocess: completed successfully")
-        sys.exit(0)
+    stage_log("PP_ENRICH_STAGE", f"[METRIC] phase_preprocess_enrich_seconds={time.perf_counter() - phase_t0:.3f}")
 
-log.info("Running finalize stage")
-spark.table(STAGE_FQN).createOrReplaceTempView("tract_current_stage")
-source_df = spark.sql(FINALIZE_SQL)
-log.info(f"[METRIC] phase_transform_seconds={time.perf_counter() - phase_t0:.3f}")
 
-# First-run safety with DataFrame API: create table only if missing.
-source_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(TARGET_FQN)
+def run_finalize():
+    for tbl in ["farm", "tract", "farm_year", "tract_year"]:
+        register_view(REF_DB, tbl)
 
-write_t0 = time.perf_counter()
-log.info(f"Executing full-load overwrite for {TARGET_FQN} (DataFrameWriter + Iceberg)")
-source_df.write.format("iceberg").mode("overwrite").saveAsTable(TARGET_FQN)
-log.info(f"[METRIC] phase_write_seconds={time.perf_counter() - write_t0:.3f}")
+    stage_log("FINALIZE_STAGE", "Running finalize stage")
+    phase_t0 = time.perf_counter()
+    spark.table(STAGE_FQN).createOrReplaceTempView("tract_current_stage")
+    source_df = spark.sql(FINALIZE_SQL)
+    stage_log("FINALIZE_STAGE", f"[METRIC] phase_finalize_transform_seconds={time.perf_counter() - phase_t0:.3f}")
 
-try:
-    snap_t0 = time.perf_counter()
-    snapshots_df = spark.table(f"glue_catalog.{TGT_DB}.{TGT_TABLE}.snapshots")
-    snap_row = snapshots_df.orderBy(snapshots_df.committed_at.desc()).select("summary").first()
-    summary = snap_row["summary"] if snap_row else None
-    final_count = int(summary.get("total-records", -1)) if summary else -1
-except Exception:
-    final_count = -1
-log.info(f"[METRIC] phase_snapshot_metric_seconds={time.perf_counter() - snap_t0:.3f}")
-log.info(f"[METRIC] {TGT_TABLE}_row_count={final_count}")
+    source_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(TARGET_FQN)
 
+    write_t0 = time.perf_counter()
+    stage_log("FINALIZE_STAGE", f"Executing full-load overwrite for {TARGET_FQN} (DataFrameWriter + Iceberg)")
+    source_df.write.format("iceberg").mode("overwrite").saveAsTable(TARGET_FQN)
+    stage_log("FINALIZE_STAGE", f"[METRIC] phase_write_seconds={time.perf_counter() - write_t0:.3f}")
+
+    try:
+        snap_t0 = time.perf_counter()
+        snapshots_df = spark.table(f"glue_catalog.{TGT_DB}.{TGT_TABLE}.snapshots")
+        snap_row = snapshots_df.orderBy(snapshots_df.committed_at.desc()).select("summary").first()
+        summary = snap_row["summary"] if snap_row else None
+        final_count = int(summary.get("total-records", -1)) if summary else -1
+    except Exception:
+        final_count = -1
+    stage_log("FINALIZE_STAGE", f"[METRIC] phase_snapshot_metric_seconds={time.perf_counter() - snap_t0:.3f}")
+    stage_log("FINALIZE_STAGE", f"[METRIC] {TGT_TABLE}_row_count={final_count}")
+
+if TASK_MODE in ("single", "preprocess", "preprocess_base"):
+    run_preprocess_base()
+    if TASK_MODE == "preprocess_base":
+        finish_and_exit("[PP_BASE_STAGE] Transform-Tract-Producer-Year preprocess_base: completed successfully")
+
+if TASK_MODE in ("single", "preprocess", "preprocess_enrich"):
+    run_preprocess_enrich()
+    if TASK_MODE in ("preprocess", "preprocess_enrich"):
+        finish_and_exit(f"[PP_ENRICH_STAGE] Transform-Tract-Producer-Year {TASK_MODE}: completed successfully")
+
+run_finalize()
 job.commit()
-total_job_seconds = time.perf_counter() - job_t0
-log.info(f"[METRIC] total_job_seconds={total_job_seconds:.3f}")
-if MAX_JOB_SECONDS > 0 and total_job_seconds > float(MAX_JOB_SECONDS):
-    raise TimeoutError(
-        f"job_total exceeded timeout: elapsed={total_job_seconds:.3f}s, max={MAX_JOB_SECONDS}s"
-    )
-log.info("Transform-Tract-Producer-Year: completed successfully")
+enforce_job_timeout()
+log.info("[FINALIZE_STAGE] Transform-Tract-Producer-Year: completed successfully")

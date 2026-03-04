@@ -10,10 +10,19 @@ for the full architecture rationale.
 
 ## Recent Changes (2026-03-04)
 
-- Tract transform is now orchestrated as two Step Functions-managed stages:
-  - `TransformTractProducerYearPreprocess` (`--task_mode=preprocess`)
+- Tract transform is now orchestrated as three Step Functions-managed stages:
+  - `TransformTractProducerYearPreprocessBase` (`--task_mode=preprocess_base`)
+  - `TransformTractProducerYearPreprocessEnrich` (`--task_mode=preprocess_enrich`)
   - `TransformTractProducerYearFinalize` (`--task_mode=finalize`)
-- Tract script supports `task_mode` (`single|preprocess|finalize`) with stage-table handoff for smaller, faster task boundaries.
+- Tract branch timeout tuning by stage:
+  - `preprocess_base`: 3600s
+  - `preprocess_enrich`: 1800s
+  - `finalize`: 1800s
+- Tract script-level fail-fast (`--max_job_seconds`) is now passed per stage from Step Functions:
+  - `preprocess_base`: 3300s
+  - `preprocess_enrich`: 1500s
+  - `finalize`: 1500s
+- Tract script supports `task_mode` (`single|preprocess|preprocess_base|preprocess_enrich|finalize`) with stage-table handoff for smaller, faster task boundaries.
 - Farm transform is pinned to a known-good baseline (`Transform-Farm-Producer-Year`, git commit `fc3fe5f`), with observed full-load completion under 4 minutes.
 - PG CDC ingest retains runtime reductions from removal of pre-write cache/count and pre-write repartition/sort passes.
 - Contract checks were updated to keep Farm implementation stable and avoid forcing Farm-script rewrites.
@@ -87,7 +96,8 @@ Manual / Lambda / CI trigger (no EventBridge — see "Running Without EventBridg
         │
         ├─ [TransformParallel]
         │    ├─ Tract branch:
-        │    │    ├─ TransformTractProducerYearPreprocess   (`--task_mode=preprocess`)
+        │    │    ├─ TransformTractProducerYearPreprocessBase (`--task_mode=preprocess_base`)
+        │    │    ├─ TransformTractProducerYearPreprocessEnrich (`--task_mode=preprocess_enrich`)
         │    │    └─ TransformTractProducerYearFinalize     (`--task_mode=finalize`)
         │    └─ Farm branch:
         │         └─ Transform-Farm-Producer-Year           (full-load only)
@@ -569,6 +579,52 @@ structured metric lines to the driver log for every run:
 - `[METRIC] phase_write_seconds=<float>`
 - `[METRIC] phase_snapshot_metric_seconds=<float>`
 - `[METRIC] total_job_seconds=<float>`
+
+`Transform-Tract-Producer-Year` also emits stage-prefixed log lines to make
+CloudWatch filtering easier for the 3-stage tract flow:
+
+- `[PP_BASE_STAGE] ...`
+- `[PP_ENRICH_STAGE] ...`
+- `[FINALIZE_STAGE] ...`
+- `[JOB_STAGE] ...`
+
+Prefix convention for tract logging/metrics:
+
+- Stage log format: `[<STAGE_PREFIX>] <message>`
+- Stage metric format: `[<STAGE_PREFIX>] [METRIC] <name>=<value>`
+- Examples:
+  - `[PP_BASE_STAGE] [METRIC] phase_preprocess_base_seconds=<float>`
+  - `[PP_ENRICH_STAGE] [METRIC] phase_preprocess_enrich_seconds=<float>`
+  - `[FINALIZE_STAGE] [METRIC] phase_write_seconds=<float>`
+  - `[JOB_STAGE] [METRIC] total_job_seconds=<float>`
+
+Sample stage-focused filter:
+
+```sql
+fields @timestamp, @message
+| filter @message like /\[PP_ENRICH_STAGE\]/
+| sort @timestamp desc
+| limit 200
+```
+
+Sample all-stage filter (single query for all tract stage prefixes):
+
+```sql
+fields @timestamp, @message
+| filter @message like /\[(PP_BASE_STAGE|PP_ENRICH_STAGE|FINALIZE_STAGE|JOB_STAGE)\]/
+| sort @timestamp desc
+| limit 200
+```
+
+Sample all-stage parsed view (extract stage for grouping):
+
+```sql
+fields @timestamp, @message
+| parse @message /\[(?<stage>PP_BASE_STAGE|PP_ENRICH_STAGE|FINALIZE_STAGE|JOB_STAGE)\]/
+| filter ispresent(stage)
+| stats count(*) as lines by stage
+| sort lines desc
+```
 
 Sample CloudWatch Logs Insights query (replace log group as needed):
 

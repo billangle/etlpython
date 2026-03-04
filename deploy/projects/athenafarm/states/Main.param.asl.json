@@ -176,34 +176,53 @@
       "Comment": "Run tract and farm producer year transforms concurrently. Both read from S3 Iceberg only (no shared write targets, no locks).",
       "Branches": [
         {
-          "StartAt": "TransformTractProducerYearPreprocess",
+          "StartAt": "TransformTractProducerYearPreprocessBase",
           "States": {
-            "TransformTractProducerYearPreprocess": {
+            "TransformTractProducerYearPreprocessBase": {
               "Type": "Task",
-              "Comment": "Run tract preprocess stage to materialise tract_current stage table.",
+              "Comment": "Run tract preprocess base stage to materialise SSS-heavy base stage table (TimeoutSeconds=3600, --max_job_seconds=3300).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
-                  "--task_mode": "preprocess"
+                  "--task_mode": "preprocess_base",
+                  "--max_job_seconds": "3300"
+                }
+              },
+              "TimeoutSeconds": 3600,
+              "ResultPath": "$.transform_tpy_preprocess_base_result",
+              "Next": "TransformTractProducerYearPreprocessEnrich"
+            },
+            "TransformTractProducerYearPreprocessEnrich": {
+              "Type": "Task",
+              "Comment": "Run tract preprocess enrich stage to materialise tract_current stage table (TimeoutSeconds=1800, --max_job_seconds=1500).",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--task_mode": "preprocess_enrich",
+                  "--max_job_seconds": "1500"
                 }
               },
               "TimeoutSeconds": 1800,
-              "ResultPath": "$.transform_tpy_preprocess_result",
+              "ResultPath": "$.transform_tpy_preprocess_enrich_result",
               "Next": "TransformTractProducerYearFinalize"
             },
             "TransformTractProducerYearFinalize": {
               "Type": "Task",
-              "Comment": "Run tract finalize stage to publish final tract_producer_year snapshot.",
+              "Comment": "Run tract finalize stage to publish final tract_producer_year snapshot (TimeoutSeconds=1800, --max_job_seconds=1500).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
-                  "--task_mode": "finalize"
+                  "--task_mode": "finalize",
+                  "--max_job_seconds": "1500"
                 }
               },
               "TimeoutSeconds": 1800,

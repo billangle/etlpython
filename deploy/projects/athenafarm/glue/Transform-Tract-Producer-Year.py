@@ -5,17 +5,20 @@ AWS Glue Job: Transform-Tract-Producer-Year
 
 PURPOSE:
     Builds tract_producer_year in Step Functions-manageable modes:
-    - preprocess_base   : build and persist base SSS-stage dataset
+    - preprocess_base_core    : build and persist core SSS-stage dataset (without partner join)
+    - preprocess_base_partner : enrich core stage with partner fields and persist base SSS-stage dataset
+    - preprocess_base         : run preprocess_base_core + preprocess_base_partner then exit
     - preprocess_enrich : enrich base stage and persist tract current-stage dataset
     - finalize          : read enriched stage, resolve surrogate keys, publish full snapshot
     - preprocess        : run preprocess_base + preprocess_enrich then exit
-    - single            : run all three stages in one invocation (default)
+    - single            : run all four stages in one invocation (default)
 
 GLUE JOB ARGUMENTS:
     --JOB_NAME            : Glue job name
     --env                 : Deployment environment
     --iceberg_warehouse   : s3:// URI for Iceberg warehouse root
-    --task_mode           : single | preprocess | preprocess_base | preprocess_enrich | finalize (default: single)
+    --task_mode           : single | preprocess | preprocess_base | preprocess_base_core | preprocess_base_partner | preprocess_enrich | finalize (default: single)
+    --stage_core_table    : Core stage Iceberg table (default: tract_producer_year_stage_core)
     --stage_base_table    : Base stage Iceberg table (default: tract_producer_year_stage_base)
     --stage_table         : Stage Iceberg table (default: tract_producer_year_stage)
     --full_load           : accepted for compatibility; job always full-load
@@ -28,6 +31,7 @@ GLUE JOB ARGUMENTS:
     --debug               : DEBUG logging flag (default: false)
 
 VERSION HISTORY:
+    v2.2.0 - 2026-03-04 - Split preprocess_base into preprocess_base_core + preprocess_base_partner to reduce stage-1 runtime.
     v2.1.0 - 2026-03-04 - Split tract flow into three Step Functions-manageable jobs: preprocess_base, preprocess_enrich, finalize.
     v2.0.1 - 2026-03-04 - Version metadata refresh after Step Functions preprocess/finalize split rollout; no functional logic change.
     v2.0.0 - 2026-03-04 - Split into preprocess/finalize modes for Step Functions orchestration.
@@ -81,6 +85,7 @@ REF_DB            = _opt("ref_database", "athenafarm_prod_ref")
 TGT_DB            = _opt("target_database", "athenafarm_prod_gold")
 TGT_TABLE         = _opt("target_table", "tract_producer_year")
 STAGE_TABLE       = _opt("stage_table", "tract_producer_year_stage")
+STAGE_CORE_TABLE  = _opt("stage_core_table", "tract_producer_year_stage_core")
 STAGE_BASE_TABLE  = _opt("stage_base_table", "tract_producer_year_stage_base")
 TASK_MODE         = _opt("task_mode", "single").strip().lower()
 SHUFFLE_PARTITIONS = _opt("shuffle_partitions", "800")
@@ -94,9 +99,18 @@ if DEBUG:
 if not _requested_full_load:
     log.warning("Incremental mode is disabled for this job; forcing full-load execution")
 
-if TASK_MODE not in ("single", "preprocess", "preprocess_base", "preprocess_enrich", "finalize"):
+if TASK_MODE not in (
+    "single",
+    "preprocess",
+    "preprocess_base",
+    "preprocess_base_core",
+    "preprocess_base_partner",
+    "preprocess_enrich",
+    "finalize",
+):
     raise ValueError(
-        f"Unsupported --task_mode '{TASK_MODE}'. Expected single|preprocess|preprocess_base|preprocess_enrich|finalize"
+        "Unsupported --task_mode "
+        f"'{TASK_MODE}'. Expected single|preprocess|preprocess_base|preprocess_base_core|preprocess_base_partner|preprocess_enrich|finalize"
     )
 
 _conf = SparkConf()
@@ -119,6 +133,7 @@ job.init(JOB_NAME, args)
 
 job_t0 = time.perf_counter()
 STAGE_FQN = f"glue_catalog.{TGT_DB}.{STAGE_TABLE}"
+STAGE_CORE_FQN = f"glue_catalog.{TGT_DB}.{STAGE_CORE_TABLE}"
 STAGE_BASE_FQN = f"glue_catalog.{TGT_DB}.{STAGE_BASE_TABLE}"
 TARGET_FQN = f"glue_catalog.{TGT_DB}.{TGT_TABLE}"
 
@@ -131,6 +146,7 @@ log.info(f"SSS DB         : {SSS_DB}")
 log.info(f"Ref DB         : {REF_DB}")
 log.info(f"Target DB      : {TGT_DB}")
 log.info(f"Target Table   : {TGT_TABLE}")
+log.info(f"Stage Core Tbl : {STAGE_CORE_TABLE}")
 log.info(f"Stage Base Tbl : {STAGE_BASE_TABLE}")
 log.info(f"Stage Table    : {STAGE_TABLE}")
 log.info(f"Shuffle Parts  : {SHUFFLE_PARTITIONS}")
@@ -147,8 +163,8 @@ def register_view(catalog_db: str, table: str, view_name: str = None):
     spark.table(fqn).createOrReplaceTempView(vn)
 
 
-PREPROCESS_BASE_SQL = """
-WITH sss_details AS (
+PREPROCESS_BASE_CORE_SQL = """
+WITH sss_details_core AS (
     SELECT
         ib.ibase AS f_ibase,
         ib.ZZFLD000000 AS farm_number,
@@ -168,18 +184,38 @@ WITH sss_details AS (
             ELSE 'BLANK'
         END AS t_last_change_user_name,
         ni.instance AS i_instance,
-        ni.ibase AS r_ibase,
-        cr.partner_fct,
-        cr.partner_no
+                ni.ibase AS r_ibase
     FROM ibsp sp
     JOIN ibst st ON st.instance = sp.instance AND st.parent = '0'
     JOIN ibib ib ON ib.ibase = st.ibase
     JOIN ibin ni ON ni.instance = sp.instance AND ni.client = sp.client
-    JOIN ibpart pt ON pt.segment_recno = ni.in_guid AND pt.segment = 2 AND pt.valto = 99991231235959
-    JOIN crmd_partner cr ON cr.guid = pt.partnerset
 )
 SELECT *
-FROM sss_details
+FROM sss_details_core
+"""
+
+PREPROCESS_BASE_PARTNER_SQL = """
+SELECT
+        core.f_ibase,
+        core.farm_number,
+        core.tract_number,
+        core.admin_state,
+        core.admin_county,
+        core.t_data_status_code,
+        core.t_creation_date,
+        core.t_last_change_date,
+        core.t_last_change_user_name,
+        core.i_instance,
+        core.r_ibase,
+        cr.partner_fct,
+        cr.partner_no
+FROM sss_details_core_stage core
+JOIN ibpart pt
+    ON pt.segment_recno = core.i_instance
+ AND pt.segment = 2
+ AND pt.valto = 99991231235959
+JOIN crmd_partner cr
+    ON cr.guid = pt.partnerset
 """
 
 PREPROCESS_ENRICH_SQL = """
@@ -348,16 +384,42 @@ def stage_log(stage_prefix: str, message: str):
     log.info(f"[{stage_prefix}] {message}")
 
 
-def run_preprocess_base():
-    for tbl in ["ibib", "ibsp", "ibst", "ibin", "ibpart", "crmd_partner"]:
+def latest_snapshot_row_count(table_fqn: str) -> int:
+    try:
+        snapshots_df = spark.table(f"{table_fqn}.snapshots")
+        snap_row = snapshots_df.orderBy(snapshots_df.committed_at.desc()).select("summary").first()
+        summary = snap_row["summary"] if snap_row else None
+        return int(summary.get("total-records", -1)) if summary else -1
+    except Exception:
+        return -1
+
+
+def run_preprocess_base_core():
+    for tbl in ["ibib", "ibsp", "ibst", "ibin"]:
         register_view(SSS_DB, tbl)
 
     phase_t0 = time.perf_counter()
-    stage_log("PP_BASE_STAGE", "Running preprocess_base stage")
-    base_df = spark.sql(PREPROCESS_BASE_SQL)
+    stage_log("PP_BASE_CORE_STAGE", "Running preprocess_base_core stage")
+    core_df = spark.sql(PREPROCESS_BASE_CORE_SQL)
+    core_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(STAGE_CORE_FQN)
+    core_df.write.format("iceberg").mode("overwrite").saveAsTable(STAGE_CORE_FQN)
+    stage_log("PP_BASE_CORE_STAGE", f"[METRIC] phase_preprocess_base_core_seconds={time.perf_counter() - phase_t0:.3f}")
+    stage_log("PP_BASE_CORE_STAGE", f"[METRIC] stage_core_row_count={latest_snapshot_row_count(STAGE_CORE_FQN)}")
+
+
+def run_preprocess_base_partner():
+    for tbl in ["ibpart", "crmd_partner"]:
+        register_view(SSS_DB, tbl)
+
+    spark.table(STAGE_CORE_FQN).createOrReplaceTempView("sss_details_core_stage")
+
+    phase_t0 = time.perf_counter()
+    stage_log("PP_BASE_PARTNER_STAGE", "Running preprocess_base_partner stage")
+    base_df = spark.sql(PREPROCESS_BASE_PARTNER_SQL)
     base_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(STAGE_BASE_FQN)
     base_df.write.format("iceberg").mode("overwrite").saveAsTable(STAGE_BASE_FQN)
-    stage_log("PP_BASE_STAGE", f"[METRIC] phase_preprocess_base_seconds={time.perf_counter() - phase_t0:.3f}")
+    stage_log("PP_BASE_PARTNER_STAGE", f"[METRIC] phase_preprocess_base_partner_seconds={time.perf_counter() - phase_t0:.3f}")
+    stage_log("PP_BASE_PARTNER_STAGE", f"[METRIC] stage_base_row_count={latest_snapshot_row_count(STAGE_BASE_FQN)}")
 
 
 def run_preprocess_enrich():
@@ -374,6 +436,7 @@ def run_preprocess_enrich():
     stage_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(STAGE_FQN)
     stage_df.write.format("iceberg").mode("overwrite").saveAsTable(STAGE_FQN)
     stage_log("PP_ENRICH_STAGE", f"[METRIC] phase_preprocess_enrich_seconds={time.perf_counter() - phase_t0:.3f}")
+    stage_log("PP_ENRICH_STAGE", f"[METRIC] stage_enrich_row_count={latest_snapshot_row_count(STAGE_FQN)}")
 
 
 def run_finalize():
@@ -404,10 +467,15 @@ def run_finalize():
     stage_log("FINALIZE_STAGE", f"[METRIC] phase_snapshot_metric_seconds={time.perf_counter() - snap_t0:.3f}")
     stage_log("FINALIZE_STAGE", f"[METRIC] {TGT_TABLE}_row_count={final_count}")
 
-if TASK_MODE in ("single", "preprocess", "preprocess_base"):
-    run_preprocess_base()
-    if TASK_MODE == "preprocess_base":
-        finish_and_exit("[PP_BASE_STAGE] Transform-Tract-Producer-Year preprocess_base: completed successfully")
+if TASK_MODE in ("single", "preprocess", "preprocess_base", "preprocess_base_core"):
+    run_preprocess_base_core()
+    if TASK_MODE == "preprocess_base_core":
+        finish_and_exit("[PP_BASE_CORE_STAGE] Transform-Tract-Producer-Year preprocess_base_core: completed successfully")
+
+if TASK_MODE in ("single", "preprocess", "preprocess_base", "preprocess_base_partner"):
+    run_preprocess_base_partner()
+    if TASK_MODE in ("preprocess_base", "preprocess_base_partner"):
+        finish_and_exit(f"[PP_BASE_PARTNER_STAGE] Transform-Tract-Producer-Year {TASK_MODE}: completed successfully")
 
 if TASK_MODE in ("single", "preprocess", "preprocess_enrich"):
     run_preprocess_enrich()

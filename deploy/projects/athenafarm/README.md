@@ -10,19 +10,22 @@ for the full architecture rationale.
 
 ## Recent Changes (2026-03-04)
 
-- Tract transform is now orchestrated as three Step Functions-managed stages:
-  - `TransformTractProducerYearPreprocessBase` (`--task_mode=preprocess_base`)
+- Tract transform is now orchestrated as four Step Functions-managed stages:
+  - `TransformTractProducerYearPreprocessBaseCore` (`--task_mode=preprocess_base_core`)
+  - `TransformTractProducerYearPreprocessBasePartner` (`--task_mode=preprocess_base_partner`)
   - `TransformTractProducerYearPreprocessEnrich` (`--task_mode=preprocess_enrich`)
   - `TransformTractProducerYearFinalize` (`--task_mode=finalize`)
 - Tract branch timeout tuning by stage:
-  - `preprocess_base`: 3600s
+  - `preprocess_base_core`: 2700s
+  - `preprocess_base_partner`: 2700s
   - `preprocess_enrich`: 1800s
   - `finalize`: 1800s
 - Tract script-level fail-fast (`--max_job_seconds`) is now passed per stage from Step Functions:
-  - `preprocess_base`: 3300s
+  - `preprocess_base_core`: 2400s
+  - `preprocess_base_partner`: 2400s
   - `preprocess_enrich`: 1500s
   - `finalize`: 1500s
-- Tract script supports `task_mode` (`single|preprocess|preprocess_base|preprocess_enrich|finalize`) with stage-table handoff for smaller, faster task boundaries.
+- Tract script supports `task_mode` (`single|preprocess|preprocess_base|preprocess_base_core|preprocess_base_partner|preprocess_enrich|finalize`) with stage-table handoff for smaller, faster task boundaries.
 - Farm transform is pinned to a known-good baseline (`Transform-Farm-Producer-Year`, git commit `fc3fe5f`), with observed full-load completion under 4 minutes.
 - PG CDC ingest retains runtime reductions from removal of pre-write cache/count and pre-write repartition/sort passes.
 - Contract checks were updated to keep Farm implementation stable and avoid forcing Farm-script rewrites.
@@ -96,7 +99,8 @@ Manual / Lambda / CI trigger (no EventBridge — see "Running Without EventBridg
         │
         ├─ [TransformParallel]
         │    ├─ Tract branch:
-        │    │    ├─ TransformTractProducerYearPreprocessBase (`--task_mode=preprocess_base`)
+        │    │    ├─ TransformTractProducerYearPreprocessBaseCore (`--task_mode=preprocess_base_core`)
+        │    │    ├─ TransformTractProducerYearPreprocessBasePartner (`--task_mode=preprocess_base_partner`)
         │    │    ├─ TransformTractProducerYearPreprocessEnrich (`--task_mode=preprocess_enrich`)
         │    │    └─ TransformTractProducerYearFinalize     (`--task_mode=finalize`)
         │    └─ Farm branch:
@@ -581,9 +585,10 @@ structured metric lines to the driver log for every run:
 - `[METRIC] total_job_seconds=<float>`
 
 `Transform-Tract-Producer-Year` also emits stage-prefixed log lines to make
-CloudWatch filtering easier for the 3-stage tract flow:
+CloudWatch filtering easier for the 4-stage tract flow:
 
-- `[PP_BASE_STAGE] ...`
+- `[PP_BASE_CORE_STAGE] ...`
+- `[PP_BASE_PARTNER_STAGE] ...`
 - `[PP_ENRICH_STAGE] ...`
 - `[FINALIZE_STAGE] ...`
 - `[JOB_STAGE] ...`
@@ -593,8 +598,12 @@ Prefix convention for tract logging/metrics:
 - Stage log format: `[<STAGE_PREFIX>] <message>`
 - Stage metric format: `[<STAGE_PREFIX>] [METRIC] <name>=<value>`
 - Examples:
-  - `[PP_BASE_STAGE] [METRIC] phase_preprocess_base_seconds=<float>`
+  - `[PP_BASE_CORE_STAGE] [METRIC] phase_preprocess_base_core_seconds=<float>`
+  - `[PP_BASE_CORE_STAGE] [METRIC] stage_core_row_count=<int>`
+  - `[PP_BASE_PARTNER_STAGE] [METRIC] phase_preprocess_base_partner_seconds=<float>`
+  - `[PP_BASE_PARTNER_STAGE] [METRIC] stage_base_row_count=<int>`
   - `[PP_ENRICH_STAGE] [METRIC] phase_preprocess_enrich_seconds=<float>`
+  - `[PP_ENRICH_STAGE] [METRIC] stage_enrich_row_count=<int>`
   - `[FINALIZE_STAGE] [METRIC] phase_write_seconds=<float>`
   - `[JOB_STAGE] [METRIC] total_job_seconds=<float>`
 
@@ -611,7 +620,7 @@ Sample all-stage filter (single query for all tract stage prefixes):
 
 ```sql
 fields @timestamp, @message
-| filter @message like /\[(PP_BASE_STAGE|PP_ENRICH_STAGE|FINALIZE_STAGE|JOB_STAGE)\]/
+| filter @message like /\[(PP_BASE_CORE_STAGE|PP_BASE_PARTNER_STAGE|PP_ENRICH_STAGE|FINALIZE_STAGE|JOB_STAGE)\]/
 | sort @timestamp desc
 | limit 200
 ```
@@ -620,7 +629,7 @@ Sample all-stage parsed view (extract stage for grouping):
 
 ```sql
 fields @timestamp, @message
-| parse @message /\[(?<stage>PP_BASE_STAGE|PP_ENRICH_STAGE|FINALIZE_STAGE|JOB_STAGE)\]/
+| parse @message /\[(?<stage>PP_BASE_CORE_STAGE|PP_BASE_PARTNER_STAGE|PP_ENRICH_STAGE|FINALIZE_STAGE|JOB_STAGE)\]/
 | filter ispresent(stage)
 | stats count(*) as lines by stage
 | sort lines desc

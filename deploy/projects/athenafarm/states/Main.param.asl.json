@@ -176,23 +176,40 @@
       "Comment": "Run tract and farm producer year transforms concurrently. Both read from S3 Iceberg only (no shared write targets, no locks).",
       "Branches": [
         {
-          "StartAt": "TransformTractProducerYearPreprocessBase",
+          "StartAt": "TransformTractProducerYearPreprocessBaseCore",
           "States": {
-            "TransformTractProducerYearPreprocessBase": {
+            "TransformTractProducerYearPreprocessBaseCore": {
               "Type": "Task",
-              "Comment": "Run tract preprocess base stage to materialise SSS-heavy base stage table (TimeoutSeconds=3600, --max_job_seconds=3300).",
+              "Comment": "Run tract preprocess base-core stage to materialise SSS core stage table (TimeoutSeconds=2700, --max_job_seconds=2400).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
-                  "--task_mode": "preprocess_base",
-                  "--max_job_seconds": "3300"
+                  "--task_mode": "preprocess_base_core",
+                  "--max_job_seconds": "2400"
                 }
               },
-              "TimeoutSeconds": 3600,
-              "ResultPath": "$.transform_tpy_preprocess_base_result",
+              "TimeoutSeconds": 2700,
+              "ResultPath": "$.transform_tpy_preprocess_base_core_result",
+              "Next": "TransformTractProducerYearPreprocessBasePartner"
+            },
+            "TransformTractProducerYearPreprocessBasePartner": {
+              "Type": "Task",
+              "Comment": "Run tract preprocess base-partner stage to materialise SSS base stage table (TimeoutSeconds=2700, --max_job_seconds=2400).",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--task_mode": "preprocess_base_partner",
+                  "--max_job_seconds": "2400"
+                }
+              },
+              "TimeoutSeconds": 2700,
+              "ResultPath": "$.transform_tpy_preprocess_base_partner_result",
               "Next": "TransformTractProducerYearPreprocessEnrich"
             },
             "TransformTractProducerYearPreprocessEnrich": {

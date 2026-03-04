@@ -278,11 +278,45 @@
               ],
               "TimeoutSeconds": 1140,
               "ResultPath": "$.transform_tpy_preprocess_structure_farm_result",
+              "Next": "TransformTractProducerYearPreprocessCore2Extract"
+            },
+            "TransformTractProducerYearPreprocessCore2Extract": {
+              "Type": "Task",
+              "Comment": "Run tract preprocess core2-extract stage (ibin key projection/materialization) with high DPU profile (G.2X x 32) (TimeoutSeconds=1140, --max_job_seconds=1020).",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "WorkerType": "G.2X",
+                "NumberOfWorkers": 32,
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--task_mode": "preprocess_core2_extract",
+                  "--shuffle_partitions": "1200",
+                  "--max_job_seconds": "1020"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed",
+                    "Glue.ConcurrentRunsExceededException",
+                    "Glue.InternalServiceException",
+                    "Glue.OperationTimeoutException",
+                    "States.Timeout"
+                  ],
+                  "IntervalSeconds": 20,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "TimeoutSeconds": 1140,
+              "ResultPath": "$.transform_tpy_preprocess_core2_extract_result",
               "Next": "TransformTractProducerYearPreprocessCore2"
             },
             "TransformTractProducerYearPreprocessCore2": {
               "Type": "Task",
-              "Comment": "Run tract preprocess core2 stage (structure_farm+ibin) with high DPU profile (G.2X x 32) (TimeoutSeconds=1140, --max_job_seconds=1020).",
+              "Comment": "Run tract preprocess core2 stage (structure_farm+core2_extract) with high DPU profile (G.2X x 32) (TimeoutSeconds=1140, --max_job_seconds=1020).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",

@@ -210,21 +210,21 @@
               ],
               "TimeoutSeconds": 1140,
               "ResultPath": "$.transform_tpy_preprocess_spine_result",
-              "Next": "TransformTractProducerYearPreprocessStructure"
+              "Next": "TransformTractProducerYearPreprocessStructureLink"
             },
-            "TransformTractProducerYearPreprocessStructure": {
+            "TransformTractProducerYearPreprocessStructureLink": {
               "Type": "Task",
-              "Comment": "Run tract preprocess structure stage (spine+ibst+ibib) with high DPU profile (G.2X x 32) (TimeoutSeconds=1140, --max_job_seconds=1020).",
+              "Comment": "Run tract preprocess structure-link stage (spine+ibst) with balanced DPU profile (G.2X x 24) (TimeoutSeconds=1140, --max_job_seconds=1020).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
                 "WorkerType": "G.2X",
-                "NumberOfWorkers": 32,
+                "NumberOfWorkers": 24,
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
-                  "--task_mode": "preprocess_structure",
-                  "--shuffle_partitions": "1200",
+                  "--task_mode": "preprocess_structure_link",
+                  "--shuffle_partitions": "900",
                   "--max_job_seconds": "1020"
                 }
               },
@@ -243,22 +243,56 @@
                 }
               ],
               "TimeoutSeconds": 1140,
-              "ResultPath": "$.transform_tpy_preprocess_structure_result",
-              "Next": "TransformTractProducerYearPreprocessCore2"
+              "ResultPath": "$.transform_tpy_preprocess_structure_link_result",
+              "Next": "TransformTractProducerYearPreprocessStructureFarm"
             },
-            "TransformTractProducerYearPreprocessCore2": {
+            "TransformTractProducerYearPreprocessStructureFarm": {
               "Type": "Task",
-              "Comment": "Run tract preprocess core2 stage (structure+ibin) with balanced DPU profile (G.2X x 28) (TimeoutSeconds=1140, --max_job_seconds=1020).",
+              "Comment": "Run tract preprocess structure-farm stage (structure_link+ibib) with high DPU profile (G.2X x 40) (TimeoutSeconds=1140, --max_job_seconds=1020).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
                 "WorkerType": "G.2X",
-                "NumberOfWorkers": 28,
+                "NumberOfWorkers": 40,
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--task_mode": "preprocess_structure_farm",
+                  "--shuffle_partitions": "1400",
+                  "--max_job_seconds": "1020"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed",
+                    "Glue.ConcurrentRunsExceededException",
+                    "Glue.InternalServiceException",
+                    "Glue.OperationTimeoutException",
+                    "States.Timeout"
+                  ],
+                  "IntervalSeconds": 20,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "TimeoutSeconds": 1140,
+              "ResultPath": "$.transform_tpy_preprocess_structure_farm_result",
+              "Next": "TransformTractProducerYearPreprocessCore2"
+            },
+            "TransformTractProducerYearPreprocessCore2": {
+              "Type": "Task",
+              "Comment": "Run tract preprocess core2 stage (structure_farm+ibin) with high DPU profile (G.2X x 32) (TimeoutSeconds=1140, --max_job_seconds=1020).",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "WorkerType": "G.2X",
+                "NumberOfWorkers": 32,
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
                   "--task_mode": "preprocess_core2",
-                  "--shuffle_partitions": "1000",
+                  "--shuffle_partitions": "1200",
                   "--max_job_seconds": "1020"
                 }
               },

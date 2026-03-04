@@ -24,6 +24,7 @@ GLUE JOB ARGUMENTS:
     --debug             : "true" to enable DEBUG-level CloudWatch logging (default: false)
 
 VERSION HISTORY:
+    v1.3.1 - 2026-03-04 - Version metadata refresh for current tract/farm release alignment; no functional logic change.
     v1.3.0 - 2026-03-03 - Removed pre-write cache/count and repartition/sort passes to reduce runtime on large CDC snapshots.
     v1.2.0 - 2026-03-03 - Lowered default shuffle partitions and aligned runtime config with AQE behavior.
     v1.1.0 - 2026-03-03 - Updated implementation narrative to match DataFrame full-load transform/sync pipeline usage.

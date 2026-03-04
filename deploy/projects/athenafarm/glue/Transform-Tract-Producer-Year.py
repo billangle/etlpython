@@ -25,6 +25,7 @@ GLUE JOB ARGUMENTS:
     --debug               : DEBUG logging flag (default: false)
 
 VERSION HISTORY:
+    v2.0.1 - 2026-03-04 - Version metadata refresh after Step Functions preprocess/finalize split rollout; no functional logic change.
     v2.0.0 - 2026-03-04 - Split into preprocess/finalize modes for Step Functions orchestration.
     v1.0.0 - 2026-02-25 - Initial implementation.
 

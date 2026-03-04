@@ -40,6 +40,8 @@ KEY SOURCE TABLE COLUMNS (fsa-prod-farm-records.farm, stored as fsa_farm_records
     farm_number  → joined to farm_records_reporting.farm for farm_identifier
 
 VERSION HISTORY:
+    v1.0.2 - 2026-03-04 - Version metadata refresh; known-good baseline retained with observed full-load completion under 4 minutes.
+    v1.0.1 - 2026-03-04 - Known-good baseline validated by operations; full-load completion observed under 4 minutes; git commit fc3fe5f.
     v1.0.0 - 2026-02-25 - Initial implementation (athenafarm project)
               Replaces TRACT_PRODUCER_YEAR_SELECT.sql Athena query.
 

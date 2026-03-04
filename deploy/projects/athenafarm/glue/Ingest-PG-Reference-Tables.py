@@ -39,6 +39,7 @@ PARTITION STRATEGY:
     but000                 → no partition
 
 VERSION HISTORY:
+    v1.0.1 - 2026-03-04 - Version metadata refresh for current tract/farm release alignment; no functional logic change.
     v1.0.0 - 2026-02-25 - Initial implementation (athenafarm project)
 
 ================================================================================

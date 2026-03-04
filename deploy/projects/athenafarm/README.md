@@ -8,19 +8,30 @@ for the full architecture rationale.
 
 ---
 
-## Recent Optimizations (2026-03)
+## Recent Changes (2026-03-04)
 
-- Tract transform dedupe changed from window sort (`row_number`) to aggregate-based latest-row selection to reduce spill-heavy sort stages.
-- Tract transform now prunes reference-table columns early and applies targeted broadcast hints for `time_pd` and `county_office_control`.
-- Transform jobs now use AQE-first partitioning by default (adaptive shuffle sizing) with optional `--shuffle_partitions` override.
-- Deployer injects transform defaults for AQE advisory sizing:
-  - Tract: `--advisory_partition_size_mb=96`
-  - Farm: `--advisory_partition_size_mb=128`
-- Tract transform adds fail-fast runtime guards:
-  - `--max_phase_seconds` (default 900)
-  - `--max_job_seconds` (default 3600)
-- Main state machine tract task timeout is set to 3600 seconds to prevent indefinite execution.
-- PG CDC ingest removed expensive pre-write cache/count and pre-write repartition/sort passes to reduce ingest runtime.
+- Tract transform is now orchestrated as two Step Functions-managed stages:
+  - `TransformTractProducerYearPreprocess` (`--task_mode=preprocess`)
+  - `TransformTractProducerYearFinalize` (`--task_mode=finalize`)
+- Tract script supports `task_mode` (`single|preprocess|finalize`) with stage-table handoff for smaller, faster task boundaries.
+- Farm transform is pinned to a known-good baseline (`Transform-Farm-Producer-Year`, git commit `fc3fe5f`), with observed full-load completion under 4 minutes.
+- PG CDC ingest retains runtime reductions from removal of pre-write cache/count and pre-write repartition/sort passes.
+- Contract checks were updated to keep Farm implementation stable and avoid forcing Farm-script rewrites.
+
+## Known Good Baselines
+
+- Farm Producer script: `deploy/projects/athenafarm/glue/Transform-Farm-Producer-Year.py`
+- Known-good commit: `fc3fe5f`
+- Operational note: full-load observed to complete in under 4 minutes.
+- Validation date: `2026-03-04`
+- Validation environment: known-good operational run (exact `ENV` value not captured in repository metadata).
+
+Future baseline template:
+- Script: `<path>`
+- Commit: `<hash>`
+- Validation date: `<YYYY-MM-DD>`
+- Validation environment: `<ENV>`
+- Runtime note: `<e.g., full-load completed under N minutes>`
 
 ---
 
@@ -60,6 +71,10 @@ deploy/projects/athenafarm/
 
 ## Pipeline DAG
 
+Main Step Function defaults:
+- `full_load`: `true`
+- `skip_rds_sync`: `true`
+
 ```
 Manual / Lambda / CI trigger (no EventBridge — see "Running Without EventBridge" below)
   │
@@ -70,9 +85,12 @@ Manual / Lambda / CI trigger (no EventBridge — see "Running Without EventBridg
         │    ├─ Ingest-PG-Reference-Tables      (PG refs → athenafarm_prod_ref Iceberg)
         │    └─ Ingest-PG-CDC-Targets           (PG CDC → athenafarm_prod_cdc Iceberg)
         │
-        ├─ [TransformParallel]                  (both transforms run concurrently)
-        │    ├─ Transform-Tract-Producer-Year   (full-load only)
-        │    └─ Transform-Farm-Producer-Year    (full-load only)
+        ├─ [TransformParallel]
+        │    ├─ Tract branch:
+        │    │    ├─ TransformTractProducerYearPreprocess   (`--task_mode=preprocess`)
+        │    │    └─ TransformTractProducerYearFinalize     (`--task_mode=finalize`)
+        │    └─ Farm branch:
+        │         └─ Transform-Farm-Producer-Year           (full-load only)
         │
         ├─ CheckSkipRDSSync                     (default: skip — must pass skip_rds_sync=false to run sync)
         ├─ Sync-Iceberg-To-RDS                  (Iceberg → RDS PostgreSQL) [opt-in only]
@@ -116,6 +134,10 @@ python deploy.py --config ../../config/athenafarm/prod.json
 The transform jobs run full-load only. `full_load` is retained for compatibility
 and defaults to `true` at orchestration level.
 
+Main Step Function default run values:
+- `full_load`: `true`
+- `skip_rds_sync`: `true`
+
 Run full-load with RDS sync:
 
 ```json
@@ -130,7 +152,7 @@ is absent from the execution input or is `true`, `Sync-Iceberg-To-RDS` is skippe
 Default run (full-load, no RDS sync):
 
 ```json
-{}
+{ "full_load": "true", "skip_rds_sync": true }
 ```
 
 To explicitly enable the RDS sync, pass `skip_rds_sync: false`:
@@ -154,12 +176,12 @@ ACCOUNT="241533156429"   # change per environment
 ENV="FPACDEV"            # FPACDEV | STEAMDEV | PROD
 REGION="us-east-1"
 
-# ------- Main ETL pipeline (full-load, no RDS sync — DEFAULT) -------
+# ------- Main ETL pipeline (DEFAULT: full_load=true, skip_rds_sync=true) -------
 aws stepfunctions start-execution \
   --region "${REGION}" \
   --state-machine-arn "arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:FSA-${ENV}-ATHENAFARM-Main" \
   --name "manual-$(date +%Y%m%d-%H%M%S)" \
-  --input '{"full_load": "true"}'
+  --input '{"full_load": "true", "skip_rds_sync": true}'
 
 # ------- Main ETL pipeline (full-load, WITH RDS sync) -------
 aws stepfunctions start-execution \
@@ -192,7 +214,7 @@ aws stepfunctions describe-execution \
 3. Search for `FSA-{ENV}-ATHENAFARM-Main` (or `Maintenance`).
 4. Click **Start execution**.
 5. In the **Input** box enter one of:
-  - `{}` — full-load, no RDS sync (**default**)
+  - `{ "full_load": "true", "skip_rds_sync": true }` — full-load, no RDS sync (**default**)
   - `{ "skip_rds_sync": false }` — full-load + RDS sync
 6. Click **Start execution**.
 

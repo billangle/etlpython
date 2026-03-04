@@ -6,46 +6,49 @@ AWS Glue Job: Transform-Tract-Producer-Year
 PURPOSE:
     Builds tract_producer_year in Step Functions-manageable modes.
 
-    6-step optimized flow:
-      1) preprocess_core1      : ibsp + ibst + ibib
-      2) preprocess_core2      : core1 + ibin
-      3) preprocess_partner    : core2 + ibpart + crmd_partner
-      4) preprocess_enrich     : partner + zmi + time/coc/but000
-      5) finalize_resolve      : enriched stage + farm/tract/farm_year/tract_year
-      6) finalize_publish      : write final target snapshot
+    7-step optimized flow:
+      1) preprocess_spine        : ibsp projection + normalization
+      2) preprocess_structure    : spine + ibst + ibib
+      3) preprocess_core2        : structure + ibin
+      4) preprocess_partner      : core2 + ibpart + crmd_partner
+      5) preprocess_enrich       : partner + zmi + time/coc/but000
+      6) finalize_resolve        : enriched stage + farm/tract/farm_year/tract_year
+      7) finalize_publish        : write final target snapshot
 
     Compatibility wrappers:
-      - preprocess_base   : runs steps 1+2+3
-      - preprocess        : runs steps 1+2+3+4
-      - finalize          : runs steps 5+6
-      - single            : runs all 6 steps
+      - preprocess_base   : runs steps 1+2+3+4
+      - preprocess        : runs steps 1+2+3+4+5
+      - finalize          : runs steps 6+7
+      - single            : runs all 7 steps
 
 GLUE JOB ARGUMENTS:
     --JOB_NAME            : Glue job name
     --env                 : Deployment environment
     --iceberg_warehouse   : s3:// URI for Iceberg warehouse root
     --task_mode           : single | preprocess | preprocess_base |
-                            preprocess_core1 | preprocess_core2 | preprocess_partner |
-                            preprocess_enrich | finalize_resolve | finalize_publish | finalize
-    --stage_core1_table   : Stage table for step 1 (default: tract_producer_year_stage_core1)
-    --stage_core2_table   : Stage table for step 2 (default: tract_producer_year_stage_core2)
-    --stage_base_table    : Stage table for step 3 (default: tract_producer_year_stage_base)
-    --stage_table         : Stage table for step 4 (default: tract_producer_year_stage)
-    --stage_resolve_table : Stage table for step 5 (default: tract_producer_year_stage_resolve)
+                            preprocess_spine | preprocess_structure | preprocess_core2 |
+                            preprocess_partner | preprocess_enrich |
+                            finalize_resolve | finalize_publish | finalize
+    --stage_spine_table   : Stage table for step 1 (default: tract_producer_year_stage_spine)
+    --stage_core1_table   : Stage table for step 2 (default: tract_producer_year_stage_core1)
+    --stage_core2_table   : Stage table for step 3 (default: tract_producer_year_stage_core2)
+    --stage_base_table    : Stage table for step 4 (default: tract_producer_year_stage_base)
+    --stage_table         : Stage table for step 5 (default: tract_producer_year_stage)
+    --stage_resolve_table : Stage table for step 6 (default: tract_producer_year_stage_resolve)
     --full_load           : accepted for compatibility; job always full-load
     --sss_database        : SSS Iceberg db (default: athenafarm_prod_raw)
     --ref_database        : reference Iceberg db (default: athenafarm_prod_ref)
     --target_database     : target Iceberg db (default: athenafarm_prod_gold)
     --target_table        : target Iceberg table (default: tract_producer_year)
     --shuffle_partitions  : Spark shuffle partitions (default: 800)
-    --max_job_seconds     : fail-fast job cap seconds (default: 1800)
+    --max_job_seconds     : fail-fast job cap seconds (default: 1100)
     --debug               : DEBUG logging flag (default: false)
 
 VERSION HISTORY:
+    v3.1.0 - 2026-03-04 - Split heavy preprocessing further into 7 stages and enforce sub-20-minute orchestration profile.
     v3.0.0 - 2026-03-04 - Split tract flow into 6 stages to address >37 minute phase-1 runtime.
     v2.2.0 - 2026-03-04 - Split preprocess_base into preprocess_base_core + preprocess_base_partner.
     v2.1.0 - 2026-03-04 - Split tract flow into three Step Functions-manageable jobs.
-    v2.0.0 - 2026-03-04 - Initial staged Step Functions orchestration.
 
 ================================================================================
 """
@@ -94,6 +97,7 @@ SSS_DB            = _opt("sss_database", "athenafarm_prod_raw")
 REF_DB            = _opt("ref_database", "athenafarm_prod_ref")
 TGT_DB            = _opt("target_database", "athenafarm_prod_gold")
 TGT_TABLE         = _opt("target_table", "tract_producer_year")
+STAGE_SPINE_TABLE = _opt("stage_spine_table", "tract_producer_year_stage_spine")
 STAGE_CORE1_TABLE = _opt("stage_core1_table", "tract_producer_year_stage_core1")
 STAGE_CORE2_TABLE = _opt("stage_core2_table", "tract_producer_year_stage_core2")
 STAGE_BASE_TABLE  = _opt("stage_base_table", "tract_producer_year_stage_base")
@@ -101,14 +105,15 @@ STAGE_TABLE       = _opt("stage_table", "tract_producer_year_stage")
 STAGE_RESOLVE_TABLE = _opt("stage_resolve_table", "tract_producer_year_stage_resolve")
 TASK_MODE         = _opt("task_mode", "single").strip().lower()
 SHUFFLE_PARTITIONS = _opt("shuffle_partitions", "800")
-MAX_JOB_SECONDS   = int(_opt("max_job_seconds", "1800"))
+MAX_JOB_SECONDS   = int(_opt("max_job_seconds", "1100"))
 DEBUG             = _opt("debug", "false").strip().lower() == "true"
 
 VALID_MODES = {
     "single",
     "preprocess",
     "preprocess_base",
-    "preprocess_core1",
+    "preprocess_spine",
+    "preprocess_structure",
     "preprocess_core2",
     "preprocess_partner",
     "preprocess_enrich",
@@ -146,6 +151,7 @@ job = Job(glueContext)
 job.init(JOB_NAME, args)
 
 job_t0 = time.perf_counter()
+STAGE_SPINE_FQN = f"glue_catalog.{TGT_DB}.{STAGE_SPINE_TABLE}"
 STAGE_CORE1_FQN = f"glue_catalog.{TGT_DB}.{STAGE_CORE1_TABLE}"
 STAGE_CORE2_FQN = f"glue_catalog.{TGT_DB}.{STAGE_CORE2_TABLE}"
 STAGE_BASE_FQN = f"glue_catalog.{TGT_DB}.{STAGE_BASE_TABLE}"
@@ -162,6 +168,7 @@ log.info(f"SSS DB         : {SSS_DB}")
 log.info(f"Ref DB         : {REF_DB}")
 log.info(f"Target DB      : {TGT_DB}")
 log.info(f"Target Table   : {TGT_TABLE}")
+log.info(f"Stage Spine Tbl: {STAGE_SPINE_TABLE}")
 log.info(f"Stage Core1 Tbl: {STAGE_CORE1_TABLE}")
 log.info(f"Stage Core2 Tbl: {STAGE_CORE2_TABLE}")
 log.info(f"Stage Base Tbl : {STAGE_BASE_TABLE}")
@@ -211,10 +218,10 @@ def finish_and_exit(message: str):
     sys.exit(0)
 
 
-PREPROCESS_CORE1_SQL = """
+PREPROCESS_SPINE_SQL = """
 SELECT
-    ib.ibase AS f_ibase,
-    ib.ZZFLD000000 AS farm_number,
+    CAST(sp.instance AS STRING) AS instance,
+    CAST(sp.client AS STRING) AS client,
     CASE
         WHEN sp.ZZFLD00000T IS NOT NULL AND sp.ZZFLD00000T <> '0' THEN LPAD(sp.ZZFLD00000T, 7, '0')
         WHEN sp.ZZFLD00001O IS NOT NULL AND TRIM(sp.ZZFLD00001O) <> ' ' THEN LPAD(SPLIT(sp.ZZFLD00001O, '-')[3], 7, '0')
@@ -229,17 +236,42 @@ SELECT
         WHEN sp.upnam IS NOT NULL AND TRIM(sp.upnam) NOT IN ('0', '', ')') THEN TRIM(sp.upnam)
         WHEN sp.crnam IS NOT NULL AND TRIM(sp.crnam) NOT IN ('0', '', ')') THEN TRIM(sp.crnam)
         ELSE 'BLANK'
-    END AS t_last_change_user_name,
-    CAST(sp.instance AS STRING) AS instance,
-    CAST(sp.client AS STRING) AS client
+    END AS t_last_change_user_name
 FROM ibsp sp
-JOIN ibst st ON st.instance = sp.instance AND st.parent = '0'
-JOIN ibib ib ON ib.ibase = st.ibase
+"""
+
+PREPROCESS_STRUCTURE_SQL = """
+SELECT
+    ib.ibase AS f_ibase,
+    ib.ZZFLD000000 AS farm_number,
+    spine.tract_number,
+    spine.admin_state,
+    spine.admin_county,
+    spine.t_data_status_code,
+    spine.t_creation_date,
+    spine.t_last_change_date,
+    spine.t_last_change_user_name,
+    spine.instance,
+    spine.client
+FROM sss_spine_stage spine
+JOIN ibst st
+  ON st.instance = spine.instance
+ AND st.parent = '0'
+JOIN ibib ib
+  ON ib.ibase = st.ibase
 """
 
 PREPROCESS_CORE2_SQL = """
 SELECT
-    core1.*, 
+    core1.f_ibase,
+    core1.farm_number,
+    core1.tract_number,
+    core1.admin_state,
+    core1.admin_county,
+    core1.t_data_status_code,
+    core1.t_creation_date,
+    core1.t_last_change_date,
+    core1.t_last_change_user_name,
     CAST(ni.instance AS STRING) AS i_instance,
     CAST(ni.ibase AS STRING) AS r_ibase,
     CAST(ni.in_guid AS STRING) AS in_guid
@@ -419,21 +451,32 @@ WHERE rownum = 1
 """
 
 
-def run_preprocess_core1():
-    for tbl in ["ibib", "ibsp", "ibst"]:
-        register_view(SSS_DB, tbl)
+def run_preprocess_spine():
+    register_view(SSS_DB, "ibsp")
     phase_t0 = time.perf_counter()
-    stage_log("PP_CORE1_STAGE", "Running preprocess_core1 stage")
-    core1_df = spark.sql(PREPROCESS_CORE1_SQL)
+    stage_log("PP_SPINE_STAGE", "Running preprocess_spine stage")
+    spine_df = spark.sql(PREPROCESS_SPINE_SQL)
+    spine_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(STAGE_SPINE_FQN)
+    spine_df.write.format("iceberg").mode("overwrite").saveAsTable(STAGE_SPINE_FQN)
+    stage_log("PP_SPINE_STAGE", f"[METRIC] phase_preprocess_spine_seconds={time.perf_counter() - phase_t0:.3f}")
+    stage_log("PP_SPINE_STAGE", f"[METRIC] stage_spine_row_count={latest_snapshot_row_count(STAGE_SPINE_FQN)}")
+
+
+def run_preprocess_structure():
+    for tbl in ["ibst", "ibib"]:
+        register_view(SSS_DB, tbl)
+    spark.table(STAGE_SPINE_FQN).createOrReplaceTempView("sss_spine_stage")
+    phase_t0 = time.perf_counter()
+    stage_log("PP_STRUCTURE_STAGE", "Running preprocess_structure stage")
+    core1_df = spark.sql(PREPROCESS_STRUCTURE_SQL)
     core1_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(STAGE_CORE1_FQN)
     core1_df.write.format("iceberg").mode("overwrite").saveAsTable(STAGE_CORE1_FQN)
-    stage_log("PP_CORE1_STAGE", f"[METRIC] phase_preprocess_core1_seconds={time.perf_counter() - phase_t0:.3f}")
-    stage_log("PP_CORE1_STAGE", f"[METRIC] stage_core1_row_count={latest_snapshot_row_count(STAGE_CORE1_FQN)}")
+    stage_log("PP_STRUCTURE_STAGE", f"[METRIC] phase_preprocess_structure_seconds={time.perf_counter() - phase_t0:.3f}")
+    stage_log("PP_STRUCTURE_STAGE", f"[METRIC] stage_core1_row_count={latest_snapshot_row_count(STAGE_CORE1_FQN)}")
 
 
 def run_preprocess_core2():
-    for tbl in ["ibin"]:
-        register_view(SSS_DB, tbl)
+    register_view(SSS_DB, "ibin")
     spark.table(STAGE_CORE1_FQN).createOrReplaceTempView("sss_details_core1_stage")
     phase_t0 = time.perf_counter()
     stage_log("PP_CORE2_STAGE", "Running preprocess_core2 stage")
@@ -498,10 +541,15 @@ def run_finalize_publish():
     stage_log("FINALIZE_PUBLISH_STAGE", f"[METRIC] {TGT_TABLE}_row_count={latest_snapshot_row_count(TARGET_FQN)}")
 
 
-if TASK_MODE in ("single", "preprocess", "preprocess_base", "preprocess_core1"):
-    run_preprocess_core1()
-    if TASK_MODE == "preprocess_core1":
-        finish_and_exit("[PP_CORE1_STAGE] Transform-Tract-Producer-Year preprocess_core1: completed successfully")
+if TASK_MODE in ("single", "preprocess", "preprocess_base", "preprocess_spine"):
+    run_preprocess_spine()
+    if TASK_MODE == "preprocess_spine":
+        finish_and_exit("[PP_SPINE_STAGE] Transform-Tract-Producer-Year preprocess_spine: completed successfully")
+
+if TASK_MODE in ("single", "preprocess", "preprocess_base", "preprocess_structure"):
+    run_preprocess_structure()
+    if TASK_MODE == "preprocess_structure":
+        finish_and_exit("[PP_STRUCTURE_STAGE] Transform-Tract-Producer-Year preprocess_structure: completed successfully")
 
 if TASK_MODE in ("single", "preprocess", "preprocess_base", "preprocess_core2"):
     run_preprocess_core2()

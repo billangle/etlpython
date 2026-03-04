@@ -176,107 +176,243 @@
       "Comment": "Run tract and farm producer year transforms concurrently. Both read from S3 Iceberg only (no shared write targets, no locks).",
       "Branches": [
         {
-          "StartAt": "TransformTractProducerYearPreprocessCore1",
+          "StartAt": "TransformTractProducerYearPreprocessSpine",
           "States": {
-            "TransformTractProducerYearPreprocessCore1": {
+            "TransformTractProducerYearPreprocessSpine": {
               "Type": "Task",
-              "Comment": "Run tract preprocess core1 stage (ibsp+ibst+ibib) (TimeoutSeconds=3600, --max_job_seconds=3300).",
+              "Comment": "Run tract preprocess spine stage (ibsp projection/normalization) with highest DPU profile (G.2X x 40) (TimeoutSeconds=1140, --max_job_seconds=1020).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "WorkerType": "G.2X",
+                "NumberOfWorkers": 40,
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
-                  "--task_mode": "preprocess_core1",
-                  "--max_job_seconds": "3300"
+                  "--task_mode": "preprocess_spine",
+                  "--shuffle_partitions": "1400",
+                  "--max_job_seconds": "1020"
                 }
               },
-              "TimeoutSeconds": 3600,
-              "ResultPath": "$.transform_tpy_preprocess_core1_result",
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed",
+                    "Glue.ConcurrentRunsExceededException",
+                    "Glue.InternalServiceException",
+                    "Glue.OperationTimeoutException",
+                    "States.Timeout"
+                  ],
+                  "IntervalSeconds": 20,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "TimeoutSeconds": 1140,
+              "ResultPath": "$.transform_tpy_preprocess_spine_result",
+              "Next": "TransformTractProducerYearPreprocessStructure"
+            },
+            "TransformTractProducerYearPreprocessStructure": {
+              "Type": "Task",
+              "Comment": "Run tract preprocess structure stage (spine+ibst+ibib) with high DPU profile (G.2X x 32) (TimeoutSeconds=1140, --max_job_seconds=1020).",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "WorkerType": "G.2X",
+                "NumberOfWorkers": 32,
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--task_mode": "preprocess_structure",
+                  "--shuffle_partitions": "1200",
+                  "--max_job_seconds": "1020"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed",
+                    "Glue.ConcurrentRunsExceededException",
+                    "Glue.InternalServiceException",
+                    "Glue.OperationTimeoutException",
+                    "States.Timeout"
+                  ],
+                  "IntervalSeconds": 20,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "TimeoutSeconds": 1140,
+              "ResultPath": "$.transform_tpy_preprocess_structure_result",
               "Next": "TransformTractProducerYearPreprocessCore2"
             },
             "TransformTractProducerYearPreprocessCore2": {
               "Type": "Task",
-              "Comment": "Run tract preprocess core2 stage (core1+ibin) (TimeoutSeconds=2400, --max_job_seconds=2100).",
+              "Comment": "Run tract preprocess core2 stage (structure+ibin) with balanced DPU profile (G.2X x 28) (TimeoutSeconds=1140, --max_job_seconds=1020).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "WorkerType": "G.2X",
+                "NumberOfWorkers": 28,
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
                   "--task_mode": "preprocess_core2",
-                  "--max_job_seconds": "2100"
+                  "--shuffle_partitions": "1000",
+                  "--max_job_seconds": "1020"
                 }
               },
-              "TimeoutSeconds": 2400,
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed",
+                    "Glue.ConcurrentRunsExceededException",
+                    "Glue.InternalServiceException",
+                    "Glue.OperationTimeoutException",
+                    "States.Timeout"
+                  ],
+                  "IntervalSeconds": 20,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "TimeoutSeconds": 1140,
               "ResultPath": "$.transform_tpy_preprocess_core2_result",
               "Next": "TransformTractProducerYearPreprocessPartner"
             },
             "TransformTractProducerYearPreprocessPartner": {
               "Type": "Task",
-              "Comment": "Run tract preprocess partner stage (core2+ibpart+crmd_partner) (TimeoutSeconds=1800, --max_job_seconds=1500).",
+              "Comment": "Run tract preprocess partner stage (core2+ibpart+crmd_partner) with balanced DPU profile (G.2X x 24) (TimeoutSeconds=1140, --max_job_seconds=1020).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "WorkerType": "G.2X",
+                "NumberOfWorkers": 24,
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
                   "--task_mode": "preprocess_partner",
-                  "--max_job_seconds": "1500"
+                  "--shuffle_partitions": "900",
+                  "--max_job_seconds": "1020"
                 }
               },
-              "TimeoutSeconds": 1800,
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed",
+                    "Glue.ConcurrentRunsExceededException",
+                    "Glue.InternalServiceException",
+                    "Glue.OperationTimeoutException",
+                    "States.Timeout"
+                  ],
+                  "IntervalSeconds": 20,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "TimeoutSeconds": 1140,
               "ResultPath": "$.transform_tpy_preprocess_partner_result",
               "Next": "TransformTractProducerYearPreprocessEnrich"
             },
             "TransformTractProducerYearPreprocessEnrich": {
               "Type": "Task",
-              "Comment": "Run tract preprocess enrich stage to materialise tract_current stage table (TimeoutSeconds=1800, --max_job_seconds=1500).",
+              "Comment": "Run tract preprocess enrich stage to materialise tract_current stage table with balanced DPU profile (G.2X x 24) (TimeoutSeconds=1140, --max_job_seconds=1020).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "WorkerType": "G.2X",
+                "NumberOfWorkers": 24,
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
                   "--task_mode": "preprocess_enrich",
-                  "--max_job_seconds": "1500"
+                  "--shuffle_partitions": "900",
+                  "--max_job_seconds": "1020"
                 }
               },
-              "TimeoutSeconds": 1800,
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed",
+                    "Glue.ConcurrentRunsExceededException",
+                    "Glue.InternalServiceException",
+                    "Glue.OperationTimeoutException",
+                    "States.Timeout"
+                  ],
+                  "IntervalSeconds": 20,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "TimeoutSeconds": 1140,
               "ResultPath": "$.transform_tpy_preprocess_enrich_result",
               "Next": "TransformTractProducerYearFinalizeResolve"
             },
             "TransformTractProducerYearFinalizeResolve": {
               "Type": "Task",
-              "Comment": "Run tract finalize resolve stage (TimeoutSeconds=1800, --max_job_seconds=1500).",
+              "Comment": "Run tract finalize resolve stage with moderate DPU profile (G.2X x 16) (TimeoutSeconds=1140, --max_job_seconds=1020).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "WorkerType": "G.2X",
+                "NumberOfWorkers": 16,
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
                   "--task_mode": "finalize_resolve",
-                  "--max_job_seconds": "1500"
+                  "--shuffle_partitions": "700",
+                  "--max_job_seconds": "1020"
                 }
               },
-              "TimeoutSeconds": 1800,
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed",
+                    "Glue.ConcurrentRunsExceededException",
+                    "Glue.InternalServiceException",
+                    "Glue.OperationTimeoutException",
+                    "States.Timeout"
+                  ],
+                  "IntervalSeconds": 20,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "TimeoutSeconds": 1140,
               "ResultPath": "$.transform_tpy_finalize_resolve_result",
               "Next": "TransformTractProducerYearFinalizePublish"
             },
             "TransformTractProducerYearFinalizePublish": {
               "Type": "Task",
-              "Comment": "Run tract finalize publish stage to write final snapshot (TimeoutSeconds=1200, --max_job_seconds=900).",
+              "Comment": "Run tract finalize publish stage to write final snapshot with moderate DPU profile (G.2X x 12) (TimeoutSeconds=1140, --max_job_seconds=900).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "WorkerType": "G.2X",
+                "NumberOfWorkers": 12,
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
                   "--task_mode": "finalize_publish",
+                  "--shuffle_partitions": "500",
                   "--max_job_seconds": "900"
                 }
               },
-              "TimeoutSeconds": 1200,
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed",
+                    "Glue.ConcurrentRunsExceededException",
+                    "Glue.InternalServiceException",
+                    "Glue.OperationTimeoutException",
+                    "States.Timeout"
+                  ],
+                  "IntervalSeconds": 20,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "TimeoutSeconds": 1140,
               "ResultPath": "$.transform_tpy_finalize_publish_result",
               "End": true
             }

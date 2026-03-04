@@ -10,28 +10,42 @@ for the full architecture rationale.
 
 ## Recent Changes (2026-03-04)
 
-- Tract transform is now orchestrated as six Step Functions-managed stages:
-  - `TransformTractProducerYearPreprocessCore1` (`--task_mode=preprocess_core1`)
+- Tract transform is now orchestrated as seven Step Functions-managed stages:
+  - `TransformTractProducerYearPreprocessSpine` (`--task_mode=preprocess_spine`)
+  - `TransformTractProducerYearPreprocessStructure` (`--task_mode=preprocess_structure`)
   - `TransformTractProducerYearPreprocessCore2` (`--task_mode=preprocess_core2`)
   - `TransformTractProducerYearPreprocessPartner` (`--task_mode=preprocess_partner`)
   - `TransformTractProducerYearPreprocessEnrich` (`--task_mode=preprocess_enrich`)
   - `TransformTractProducerYearFinalizeResolve` (`--task_mode=finalize_resolve`)
   - `TransformTractProducerYearFinalizePublish` (`--task_mode=finalize_publish`)
-- Tract branch timeout tuning by stage:
-  - `preprocess_core1`: 3600s
-  - `preprocess_core2`: 2400s
-  - `preprocess_partner`: 1800s
-  - `preprocess_enrich`: 1800s
-  - `finalize_resolve`: 1800s
-  - `finalize_publish`: 1200s
+- Tract branch timeout tuning by stage (strictly under 20 minutes each):
+  - `preprocess_spine`: 1140s
+  - `preprocess_structure`: 1140s
+  - `preprocess_core2`: 1140s
+  - `preprocess_partner`: 1140s
+  - `preprocess_enrich`: 1140s
+  - `finalize_resolve`: 1140s
+  - `finalize_publish`: 1140s
 - Tract script-level fail-fast (`--max_job_seconds`) is now passed per stage from Step Functions:
-  - `preprocess_core1`: 3300s
-  - `preprocess_core2`: 2100s
-  - `preprocess_partner`: 1500s
-  - `preprocess_enrich`: 1500s
-  - `finalize_resolve`: 1500s
+  - `preprocess_spine`: 1020s
+  - `preprocess_structure`: 1020s
+  - `preprocess_core2`: 1020s
+  - `preprocess_partner`: 1020s
+  - `preprocess_enrich`: 1020s
+  - `finalize_resolve`: 1020s
   - `finalize_publish`: 900s
-- Tract script supports `task_mode` (`single|preprocess|preprocess_base|preprocess_core1|preprocess_core2|preprocess_partner|preprocess_enrich|finalize_resolve|finalize_publish|finalize`) with stage-table handoff for smaller, faster task boundaries.
+- Tract per-stage resource profile is now tuned in Step Functions with explicit Glue worker settings and shuffle partitions:
+  - `preprocess_spine`: `WorkerType=G.2X`, `NumberOfWorkers=40`, `--shuffle_partitions=1400`
+  - `preprocess_structure`: `WorkerType=G.2X`, `NumberOfWorkers=32`, `--shuffle_partitions=1200`
+  - `preprocess_core2`: `WorkerType=G.2X`, `NumberOfWorkers=28`, `--shuffle_partitions=1000`
+  - `preprocess_partner`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
+  - `preprocess_enrich`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
+  - `finalize_resolve`: `WorkerType=G.2X`, `NumberOfWorkers=16`, `--shuffle_partitions=700`
+  - `finalize_publish`: `WorkerType=G.2X`, `NumberOfWorkers=12`, `--shuffle_partitions=500`
+- Tract branch now uses conservative transient-failure retries per stage in Step Functions:
+  - `Retry` on `States.TaskFailed`, `Glue.ConcurrentRunsExceededException`, `Glue.InternalServiceException`, `Glue.OperationTimeoutException`, `States.Timeout`
+  - Backoff profile: `IntervalSeconds=20`, `MaxAttempts=2`, `BackoffRate=2.0`
+- Tract script supports `task_mode` (`single|preprocess|preprocess_base|preprocess_spine|preprocess_structure|preprocess_core2|preprocess_partner|preprocess_enrich|finalize_resolve|finalize_publish|finalize`) with stage-table handoff for smaller, faster task boundaries.
 - Farm transform is pinned to a known-good baseline (`Transform-Farm-Producer-Year`, git commit `fc3fe5f`), with observed full-load completion under 4 minutes.
 - PG CDC ingest retains runtime reductions from removal of pre-write cache/count and pre-write repartition/sort passes.
 - Contract checks were updated to keep Farm implementation stable and avoid forcing Farm-script rewrites.
@@ -105,7 +119,8 @@ Manual / Lambda / CI trigger (no EventBridge — see "Running Without EventBridg
         │
         ├─ [TransformParallel]
         │    ├─ Tract branch:
-        │    │    ├─ TransformTractProducerYearPreprocessCore1 (`--task_mode=preprocess_core1`)
+        │    │    ├─ TransformTractProducerYearPreprocessSpine (`--task_mode=preprocess_spine`)
+        │    │    ├─ TransformTractProducerYearPreprocessStructure (`--task_mode=preprocess_structure`)
         │    │    ├─ TransformTractProducerYearPreprocessCore2 (`--task_mode=preprocess_core2`)
         │    │    ├─ TransformTractProducerYearPreprocessPartner (`--task_mode=preprocess_partner`)
         │    │    ├─ TransformTractProducerYearPreprocessEnrich (`--task_mode=preprocess_enrich`)
@@ -586,16 +601,13 @@ This is the fastest way to identify root cause without reading raw log output.
 structured metric lines to the driver log for every run:
 
 - `[METRIC] mode=full_load`
-- `[METRIC] phase_extract_seconds=<float>`
-- `[METRIC] phase_transform_seconds=<float>`
-- `[METRIC] phase_write_seconds=<float>`
-- `[METRIC] phase_snapshot_metric_seconds=<float>`
 - `[METRIC] total_job_seconds=<float>`
 
 `Transform-Tract-Producer-Year` also emits stage-prefixed log lines to make
-CloudWatch filtering easier for the 6-stage tract flow:
+CloudWatch filtering easier for the 7-stage tract flow:
 
-- `[PP_CORE1_STAGE] ...`
+- `[PP_SPINE_STAGE] ...`
+- `[PP_STRUCTURE_STAGE] ...`
 - `[PP_CORE2_STAGE] ...`
 - `[PP_PARTNER_STAGE] ...`
 - `[PP_ENRICH_STAGE] ...`
@@ -608,8 +620,10 @@ Prefix convention for tract logging/metrics:
 - Stage log format: `[<STAGE_PREFIX>] <message>`
 - Stage metric format: `[<STAGE_PREFIX>] [METRIC] <name>=<value>`
 - Examples:
-  - `[PP_CORE1_STAGE] [METRIC] phase_preprocess_core1_seconds=<float>`
-  - `[PP_CORE1_STAGE] [METRIC] stage_core1_row_count=<int>`
+  - `[PP_SPINE_STAGE] [METRIC] phase_preprocess_spine_seconds=<float>`
+  - `[PP_SPINE_STAGE] [METRIC] stage_spine_row_count=<int>`
+  - `[PP_STRUCTURE_STAGE] [METRIC] phase_preprocess_structure_seconds=<float>`
+  - `[PP_STRUCTURE_STAGE] [METRIC] stage_core1_row_count=<int>`
   - `[PP_CORE2_STAGE] [METRIC] phase_preprocess_core2_seconds=<float>`
   - `[PP_CORE2_STAGE] [METRIC] stage_core2_row_count=<int>`
   - `[PP_PARTNER_STAGE] [METRIC] phase_preprocess_partner_seconds=<float>`
@@ -633,7 +647,7 @@ Sample all-stage filter (single query for all tract stage prefixes):
 
 ```sql
 fields @timestamp, @message
-| filter @message like /\[(PP_CORE1_STAGE|PP_CORE2_STAGE|PP_PARTNER_STAGE|PP_ENRICH_STAGE|FINALIZE_RESOLVE_STAGE|FINALIZE_PUBLISH_STAGE|JOB_STAGE)\]/
+| filter @message like /\[(PP_SPINE_STAGE|PP_STRUCTURE_STAGE|PP_CORE2_STAGE|PP_PARTNER_STAGE|PP_ENRICH_STAGE|FINALIZE_RESOLVE_STAGE|FINALIZE_PUBLISH_STAGE|JOB_STAGE)\]/
 | sort @timestamp desc
 | limit 200
 ```
@@ -642,7 +656,7 @@ Sample all-stage parsed view (extract stage for grouping):
 
 ```sql
 fields @timestamp, @message
-| parse @message /\[(?<stage>PP_CORE1_STAGE|PP_CORE2_STAGE|PP_PARTNER_STAGE|PP_ENRICH_STAGE|FINALIZE_RESOLVE_STAGE|FINALIZE_PUBLISH_STAGE|JOB_STAGE)\]/
+| parse @message /\[(?<stage>PP_SPINE_STAGE|PP_STRUCTURE_STAGE|PP_CORE2_STAGE|PP_PARTNER_STAGE|PP_ENRICH_STAGE|FINALIZE_RESOLVE_STAGE|FINALIZE_PUBLISH_STAGE|JOB_STAGE)\]/
 | filter ispresent(stage)
 | stats count(*) as lines by stage
 | sort lines desc

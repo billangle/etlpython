@@ -176,40 +176,57 @@
       "Comment": "Run tract and farm producer year transforms concurrently. Both read from S3 Iceberg only (no shared write targets, no locks).",
       "Branches": [
         {
-          "StartAt": "TransformTractProducerYearPreprocessBaseCore",
+          "StartAt": "TransformTractProducerYearPreprocessCore1",
           "States": {
-            "TransformTractProducerYearPreprocessBaseCore": {
+            "TransformTractProducerYearPreprocessCore1": {
               "Type": "Task",
-              "Comment": "Run tract preprocess base-core stage to materialise SSS core stage table (TimeoutSeconds=2700, --max_job_seconds=2400).",
+              "Comment": "Run tract preprocess core1 stage (ibsp+ibst+ibib) (TimeoutSeconds=3600, --max_job_seconds=3300).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
-                  "--task_mode": "preprocess_base_core",
-                  "--max_job_seconds": "2400"
+                  "--task_mode": "preprocess_core1",
+                  "--max_job_seconds": "3300"
                 }
               },
-              "TimeoutSeconds": 2700,
-              "ResultPath": "$.transform_tpy_preprocess_base_core_result",
-              "Next": "TransformTractProducerYearPreprocessBasePartner"
+              "TimeoutSeconds": 3600,
+              "ResultPath": "$.transform_tpy_preprocess_core1_result",
+              "Next": "TransformTractProducerYearPreprocessCore2"
             },
-            "TransformTractProducerYearPreprocessBasePartner": {
+            "TransformTractProducerYearPreprocessCore2": {
               "Type": "Task",
-              "Comment": "Run tract preprocess base-partner stage to materialise SSS base stage table (TimeoutSeconds=2700, --max_job_seconds=2400).",
+              "Comment": "Run tract preprocess core2 stage (core1+ibin) (TimeoutSeconds=2400, --max_job_seconds=2100).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
-                  "--task_mode": "preprocess_base_partner",
-                  "--max_job_seconds": "2400"
+                  "--task_mode": "preprocess_core2",
+                  "--max_job_seconds": "2100"
                 }
               },
-              "TimeoutSeconds": 2700,
-              "ResultPath": "$.transform_tpy_preprocess_base_partner_result",
+              "TimeoutSeconds": 2400,
+              "ResultPath": "$.transform_tpy_preprocess_core2_result",
+              "Next": "TransformTractProducerYearPreprocessPartner"
+            },
+            "TransformTractProducerYearPreprocessPartner": {
+              "Type": "Task",
+              "Comment": "Run tract preprocess partner stage (core2+ibpart+crmd_partner) (TimeoutSeconds=1800, --max_job_seconds=1500).",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--task_mode": "preprocess_partner",
+                  "--max_job_seconds": "1500"
+                }
+              },
+              "TimeoutSeconds": 1800,
+              "ResultPath": "$.transform_tpy_preprocess_partner_result",
               "Next": "TransformTractProducerYearPreprocessEnrich"
             },
             "TransformTractProducerYearPreprocessEnrich": {
@@ -227,23 +244,40 @@
               },
               "TimeoutSeconds": 1800,
               "ResultPath": "$.transform_tpy_preprocess_enrich_result",
-              "Next": "TransformTractProducerYearFinalize"
+              "Next": "TransformTractProducerYearFinalizeResolve"
             },
-            "TransformTractProducerYearFinalize": {
+            "TransformTractProducerYearFinalizeResolve": {
               "Type": "Task",
-              "Comment": "Run tract finalize stage to publish final tract_producer_year snapshot (TimeoutSeconds=1800, --max_job_seconds=1500).",
+              "Comment": "Run tract finalize resolve stage (TimeoutSeconds=1800, --max_job_seconds=1500).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
-                  "--task_mode": "finalize",
+                  "--task_mode": "finalize_resolve",
                   "--max_job_seconds": "1500"
                 }
               },
               "TimeoutSeconds": 1800,
-              "ResultPath": "$.transform_tpy_finalize_result",
+              "ResultPath": "$.transform_tpy_finalize_resolve_result",
+              "Next": "TransformTractProducerYearFinalizePublish"
+            },
+            "TransformTractProducerYearFinalizePublish": {
+              "Type": "Task",
+              "Comment": "Run tract finalize publish stage to write final snapshot (TimeoutSeconds=1200, --max_job_seconds=900).",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--task_mode": "finalize_publish",
+                  "--max_job_seconds": "900"
+                }
+              },
+              "TimeoutSeconds": 1200,
+              "ResultPath": "$.transform_tpy_finalize_publish_result",
               "End": true
             }
           }

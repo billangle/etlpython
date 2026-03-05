@@ -36,6 +36,7 @@ for the full architecture rationale.
   - `TransformTractProducerYearPreprocessEnrich` (`--task_mode=preprocess_enrich`)
   - `TransformTractProducerYearFinalizeResolve` (`--task_mode=finalize_resolve`)
   - `TransformTractProducerYearFinalizePublish` (`--task_mode=finalize_publish`)
+- Phase-4 skew mitigation now uses salted composite-key bucketing (`f_ibase + tract/admin/tenant keys`) so hot `f_ibase` values can spread across `preprocess_structure_farm_b0..b15` instead of concentrating in a single bucket.
 - Tract branch timeout tuning by stage (strictly under 20 minutes each):
   - `preprocess_spine`: 1140s
   - `preprocess_structure_link`: 1140s

@@ -77,6 +77,7 @@ GLUE JOB ARGUMENTS:
     --debug               : DEBUG logging flag (default: false)
 
 VERSION HISTORY:
+    v3.9.0 - 2026-03-05 - Use salted composite-key bucketing for structure_farm buckets to reduce hot-key skew in phase-4.
     v3.8.0 - 2026-03-05 - Split structure_farm into 16 hash buckets (b0-b15) to further reduce phase-4 runtime.
     v3.7.0 - 2026-03-05 - Split structure_farm into 8 hash buckets (b0-b7) to further reduce phase-4 runtime.
     v3.6.0 - 2026-03-05 - Split structure_farm into 4 hash buckets (b0-b3) to reduce phase-4 runtime.
@@ -359,7 +360,22 @@ SELECT
 FROM sss_details_core1_stage core1
 JOIN sss_details_structure_filter_stage ibf
     ON CAST(core1.f_ibase AS STRING) = ibf.f_ibase
-WHERE pmod(abs(hash(CAST(core1.f_ibase AS STRING))), 16) = {bucket}
+WHERE pmod(
+        abs(
+            hash(
+                concat_ws(
+                    '|',
+                    CAST(core1.f_ibase AS STRING),
+                    CAST(core1.tract_number AS STRING),
+                    CAST(core1.admin_state AS STRING),
+                    CAST(core1.admin_county AS STRING),
+                    CAST(core1.instance AS STRING),
+                    CAST(core1.client AS STRING)
+                )
+            )
+        ),
+        16
+      ) = {bucket}
 """
 
 PREPROCESS_STRUCTURE_FARM_FILTER_SQL = """

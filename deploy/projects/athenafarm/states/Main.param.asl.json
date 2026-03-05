@@ -244,11 +244,11 @@
               ],
               "TimeoutSeconds": 1140,
               "ResultPath": "$.transform_tpy_preprocess_structure_link_result",
-              "Next": "TransformTractProducerYearPreprocessStructureFarm"
+              "Next": "TransformTractProducerYearPreprocessStructureFarmFilter"
             },
-            "TransformTractProducerYearPreprocessStructureFarm": {
+            "TransformTractProducerYearPreprocessStructureFarmFilter": {
               "Type": "Task",
-              "Comment": "Run tract preprocess structure-farm stage (structure_link+ibib) with high DPU profile (G.2X x 40) (TimeoutSeconds=1140, --max_job_seconds=1020).",
+              "Comment": "Run tract preprocess structure-farm-filter stage (structure_link key-filter + ibib projection) with highest DPU profile (G.2X x 40) (TimeoutSeconds=1140, --max_job_seconds=1020).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
@@ -257,8 +257,42 @@
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
-                  "--task_mode": "preprocess_structure_farm",
+                  "--task_mode": "preprocess_structure_farm_filter",
                   "--shuffle_partitions": "1400",
+                  "--max_job_seconds": "1020"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed",
+                    "Glue.ConcurrentRunsExceededException",
+                    "Glue.InternalServiceException",
+                    "Glue.OperationTimeoutException",
+                    "States.Timeout"
+                  ],
+                  "IntervalSeconds": 20,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "TimeoutSeconds": 1140,
+              "ResultPath": "$.transform_tpy_preprocess_structure_farm_filter_result",
+              "Next": "TransformTractProducerYearPreprocessStructureFarm"
+            },
+            "TransformTractProducerYearPreprocessStructureFarm": {
+              "Type": "Task",
+              "Comment": "Run tract preprocess structure-farm stage (structure_link+filtered_ibib) with high DPU profile (G.2X x 32) (TimeoutSeconds=1140, --max_job_seconds=1020).",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "WorkerType": "G.2X",
+                "NumberOfWorkers": 32,
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--task_mode": "preprocess_structure_farm",
+                  "--shuffle_partitions": "1200",
                   "--max_job_seconds": "1020"
                 }
               },

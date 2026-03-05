@@ -6,23 +6,25 @@ AWS Glue Job: Transform-Tract-Producer-Year
 PURPOSE:
     Builds tract_producer_year in Step Functions-manageable modes.
 
-        10-step optimized flow:
+        12-step optimized flow:
       1) preprocess_spine        : ibsp projection + normalization
             2) preprocess_structure_link : spine + ibst
             3) preprocess_structure_farm_filter : structure_link key-filter + ibib projection
-            4) preprocess_structure_farm        : structure_link + filtered ibib
-            5) preprocess_core2_extract         : ibin key projection/materialization
-            6) preprocess_core2                 : structure_farm + core2_extract
-            7) preprocess_partner               : core2 + ibpart + crmd_partner
-            8) preprocess_enrich                : partner + zmi + time/coc/but000
-            9) finalize_resolve                 : enriched stage + farm/tract/farm_year/tract_year
-            10) finalize_publish                : write final target snapshot
+            4) preprocess_structure_farm_even   : structure_farm filtered bucket 0
+            5) preprocess_structure_farm_odd    : structure_farm filtered bucket 1
+            6) preprocess_structure_farm_merge  : merge even+odd structure_farm outputs
+            7) preprocess_core2_extract         : ibin key projection/materialization
+            8) preprocess_core2                 : structure_farm + core2_extract
+            9) preprocess_partner               : core2 + ibpart + crmd_partner
+            10) preprocess_enrich               : partner + zmi + time/coc/but000
+            11) finalize_resolve                : enriched stage + farm/tract/farm_year/tract_year
+            12) finalize_publish                : write final target snapshot
 
     Compatibility wrappers:
-    - preprocess_base   : runs steps 1+2+3+4+5+6+7
-    - preprocess        : runs steps 1+2+3+4+5+6+7+8
-    - finalize          : runs steps 9+10
-    - single            : runs all 10 steps
+    - preprocess_base   : runs steps 1+2+3+4+5+6+7+8+9
+    - preprocess        : runs steps 1+2+3+4+5+6+7+8+9+10
+    - finalize          : runs steps 11+12
+    - single            : runs all 12 steps
 
 GLUE JOB ARGUMENTS:
     --JOB_NAME            : Glue job name
@@ -31,6 +33,8 @@ GLUE JOB ARGUMENTS:
     --task_mode           : single | preprocess | preprocess_base |
                             preprocess_spine | preprocess_structure_link |
                             preprocess_structure_farm_filter | preprocess_structure_farm |
+                            preprocess_structure_farm_even | preprocess_structure_farm_odd |
+                            preprocess_structure_farm_merge |
                             preprocess_core2_extract |
                             preprocess_core2 |
                             preprocess_partner | preprocess_enrich |
@@ -38,12 +42,14 @@ GLUE JOB ARGUMENTS:
     --stage_spine_table   : Stage table for step 1 (default: tract_producer_year_stage_spine)
     --stage_core1_table   : Stage table for step 2 (default: tract_producer_year_stage_core1)
     --stage_structure_filter_table : Stage table for step 3 (default: tract_producer_year_stage_structure_filter)
-    --stage_structure_table : Stage table for step 4 (default: tract_producer_year_stage_structure)
-    --stage_core2_source_table : Stage table for step 5 (default: tract_producer_year_stage_core2_source)
-    --stage_core2_table   : Stage table for step 6 (default: tract_producer_year_stage_core2)
-    --stage_base_table    : Stage table for step 7 (default: tract_producer_year_stage_base)
-    --stage_table         : Stage table for step 8 (default: tract_producer_year_stage)
-    --stage_resolve_table : Stage table for step 9 (default: tract_producer_year_stage_resolve)
+    --stage_structure_even_table : Stage table for step 4 (default: tract_producer_year_stage_structure_even)
+    --stage_structure_odd_table : Stage table for step 5 (default: tract_producer_year_stage_structure_odd)
+    --stage_structure_table : Stage table for step 6 (default: tract_producer_year_stage_structure)
+    --stage_core2_source_table : Stage table for step 7 (default: tract_producer_year_stage_core2_source)
+    --stage_core2_table   : Stage table for step 8 (default: tract_producer_year_stage_core2)
+    --stage_base_table    : Stage table for step 9 (default: tract_producer_year_stage_base)
+    --stage_table         : Stage table for step 10 (default: tract_producer_year_stage)
+    --stage_resolve_table : Stage table for step 11 (default: tract_producer_year_stage_resolve)
     --full_load           : accepted for compatibility; job always full-load
     --sss_database        : SSS Iceberg db (default: athenafarm_prod_raw)
     --ref_database        : reference Iceberg db (default: athenafarm_prod_ref)
@@ -54,6 +60,7 @@ GLUE JOB ARGUMENTS:
     --debug               : DEBUG logging flag (default: false)
 
 VERSION HISTORY:
+    v3.5.0 - 2026-03-05 - Split structure_farm into even/odd bucket stages plus merge to reduce phase-4 runtime.
     v3.4.0 - 2026-03-05 - Split structure_farm into filter+join stages to bring phase-3 under time window.
     v3.3.0 - 2026-03-04 - Split core2 into extract+join stages to reduce long phase-3 runtime.
     v3.2.0 - 2026-03-04 - Split structure preprocessing into link/farm stages to shrink phase-2 runtime window.
@@ -113,6 +120,8 @@ TGT_TABLE         = _opt("target_table", "tract_producer_year")
 STAGE_SPINE_TABLE = _opt("stage_spine_table", "tract_producer_year_stage_spine")
 STAGE_CORE1_TABLE = _opt("stage_core1_table", "tract_producer_year_stage_core1")
 STAGE_STRUCTURE_FILTER_TABLE = _opt("stage_structure_filter_table", "tract_producer_year_stage_structure_filter")
+STAGE_STRUCTURE_EVEN_TABLE = _opt("stage_structure_even_table", "tract_producer_year_stage_structure_even")
+STAGE_STRUCTURE_ODD_TABLE = _opt("stage_structure_odd_table", "tract_producer_year_stage_structure_odd")
 STAGE_STRUCTURE_TABLE = _opt("stage_structure_table", "tract_producer_year_stage_structure")
 STAGE_CORE2_SOURCE_TABLE = _opt("stage_core2_source_table", "tract_producer_year_stage_core2_source")
 STAGE_CORE2_TABLE = _opt("stage_core2_table", "tract_producer_year_stage_core2")
@@ -131,6 +140,9 @@ VALID_MODES = {
     "preprocess_spine",
     "preprocess_structure_link",
     "preprocess_structure_farm_filter",
+    "preprocess_structure_farm_even",
+    "preprocess_structure_farm_odd",
+    "preprocess_structure_farm_merge",
     "preprocess_structure_farm",
     "preprocess_core2_extract",
     "preprocess_core2",
@@ -173,6 +185,8 @@ job_t0 = time.perf_counter()
 STAGE_SPINE_FQN = f"glue_catalog.{TGT_DB}.{STAGE_SPINE_TABLE}"
 STAGE_CORE1_FQN = f"glue_catalog.{TGT_DB}.{STAGE_CORE1_TABLE}"
 STAGE_STRUCTURE_FILTER_FQN = f"glue_catalog.{TGT_DB}.{STAGE_STRUCTURE_FILTER_TABLE}"
+STAGE_STRUCTURE_EVEN_FQN = f"glue_catalog.{TGT_DB}.{STAGE_STRUCTURE_EVEN_TABLE}"
+STAGE_STRUCTURE_ODD_FQN = f"glue_catalog.{TGT_DB}.{STAGE_STRUCTURE_ODD_TABLE}"
 STAGE_STRUCTURE_FQN = f"glue_catalog.{TGT_DB}.{STAGE_STRUCTURE_TABLE}"
 STAGE_CORE2_SOURCE_FQN = f"glue_catalog.{TGT_DB}.{STAGE_CORE2_SOURCE_TABLE}"
 STAGE_CORE2_FQN = f"glue_catalog.{TGT_DB}.{STAGE_CORE2_TABLE}"
@@ -193,6 +207,8 @@ log.info(f"Target Table   : {TGT_TABLE}")
 log.info(f"Stage Spine Tbl: {STAGE_SPINE_TABLE}")
 log.info(f"Stage Core1 Tbl: {STAGE_CORE1_TABLE}")
 log.info(f"Stage SFilterTb: {STAGE_STRUCTURE_FILTER_TABLE}")
+log.info(f"Stage SEven Tbl: {STAGE_STRUCTURE_EVEN_TABLE}")
+log.info(f"Stage SOdd Tbl : {STAGE_STRUCTURE_ODD_TABLE}")
 log.info(f"Stage StructTbl: {STAGE_STRUCTURE_TABLE}")
 log.info(f"Stage C2Src Tbl: {STAGE_CORE2_SOURCE_TABLE}")
 log.info(f"Stage Core2 Tbl: {STAGE_CORE2_TABLE}")
@@ -298,6 +314,50 @@ SELECT
 FROM sss_details_core1_stage core1
 JOIN sss_details_structure_filter_stage ibf
     ON CAST(core1.f_ibase AS STRING) = ibf.f_ibase
+"""
+
+PREPROCESS_STRUCTURE_FARM_EVEN_SQL = """
+SELECT
+        core1.f_ibase,
+        ibf.farm_number,
+        core1.tract_number,
+        core1.admin_state,
+        core1.admin_county,
+        core1.t_data_status_code,
+        core1.t_creation_date,
+        core1.t_last_change_date,
+        core1.t_last_change_user_name,
+        core1.instance,
+        core1.client
+FROM sss_details_core1_stage core1
+JOIN sss_details_structure_filter_stage ibf
+    ON CAST(core1.f_ibase AS STRING) = ibf.f_ibase
+WHERE pmod(abs(hash(CAST(core1.f_ibase AS STRING))), 2) = 0
+"""
+
+PREPROCESS_STRUCTURE_FARM_ODD_SQL = """
+SELECT
+        core1.f_ibase,
+        ibf.farm_number,
+        core1.tract_number,
+        core1.admin_state,
+        core1.admin_county,
+        core1.t_data_status_code,
+        core1.t_creation_date,
+        core1.t_last_change_date,
+        core1.t_last_change_user_name,
+        core1.instance,
+        core1.client
+FROM sss_details_core1_stage core1
+JOIN sss_details_structure_filter_stage ibf
+    ON CAST(core1.f_ibase AS STRING) = ibf.f_ibase
+WHERE pmod(abs(hash(CAST(core1.f_ibase AS STRING))), 2) = 1
+"""
+
+PREPROCESS_STRUCTURE_FARM_MERGE_SQL = """
+SELECT * FROM sss_details_structure_even_stage
+UNION ALL
+SELECT * FROM sss_details_structure_odd_stage
 """
 
 PREPROCESS_STRUCTURE_FARM_FILTER_SQL = """
@@ -537,15 +597,51 @@ def run_preprocess_structure_link():
 
 
 def run_preprocess_structure_farm():
+    run_preprocess_structure_farm_even()
+    run_preprocess_structure_farm_odd()
+    run_preprocess_structure_farm_merge()
+
+
+def _run_preprocess_structure_farm_bucket(stage_prefix: str, sql_text: str, table_fqn: str, metric_name: str):
     spark.table(STAGE_CORE1_FQN).createOrReplaceTempView("sss_details_core1_stage")
     spark.table(STAGE_STRUCTURE_FILTER_FQN).createOrReplaceTempView("sss_details_structure_filter_stage")
     phase_t0 = time.perf_counter()
-    stage_log("PP_STRUCTURE_FARM_STAGE", "Running preprocess_structure_farm stage")
-    structure_df = spark.sql(PREPROCESS_STRUCTURE_FARM_SQL)
+    stage_log(stage_prefix, f"Running {metric_name} stage")
+    structure_df = spark.sql(sql_text)
+    structure_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(table_fqn)
+    structure_df.write.format("iceberg").mode("overwrite").saveAsTable(table_fqn)
+    stage_log(stage_prefix, f"[METRIC] phase_{metric_name}_seconds={time.perf_counter() - phase_t0:.3f}")
+    stage_log(stage_prefix, f"[METRIC] stage_row_count={latest_snapshot_row_count(table_fqn)}")
+
+
+def run_preprocess_structure_farm_even():
+    _run_preprocess_structure_farm_bucket(
+        "PP_STRUCTURE_FARM_EVEN_STAGE",
+        PREPROCESS_STRUCTURE_FARM_EVEN_SQL,
+        STAGE_STRUCTURE_EVEN_FQN,
+        "preprocess_structure_farm_even",
+    )
+
+
+def run_preprocess_structure_farm_odd():
+    _run_preprocess_structure_farm_bucket(
+        "PP_STRUCTURE_FARM_ODD_STAGE",
+        PREPROCESS_STRUCTURE_FARM_ODD_SQL,
+        STAGE_STRUCTURE_ODD_FQN,
+        "preprocess_structure_farm_odd",
+    )
+
+
+def run_preprocess_structure_farm_merge():
+    spark.table(STAGE_STRUCTURE_EVEN_FQN).createOrReplaceTempView("sss_details_structure_even_stage")
+    spark.table(STAGE_STRUCTURE_ODD_FQN).createOrReplaceTempView("sss_details_structure_odd_stage")
+    phase_t0 = time.perf_counter()
+    stage_log("PP_STRUCTURE_FARM_MERGE_STAGE", "Running preprocess_structure_farm_merge stage")
+    structure_df = spark.sql(PREPROCESS_STRUCTURE_FARM_MERGE_SQL)
     structure_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(STAGE_STRUCTURE_FQN)
     structure_df.write.format("iceberg").mode("overwrite").saveAsTable(STAGE_STRUCTURE_FQN)
-    stage_log("PP_STRUCTURE_FARM_STAGE", f"[METRIC] phase_preprocess_structure_farm_seconds={time.perf_counter() - phase_t0:.3f}")
-    stage_log("PP_STRUCTURE_FARM_STAGE", f"[METRIC] stage_structure_row_count={latest_snapshot_row_count(STAGE_STRUCTURE_FQN)}")
+    stage_log("PP_STRUCTURE_FARM_MERGE_STAGE", f"[METRIC] phase_preprocess_structure_farm_merge_seconds={time.perf_counter() - phase_t0:.3f}")
+    stage_log("PP_STRUCTURE_FARM_MERGE_STAGE", f"[METRIC] stage_structure_row_count={latest_snapshot_row_count(STAGE_STRUCTURE_FQN)}")
 
 
 def run_preprocess_structure_farm_filter():
@@ -646,6 +742,15 @@ elif TASK_MODE == "preprocess_structure_link":
 elif TASK_MODE == "preprocess_structure_farm_filter":
     run_preprocess_structure_farm_filter()
     finish_and_exit("[PP_STRUCTURE_FARM_FILTER_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_filter: completed successfully")
+elif TASK_MODE == "preprocess_structure_farm_even":
+    run_preprocess_structure_farm_even()
+    finish_and_exit("[PP_STRUCTURE_FARM_EVEN_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_even: completed successfully")
+elif TASK_MODE == "preprocess_structure_farm_odd":
+    run_preprocess_structure_farm_odd()
+    finish_and_exit("[PP_STRUCTURE_FARM_ODD_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_odd: completed successfully")
+elif TASK_MODE == "preprocess_structure_farm_merge":
+    run_preprocess_structure_farm_merge()
+    finish_and_exit("[PP_STRUCTURE_FARM_MERGE_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_merge: completed successfully")
 elif TASK_MODE == "preprocess_structure_farm":
     run_preprocess_structure_farm()
     finish_and_exit("[PP_STRUCTURE_FARM_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm: completed successfully")
@@ -665,7 +770,9 @@ elif TASK_MODE == "preprocess_base":
     run_preprocess_spine()
     run_preprocess_structure_link()
     run_preprocess_structure_farm_filter()
-    run_preprocess_structure_farm()
+    run_preprocess_structure_farm_even()
+    run_preprocess_structure_farm_odd()
+    run_preprocess_structure_farm_merge()
     run_preprocess_core2_extract()
     run_preprocess_core2()
     run_preprocess_partner()
@@ -674,7 +781,9 @@ elif TASK_MODE == "preprocess":
     run_preprocess_spine()
     run_preprocess_structure_link()
     run_preprocess_structure_farm_filter()
-    run_preprocess_structure_farm()
+    run_preprocess_structure_farm_even()
+    run_preprocess_structure_farm_odd()
+    run_preprocess_structure_farm_merge()
     run_preprocess_core2_extract()
     run_preprocess_core2()
     run_preprocess_partner()
@@ -698,7 +807,9 @@ else:
     run_preprocess_spine()
     run_preprocess_structure_link()
     run_preprocess_structure_farm_filter()
-    run_preprocess_structure_farm()
+    run_preprocess_structure_farm_even()
+    run_preprocess_structure_farm_odd()
+    run_preprocess_structure_farm_merge()
     run_preprocess_core2_extract()
     run_preprocess_core2()
     run_preprocess_partner()

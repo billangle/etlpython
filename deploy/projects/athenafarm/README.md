@@ -10,11 +10,13 @@ for the full architecture rationale.
 
 ## Recent Changes (2026-03-04)
 
-- Tract transform is now orchestrated as ten Step Functions-managed stages:
+- Tract transform is now orchestrated as twelve Step Functions-managed stages:
   - `TransformTractProducerYearPreprocessSpine` (`--task_mode=preprocess_spine`)
   - `TransformTractProducerYearPreprocessStructureLink` (`--task_mode=preprocess_structure_link`)
   - `TransformTractProducerYearPreprocessStructureFarmFilter` (`--task_mode=preprocess_structure_farm_filter`)
-  - `TransformTractProducerYearPreprocessStructureFarm` (`--task_mode=preprocess_structure_farm`)
+  - `TransformTractProducerYearPreprocessStructureFarmEven` (`--task_mode=preprocess_structure_farm_even`)
+  - `TransformTractProducerYearPreprocessStructureFarmOdd` (`--task_mode=preprocess_structure_farm_odd`)
+  - `TransformTractProducerYearPreprocessStructureFarmMerge` (`--task_mode=preprocess_structure_farm_merge`)
   - `TransformTractProducerYearPreprocessCore2Extract` (`--task_mode=preprocess_core2_extract`)
   - `TransformTractProducerYearPreprocessCore2` (`--task_mode=preprocess_core2`)
   - `TransformTractProducerYearPreprocessPartner` (`--task_mode=preprocess_partner`)
@@ -25,7 +27,9 @@ for the full architecture rationale.
   - `preprocess_spine`: 1140s
   - `preprocess_structure_link`: 1140s
   - `preprocess_structure_farm_filter`: 1140s
-  - `preprocess_structure_farm`: 1140s
+  - `preprocess_structure_farm_even`: 1140s
+  - `preprocess_structure_farm_odd`: 1140s
+  - `preprocess_structure_farm_merge`: 1140s
   - `preprocess_core2_extract`: 1140s
   - `preprocess_core2`: 1140s
   - `preprocess_partner`: 1140s
@@ -36,7 +40,9 @@ for the full architecture rationale.
   - `preprocess_spine`: 1020s
   - `preprocess_structure_link`: 1020s
   - `preprocess_structure_farm_filter`: 1020s
-  - `preprocess_structure_farm`: 1020s
+  - `preprocess_structure_farm_even`: 1020s
+  - `preprocess_structure_farm_odd`: 1020s
+  - `preprocess_structure_farm_merge`: 1020s
   - `preprocess_core2_extract`: 1020s
   - `preprocess_core2`: 1020s
   - `preprocess_partner`: 1020s
@@ -47,7 +53,9 @@ for the full architecture rationale.
   - `preprocess_spine`: `WorkerType=G.2X`, `NumberOfWorkers=40`, `--shuffle_partitions=1400`
   - `preprocess_structure_link`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
   - `preprocess_structure_farm_filter`: `WorkerType=G.2X`, `NumberOfWorkers=40`, `--shuffle_partitions=1400`
-  - `preprocess_structure_farm`: `WorkerType=G.2X`, `NumberOfWorkers=32`, `--shuffle_partitions=1200`
+  - `preprocess_structure_farm_even`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
+  - `preprocess_structure_farm_odd`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
+  - `preprocess_structure_farm_merge`: `WorkerType=G.2X`, `NumberOfWorkers=16`, `--shuffle_partitions=700`
   - `preprocess_core2_extract`: `WorkerType=G.2X`, `NumberOfWorkers=32`, `--shuffle_partitions=1200`
   - `preprocess_core2`: `WorkerType=G.2X`, `NumberOfWorkers=32`, `--shuffle_partitions=1200`
   - `preprocess_partner`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
@@ -57,7 +65,7 @@ for the full architecture rationale.
 - Tract branch now uses conservative transient-failure retries per stage in Step Functions:
   - `Retry` on `States.TaskFailed`, `Glue.ConcurrentRunsExceededException`, `Glue.InternalServiceException`, `Glue.OperationTimeoutException`, `States.Timeout`
   - Backoff profile: `IntervalSeconds=20`, `MaxAttempts=2`, `BackoffRate=2.0`
-- Tract script supports `task_mode` (`single|preprocess|preprocess_base|preprocess_spine|preprocess_structure_link|preprocess_structure_farm_filter|preprocess_structure_farm|preprocess_core2_extract|preprocess_core2|preprocess_partner|preprocess_enrich|finalize_resolve|finalize_publish|finalize`) with stage-table handoff for smaller, faster task boundaries.
+- Tract script supports `task_mode` (`single|preprocess|preprocess_base|preprocess_spine|preprocess_structure_link|preprocess_structure_farm_filter|preprocess_structure_farm_even|preprocess_structure_farm_odd|preprocess_structure_farm_merge|preprocess_structure_farm|preprocess_core2_extract|preprocess_core2|preprocess_partner|preprocess_enrich|finalize_resolve|finalize_publish|finalize`) with stage-table handoff for smaller, faster task boundaries.
 - Farm transform is pinned to a known-good baseline (`Transform-Farm-Producer-Year`, git commit `fc3fe5f`), with observed full-load completion under 4 minutes.
 - PG CDC ingest retains runtime reductions from removal of pre-write cache/count and pre-write repartition/sort passes.
 - Contract checks were updated to keep Farm implementation stable and avoid forcing Farm-script rewrites.
@@ -134,7 +142,9 @@ Manual / Lambda / CI trigger (no EventBridge — see "Running Without EventBridg
         │    │    ├─ TransformTractProducerYearPreprocessSpine (`--task_mode=preprocess_spine`)
         │    │    ├─ TransformTractProducerYearPreprocessStructureLink (`--task_mode=preprocess_structure_link`)
         │    │    ├─ TransformTractProducerYearPreprocessStructureFarmFilter (`--task_mode=preprocess_structure_farm_filter`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarm (`--task_mode=preprocess_structure_farm`)
+        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmEven (`--task_mode=preprocess_structure_farm_even`)
+        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmOdd (`--task_mode=preprocess_structure_farm_odd`)
+        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmMerge (`--task_mode=preprocess_structure_farm_merge`)
         │    │    ├─ TransformTractProducerYearPreprocessCore2Extract (`--task_mode=preprocess_core2_extract`)
         │    │    ├─ TransformTractProducerYearPreprocessCore2 (`--task_mode=preprocess_core2`)
         │    │    ├─ TransformTractProducerYearPreprocessPartner (`--task_mode=preprocess_partner`)
@@ -619,12 +629,14 @@ structured metric lines to the driver log for every run:
 - `[METRIC] total_job_seconds=<float>`
 
 `Transform-Tract-Producer-Year` also emits stage-prefixed log lines to make
-CloudWatch filtering easier for the 10-stage tract flow:
+CloudWatch filtering easier for the 12-stage tract flow:
 
 - `[PP_SPINE_STAGE] ...`
 - `[PP_STRUCTURE_LINK_STAGE] ...`
 - `[PP_STRUCTURE_FARM_FILTER_STAGE] ...`
-- `[PP_STRUCTURE_FARM_STAGE] ...`
+- `[PP_STRUCTURE_FARM_EVEN_STAGE] ...`
+- `[PP_STRUCTURE_FARM_ODD_STAGE] ...`
+- `[PP_STRUCTURE_FARM_MERGE_STAGE] ...`
 - `[PP_CORE2_EXTRACT_STAGE] ...`
 - `[PP_CORE2_STAGE] ...`
 - `[PP_PARTNER_STAGE] ...`
@@ -644,8 +656,10 @@ Prefix convention for tract logging/metrics:
   - `[PP_STRUCTURE_LINK_STAGE] [METRIC] stage_core1_row_count=<int>`
   - `[PP_STRUCTURE_FARM_FILTER_STAGE] [METRIC] phase_preprocess_structure_farm_filter_seconds=<float>`
   - `[PP_STRUCTURE_FARM_FILTER_STAGE] [METRIC] stage_structure_filter_row_count=<int>`
-  - `[PP_STRUCTURE_FARM_STAGE] [METRIC] phase_preprocess_structure_farm_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_STAGE] [METRIC] stage_structure_row_count=<int>`
+  - `[PP_STRUCTURE_FARM_EVEN_STAGE] [METRIC] phase_preprocess_structure_farm_even_seconds=<float>`
+  - `[PP_STRUCTURE_FARM_ODD_STAGE] [METRIC] phase_preprocess_structure_farm_odd_seconds=<float>`
+  - `[PP_STRUCTURE_FARM_MERGE_STAGE] [METRIC] phase_preprocess_structure_farm_merge_seconds=<float>`
+  - `[PP_STRUCTURE_FARM_MERGE_STAGE] [METRIC] stage_structure_row_count=<int>`
   - `[PP_CORE2_EXTRACT_STAGE] [METRIC] phase_preprocess_core2_extract_seconds=<float>`
   - `[PP_CORE2_EXTRACT_STAGE] [METRIC] stage_core2_source_row_count=<int>`
   - `[PP_CORE2_STAGE] [METRIC] phase_preprocess_core2_seconds=<float>`
@@ -671,7 +685,7 @@ Sample all-stage filter (single query for all tract stage prefixes):
 
 ```sql
 fields @timestamp, @message
-| filter @message like /\[(PP_SPINE_STAGE|PP_STRUCTURE_LINK_STAGE|PP_STRUCTURE_FARM_FILTER_STAGE|PP_STRUCTURE_FARM_STAGE|PP_CORE2_EXTRACT_STAGE|PP_CORE2_STAGE|PP_PARTNER_STAGE|PP_ENRICH_STAGE|FINALIZE_RESOLVE_STAGE|FINALIZE_PUBLISH_STAGE|JOB_STAGE)\]/
+| filter @message like /\[(PP_SPINE_STAGE|PP_STRUCTURE_LINK_STAGE|PP_STRUCTURE_FARM_FILTER_STAGE|PP_STRUCTURE_FARM_EVEN_STAGE|PP_STRUCTURE_FARM_ODD_STAGE|PP_STRUCTURE_FARM_MERGE_STAGE|PP_CORE2_EXTRACT_STAGE|PP_CORE2_STAGE|PP_PARTNER_STAGE|PP_ENRICH_STAGE|FINALIZE_RESOLVE_STAGE|FINALIZE_PUBLISH_STAGE|JOB_STAGE)\]/
 | sort @timestamp desc
 | limit 200
 ```
@@ -680,7 +694,7 @@ Sample all-stage parsed view (extract stage for grouping):
 
 ```sql
 fields @timestamp, @message
-| parse @message /\[(?<stage>PP_SPINE_STAGE|PP_STRUCTURE_LINK_STAGE|PP_STRUCTURE_FARM_FILTER_STAGE|PP_STRUCTURE_FARM_STAGE|PP_CORE2_EXTRACT_STAGE|PP_CORE2_STAGE|PP_PARTNER_STAGE|PP_ENRICH_STAGE|FINALIZE_RESOLVE_STAGE|FINALIZE_PUBLISH_STAGE|JOB_STAGE)\]/
+| parse @message /\[(?<stage>PP_SPINE_STAGE|PP_STRUCTURE_LINK_STAGE|PP_STRUCTURE_FARM_FILTER_STAGE|PP_STRUCTURE_FARM_EVEN_STAGE|PP_STRUCTURE_FARM_ODD_STAGE|PP_STRUCTURE_FARM_MERGE_STAGE|PP_CORE2_EXTRACT_STAGE|PP_CORE2_STAGE|PP_PARTNER_STAGE|PP_ENRICH_STAGE|FINALIZE_RESOLVE_STAGE|FINALIZE_PUBLISH_STAGE|JOB_STAGE)\]/
 | filter ispresent(stage)
 | stats count(*) as lines by stage
 | sort lines desc

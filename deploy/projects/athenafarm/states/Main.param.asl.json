@@ -278,21 +278,21 @@
               ],
               "TimeoutSeconds": 1140,
               "ResultPath": "$.transform_tpy_preprocess_structure_farm_filter_result",
-              "Next": "TransformTractProducerYearPreprocessStructureFarm"
+              "Next": "TransformTractProducerYearPreprocessStructureFarmEven"
             },
-            "TransformTractProducerYearPreprocessStructureFarm": {
+            "TransformTractProducerYearPreprocessStructureFarmEven": {
               "Type": "Task",
-              "Comment": "Run tract preprocess structure-farm stage (structure_link+filtered_ibib) with high DPU profile (G.2X x 32) (TimeoutSeconds=1140, --max_job_seconds=1020).",
+              "Comment": "Run tract preprocess structure-farm-even stage (bucket 0) with high DPU profile (G.2X x 24) (TimeoutSeconds=1140, --max_job_seconds=1020).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
                 "WorkerType": "G.2X",
-                "NumberOfWorkers": 32,
+                "NumberOfWorkers": 24,
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
-                  "--task_mode": "preprocess_structure_farm",
-                  "--shuffle_partitions": "1200",
+                  "--task_mode": "preprocess_structure_farm_even",
+                  "--shuffle_partitions": "900",
                   "--max_job_seconds": "1020"
                 }
               },
@@ -311,7 +311,75 @@
                 }
               ],
               "TimeoutSeconds": 1140,
-              "ResultPath": "$.transform_tpy_preprocess_structure_farm_result",
+              "ResultPath": "$.transform_tpy_preprocess_structure_farm_even_result",
+              "Next": "TransformTractProducerYearPreprocessStructureFarmOdd"
+            },
+            "TransformTractProducerYearPreprocessStructureFarmOdd": {
+              "Type": "Task",
+              "Comment": "Run tract preprocess structure-farm-odd stage (bucket 1) with high DPU profile (G.2X x 24) (TimeoutSeconds=1140, --max_job_seconds=1020).",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "WorkerType": "G.2X",
+                "NumberOfWorkers": 24,
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--task_mode": "preprocess_structure_farm_odd",
+                  "--shuffle_partitions": "900",
+                  "--max_job_seconds": "1020"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed",
+                    "Glue.ConcurrentRunsExceededException",
+                    "Glue.InternalServiceException",
+                    "Glue.OperationTimeoutException",
+                    "States.Timeout"
+                  ],
+                  "IntervalSeconds": 20,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "TimeoutSeconds": 1140,
+              "ResultPath": "$.transform_tpy_preprocess_structure_farm_odd_result",
+              "Next": "TransformTractProducerYearPreprocessStructureFarmMerge"
+            },
+            "TransformTractProducerYearPreprocessStructureFarmMerge": {
+              "Type": "Task",
+              "Comment": "Run tract preprocess structure-farm-merge stage (even+odd union) with moderate DPU profile (G.2X x 16) (TimeoutSeconds=1140, --max_job_seconds=1020).",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "WorkerType": "G.2X",
+                "NumberOfWorkers": 16,
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--task_mode": "preprocess_structure_farm_merge",
+                  "--shuffle_partitions": "700",
+                  "--max_job_seconds": "1020"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed",
+                    "Glue.ConcurrentRunsExceededException",
+                    "Glue.InternalServiceException",
+                    "Glue.OperationTimeoutException",
+                    "States.Timeout"
+                  ],
+                  "IntervalSeconds": 20,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "TimeoutSeconds": 1140,
+              "ResultPath": "$.transform_tpy_preprocess_structure_farm_merge_result",
               "Next": "TransformTractProducerYearPreprocessCore2Extract"
             },
             "TransformTractProducerYearPreprocessCore2Extract": {

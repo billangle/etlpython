@@ -6,7 +6,7 @@ AWS Glue Job: Transform-Tract-Producer-Year
 PURPOSE:
         Builds tract_producer_year in Step Functions-manageable modes.
 
-                25-step optimized flow:
+                26-step optimized flow:
             1) preprocess_spine                : ibsp projection + normalization
             2) preprocess_structure_link       : spine + ibst
             3) preprocess_structure_farm_filter: structure_link key-filter + ibib projection
@@ -26,18 +26,19 @@ PURPOSE:
             17) preprocess_structure_farm_b13  : structure_farm bucket 13 append
             18) preprocess_structure_farm_b14  : structure_farm bucket 14 append
             19) preprocess_structure_farm_b15  : structure_farm bucket 15 append
-            20) preprocess_core2_extract       : ibin key projection/materialization
-            21) preprocess_core2               : structure_farm + core2_extract
-            22) preprocess_partner             : core2 + ibpart + crmd_partner
-            23) preprocess_enrich              : partner + zmi + time/coc/but000
-            24) finalize_resolve               : enriched stage + farm/tract/farm_year/tract_year
-            25) finalize_publish               : write final target snapshot
+            20) preprocess_structure_merge     : merge structure_farm bucket tables
+            21) preprocess_core2_extract       : ibin key projection/materialization
+            22) preprocess_core2               : structure_farm + core2_extract
+            23) preprocess_partner             : core2 + ibpart + crmd_partner
+            24) preprocess_enrich              : partner + zmi + time/coc/but000
+            25) finalize_resolve               : enriched stage + farm/tract/farm_year/tract_year
+            26) finalize_publish               : write final target snapshot
 
         Compatibility wrappers:
-        - preprocess_base   : runs steps 1..22
-        - preprocess        : runs steps 1..23
-        - finalize          : runs steps 24+25
-        - single            : runs all 25 steps
+        - preprocess_base   : runs steps 1..23
+        - preprocess        : runs steps 1..24
+        - finalize          : runs steps 25+26
+        - single            : runs all 26 steps
 
 GLUE JOB ARGUMENTS:
     --JOB_NAME            : Glue job name
@@ -54,6 +55,7 @@ GLUE JOB ARGUMENTS:
                             preprocess_structure_farm_b10 | preprocess_structure_farm_b11 |
                             preprocess_structure_farm_b12 | preprocess_structure_farm_b13 |
                             preprocess_structure_farm_b14 | preprocess_structure_farm_b15 |
+                            preprocess_structure_merge |
                             preprocess_core2_extract |
                             preprocess_core2 |
                             preprocess_partner | preprocess_enrich |
@@ -61,12 +63,12 @@ GLUE JOB ARGUMENTS:
     --stage_spine_table   : Stage table for step 1 (default: tract_producer_year_stage_spine)
     --stage_core1_table   : Stage table for step 2 (default: tract_producer_year_stage_core1)
     --stage_structure_filter_table : Stage table for step 3 (default: tract_producer_year_stage_structure_filter)
-    --stage_structure_table : Stage table for steps 4-19 consolidated output (default: tract_producer_year_stage_structure)
-    --stage_core2_source_table : Stage table for step 20 (default: tract_producer_year_stage_core2_source)
-    --stage_core2_table   : Stage table for step 21 (default: tract_producer_year_stage_core2)
-    --stage_base_table    : Stage table for step 22 (default: tract_producer_year_stage_base)
-    --stage_table         : Stage table for step 23 (default: tract_producer_year_stage)
-    --stage_resolve_table : Stage table for step 24 (default: tract_producer_year_stage_resolve)
+    --stage_structure_table : Stage table for step 20 consolidated output (default: tract_producer_year_stage_structure)
+    --stage_core2_source_table : Stage table for step 21 (default: tract_producer_year_stage_core2_source)
+    --stage_core2_table   : Stage table for step 22 (default: tract_producer_year_stage_core2)
+    --stage_base_table    : Stage table for step 23 (default: tract_producer_year_stage_base)
+    --stage_table         : Stage table for step 24 (default: tract_producer_year_stage)
+    --stage_resolve_table : Stage table for step 25 (default: tract_producer_year_stage_resolve)
     --full_load           : accepted for compatibility; job always full-load
     --sss_database        : SSS Iceberg db (default: athenafarm_prod_raw)
     --ref_database        : reference Iceberg db (default: athenafarm_prod_ref)
@@ -77,6 +79,8 @@ GLUE JOB ARGUMENTS:
     --debug               : DEBUG logging flag (default: false)
 
 VERSION HISTORY:
+    v3.11.0 - 2026-03-05 - Isolate structure_farm writes into per-bucket stage tables and add dedicated structure merge stage.
+    v3.10.0 - 2026-03-05 - Reworked structure_farm bucket SQL to bucket-filter core1 first, then key-filter ibf per bucket before join.
     v3.9.0 - 2026-03-05 - Use salted composite-key bucketing for structure_farm buckets to reduce hot-key skew in phase-4.
     v3.8.0 - 2026-03-05 - Split structure_farm into 16 hash buckets (b0-b15) to further reduce phase-4 runtime.
     v3.7.0 - 2026-03-05 - Split structure_farm into 8 hash buckets (b0-b7) to further reduce phase-4 runtime.
@@ -175,6 +179,7 @@ VALID_MODES = {
     "preprocess_structure_farm_b13",
     "preprocess_structure_farm_b14",
     "preprocess_structure_farm_b15",
+    "preprocess_structure_merge",
     "preprocess_structure_farm",
     "preprocess_core2_extract",
     "preprocess_core2",
@@ -224,6 +229,7 @@ STAGE_BASE_FQN = f"glue_catalog.{TGT_DB}.{STAGE_BASE_TABLE}"
 STAGE_FQN = f"glue_catalog.{TGT_DB}.{STAGE_TABLE}"
 STAGE_RESOLVE_FQN = f"glue_catalog.{TGT_DB}.{STAGE_RESOLVE_TABLE}"
 TARGET_FQN = f"glue_catalog.{TGT_DB}.{TGT_TABLE}"
+STRUCTURE_BUCKET_COUNT = 16
 
 log.info("=" * 70)
 log.info(f"Job            : {JOB_NAME}")
@@ -269,6 +275,10 @@ def latest_snapshot_row_count(table_fqn: str) -> int:
         return int(summary.get("total-records", -1)) if summary else -1
     except Exception:
         return -1
+
+
+def structure_bucket_fqn(bucket: int) -> str:
+    return f"glue_catalog.{TGT_DB}.{STAGE_STRUCTURE_TABLE}_b{bucket}"
 
 
 def enforce_job_timeout():
@@ -345,9 +355,9 @@ JOIN sss_details_structure_filter_stage ibf
 """
 
 PREPROCESS_STRUCTURE_FARM_BUCKET_SQL_TEMPLATE = """
-SELECT
+WITH core1_bucket AS (
+    SELECT
         core1.f_ibase,
-        ibf.farm_number,
         core1.tract_number,
         core1.admin_state,
         core1.admin_county,
@@ -357,25 +367,51 @@ SELECT
         core1.t_last_change_user_name,
         core1.instance,
         core1.client
-FROM sss_details_core1_stage core1
-JOIN sss_details_structure_filter_stage ibf
-    ON CAST(core1.f_ibase AS STRING) = ibf.f_ibase
-WHERE pmod(
-        abs(
-            hash(
-                concat_ws(
-                    '|',
-                    CAST(core1.f_ibase AS STRING),
-                    CAST(core1.tract_number AS STRING),
-                    CAST(core1.admin_state AS STRING),
-                    CAST(core1.admin_county AS STRING),
-                    CAST(core1.instance AS STRING),
-                    CAST(core1.client AS STRING)
+    FROM sss_details_core1_stage core1
+    WHERE pmod(
+            abs(
+                hash(
+                    concat_ws(
+                        '|',
+                        CAST(core1.f_ibase AS STRING),
+                        CAST(core1.tract_number AS STRING),
+                        CAST(core1.admin_state AS STRING),
+                        CAST(core1.admin_county AS STRING),
+                        CAST(core1.instance AS STRING),
+                        CAST(core1.client AS STRING)
+                    )
                 )
-            )
-        ),
-        16
-      ) = {bucket}
+            ),
+            16
+          ) = {bucket}
+),
+bucket_keys AS (
+    SELECT DISTINCT CAST(f_ibase AS STRING) AS f_ibase
+    FROM core1_bucket
+),
+ibf_bucket AS (
+    SELECT
+        ibf.f_ibase,
+        ibf.farm_number
+    FROM sss_details_structure_filter_stage ibf
+    JOIN bucket_keys keys
+      ON ibf.f_ibase = keys.f_ibase
+)
+SELECT
+    core1.f_ibase,
+    ibf.farm_number,
+    core1.tract_number,
+    core1.admin_state,
+    core1.admin_county,
+    core1.t_data_status_code,
+    core1.t_creation_date,
+    core1.t_last_change_date,
+    core1.t_last_change_user_name,
+    core1.instance,
+    core1.client
+FROM core1_bucket core1
+JOIN ibf_bucket ibf
+  ON CAST(core1.f_ibase AS STRING) = ibf.f_ibase
 """
 
 PREPROCESS_STRUCTURE_FARM_FILTER_SQL = """
@@ -631,6 +667,7 @@ def run_preprocess_structure_farm():
     run_preprocess_structure_farm_b13()
     run_preprocess_structure_farm_b14()
     run_preprocess_structure_farm_b15()
+    run_preprocess_structure_merge()
 
 
 def _run_preprocess_structure_farm_bucket(stage_prefix: str, bucket: int, write_mode: str, metric_name: str):
@@ -639,10 +676,11 @@ def _run_preprocess_structure_farm_bucket(stage_prefix: str, bucket: int, write_
     phase_t0 = time.perf_counter()
     stage_log(stage_prefix, f"Running {metric_name} stage")
     structure_df = spark.sql(PREPROCESS_STRUCTURE_FARM_BUCKET_SQL_TEMPLATE.format(bucket=bucket))
-    structure_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(STAGE_STRUCTURE_FQN)
-    structure_df.write.format("iceberg").mode(write_mode).saveAsTable(STAGE_STRUCTURE_FQN)
+    bucket_fqn = structure_bucket_fqn(bucket)
+    structure_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(bucket_fqn)
+    structure_df.write.format("iceberg").mode("overwrite").saveAsTable(bucket_fqn)
     stage_log(stage_prefix, f"[METRIC] phase_{metric_name}_seconds={time.perf_counter() - phase_t0:.3f}")
-    stage_log(stage_prefix, f"[METRIC] stage_structure_row_count={latest_snapshot_row_count(STAGE_STRUCTURE_FQN)}")
+    stage_log(stage_prefix, f"[METRIC] stage_structure_bucket_row_count={latest_snapshot_row_count(bucket_fqn)}")
 
 
 def run_preprocess_structure_farm_b0():
@@ -787,6 +825,19 @@ def run_preprocess_structure_farm_b15():
         "append",
         "preprocess_structure_farm_b15",
     )
+
+
+def run_preprocess_structure_merge():
+    phase_t0 = time.perf_counter()
+    stage_log("PP_STRUCTURE_MERGE_STAGE", "Running preprocess_structure_merge stage")
+    merged_df = None
+    for bucket in range(STRUCTURE_BUCKET_COUNT):
+        bucket_df = spark.table(structure_bucket_fqn(bucket))
+        merged_df = bucket_df if merged_df is None else merged_df.unionByName(bucket_df)
+    merged_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(STAGE_STRUCTURE_FQN)
+    merged_df.write.format("iceberg").mode("overwrite").saveAsTable(STAGE_STRUCTURE_FQN)
+    stage_log("PP_STRUCTURE_MERGE_STAGE", f"[METRIC] phase_preprocess_structure_merge_seconds={time.perf_counter() - phase_t0:.3f}")
+    stage_log("PP_STRUCTURE_MERGE_STAGE", f"[METRIC] stage_structure_row_count={latest_snapshot_row_count(STAGE_STRUCTURE_FQN)}")
 
 
 def run_preprocess_structure_farm_filter():
@@ -935,6 +986,9 @@ elif TASK_MODE == "preprocess_structure_farm_b14":
 elif TASK_MODE == "preprocess_structure_farm_b15":
     run_preprocess_structure_farm_b15()
     finish_and_exit("[PP_STRUCTURE_FARM_B15_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b15: completed successfully")
+elif TASK_MODE == "preprocess_structure_merge":
+    run_preprocess_structure_merge()
+    finish_and_exit("[PP_STRUCTURE_MERGE_STAGE] Transform-Tract-Producer-Year preprocess_structure_merge: completed successfully")
 elif TASK_MODE == "preprocess_structure_farm":
     run_preprocess_structure_farm()
     finish_and_exit("[PP_STRUCTURE_FARM_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm: completed successfully")
@@ -970,6 +1024,7 @@ elif TASK_MODE == "preprocess_base":
     run_preprocess_structure_farm_b13()
     run_preprocess_structure_farm_b14()
     run_preprocess_structure_farm_b15()
+    run_preprocess_structure_merge()
     run_preprocess_core2_extract()
     run_preprocess_core2()
     run_preprocess_partner()
@@ -994,6 +1049,7 @@ elif TASK_MODE == "preprocess":
     run_preprocess_structure_farm_b13()
     run_preprocess_structure_farm_b14()
     run_preprocess_structure_farm_b15()
+    run_preprocess_structure_merge()
     run_preprocess_core2_extract()
     run_preprocess_core2()
     run_preprocess_partner()
@@ -1033,6 +1089,7 @@ else:
     run_preprocess_structure_farm_b13()
     run_preprocess_structure_farm_b14()
     run_preprocess_structure_farm_b15()
+    run_preprocess_structure_merge()
     run_preprocess_core2_extract()
     run_preprocess_core2()
     run_preprocess_partner()

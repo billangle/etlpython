@@ -822,6 +822,40 @@
               ],
               "TimeoutSeconds": 1140,
               "ResultPath": "$.transform_tpy_preprocess_structure_farm_b15_result",
+              "Next": "TransformTractProducerYearPreprocessStructureMerge"
+            },
+            "TransformTractProducerYearPreprocessStructureMerge": {
+              "Type": "Task",
+              "Comment": "Run tract preprocess structure merge stage (union b0..b15 into consolidated structure stage) with balanced DPU profile (G.2X x 16) (TimeoutSeconds=1020, --max_job_seconds=900).",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "WorkerType": "G.2X",
+                "NumberOfWorkers": 16,
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--task_mode": "preprocess_structure_merge",
+                  "--shuffle_partitions": "700",
+                  "--max_job_seconds": "900"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed",
+                    "Glue.ConcurrentRunsExceededException",
+                    "Glue.InternalServiceException",
+                    "Glue.OperationTimeoutException",
+                    "States.Timeout"
+                  ],
+                  "IntervalSeconds": 20,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "TimeoutSeconds": 1020,
+              "ResultPath": "$.transform_tpy_preprocess_structure_merge_result",
               "Next": "TransformTractProducerYearPreprocessCore2Extract"
             },
             "TransformTractProducerYearPreprocessCore2Extract": {

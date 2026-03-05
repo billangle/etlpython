@@ -6,39 +6,42 @@ AWS Glue Job: Transform-Tract-Producer-Year
 PURPOSE:
         Builds tract_producer_year in Step Functions-manageable modes.
 
-                26-step optimized flow:
+                29-step optimized flow:
             1) preprocess_spine                : ibsp projection + normalization
             2) preprocess_structure_link       : spine + ibst
             3) preprocess_structure_farm_filter: structure_link key-filter + ibib projection
             4) preprocess_structure_farm_b0    : structure_farm bucket 0 write
             5) preprocess_structure_farm_b1    : structure_farm bucket 1 append
             6) preprocess_structure_farm_b2    : structure_farm bucket 2 append
-            7) preprocess_structure_farm_b3    : structure_farm bucket 3 append
-            8) preprocess_structure_farm_b4    : structure_farm bucket 4 append
-            9) preprocess_structure_farm_b5    : structure_farm bucket 5 append
-            10) preprocess_structure_farm_b6   : structure_farm bucket 6 append
-            11) preprocess_structure_farm_b7   : structure_farm bucket 7 append
-            12) preprocess_structure_farm_b8   : structure_farm bucket 8 append
-            13) preprocess_structure_farm_b9   : structure_farm bucket 9 append
-            14) preprocess_structure_farm_b10  : structure_farm bucket 10 append
-            15) preprocess_structure_farm_b11  : structure_farm bucket 11 append
-            16) preprocess_structure_farm_b12  : structure_farm bucket 12 append
-            17) preprocess_structure_farm_b13  : structure_farm bucket 13 append
-            18) preprocess_structure_farm_b14  : structure_farm bucket 14 append
-            19) preprocess_structure_farm_b15  : structure_farm bucket 15 append
-            20) preprocess_structure_merge     : merge structure_farm bucket tables
-            21) preprocess_core2_extract       : ibin key projection/materialization
-            22) preprocess_core2               : structure_farm + core2_extract
-            23) preprocess_partner             : core2 + ibpart + crmd_partner
-            24) preprocess_enrich              : partner + zmi + time/coc/but000
-            25) finalize_resolve               : enriched stage + farm/tract/farm_year/tract_year
-            26) finalize_publish               : write final target snapshot
+            7) preprocess_structure_farm_b3_s0 : structure_farm bucket 3 shard 0 write
+            8) preprocess_structure_farm_b3_s1 : structure_farm bucket 3 shard 1 append
+            9) preprocess_structure_farm_b3_s2 : structure_farm bucket 3 shard 2 append
+            10) preprocess_structure_farm_b3_s3: structure_farm bucket 3 shard 3 append
+            11) preprocess_structure_farm_b4   : structure_farm bucket 4 append
+            12) preprocess_structure_farm_b5   : structure_farm bucket 5 append
+            13) preprocess_structure_farm_b6   : structure_farm bucket 6 append
+            14) preprocess_structure_farm_b7   : structure_farm bucket 7 append
+            15) preprocess_structure_farm_b8   : structure_farm bucket 8 append
+            16) preprocess_structure_farm_b9   : structure_farm bucket 9 append
+            17) preprocess_structure_farm_b10  : structure_farm bucket 10 append
+            18) preprocess_structure_farm_b11  : structure_farm bucket 11 append
+            19) preprocess_structure_farm_b12  : structure_farm bucket 12 append
+            20) preprocess_structure_farm_b13  : structure_farm bucket 13 append
+            21) preprocess_structure_farm_b14  : structure_farm bucket 14 append
+            22) preprocess_structure_farm_b15  : structure_farm bucket 15 append
+            23) preprocess_structure_merge     : merge structure_farm bucket tables
+            24) preprocess_core2_extract       : ibin key projection/materialization
+            25) preprocess_core2               : structure_farm + core2_extract
+            26) preprocess_partner             : core2 + ibpart + crmd_partner
+            27) preprocess_enrich              : partner + zmi + time/coc/but000
+            28) finalize_resolve               : enriched stage + farm/tract/farm_year/tract_year
+            29) finalize_publish               : write final target snapshot
 
         Compatibility wrappers:
-        - preprocess_base   : runs steps 1..23
-        - preprocess        : runs steps 1..24
-        - finalize          : runs steps 25+26
-        - single            : runs all 26 steps
+        - preprocess_base   : runs steps 1..26
+        - preprocess        : runs steps 1..27
+        - finalize          : runs steps 28+29
+        - single            : runs all 29 steps
 
 GLUE JOB ARGUMENTS:
     --JOB_NAME            : Glue job name
@@ -48,7 +51,10 @@ GLUE JOB ARGUMENTS:
                             preprocess_spine | preprocess_structure_link |
                             preprocess_structure_farm_filter | preprocess_structure_farm |
                             preprocess_structure_farm_b0 | preprocess_structure_farm_b1 |
-                            preprocess_structure_farm_b2 | preprocess_structure_farm_b3 |
+                            preprocess_structure_farm_b2 |
+                            preprocess_structure_farm_b3 | preprocess_structure_farm_b3_s0 |
+                            preprocess_structure_farm_b3_s1 | preprocess_structure_farm_b3_s2 |
+                            preprocess_structure_farm_b3_s3 |
                             preprocess_structure_farm_b4 | preprocess_structure_farm_b5 |
                             preprocess_structure_farm_b6 | preprocess_structure_farm_b7 |
                             preprocess_structure_farm_b8 | preprocess_structure_farm_b9 |
@@ -79,6 +85,7 @@ GLUE JOB ARGUMENTS:
     --debug               : DEBUG logging flag (default: false)
 
 VERSION HISTORY:
+    v3.12.0 - 2026-03-05 - Split hot structure bucket b3 into 4 shard stages (b3_s0..b3_s3) to resolve phase-7 timeout.
     v3.11.0 - 2026-03-05 - Isolate structure_farm writes into per-bucket stage tables and add dedicated structure merge stage.
     v3.10.0 - 2026-03-05 - Reworked structure_farm bucket SQL to bucket-filter core1 first, then key-filter ibf per bucket before join.
     v3.9.0 - 2026-03-05 - Use salted composite-key bucketing for structure_farm buckets to reduce hot-key skew in phase-4.
@@ -167,6 +174,10 @@ VALID_MODES = {
     "preprocess_structure_farm_b1",
     "preprocess_structure_farm_b2",
     "preprocess_structure_farm_b3",
+    "preprocess_structure_farm_b3_s0",
+    "preprocess_structure_farm_b3_s1",
+    "preprocess_structure_farm_b3_s2",
+    "preprocess_structure_farm_b3_s3",
     "preprocess_structure_farm_b4",
     "preprocess_structure_farm_b5",
     "preprocess_structure_farm_b6",
@@ -230,6 +241,8 @@ STAGE_FQN = f"glue_catalog.{TGT_DB}.{STAGE_TABLE}"
 STAGE_RESOLVE_FQN = f"glue_catalog.{TGT_DB}.{STAGE_RESOLVE_TABLE}"
 TARGET_FQN = f"glue_catalog.{TGT_DB}.{TGT_TABLE}"
 STRUCTURE_BUCKET_COUNT = 16
+HOT_STRUCTURE_BUCKET = 3
+HOT_STRUCTURE_BUCKET_SHARD_COUNT = 4
 
 log.info("=" * 70)
 log.info(f"Job            : {JOB_NAME}")
@@ -384,6 +397,7 @@ WITH core1_bucket AS (
             ),
             16
           ) = {bucket}
+        {hot_bucket_shard_predicate}
 ),
 bucket_keys AS (
     SELECT DISTINCT CAST(f_ibase AS STRING) AS f_ibase
@@ -654,7 +668,10 @@ def run_preprocess_structure_farm():
     run_preprocess_structure_farm_b0()
     run_preprocess_structure_farm_b1()
     run_preprocess_structure_farm_b2()
-    run_preprocess_structure_farm_b3()
+    run_preprocess_structure_farm_b3_s0()
+    run_preprocess_structure_farm_b3_s1()
+    run_preprocess_structure_farm_b3_s2()
+    run_preprocess_structure_farm_b3_s3()
     run_preprocess_structure_farm_b4()
     run_preprocess_structure_farm_b5()
     run_preprocess_structure_farm_b6()
@@ -670,15 +687,47 @@ def run_preprocess_structure_farm():
     run_preprocess_structure_merge()
 
 
-def _run_preprocess_structure_farm_bucket(stage_prefix: str, bucket: int, write_mode: str, metric_name: str):
+def _run_preprocess_structure_farm_bucket(
+    stage_prefix: str,
+    bucket: int,
+    write_mode: str,
+    metric_name: str,
+    shard_index: int = None,
+    shard_count: int = 1,
+):
     spark.table(STAGE_CORE1_FQN).createOrReplaceTempView("sss_details_core1_stage")
     spark.table(STAGE_STRUCTURE_FILTER_FQN).createOrReplaceTempView("sss_details_structure_filter_stage")
     phase_t0 = time.perf_counter()
     stage_log(stage_prefix, f"Running {metric_name} stage")
-    structure_df = spark.sql(PREPROCESS_STRUCTURE_FARM_BUCKET_SQL_TEMPLATE.format(bucket=bucket))
+    shard_predicate = ""
+    if shard_index is not None and shard_count > 1:
+        shard_predicate = f"""
+      AND pmod(
+            abs(
+                hash(
+                    concat_ws(
+                        '|',
+                        CAST(core1.f_ibase AS STRING),
+                        CAST(core1.tract_number AS STRING),
+                        CAST(core1.admin_state AS STRING),
+                        CAST(core1.admin_county AS STRING),
+                        CAST(core1.instance AS STRING),
+                        CAST(core1.client AS STRING)
+                    )
+                )
+            ),
+            {shard_count}
+          ) = {shard_index}
+"""
+    structure_df = spark.sql(
+        PREPROCESS_STRUCTURE_FARM_BUCKET_SQL_TEMPLATE.format(
+            bucket=bucket,
+            hot_bucket_shard_predicate=shard_predicate,
+        )
+    )
     bucket_fqn = structure_bucket_fqn(bucket)
     structure_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(bucket_fqn)
-    structure_df.write.format("iceberg").mode("overwrite").saveAsTable(bucket_fqn)
+    structure_df.write.format("iceberg").mode(write_mode).saveAsTable(bucket_fqn)
     stage_log(stage_prefix, f"[METRIC] phase_{metric_name}_seconds={time.perf_counter() - phase_t0:.3f}")
     stage_log(stage_prefix, f"[METRIC] stage_structure_bucket_row_count={latest_snapshot_row_count(bucket_fqn)}")
 
@@ -711,11 +760,53 @@ def run_preprocess_structure_farm_b2():
 
 
 def run_preprocess_structure_farm_b3():
+    run_preprocess_structure_farm_b3_s0()
+    run_preprocess_structure_farm_b3_s1()
+    run_preprocess_structure_farm_b3_s2()
+    run_preprocess_structure_farm_b3_s3()
+
+
+def run_preprocess_structure_farm_b3_s0():
     _run_preprocess_structure_farm_bucket(
-        "PP_STRUCTURE_FARM_B3_STAGE",
-        3,
+        "PP_STRUCTURE_FARM_B3_S0_STAGE",
+        HOT_STRUCTURE_BUCKET,
+        "overwrite",
+        "preprocess_structure_farm_b3_s0",
+        shard_index=0,
+        shard_count=HOT_STRUCTURE_BUCKET_SHARD_COUNT,
+    )
+
+
+def run_preprocess_structure_farm_b3_s1():
+    _run_preprocess_structure_farm_bucket(
+        "PP_STRUCTURE_FARM_B3_S1_STAGE",
+        HOT_STRUCTURE_BUCKET,
         "append",
-        "preprocess_structure_farm_b3",
+        "preprocess_structure_farm_b3_s1",
+        shard_index=1,
+        shard_count=HOT_STRUCTURE_BUCKET_SHARD_COUNT,
+    )
+
+
+def run_preprocess_structure_farm_b3_s2():
+    _run_preprocess_structure_farm_bucket(
+        "PP_STRUCTURE_FARM_B3_S2_STAGE",
+        HOT_STRUCTURE_BUCKET,
+        "append",
+        "preprocess_structure_farm_b3_s2",
+        shard_index=2,
+        shard_count=HOT_STRUCTURE_BUCKET_SHARD_COUNT,
+    )
+
+
+def run_preprocess_structure_farm_b3_s3():
+    _run_preprocess_structure_farm_bucket(
+        "PP_STRUCTURE_FARM_B3_S3_STAGE",
+        HOT_STRUCTURE_BUCKET,
+        "append",
+        "preprocess_structure_farm_b3_s3",
+        shard_index=3,
+        shard_count=HOT_STRUCTURE_BUCKET_SHARD_COUNT,
     )
 
 
@@ -950,6 +1041,18 @@ elif TASK_MODE == "preprocess_structure_farm_b2":
 elif TASK_MODE == "preprocess_structure_farm_b3":
     run_preprocess_structure_farm_b3()
     finish_and_exit("[PP_STRUCTURE_FARM_B3_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b3: completed successfully")
+elif TASK_MODE == "preprocess_structure_farm_b3_s0":
+    run_preprocess_structure_farm_b3_s0()
+    finish_and_exit("[PP_STRUCTURE_FARM_B3_S0_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b3_s0: completed successfully")
+elif TASK_MODE == "preprocess_structure_farm_b3_s1":
+    run_preprocess_structure_farm_b3_s1()
+    finish_and_exit("[PP_STRUCTURE_FARM_B3_S1_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b3_s1: completed successfully")
+elif TASK_MODE == "preprocess_structure_farm_b3_s2":
+    run_preprocess_structure_farm_b3_s2()
+    finish_and_exit("[PP_STRUCTURE_FARM_B3_S2_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b3_s2: completed successfully")
+elif TASK_MODE == "preprocess_structure_farm_b3_s3":
+    run_preprocess_structure_farm_b3_s3()
+    finish_and_exit("[PP_STRUCTURE_FARM_B3_S3_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b3_s3: completed successfully")
 elif TASK_MODE == "preprocess_structure_farm_b4":
     run_preprocess_structure_farm_b4()
     finish_and_exit("[PP_STRUCTURE_FARM_B4_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b4: completed successfully")
@@ -1008,23 +1111,7 @@ elif TASK_MODE == "preprocess_base":
     run_preprocess_spine()
     run_preprocess_structure_link()
     run_preprocess_structure_farm_filter()
-    run_preprocess_structure_farm_b0()
-    run_preprocess_structure_farm_b1()
-    run_preprocess_structure_farm_b2()
-    run_preprocess_structure_farm_b3()
-    run_preprocess_structure_farm_b4()
-    run_preprocess_structure_farm_b5()
-    run_preprocess_structure_farm_b6()
-    run_preprocess_structure_farm_b7()
-    run_preprocess_structure_farm_b8()
-    run_preprocess_structure_farm_b9()
-    run_preprocess_structure_farm_b10()
-    run_preprocess_structure_farm_b11()
-    run_preprocess_structure_farm_b12()
-    run_preprocess_structure_farm_b13()
-    run_preprocess_structure_farm_b14()
-    run_preprocess_structure_farm_b15()
-    run_preprocess_structure_merge()
+    run_preprocess_structure_farm()
     run_preprocess_core2_extract()
     run_preprocess_core2()
     run_preprocess_partner()
@@ -1033,23 +1120,7 @@ elif TASK_MODE == "preprocess":
     run_preprocess_spine()
     run_preprocess_structure_link()
     run_preprocess_structure_farm_filter()
-    run_preprocess_structure_farm_b0()
-    run_preprocess_structure_farm_b1()
-    run_preprocess_structure_farm_b2()
-    run_preprocess_structure_farm_b3()
-    run_preprocess_structure_farm_b4()
-    run_preprocess_structure_farm_b5()
-    run_preprocess_structure_farm_b6()
-    run_preprocess_structure_farm_b7()
-    run_preprocess_structure_farm_b8()
-    run_preprocess_structure_farm_b9()
-    run_preprocess_structure_farm_b10()
-    run_preprocess_structure_farm_b11()
-    run_preprocess_structure_farm_b12()
-    run_preprocess_structure_farm_b13()
-    run_preprocess_structure_farm_b14()
-    run_preprocess_structure_farm_b15()
-    run_preprocess_structure_merge()
+    run_preprocess_structure_farm()
     run_preprocess_core2_extract()
     run_preprocess_core2()
     run_preprocess_partner()
@@ -1073,23 +1144,7 @@ else:
     run_preprocess_spine()
     run_preprocess_structure_link()
     run_preprocess_structure_farm_filter()
-    run_preprocess_structure_farm_b0()
-    run_preprocess_structure_farm_b1()
-    run_preprocess_structure_farm_b2()
-    run_preprocess_structure_farm_b3()
-    run_preprocess_structure_farm_b4()
-    run_preprocess_structure_farm_b5()
-    run_preprocess_structure_farm_b6()
-    run_preprocess_structure_farm_b7()
-    run_preprocess_structure_farm_b8()
-    run_preprocess_structure_farm_b9()
-    run_preprocess_structure_farm_b10()
-    run_preprocess_structure_farm_b11()
-    run_preprocess_structure_farm_b12()
-    run_preprocess_structure_farm_b13()
-    run_preprocess_structure_farm_b14()
-    run_preprocess_structure_farm_b15()
-    run_preprocess_structure_merge()
+    run_preprocess_structure_farm()
     run_preprocess_core2_extract()
     run_preprocess_core2()
     run_preprocess_partner()

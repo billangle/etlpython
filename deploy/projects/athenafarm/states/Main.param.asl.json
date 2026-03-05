@@ -380,11 +380,11 @@
               ],
               "TimeoutSeconds": 1140,
               "ResultPath": "$.transform_tpy_preprocess_structure_farm_b2_result",
-              "Next": "TransformTractProducerYearPreprocessStructureFarmB3"
+              "Next": "TransformTractProducerYearPreprocessStructureFarmB3S0"
             },
-            "TransformTractProducerYearPreprocessStructureFarmB3": {
+            "TransformTractProducerYearPreprocessStructureFarmB3S0": {
               "Type": "Task",
-              "Comment": "Run tract preprocess structure-farm-b3 stage (hex bucket 3) with high DPU profile (G.2X x 24) (TimeoutSeconds=1140, --max_job_seconds=1020).",
+              "Comment": "Run tract preprocess structure-farm-b3 shard s0 stage with high DPU profile (G.2X x 24) (TimeoutSeconds=1140, --max_job_seconds=1020).",
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
@@ -393,7 +393,7 @@
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
-                  "--task_mode": "preprocess_structure_farm_b3",
+                  "--task_mode": "preprocess_structure_farm_b3_s0",
                   "--shuffle_partitions": "900",
                   "--max_job_seconds": "1020"
                 }
@@ -413,7 +413,109 @@
                 }
               ],
               "TimeoutSeconds": 1140,
-              "ResultPath": "$.transform_tpy_preprocess_structure_farm_b3_result",
+              "ResultPath": "$.transform_tpy_preprocess_structure_farm_b3_s0_result",
+              "Next": "TransformTractProducerYearPreprocessStructureFarmB3S1"
+            },
+            "TransformTractProducerYearPreprocessStructureFarmB3S1": {
+              "Type": "Task",
+              "Comment": "Run tract preprocess structure-farm-b3 shard s1 stage with high DPU profile (G.2X x 24) (TimeoutSeconds=1140, --max_job_seconds=1020).",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "WorkerType": "G.2X",
+                "NumberOfWorkers": 24,
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--task_mode": "preprocess_structure_farm_b3_s1",
+                  "--shuffle_partitions": "900",
+                  "--max_job_seconds": "1020"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed",
+                    "Glue.ConcurrentRunsExceededException",
+                    "Glue.InternalServiceException",
+                    "Glue.OperationTimeoutException",
+                    "States.Timeout"
+                  ],
+                  "IntervalSeconds": 20,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "TimeoutSeconds": 1140,
+              "ResultPath": "$.transform_tpy_preprocess_structure_farm_b3_s1_result",
+              "Next": "TransformTractProducerYearPreprocessStructureFarmB3S2"
+            },
+            "TransformTractProducerYearPreprocessStructureFarmB3S2": {
+              "Type": "Task",
+              "Comment": "Run tract preprocess structure-farm-b3 shard s2 stage with high DPU profile (G.2X x 24) (TimeoutSeconds=1140, --max_job_seconds=1020).",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "WorkerType": "G.2X",
+                "NumberOfWorkers": 24,
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--task_mode": "preprocess_structure_farm_b3_s2",
+                  "--shuffle_partitions": "900",
+                  "--max_job_seconds": "1020"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed",
+                    "Glue.ConcurrentRunsExceededException",
+                    "Glue.InternalServiceException",
+                    "Glue.OperationTimeoutException",
+                    "States.Timeout"
+                  ],
+                  "IntervalSeconds": 20,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "TimeoutSeconds": 1140,
+              "ResultPath": "$.transform_tpy_preprocess_structure_farm_b3_s2_result",
+              "Next": "TransformTractProducerYearPreprocessStructureFarmB3S3"
+            },
+            "TransformTractProducerYearPreprocessStructureFarmB3S3": {
+              "Type": "Task",
+              "Comment": "Run tract preprocess structure-farm-b3 shard s3 stage with high DPU profile (G.2X x 24) (TimeoutSeconds=1140, --max_job_seconds=1020).",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "WorkerType": "G.2X",
+                "NumberOfWorkers": 24,
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--task_mode": "preprocess_structure_farm_b3_s3",
+                  "--shuffle_partitions": "900",
+                  "--max_job_seconds": "1020"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed",
+                    "Glue.ConcurrentRunsExceededException",
+                    "Glue.InternalServiceException",
+                    "Glue.OperationTimeoutException",
+                    "States.Timeout"
+                  ],
+                  "IntervalSeconds": 20,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "TimeoutSeconds": 1140,
+              "ResultPath": "$.transform_tpy_preprocess_structure_farm_b3_s3_result",
               "Next": "TransformTractProducerYearPreprocessStructureFarmB4"
             },
             "TransformTractProducerYearPreprocessStructureFarmB4": {

@@ -613,6 +613,35 @@ class TestTractModeDispatchContract(unittest.TestCase):
         text = _state_text()
         self.assertNotIn("ChooseTransformTractMode", text)
 
+    def test_state_machine_no_legacy_tract_path_choice(self):
+        text = _state_text()
+        self.assertNotIn("SelectTransformTractPath", text)
+        self.assertNotIn("force_legacy_tract_path", text)
+
+    def test_state_machine_tract_branch_single_fast_only(self):
+        sm = json.loads(_state_text())
+        transform_parallel = sm["States"]["TransformParallel"]
+        branches = transform_parallel["Branches"]
+
+        tract_branch = None
+        for branch in branches:
+            states = branch.get("States", {})
+            if "TransformTractProducerYearSingleFast" in states:
+                tract_branch = branch
+                break
+
+        self.assertIsNotNone(tract_branch, "Tract branch with TransformTractProducerYearSingleFast was not found")
+        self.assertEqual(
+            tract_branch["StartAt"],
+            "TransformTractProducerYearSingleFast",
+            "Tract branch must start at single_fast",
+        )
+        self.assertEqual(
+            set(tract_branch["States"].keys()),
+            {"TransformTractProducerYearSingleFast"},
+            "Tract branch must contain only the single_fast state",
+        )
+
     def test_core_tract_script_forces_full_mode(self):
         text = _script_text("Transform-Tract-Producer-Year")
         self.assertIn("FULL_LOAD         = True", text)

@@ -48,7 +48,7 @@ GLUE JOB ARGUMENTS:
     --env                 : Deployment environment
     --iceberg_warehouse   : s3:// URI for Iceberg warehouse root
     --task_mode           : single | preprocess | preprocess_base |
-                            single_fast |
+                            single_fast | single_pass |
                             preprocess_spine | preprocess_structure_link |
                             preprocess_structure_farm_filter | preprocess_structure_farm |
                             preprocess_structure_farm_b0 | preprocess_structure_farm_b1 |
@@ -86,6 +86,8 @@ GLUE JOB ARGUMENTS:
     --debug               : DEBUG logging flag (default: false)
 
 VERSION HISTORY:
+    v4.4.0 - 2026-03-06 - Remove legacy staged runtime dispatch; enforce single-pass execution modes only (single_fast/single_pass, with single alias).
+    v4.3.0 - 2026-03-06 - Make single_fast the script default mode and add single_pass alias for explicit single-pass usage.
     v4.2.0 - 2026-03-06 - Add large-data single_fast optimizations: AQE tuning, targeted repartitioning, and lineage checkpoints.
     v4.1.0 - 2026-03-06 - Tune core2_extract by key-filtering ibin with structure keys to reduce full-scan/shuffle cost.
     v4.0.0 - 2026-03-06 - Add architecture-aligned single_fast path: single-pass in-memory transform with direct publish.
@@ -162,48 +164,15 @@ STAGE_CORE2_TABLE = _opt("stage_core2_table", "tract_producer_year_stage_core2")
 STAGE_BASE_TABLE  = _opt("stage_base_table", "tract_producer_year_stage_base")
 STAGE_TABLE       = _opt("stage_table", "tract_producer_year_stage")
 STAGE_RESOLVE_TABLE = _opt("stage_resolve_table", "tract_producer_year_stage_resolve")
-TASK_MODE         = _opt("task_mode", "single").strip().lower()
+TASK_MODE         = _opt("task_mode", "single_fast").strip().lower()
 SHUFFLE_PARTITIONS = _opt("shuffle_partitions", "800")
 MAX_JOB_SECONDS   = int(_opt("max_job_seconds", "1100"))
 DEBUG             = _opt("debug", "false").strip().lower() == "true"
 
 VALID_MODES = {
-    "single",
     "single_fast",
-    "preprocess",
-    "preprocess_base",
-    "preprocess_spine",
-    "preprocess_structure_link",
-    "preprocess_structure_farm_filter",
-    "preprocess_structure_farm_b0",
-    "preprocess_structure_farm_b1",
-    "preprocess_structure_farm_b2",
-    "preprocess_structure_farm_b3",
-    "preprocess_structure_farm_b3_s0",
-    "preprocess_structure_farm_b3_s1",
-    "preprocess_structure_farm_b3_s2",
-    "preprocess_structure_farm_b3_s3",
-    "preprocess_structure_farm_b4",
-    "preprocess_structure_farm_b5",
-    "preprocess_structure_farm_b6",
-    "preprocess_structure_farm_b7",
-    "preprocess_structure_farm_b8",
-    "preprocess_structure_farm_b9",
-    "preprocess_structure_farm_b10",
-    "preprocess_structure_farm_b11",
-    "preprocess_structure_farm_b12",
-    "preprocess_structure_farm_b13",
-    "preprocess_structure_farm_b14",
-    "preprocess_structure_farm_b15",
-    "preprocess_structure_merge",
-    "preprocess_structure_farm",
-    "preprocess_core2_extract",
-    "preprocess_core2",
-    "preprocess_partner",
-    "preprocess_enrich",
-    "finalize_resolve",
-    "finalize_publish",
-    "finalize",
+    "single_pass",
+    "single",
 }
 
 if TASK_MODE not in VALID_MODES:
@@ -1110,142 +1079,13 @@ def run_single_fast():
     stage_log("SINGLE_FAST_STAGE", f"[METRIC] {TGT_TABLE}_row_count={latest_snapshot_row_count(TARGET_FQN)}")
 
 
-if TASK_MODE == "preprocess_spine":
-    run_preprocess_spine()
-    finish_and_exit("[PP_SPINE_STAGE] Transform-Tract-Producer-Year preprocess_spine: completed successfully")
-elif TASK_MODE == "preprocess_structure_link":
-    run_preprocess_structure_link()
-    finish_and_exit("[PP_STRUCTURE_LINK_STAGE] Transform-Tract-Producer-Year preprocess_structure_link: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_filter":
-    run_preprocess_structure_farm_filter()
-    finish_and_exit("[PP_STRUCTURE_FARM_FILTER_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_filter: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b0":
-    run_preprocess_structure_farm_b0()
-    finish_and_exit("[PP_STRUCTURE_FARM_B0_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b0: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b1":
-    run_preprocess_structure_farm_b1()
-    finish_and_exit("[PP_STRUCTURE_FARM_B1_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b1: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b2":
-    run_preprocess_structure_farm_b2()
-    finish_and_exit("[PP_STRUCTURE_FARM_B2_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b2: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b3":
-    run_preprocess_structure_farm_b3()
-    finish_and_exit("[PP_STRUCTURE_FARM_B3_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b3: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b3_s0":
-    run_preprocess_structure_farm_b3_s0()
-    finish_and_exit("[PP_STRUCTURE_FARM_B3_S0_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b3_s0: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b3_s1":
-    run_preprocess_structure_farm_b3_s1()
-    finish_and_exit("[PP_STRUCTURE_FARM_B3_S1_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b3_s1: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b3_s2":
-    run_preprocess_structure_farm_b3_s2()
-    finish_and_exit("[PP_STRUCTURE_FARM_B3_S2_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b3_s2: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b3_s3":
-    run_preprocess_structure_farm_b3_s3()
-    finish_and_exit("[PP_STRUCTURE_FARM_B3_S3_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b3_s3: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b4":
-    run_preprocess_structure_farm_b4()
-    finish_and_exit("[PP_STRUCTURE_FARM_B4_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b4: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b5":
-    run_preprocess_structure_farm_b5()
-    finish_and_exit("[PP_STRUCTURE_FARM_B5_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b5: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b6":
-    run_preprocess_structure_farm_b6()
-    finish_and_exit("[PP_STRUCTURE_FARM_B6_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b6: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b7":
-    run_preprocess_structure_farm_b7()
-    finish_and_exit("[PP_STRUCTURE_FARM_B7_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b7: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b8":
-    run_preprocess_structure_farm_b8()
-    finish_and_exit("[PP_STRUCTURE_FARM_B8_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b8: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b9":
-    run_preprocess_structure_farm_b9()
-    finish_and_exit("[PP_STRUCTURE_FARM_B9_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b9: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b10":
-    run_preprocess_structure_farm_b10()
-    finish_and_exit("[PP_STRUCTURE_FARM_B10_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b10: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b11":
-    run_preprocess_structure_farm_b11()
-    finish_and_exit("[PP_STRUCTURE_FARM_B11_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b11: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b12":
-    run_preprocess_structure_farm_b12()
-    finish_and_exit("[PP_STRUCTURE_FARM_B12_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b12: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b13":
-    run_preprocess_structure_farm_b13()
-    finish_and_exit("[PP_STRUCTURE_FARM_B13_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b13: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b14":
-    run_preprocess_structure_farm_b14()
-    finish_and_exit("[PP_STRUCTURE_FARM_B14_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b14: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm_b15":
-    run_preprocess_structure_farm_b15()
-    finish_and_exit("[PP_STRUCTURE_FARM_B15_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm_b15: completed successfully")
-elif TASK_MODE == "preprocess_structure_merge":
-    run_preprocess_structure_merge()
-    finish_and_exit("[PP_STRUCTURE_MERGE_STAGE] Transform-Tract-Producer-Year preprocess_structure_merge: completed successfully")
-elif TASK_MODE == "preprocess_structure_farm":
-    run_preprocess_structure_farm()
-    finish_and_exit("[PP_STRUCTURE_FARM_STAGE] Transform-Tract-Producer-Year preprocess_structure_farm: completed successfully")
-elif TASK_MODE == "preprocess_core2_extract":
-    run_preprocess_core2_extract()
-    finish_and_exit("[PP_CORE2_EXTRACT_STAGE] Transform-Tract-Producer-Year preprocess_core2_extract: completed successfully")
-elif TASK_MODE == "preprocess_core2":
-    run_preprocess_core2()
-    finish_and_exit("[PP_CORE2_STAGE] Transform-Tract-Producer-Year preprocess_core2: completed successfully")
-elif TASK_MODE == "preprocess_partner":
-    run_preprocess_partner()
-    finish_and_exit("[PP_PARTNER_STAGE] Transform-Tract-Producer-Year preprocess_partner: completed successfully")
-elif TASK_MODE == "preprocess_enrich":
-    run_preprocess_enrich()
-    finish_and_exit("[PP_ENRICH_STAGE] Transform-Tract-Producer-Year preprocess_enrich: completed successfully")
-elif TASK_MODE == "preprocess_base":
-    run_preprocess_spine()
-    run_preprocess_structure_link()
-    run_preprocess_structure_farm_filter()
-    run_preprocess_structure_farm()
-    run_preprocess_core2_extract()
-    run_preprocess_core2()
-    run_preprocess_partner()
-    finish_and_exit("[PP_PARTNER_STAGE] Transform-Tract-Producer-Year preprocess_base: completed successfully")
-elif TASK_MODE == "preprocess":
-    run_preprocess_spine()
-    run_preprocess_structure_link()
-    run_preprocess_structure_farm_filter()
-    run_preprocess_structure_farm()
-    run_preprocess_core2_extract()
-    run_preprocess_core2()
-    run_preprocess_partner()
-    run_preprocess_enrich()
-    finish_and_exit("[PP_ENRICH_STAGE] Transform-Tract-Producer-Year preprocess: completed successfully")
-elif TASK_MODE == "finalize_resolve":
-    run_finalize_resolve()
-    finish_and_exit("[FINALIZE_RESOLVE_STAGE] Transform-Tract-Producer-Year finalize_resolve: completed successfully")
-elif TASK_MODE == "finalize_publish":
-    run_finalize_publish()
-    job.commit()
-    enforce_job_timeout()
-    log.info("[FINALIZE_PUBLISH_STAGE] Transform-Tract-Producer-Year finalize_publish: completed successfully")
-elif TASK_MODE == "finalize":
-    run_finalize_resolve()
-    run_finalize_publish()
-    job.commit()
-    enforce_job_timeout()
-    log.info("[FINALIZE_PUBLISH_STAGE] Transform-Tract-Producer-Year finalize: completed successfully")
-elif TASK_MODE == "single_fast":
+if TASK_MODE in {"single_fast", "single_pass", "single"}:
     run_single_fast()
     job.commit()
     enforce_job_timeout()
-    log.info("[SINGLE_FAST_STAGE] Transform-Tract-Producer-Year single_fast: completed successfully")
+    log.info(f"[SINGLE_FAST_STAGE] Transform-Tract-Producer-Year {TASK_MODE}: completed successfully")
 else:
-    run_preprocess_spine()
-    run_preprocess_structure_link()
-    run_preprocess_structure_farm_filter()
-    run_preprocess_structure_farm()
-    run_preprocess_core2_extract()
-    run_preprocess_core2()
-    run_preprocess_partner()
-    run_preprocess_enrich()
-    run_finalize_resolve()
-    run_finalize_publish()
-    job.commit()
-    enforce_job_timeout()
-    log.info("[FINALIZE_PUBLISH_STAGE] Transform-Tract-Producer-Year: completed successfully")
+    raise ValueError(
+        f"Unsupported --task_mode '{TASK_MODE}' for current single-pass-only runtime. "
+        "Use one of: single_fast, single_pass, single"
+    )

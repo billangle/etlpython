@@ -48,6 +48,7 @@ GLUE JOB ARGUMENTS:
     --env                 : Deployment environment
     --iceberg_warehouse   : s3:// URI for Iceberg warehouse root
     --task_mode           : single | preprocess | preprocess_base |
+                            single_fast |
                             preprocess_spine | preprocess_structure_link |
                             preprocess_structure_farm_filter | preprocess_structure_farm |
                             preprocess_structure_farm_b0 | preprocess_structure_farm_b1 |
@@ -85,6 +86,9 @@ GLUE JOB ARGUMENTS:
     --debug               : DEBUG logging flag (default: false)
 
 VERSION HISTORY:
+    v4.2.0 - 2026-03-06 - Add large-data single_fast optimizations: AQE tuning, targeted repartitioning, and lineage checkpoints.
+    v4.1.0 - 2026-03-06 - Tune core2_extract by key-filtering ibin with structure keys to reduce full-scan/shuffle cost.
+    v4.0.0 - 2026-03-06 - Add architecture-aligned single_fast path: single-pass in-memory transform with direct publish.
     v3.12.0 - 2026-03-05 - Split hot structure bucket b3 into 4 shard stages (b3_s0..b3_s3) to resolve phase-7 timeout.
     v3.11.0 - 2026-03-05 - Isolate structure_farm writes into per-bucket stage tables and add dedicated structure merge stage.
     v3.10.0 - 2026-03-05 - Reworked structure_farm bucket SQL to bucket-filter core1 first, then key-filter ibf per bucket before join.
@@ -165,6 +169,7 @@ DEBUG             = _opt("debug", "false").strip().lower() == "true"
 
 VALID_MODES = {
     "single",
+    "single_fast",
     "preprocess",
     "preprocess_base",
     "preprocess_spine",
@@ -442,12 +447,23 @@ JOIN core_keys keys
 """
 
 PREPROCESS_CORE2_EXTRACT_SQL = """
+WITH structure_keys AS (
+    SELECT DISTINCT
+        CAST(instance AS STRING) AS i_instance,
+        CAST(client AS STRING) AS i_client,
+        CAST(f_ibase AS STRING) AS r_ibase
+    FROM sss_details_structure_stage
+)
 SELECT DISTINCT
     CAST(ni.instance AS STRING) AS i_instance,
     CAST(ni.client AS STRING) AS i_client,
     CAST(ni.ibase AS STRING) AS r_ibase,
     CAST(ni.in_guid AS STRING) AS in_guid
 FROM ibin ni
+JOIN structure_keys sk
+  ON CAST(ni.instance AS STRING) = sk.i_instance
+ AND CAST(ni.client AS STRING) = sk.i_client
+ AND CAST(ni.ibase AS STRING) = sk.r_ibase
 """
 
 PREPROCESS_CORE2_SQL = """
@@ -945,6 +961,7 @@ def run_preprocess_structure_farm_filter():
 
 def run_preprocess_core2_extract():
     register_view(SSS_DB, "ibin")
+    spark.table(STAGE_STRUCTURE_FQN).createOrReplaceTempView("sss_details_structure_stage")
     phase_t0 = time.perf_counter()
     stage_log("PP_CORE2_EXTRACT_STAGE", "Running preprocess_core2_extract stage")
     core2_source_df = spark.sql(PREPROCESS_CORE2_EXTRACT_SQL)
@@ -1018,6 +1035,79 @@ def run_finalize_publish():
     stage_log("FINALIZE_PUBLISH_STAGE", f"[METRIC] phase_write_seconds={time.perf_counter() - write_t0:.3f}")
     stage_log("FINALIZE_PUBLISH_STAGE", f"[METRIC] phase_finalize_publish_seconds={time.perf_counter() - phase_t0:.3f}")
     stage_log("FINALIZE_PUBLISH_STAGE", f"[METRIC] {TGT_TABLE}_row_count={latest_snapshot_row_count(TARGET_FQN)}")
+
+
+def run_single_fast():
+    phase_t0 = time.perf_counter()
+    stage_log("SINGLE_FAST_STAGE", "Running single_fast architecture-aligned in-memory transform")
+
+    spark.conf.set("spark.sql.autoBroadcastJoinThreshold", str(128 * 1024 * 1024))
+    spark.conf.set("spark.sql.broadcastTimeout", "1200")
+    spark.conf.set("spark.sql.adaptive.skewJoin.skewedPartitionFactor", "3")
+    spark.conf.set("spark.sql.adaptive.skewJoin.skewedPartitionThresholdInBytes", str(64 * 1024 * 1024))
+    spark.conf.set("spark.sql.optimizer.dynamicPartitionPruning.enabled", "true")
+    spark.conf.set("spark.sql.adaptive.advisoryPartitionSizeInBytes", str(64 * 1024 * 1024))
+    spark.conf.set("spark.sql.adaptive.coalescePartitions.initialPartitionNum", str(max(600, int(SHUFFLE_PARTITIONS))))
+    spark.conf.set("spark.sql.files.maxPartitionBytes", str(128 * 1024 * 1024))
+    stage_log("SINGLE_FAST_STAGE", "Applied single_fast Spark tuning profile")
+
+    for tbl in [
+        "ibsp",
+        "ibst",
+        "ibib",
+        "ibin",
+        "ibpart",
+        "crmd_partner",
+        "z_ibase_comp_detail",
+        "comm_pr_frg_rel",
+        "zmi_farm_partn",
+    ]:
+        register_view(SSS_DB, tbl)
+
+    for tbl in [
+        "time_period",
+        "county_office_control",
+        "but000",
+        "farm",
+        "tract",
+        "farm_year",
+        "tract_year",
+    ]:
+        register_view(REF_DB, tbl)
+
+    spine_df = spark.sql(PREPROCESS_SPINE_SQL).repartition(600, "instance", "client")
+    spine_df.createOrReplaceTempView("sss_spine_stage")
+
+    core1_df = spark.sql(PREPROCESS_STRUCTURE_LINK_SQL).repartition(700, "instance", "client", "f_ibase").localCheckpoint(eager=True)
+    core1_df.createOrReplaceTempView("sss_details_core1_stage")
+
+    structure_filter_df = spark.sql(PREPROCESS_STRUCTURE_FARM_FILTER_SQL).repartition(700, "f_ibase").localCheckpoint(eager=True)
+    structure_filter_df.createOrReplaceTempView("sss_details_structure_filter_stage")
+
+    structure_df = spark.sql(PREPROCESS_STRUCTURE_FARM_SQL).repartition(700, "instance", "client", "f_ibase").localCheckpoint(eager=True)
+    structure_df.createOrReplaceTempView("sss_details_structure_stage")
+
+    core2_source_df = spark.sql(PREPROCESS_CORE2_EXTRACT_SQL).repartition(700, "i_instance", "i_client", "r_ibase")
+    core2_source_df.createOrReplaceTempView("sss_details_core2_source_stage")
+
+    core2_df = spark.sql(PREPROCESS_CORE2_SQL).repartition(700, "i_instance", "r_ibase").localCheckpoint(eager=True)
+    core2_df.createOrReplaceTempView("sss_details_core2_stage")
+
+    base_df = spark.sql(PREPROCESS_PARTNER_SQL).repartition(700, "i_instance", "r_ibase").localCheckpoint(eager=True)
+    base_df.createOrReplaceTempView("sss_details_base_stage")
+
+    stage_df = spark.sql(PREPROCESS_ENRICH_SQL).repartition(600, "county_office_control_identifier", "time_period_identifier").localCheckpoint(eager=True)
+    stage_df.createOrReplaceTempView("tract_current_stage")
+
+    resolve_df = spark.sql(FINALIZE_RESOLVE_SQL).repartition(500, "tract_year_identifier")
+
+    resolve_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(TARGET_FQN)
+    write_t0 = time.perf_counter()
+    resolve_df.write.format("iceberg").mode("overwrite").saveAsTable(TARGET_FQN)
+
+    stage_log("SINGLE_FAST_STAGE", f"[METRIC] phase_write_seconds={time.perf_counter() - write_t0:.3f}")
+    stage_log("SINGLE_FAST_STAGE", f"[METRIC] phase_single_fast_seconds={time.perf_counter() - phase_t0:.3f}")
+    stage_log("SINGLE_FAST_STAGE", f"[METRIC] {TGT_TABLE}_row_count={latest_snapshot_row_count(TARGET_FQN)}")
 
 
 if TASK_MODE == "preprocess_spine":
@@ -1140,6 +1230,11 @@ elif TASK_MODE == "finalize":
     job.commit()
     enforce_job_timeout()
     log.info("[FINALIZE_PUBLISH_STAGE] Transform-Tract-Producer-Year finalize: completed successfully")
+elif TASK_MODE == "single_fast":
+    run_single_fast()
+    job.commit()
+    enforce_job_timeout()
+    log.info("[SINGLE_FAST_STAGE] Transform-Tract-Producer-Year single_fast: completed successfully")
 else:
     run_preprocess_spine()
     run_preprocess_structure_link()

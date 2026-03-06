@@ -176,8 +176,54 @@
       "Comment": "Run tract and farm producer year transforms concurrently. Both read from S3 Iceberg only (no shared write targets, no locks).",
       "Branches": [
         {
-          "StartAt": "TransformTractProducerYearPreprocessSpine",
+          "StartAt": "SelectTransformTractPath",
           "States": {
+            "SelectTransformTractPath": {
+              "Type": "Choice",
+              "Comment": "Default to single_fast tract transform; allow explicit fallback to legacy staged chain when requested.",
+              "Choices": [
+                {
+                  "Variable": "$.force_legacy_tract_path",
+                  "BooleanEquals": true,
+                  "Next": "TransformTractProducerYearPreprocessSpine"
+                }
+              ],
+              "Default": "TransformTractProducerYearSingleFast"
+            },
+            "TransformTractProducerYearSingleFast": {
+              "Type": "Task",
+              "Comment": "Run tract single_fast stage (single-pass in-memory transform + direct publish) with highest DPU profile (G.2X x 40) (TimeoutSeconds=3600, --max_job_seconds=0).",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
+                "WorkerType": "G.2X",
+                "NumberOfWorkers": 40,
+                "Arguments": {
+                  "--env": "__ENV__",
+                  "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
+                  "--task_mode": "single_fast",
+                  "--shuffle_partitions": "900",
+                  "--max_job_seconds": "0"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed",
+                    "Glue.ConcurrentRunsExceededException",
+                    "Glue.InternalServiceException",
+                    "Glue.OperationTimeoutException",
+                    "States.Timeout"
+                  ],
+                  "IntervalSeconds": 20,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "TimeoutSeconds": 3600,
+              "ResultPath": "$.transform_tpy_single_fast_result",
+              "End": true
+            },
             "TransformTractProducerYearPreprocessSpine": {
               "Type": "Task",
               "Comment": "Run tract preprocess spine stage (ibsp projection/normalization) with highest DPU profile (G.2X x 40) (TimeoutSeconds=1140, --max_job_seconds=1020).",

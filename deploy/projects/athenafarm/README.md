@@ -10,6 +10,19 @@ for the full architecture rationale.
 
 ## Recent Changes (2026-03-05)
 
+- Tract primary execution path now uses `single_fast` (single Glue run, in-memory transform, direct publish) aligned with `arch.md` recommendations; fragmented multi-stage chain remains available as fallback/debug path.
+- `single_fast` orchestration profile is tuned for completion-first runtime (`TimeoutSeconds=3600`, `--max_job_seconds=0`, `--shuffle_partitions=900`) to prevent script-level fail-fast from aborting near-complete runs.
+- `core2_extract` now key-filters `ibin` by joining only structure-derived keys (`instance/client/f_ibase`), reducing full-table scan and shuffle overhead in both staged and `single_fast` paths.
+- `single_fast` applies an aggressive Spark tuning profile at runtime (larger broadcast threshold, longer broadcast timeout, tighter skew detection, dynamic partition pruning) for better execution speed.
+- `single_fast` now also uses lineage-breaking checkpoints (`localCheckpoint`) and targeted repartitioning on join keys (`instance/client/f_ibase`, `i_instance/i_client/r_ibase`, `tract_year_identifier`) to reduce recomputation and stabilize large-data execution.
+
+## Current Default Tract Path
+
+- Step Functions tract branch default start state: `TransformTractProducerYearSingleFast`
+- Glue `task_mode`: `single_fast`
+- Runtime profile: `WorkerType=G.2X`, `NumberOfWorkers=40`, `TimeoutSeconds=3600`, `--max_job_seconds=0`, `--shuffle_partitions=900`
+- Operational intent: single-pass, in-memory transform with direct publish to minimize stage startup/commit overhead and maximize completion reliability.
+
 - Tract transform is now orchestrated as twenty-nine Step Functions-managed stages:
   - `TransformTractProducerYearPreprocessSpine` (`--task_mode=preprocess_spine`)
   - `TransformTractProducerYearPreprocessStructureLink` (`--task_mode=preprocess_structure_link`)
@@ -136,7 +149,7 @@ for the full architecture rationale.
 - Tract branch now uses conservative transient-failure retries per stage in Step Functions:
   - `Retry` on `States.TaskFailed`, `Glue.ConcurrentRunsExceededException`, `Glue.InternalServiceException`, `Glue.OperationTimeoutException`, `States.Timeout`
   - Backoff profile: `IntervalSeconds=20`, `MaxAttempts=2`, `BackoffRate=2.0`
-- Tract script supports `task_mode` (`single|preprocess|preprocess_base|preprocess_spine|preprocess_structure_link|preprocess_structure_farm_filter|preprocess_structure_farm_b0|preprocess_structure_farm_b1|preprocess_structure_farm_b2|preprocess_structure_farm_b3|preprocess_structure_farm_b3_s0|preprocess_structure_farm_b3_s1|preprocess_structure_farm_b3_s2|preprocess_structure_farm_b3_s3|preprocess_structure_farm_b4|preprocess_structure_farm_b5|preprocess_structure_farm_b6|preprocess_structure_farm_b7|preprocess_structure_farm_b8|preprocess_structure_farm_b9|preprocess_structure_farm_b10|preprocess_structure_farm_b11|preprocess_structure_farm_b12|preprocess_structure_farm_b13|preprocess_structure_farm_b14|preprocess_structure_farm_b15|preprocess_structure_merge|preprocess_structure_farm|preprocess_core2_extract|preprocess_core2|preprocess_partner|preprocess_enrich|finalize_resolve|finalize_publish|finalize`) with stage-table handoff for smaller, faster task boundaries.
+- Tract script supports `task_mode` (`single|single_fast|preprocess|preprocess_base|preprocess_spine|preprocess_structure_link|preprocess_structure_farm_filter|preprocess_structure_farm_b0|preprocess_structure_farm_b1|preprocess_structure_farm_b2|preprocess_structure_farm_b3|preprocess_structure_farm_b3_s0|preprocess_structure_farm_b3_s1|preprocess_structure_farm_b3_s2|preprocess_structure_farm_b3_s3|preprocess_structure_farm_b4|preprocess_structure_farm_b5|preprocess_structure_farm_b6|preprocess_structure_farm_b7|preprocess_structure_farm_b8|preprocess_structure_farm_b9|preprocess_structure_farm_b10|preprocess_structure_farm_b11|preprocess_structure_farm_b12|preprocess_structure_farm_b13|preprocess_structure_farm_b14|preprocess_structure_farm_b15|preprocess_structure_merge|preprocess_structure_farm|preprocess_core2_extract|preprocess_core2|preprocess_partner|preprocess_enrich|finalize_resolve|finalize_publish|finalize`) with stage-table handoff for smaller, faster task boundaries.
 - Farm transform is pinned to a known-good baseline (`Transform-Farm-Producer-Year`, git commit `fc3fe5f`), with observed full-load completion under 4 minutes.
 - PG CDC ingest retains runtime reductions from removal of pre-write cache/count and pre-write repartition/sort passes.
 - Contract checks were updated to keep Farm implementation stable and avoid forcing Farm-script rewrites.

@@ -86,6 +86,7 @@ GLUE JOB ARGUMENTS:
     --debug               : DEBUG logging flag (default: false)
 
 VERSION HISTORY:
+    v4.4.2 - 2026-03-06 - Add minimal progress markers for single_fast milestones across all environments.
     v4.4.1 - 2026-03-06 - Move static Spark resiliency configs to SparkConf initialization to avoid runtime AnalysisException on immutable keys.
     v4.4.0 - 2026-03-06 - Remove legacy staged runtime dispatch; enforce single-pass execution modes only (single_fast/single_pass, with single alias).
     v4.3.0 - 2026-03-06 - Make single_fast the script default mode and add single_pass alias for explicit single-pass usage.
@@ -259,6 +260,11 @@ def register_view(catalog_db: str, table: str, view_name: str = None):
 
 def stage_log(stage_prefix: str, message: str):
     log.info(f"[{stage_prefix}] {message}")
+
+
+def progress_log(progress_pct: int, milestone: str, phase_t0: float):
+    elapsed = time.perf_counter() - phase_t0
+    log.info(f"[PROGRESS] progress_pct={progress_pct} milestone={milestone} elapsed_seconds={elapsed:.3f}")
 
 
 def latest_snapshot_row_count(table_fqn: str) -> int:
@@ -1016,6 +1022,7 @@ def run_finalize_publish():
 def run_single_fast():
     phase_t0 = time.perf_counter()
     stage_log("SINGLE_FAST_STAGE", "Running single_fast architecture-aligned in-memory transform")
+    progress_log(5, "single_fast_started", phase_t0)
 
     base_shuffle_parts = max(1200, int(SHUFFLE_PARTITIONS))
     wide_shuffle_parts = max(1600, base_shuffle_parts)
@@ -1058,9 +1065,11 @@ def run_single_fast():
         "tract_year",
     ]:
         register_view(REF_DB, tbl)
+    progress_log(15, "views_registered", phase_t0)
 
     spine_df = spark.sql(PREPROCESS_SPINE_SQL).repartition(base_shuffle_parts, "instance", "client")
     spine_df.createOrReplaceTempView("sss_spine_stage")
+    progress_log(30, "spine_ready", phase_t0)
 
     core1_df = spark.sql(PREPROCESS_STRUCTURE_LINK_SQL).repartition(wide_shuffle_parts, "instance", "client", "f_ibase").checkpoint(eager=True)
     core1_df.createOrReplaceTempView("sss_details_core1_stage")
@@ -1070,6 +1079,7 @@ def run_single_fast():
 
     structure_df = spark.sql(PREPROCESS_STRUCTURE_FARM_SQL).repartition(wide_shuffle_parts, "instance", "client", "f_ibase").checkpoint(eager=True)
     structure_df.createOrReplaceTempView("sss_details_structure_stage")
+    progress_log(50, "structure_ready", phase_t0)
 
     core2_source_df = spark.sql(PREPROCESS_CORE2_EXTRACT_SQL).repartition(wide_shuffle_parts, "i_instance", "i_client", "r_ibase")
     core2_source_df.createOrReplaceTempView("sss_details_core2_source_stage")
@@ -1079,15 +1089,19 @@ def run_single_fast():
 
     base_df = spark.sql(PREPROCESS_PARTNER_SQL).repartition(wide_shuffle_parts, "i_instance", "r_ibase").checkpoint(eager=True)
     base_df.createOrReplaceTempView("sss_details_base_stage")
+    progress_log(65, "partner_ready", phase_t0)
 
     stage_df = spark.sql(PREPROCESS_ENRICH_SQL).repartition(base_shuffle_parts, "county_office_control_identifier", "time_period_identifier").checkpoint(eager=True)
     stage_df.createOrReplaceTempView("tract_current_stage")
+    progress_log(80, "enrich_ready", phase_t0)
 
     resolve_df = spark.sql(FINALIZE_RESOLVE_SQL).repartition(final_shuffle_parts, "tract_year_identifier")
+    progress_log(90, "resolve_ready", phase_t0)
 
     resolve_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(TARGET_FQN)
     write_t0 = time.perf_counter()
     resolve_df.write.format("iceberg").mode("overwrite").saveAsTable(TARGET_FQN)
+    progress_log(100, "single_fast_completed", phase_t0)
 
     stage_log("SINGLE_FAST_STAGE", f"[METRIC] phase_write_seconds={time.perf_counter() - write_t0:.3f}")
     stage_log("SINGLE_FAST_STAGE", f"[METRIC] phase_single_fast_seconds={time.perf_counter() - phase_t0:.3f}")

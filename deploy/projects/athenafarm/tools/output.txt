@@ -1,0 +1,18 @@
+{
+  "environment": "PROD",
+  "region": "us-east-1",
+  "project": "ATHENAFARM",
+  "job_name": "FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year",
+  "selected_run": "active",
+  "run_id": "jr_1fe506d0b624345f919f58db5f3e238779cf921dc23607c18cc51302eef81325",
+  "state": "RUNNING",
+  "attempt": 0,
+  "worker_type": "G.4X",
+  "number_of_workers": 40,
+  "execution_time_seconds": 706,
+  "elapsed_seconds": 718,
+  "started_on_utc": "2026-03-06T21:30:13.746000+00:00",
+  "completed_on_utc": "-",
+  "timeout_minutes": 480,
+  "error_message": ""
+}

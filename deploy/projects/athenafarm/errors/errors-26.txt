@@ -1,0 +1,1 @@
+An error occurred while calling o155.localCheckpoint. Checkpoint block rdd_16_5 not found! Either the executor that originally checkpointed this partition is no longer alive, or the original RDD is unpersisted. If this problem persists, you may consider using `rdd.checkpoint()` instead, which is slower than local checkpointing but more fault-tolerant.

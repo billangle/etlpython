@@ -1010,14 +1010,28 @@ def run_single_fast():
     phase_t0 = time.perf_counter()
     stage_log("SINGLE_FAST_STAGE", "Running single_fast architecture-aligned in-memory transform")
 
+    base_shuffle_parts = max(1200, int(SHUFFLE_PARTITIONS))
+    wide_shuffle_parts = max(1600, base_shuffle_parts)
+    final_shuffle_parts = max(1200, int(base_shuffle_parts * 0.85))
+
     spark.conf.set("spark.sql.autoBroadcastJoinThreshold", str(128 * 1024 * 1024))
     spark.conf.set("spark.sql.broadcastTimeout", "1200")
     spark.conf.set("spark.sql.adaptive.skewJoin.skewedPartitionFactor", "3")
     spark.conf.set("spark.sql.adaptive.skewJoin.skewedPartitionThresholdInBytes", str(64 * 1024 * 1024))
+    spark.conf.set("spark.sql.adaptive.forceOptimizeSkewedJoin", "true")
     spark.conf.set("spark.sql.optimizer.dynamicPartitionPruning.enabled", "true")
     spark.conf.set("spark.sql.adaptive.advisoryPartitionSizeInBytes", str(64 * 1024 * 1024))
-    spark.conf.set("spark.sql.adaptive.coalescePartitions.initialPartitionNum", str(max(600, int(SHUFFLE_PARTITIONS))))
+    spark.conf.set("spark.sql.adaptive.coalescePartitions.initialPartitionNum", str(wide_shuffle_parts))
     spark.conf.set("spark.sql.files.maxPartitionBytes", str(128 * 1024 * 1024))
+    spark.conf.set("spark.shuffle.io.maxRetries", "10")
+    spark.conf.set("spark.shuffle.io.retryWait", "10s")
+    spark.conf.set("spark.network.timeout", "800s")
+    spark.conf.set("spark.executor.heartbeatInterval", "60s")
+    spark.conf.set("spark.stage.maxConsecutiveAttempts", "8")
+    spark.conf.set("spark.task.maxFailures", "8")
+    checkpoint_dir = f"{ICEBERG_WAREHOUSE.rstrip('/')}/_spark_checkpoints/{TGT_TABLE}"
+    spark.sparkContext.setCheckpointDir(checkpoint_dir)
+    stage_log("SINGLE_FAST_STAGE", f"Checkpoint dir set: {checkpoint_dir}")
     stage_log("SINGLE_FAST_STAGE", "Applied single_fast Spark tuning profile")
 
     for tbl in [
@@ -1044,31 +1058,31 @@ def run_single_fast():
     ]:
         register_view(REF_DB, tbl)
 
-    spine_df = spark.sql(PREPROCESS_SPINE_SQL).repartition(600, "instance", "client")
+    spine_df = spark.sql(PREPROCESS_SPINE_SQL).repartition(base_shuffle_parts, "instance", "client")
     spine_df.createOrReplaceTempView("sss_spine_stage")
 
-    core1_df = spark.sql(PREPROCESS_STRUCTURE_LINK_SQL).repartition(700, "instance", "client", "f_ibase").localCheckpoint(eager=True)
+    core1_df = spark.sql(PREPROCESS_STRUCTURE_LINK_SQL).repartition(wide_shuffle_parts, "instance", "client", "f_ibase").checkpoint(eager=True)
     core1_df.createOrReplaceTempView("sss_details_core1_stage")
 
-    structure_filter_df = spark.sql(PREPROCESS_STRUCTURE_FARM_FILTER_SQL).repartition(700, "f_ibase").localCheckpoint(eager=True)
+    structure_filter_df = spark.sql(PREPROCESS_STRUCTURE_FARM_FILTER_SQL).repartition(wide_shuffle_parts, "f_ibase").checkpoint(eager=True)
     structure_filter_df.createOrReplaceTempView("sss_details_structure_filter_stage")
 
-    structure_df = spark.sql(PREPROCESS_STRUCTURE_FARM_SQL).repartition(700, "instance", "client", "f_ibase").localCheckpoint(eager=True)
+    structure_df = spark.sql(PREPROCESS_STRUCTURE_FARM_SQL).repartition(wide_shuffle_parts, "instance", "client", "f_ibase").checkpoint(eager=True)
     structure_df.createOrReplaceTempView("sss_details_structure_stage")
 
-    core2_source_df = spark.sql(PREPROCESS_CORE2_EXTRACT_SQL).repartition(700, "i_instance", "i_client", "r_ibase")
+    core2_source_df = spark.sql(PREPROCESS_CORE2_EXTRACT_SQL).repartition(wide_shuffle_parts, "i_instance", "i_client", "r_ibase")
     core2_source_df.createOrReplaceTempView("sss_details_core2_source_stage")
 
-    core2_df = spark.sql(PREPROCESS_CORE2_SQL).repartition(700, "i_instance", "r_ibase").localCheckpoint(eager=True)
+    core2_df = spark.sql(PREPROCESS_CORE2_SQL).repartition(wide_shuffle_parts, "i_instance", "r_ibase").checkpoint(eager=True)
     core2_df.createOrReplaceTempView("sss_details_core2_stage")
 
-    base_df = spark.sql(PREPROCESS_PARTNER_SQL).repartition(700, "i_instance", "r_ibase").localCheckpoint(eager=True)
+    base_df = spark.sql(PREPROCESS_PARTNER_SQL).repartition(wide_shuffle_parts, "i_instance", "r_ibase").checkpoint(eager=True)
     base_df.createOrReplaceTempView("sss_details_base_stage")
 
-    stage_df = spark.sql(PREPROCESS_ENRICH_SQL).repartition(600, "county_office_control_identifier", "time_period_identifier").localCheckpoint(eager=True)
+    stage_df = spark.sql(PREPROCESS_ENRICH_SQL).repartition(base_shuffle_parts, "county_office_control_identifier", "time_period_identifier").checkpoint(eager=True)
     stage_df.createOrReplaceTempView("tract_current_stage")
 
-    resolve_df = spark.sql(FINALIZE_RESOLVE_SQL).repartition(500, "tract_year_identifier")
+    resolve_df = spark.sql(FINALIZE_RESOLVE_SQL).repartition(final_shuffle_parts, "tract_year_identifier")
 
     resolve_df.limit(0).write.format("iceberg").mode("ignore").saveAsTable(TARGET_FQN)
     write_t0 = time.perf_counter()

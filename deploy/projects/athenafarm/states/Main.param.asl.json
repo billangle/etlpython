@@ -176,13 +176,13 @@
               "Resource": "arn:aws:states:::glue:startJobRun.sync",
               "Parameters": {
                 "JobName": "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__",
-                "WorkerType": "G.2X",
+                "WorkerType": "G.4X",
                 "NumberOfWorkers": 40,
                 "Arguments": {
                   "--env": "__ENV__",
                   "--iceberg_warehouse": "__ICEBERG_WAREHOUSE__",
                   "--task_mode": "single_fast",
-                  "--shuffle_partitions": "900",
+                  "--shuffle_partitions": "1400",
                   "--max_job_seconds": "0"
                 }
               },
@@ -196,11 +196,11 @@
                     "States.Timeout"
                   ],
                   "IntervalSeconds": 20,
-                  "MaxAttempts": 2,
+                  "MaxAttempts": 3,
                   "BackoffRate": 2.0
                 }
               ],
-              "TimeoutSeconds": 3600,
+              "TimeoutSeconds": 5400,
               "ResultPath": "$.transform_tpy_single_fast_result",
               "End": true
             }

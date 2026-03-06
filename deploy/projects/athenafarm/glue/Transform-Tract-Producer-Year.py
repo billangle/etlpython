@@ -86,6 +86,7 @@ GLUE JOB ARGUMENTS:
     --debug               : DEBUG logging flag (default: false)
 
 VERSION HISTORY:
+    v4.4.1 - 2026-03-06 - Move static Spark resiliency configs to SparkConf initialization to avoid runtime AnalysisException on immutable keys.
     v4.4.0 - 2026-03-06 - Remove legacy staged runtime dispatch; enforce single-pass execution modes only (single_fast/single_pass, with single alias).
     v4.3.0 - 2026-03-06 - Make single_fast the script default mode and add single_pass alias for explicit single-pass usage.
     v4.2.0 - 2026-03-06 - Add large-data single_fast optimizations: AQE tuning, targeted repartitioning, and lineage checkpoints.
@@ -196,6 +197,12 @@ _conf.set("spark.sql.adaptive.skewJoin.enabled", "true")
 _conf.set("spark.sql.adaptive.coalescePartitions.enabled", "true")
 _conf.set("spark.sql.adaptive.localShuffleReader.enabled", "true")
 _conf.set("spark.sql.shuffle.partitions", SHUFFLE_PARTITIONS)
+_conf.set("spark.shuffle.io.maxRetries", "10")
+_conf.set("spark.shuffle.io.retryWait", "10s")
+_conf.set("spark.network.timeout", "800s")
+_conf.set("spark.executor.heartbeatInterval", "60s")
+_conf.set("spark.stage.maxConsecutiveAttempts", "8")
+_conf.set("spark.task.maxFailures", "8")
 
 sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
@@ -1023,12 +1030,6 @@ def run_single_fast():
     spark.conf.set("spark.sql.adaptive.advisoryPartitionSizeInBytes", str(64 * 1024 * 1024))
     spark.conf.set("spark.sql.adaptive.coalescePartitions.initialPartitionNum", str(wide_shuffle_parts))
     spark.conf.set("spark.sql.files.maxPartitionBytes", str(128 * 1024 * 1024))
-    spark.conf.set("spark.shuffle.io.maxRetries", "10")
-    spark.conf.set("spark.shuffle.io.retryWait", "10s")
-    spark.conf.set("spark.network.timeout", "800s")
-    spark.conf.set("spark.executor.heartbeatInterval", "60s")
-    spark.conf.set("spark.stage.maxConsecutiveAttempts", "8")
-    spark.conf.set("spark.task.maxFailures", "8")
     checkpoint_dir = f"{ICEBERG_WAREHOUSE.rstrip('/')}/_spark_checkpoints/{TGT_TABLE}"
     spark.sparkContext.setCheckpointDir(checkpoint_dir)
     stage_log("SINGLE_FAST_STAGE", f"Checkpoint dir set: {checkpoint_dir}")

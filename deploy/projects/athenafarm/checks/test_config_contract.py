@@ -598,6 +598,13 @@ class TestRuntimeOptimizationSafety(unittest.TestCase):
         self.assertIn("foreachPartition", text)
         self.assertNotIn("delta_df.collect()", text)
 
+    def test_tract_does_not_set_immutable_spark_conf_at_runtime(self):
+        text = _script_text("Transform-Tract-Producer-Year")
+        self.assertNotIn('spark.conf.set("spark.network.timeout"', text)
+        self.assertNotIn('spark.conf.set("spark.executor.heartbeatInterval"', text)
+        self.assertNotIn('spark.conf.set("spark.stage.maxConsecutiveAttempts"', text)
+        self.assertNotIn('spark.conf.set("spark.task.maxFailures"', text)
+
 
 class TestTractModeDispatchContract(unittest.TestCase):
     """

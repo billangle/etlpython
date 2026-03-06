@@ -86,6 +86,7 @@ GLUE JOB ARGUMENTS:
     --debug               : DEBUG logging flag (default: false)
 
 VERSION HISTORY:
+    v4.4.3 - 2026-03-06 - Reduce checkpoint write pressure (fewer checkpointed stages, lower checkpoint partitions) and increase S3 retry headroom.
     v4.4.2 - 2026-03-06 - Add minimal progress markers for single_fast milestones across all environments.
     v4.4.1 - 2026-03-06 - Move static Spark resiliency configs to SparkConf initialization to avoid runtime AnalysisException on immutable keys.
     v4.4.0 - 2026-03-06 - Remove legacy staged runtime dispatch; enforce single-pass execution modes only (single_fast/single_pass, with single alias).
@@ -204,6 +205,8 @@ _conf.set("spark.network.timeout", "800s")
 _conf.set("spark.executor.heartbeatInterval", "60s")
 _conf.set("spark.stage.maxConsecutiveAttempts", "8")
 _conf.set("spark.task.maxFailures", "8")
+_conf.set("spark.hadoop.fs.s3.maxRetries", "30")
+_conf.set("spark.hadoop.fs.s3.maxConnections", "1000")
 
 sc = SparkContext(conf=_conf)
 glueContext = GlueContext(sc)
@@ -1027,6 +1030,7 @@ def run_single_fast():
     base_shuffle_parts = max(1200, int(SHUFFLE_PARTITIONS))
     wide_shuffle_parts = max(1600, base_shuffle_parts)
     final_shuffle_parts = max(1200, int(base_shuffle_parts * 0.85))
+    checkpoint_parts = max(400, min(800, base_shuffle_parts))
 
     spark.conf.set("spark.sql.autoBroadcastJoinThreshold", str(128 * 1024 * 1024))
     spark.conf.set("spark.sql.broadcastTimeout", "1200")
@@ -1071,27 +1075,27 @@ def run_single_fast():
     spine_df.createOrReplaceTempView("sss_spine_stage")
     progress_log(30, "spine_ready", phase_t0)
 
-    core1_df = spark.sql(PREPROCESS_STRUCTURE_LINK_SQL).repartition(wide_shuffle_parts, "instance", "client", "f_ibase").checkpoint(eager=True)
+    core1_df = spark.sql(PREPROCESS_STRUCTURE_LINK_SQL).repartition(wide_shuffle_parts, "instance", "client", "f_ibase")
     core1_df.createOrReplaceTempView("sss_details_core1_stage")
 
-    structure_filter_df = spark.sql(PREPROCESS_STRUCTURE_FARM_FILTER_SQL).repartition(wide_shuffle_parts, "f_ibase").checkpoint(eager=True)
+    structure_filter_df = spark.sql(PREPROCESS_STRUCTURE_FARM_FILTER_SQL).repartition(wide_shuffle_parts, "f_ibase")
     structure_filter_df.createOrReplaceTempView("sss_details_structure_filter_stage")
 
-    structure_df = spark.sql(PREPROCESS_STRUCTURE_FARM_SQL).repartition(wide_shuffle_parts, "instance", "client", "f_ibase").checkpoint(eager=True)
+    structure_df = spark.sql(PREPROCESS_STRUCTURE_FARM_SQL).repartition(checkpoint_parts, "instance", "client", "f_ibase").checkpoint(eager=True)
     structure_df.createOrReplaceTempView("sss_details_structure_stage")
     progress_log(50, "structure_ready", phase_t0)
 
     core2_source_df = spark.sql(PREPROCESS_CORE2_EXTRACT_SQL).repartition(wide_shuffle_parts, "i_instance", "i_client", "r_ibase")
     core2_source_df.createOrReplaceTempView("sss_details_core2_source_stage")
 
-    core2_df = spark.sql(PREPROCESS_CORE2_SQL).repartition(wide_shuffle_parts, "i_instance", "r_ibase").checkpoint(eager=True)
+    core2_df = spark.sql(PREPROCESS_CORE2_SQL).repartition(wide_shuffle_parts, "i_instance", "r_ibase")
     core2_df.createOrReplaceTempView("sss_details_core2_stage")
 
-    base_df = spark.sql(PREPROCESS_PARTNER_SQL).repartition(wide_shuffle_parts, "i_instance", "r_ibase").checkpoint(eager=True)
+    base_df = spark.sql(PREPROCESS_PARTNER_SQL).repartition(wide_shuffle_parts, "i_instance", "r_ibase")
     base_df.createOrReplaceTempView("sss_details_base_stage")
     progress_log(65, "partner_ready", phase_t0)
 
-    stage_df = spark.sql(PREPROCESS_ENRICH_SQL).repartition(base_shuffle_parts, "county_office_control_identifier", "time_period_identifier").checkpoint(eager=True)
+    stage_df = spark.sql(PREPROCESS_ENRICH_SQL).repartition(checkpoint_parts, "county_office_control_identifier", "time_period_identifier").checkpoint(eager=True)
     stage_df.createOrReplaceTempView("tract_current_stage")
     progress_log(80, "enrich_ready", phase_t0)
 

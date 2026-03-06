@@ -8,13 +8,13 @@ for the full architecture rationale.
 
 ---
 
-## Recent Changes (2026-03-05)
+## Recent Changes (2026-03-06)
 
-- Tract primary execution path now uses `single_fast` (single Glue run, in-memory transform, direct publish) aligned with `arch.md` recommendations; fragmented multi-stage chain remains available as fallback/debug path.
-- `single_fast` orchestration profile is tuned for completion-first runtime (`TimeoutSeconds=3600`, `--max_job_seconds=0`, `--shuffle_partitions=900`) to prevent script-level fail-fast from aborting near-complete runs.
-- `core2_extract` now key-filters `ibin` by joining only structure-derived keys (`instance/client/f_ibase`), reducing full-table scan and shuffle overhead in both staged and `single_fast` paths.
-- `single_fast` applies an aggressive Spark tuning profile at runtime (larger broadcast threshold, longer broadcast timeout, tighter skew detection, dynamic partition pruning) for better execution speed.
-- `single_fast` now also uses lineage-breaking checkpoints (`localCheckpoint`) and targeted repartitioning on join keys (`instance/client/f_ibase`, `i_instance/i_client/r_ibase`, `tract_year_identifier`) to reduce recomputation and stabilize large-data execution.
+- Tract execution is now single-pass only in production path: `TransformTractProducerYearSingleFast`.
+- Tract script runtime dispatch is simplified to single-pass modes (`single_fast`, `single_pass`, with `single` as alias).
+- Legacy multi-stage tract Step Functions chain was removed from `Main.param.asl.json`.
+- `single_fast` profile remains completion-first: `WorkerType=G.2X`, `NumberOfWorkers=40`, `TimeoutSeconds=3600`, `--max_job_seconds=0`, `--shuffle_partitions=900`.
+- `single_fast` keeps the large-data optimizations: key-filtered `core2_extract`, targeted repartitioning on join keys, AQE tuning, and lineage-breaking checkpoints.
 
 ## Current Default Tract Path
 
@@ -22,134 +22,7 @@ for the full architecture rationale.
 - Glue `task_mode`: `single_fast`
 - Runtime profile: `WorkerType=G.2X`, `NumberOfWorkers=40`, `TimeoutSeconds=3600`, `--max_job_seconds=0`, `--shuffle_partitions=900`
 - Operational intent: single-pass, in-memory transform with direct publish to minimize stage startup/commit overhead and maximize completion reliability.
-
-- Tract transform is now orchestrated as twenty-nine Step Functions-managed stages:
-  - `TransformTractProducerYearPreprocessSpine` (`--task_mode=preprocess_spine`)
-  - `TransformTractProducerYearPreprocessStructureLink` (`--task_mode=preprocess_structure_link`)
-  - `TransformTractProducerYearPreprocessStructureFarmFilter` (`--task_mode=preprocess_structure_farm_filter`)
-  - `TransformTractProducerYearPreprocessStructureFarmB0` (`--task_mode=preprocess_structure_farm_b0`)
-  - `TransformTractProducerYearPreprocessStructureFarmB1` (`--task_mode=preprocess_structure_farm_b1`)
-  - `TransformTractProducerYearPreprocessStructureFarmB2` (`--task_mode=preprocess_structure_farm_b2`)
-  - `TransformTractProducerYearPreprocessStructureFarmB3S0` (`--task_mode=preprocess_structure_farm_b3_s0`)
-  - `TransformTractProducerYearPreprocessStructureFarmB3S1` (`--task_mode=preprocess_structure_farm_b3_s1`)
-  - `TransformTractProducerYearPreprocessStructureFarmB3S2` (`--task_mode=preprocess_structure_farm_b3_s2`)
-  - `TransformTractProducerYearPreprocessStructureFarmB3S3` (`--task_mode=preprocess_structure_farm_b3_s3`)
-  - `TransformTractProducerYearPreprocessStructureFarmB4` (`--task_mode=preprocess_structure_farm_b4`)
-  - `TransformTractProducerYearPreprocessStructureFarmB5` (`--task_mode=preprocess_structure_farm_b5`)
-  - `TransformTractProducerYearPreprocessStructureFarmB6` (`--task_mode=preprocess_structure_farm_b6`)
-  - `TransformTractProducerYearPreprocessStructureFarmB7` (`--task_mode=preprocess_structure_farm_b7`)
-  - `TransformTractProducerYearPreprocessStructureFarmB8` (`--task_mode=preprocess_structure_farm_b8`)
-  - `TransformTractProducerYearPreprocessStructureFarmB9` (`--task_mode=preprocess_structure_farm_b9`)
-  - `TransformTractProducerYearPreprocessStructureFarmB10` (`--task_mode=preprocess_structure_farm_b10`)
-  - `TransformTractProducerYearPreprocessStructureFarmB11` (`--task_mode=preprocess_structure_farm_b11`)
-  - `TransformTractProducerYearPreprocessStructureFarmB12` (`--task_mode=preprocess_structure_farm_b12`)
-  - `TransformTractProducerYearPreprocessStructureFarmB13` (`--task_mode=preprocess_structure_farm_b13`)
-  - `TransformTractProducerYearPreprocessStructureFarmB14` (`--task_mode=preprocess_structure_farm_b14`)
-  - `TransformTractProducerYearPreprocessStructureFarmB15` (`--task_mode=preprocess_structure_farm_b15`)
-  - `TransformTractProducerYearPreprocessStructureMerge` (`--task_mode=preprocess_structure_merge`)
-  - `TransformTractProducerYearPreprocessCore2Extract` (`--task_mode=preprocess_core2_extract`)
-  - `TransformTractProducerYearPreprocessCore2` (`--task_mode=preprocess_core2`)
-  - `TransformTractProducerYearPreprocessPartner` (`--task_mode=preprocess_partner`)
-  - `TransformTractProducerYearPreprocessEnrich` (`--task_mode=preprocess_enrich`)
-  - `TransformTractProducerYearFinalizeResolve` (`--task_mode=finalize_resolve`)
-  - `TransformTractProducerYearFinalizePublish` (`--task_mode=finalize_publish`)
-- Phase-4 skew mitigation now uses salted composite-key bucketing (`f_ibase + tract/admin/tenant keys`) so hot `f_ibase` values can spread across `preprocess_structure_farm_b0..b15` instead of concentrating in a single bucket.
-- Phase-4 bucket stages now use bucket-local key filtering before join: each `preprocess_structure_farm_b*` first materializes `core1_bucket`, derives bucket keys, and joins only the matching `ibf` slice for that bucket (instead of joining against the full `ibf` stage each time).
-- Phase-4 now writes each bucket to isolated tables (`..._stage_structure_b0..b15`) and uses `preprocess_structure_merge` to build the consolidated structure stage once.
-- Tract branch timeout tuning by stage (strictly under 20 minutes each):
-  - `preprocess_spine`: 1140s
-  - `preprocess_structure_link`: 1140s
-  - `preprocess_structure_farm_filter`: 1140s
-  - `preprocess_structure_farm_b0`: 1140s
-  - `preprocess_structure_farm_b1`: 1140s
-  - `preprocess_structure_farm_b2`: 1140s
-  - `preprocess_structure_farm_b3_s0`: 1140s
-  - `preprocess_structure_farm_b3_s1`: 1140s
-  - `preprocess_structure_farm_b3_s2`: 1140s
-  - `preprocess_structure_farm_b3_s3`: 1140s
-  - `preprocess_structure_farm_b4`: 1140s
-  - `preprocess_structure_farm_b5`: 1140s
-  - `preprocess_structure_farm_b6`: 1140s
-  - `preprocess_structure_farm_b7`: 1140s
-  - `preprocess_structure_farm_b8`: 1140s
-  - `preprocess_structure_farm_b9`: 1140s
-  - `preprocess_structure_farm_b10`: 1140s
-  - `preprocess_structure_farm_b11`: 1140s
-  - `preprocess_structure_farm_b12`: 1140s
-  - `preprocess_structure_farm_b13`: 1140s
-  - `preprocess_structure_farm_b14`: 1140s
-  - `preprocess_structure_farm_b15`: 1140s
-  - `preprocess_structure_merge`: 1020s
-  - `preprocess_core2_extract`: 1140s
-  - `preprocess_core2`: 1140s
-  - `preprocess_partner`: 1140s
-  - `preprocess_enrich`: 1140s
-  - `finalize_resolve`: 1140s
-  - `finalize_publish`: 1140s
-- Tract script-level fail-fast (`--max_job_seconds`) is now passed per stage from Step Functions:
-  - `preprocess_spine`: 1020s
-  - `preprocess_structure_link`: 1020s
-  - `preprocess_structure_farm_filter`: 1020s
-  - `preprocess_structure_farm_b0`: 1020s
-  - `preprocess_structure_farm_b1`: 1020s
-  - `preprocess_structure_farm_b2`: 1020s
-  - `preprocess_structure_farm_b3_s0`: 1020s
-  - `preprocess_structure_farm_b3_s1`: 1020s
-  - `preprocess_structure_farm_b3_s2`: 1020s
-  - `preprocess_structure_farm_b3_s3`: 1020s
-  - `preprocess_structure_farm_b4`: 1020s
-  - `preprocess_structure_farm_b5`: 1020s
-  - `preprocess_structure_farm_b6`: 1020s
-  - `preprocess_structure_farm_b7`: 1020s
-  - `preprocess_structure_farm_b8`: 1020s
-  - `preprocess_structure_farm_b9`: 1020s
-  - `preprocess_structure_farm_b10`: 1020s
-  - `preprocess_structure_farm_b11`: 1020s
-  - `preprocess_structure_farm_b12`: 1020s
-  - `preprocess_structure_farm_b13`: 1020s
-  - `preprocess_structure_farm_b14`: 1020s
-  - `preprocess_structure_farm_b15`: 1020s
-  - `preprocess_structure_merge`: 900s
-  - `preprocess_core2_extract`: 1020s
-  - `preprocess_core2`: 1020s
-  - `preprocess_partner`: 1020s
-  - `preprocess_enrich`: 1020s
-  - `finalize_resolve`: 1020s
-  - `finalize_publish`: 900s
-- Tract per-stage resource profile is now tuned in Step Functions with explicit Glue worker settings and shuffle partitions:
-  - `preprocess_spine`: `WorkerType=G.2X`, `NumberOfWorkers=40`, `--shuffle_partitions=1400`
-  - `preprocess_structure_link`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_filter`: `WorkerType=G.2X`, `NumberOfWorkers=40`, `--shuffle_partitions=1400`
-  - `preprocess_structure_farm_b0`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b1`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b2`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b3_s0`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b3_s1`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b3_s2`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b3_s3`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b4`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b5`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b6`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b7`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b8`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b9`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b10`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b11`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b12`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b13`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b14`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_farm_b15`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_structure_merge`: `WorkerType=G.2X`, `NumberOfWorkers=16`, `--shuffle_partitions=700`
-  - `preprocess_core2_extract`: `WorkerType=G.2X`, `NumberOfWorkers=32`, `--shuffle_partitions=1200`
-  - `preprocess_core2`: `WorkerType=G.2X`, `NumberOfWorkers=32`, `--shuffle_partitions=1200`
-  - `preprocess_partner`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `preprocess_enrich`: `WorkerType=G.2X`, `NumberOfWorkers=24`, `--shuffle_partitions=900`
-  - `finalize_resolve`: `WorkerType=G.2X`, `NumberOfWorkers=16`, `--shuffle_partitions=700`
-  - `finalize_publish`: `WorkerType=G.2X`, `NumberOfWorkers=12`, `--shuffle_partitions=500`
-- Tract branch now uses conservative transient-failure retries per stage in Step Functions:
-  - `Retry` on `States.TaskFailed`, `Glue.ConcurrentRunsExceededException`, `Glue.InternalServiceException`, `Glue.OperationTimeoutException`, `States.Timeout`
-  - Backoff profile: `IntervalSeconds=20`, `MaxAttempts=2`, `BackoffRate=2.0`
-- Tract script supports `task_mode` (`single|single_fast|preprocess|preprocess_base|preprocess_spine|preprocess_structure_link|preprocess_structure_farm_filter|preprocess_structure_farm_b0|preprocess_structure_farm_b1|preprocess_structure_farm_b2|preprocess_structure_farm_b3|preprocess_structure_farm_b3_s0|preprocess_structure_farm_b3_s1|preprocess_structure_farm_b3_s2|preprocess_structure_farm_b3_s3|preprocess_structure_farm_b4|preprocess_structure_farm_b5|preprocess_structure_farm_b6|preprocess_structure_farm_b7|preprocess_structure_farm_b8|preprocess_structure_farm_b9|preprocess_structure_farm_b10|preprocess_structure_farm_b11|preprocess_structure_farm_b12|preprocess_structure_farm_b13|preprocess_structure_farm_b14|preprocess_structure_farm_b15|preprocess_structure_merge|preprocess_structure_farm|preprocess_core2_extract|preprocess_core2|preprocess_partner|preprocess_enrich|finalize_resolve|finalize_publish|finalize`) with stage-table handoff for smaller, faster task boundaries.
+- Tract script supported runtime modes for current production path are: `single_fast`, `single_pass`, and `single` (alias).
 - Farm transform is pinned to a known-good baseline (`Transform-Farm-Producer-Year`, git commit `fc3fe5f`), with observed full-load completion under 4 minutes.
 - PG CDC ingest retains runtime reductions from removal of pre-write cache/count and pre-write repartition/sort passes.
 - Contract checks were updated to keep Farm implementation stable and avoid forcing Farm-script rewrites.
@@ -223,35 +96,7 @@ Manual / Lambda / CI trigger (no EventBridge — see "Running Without EventBridg
         │
         ├─ [TransformParallel]
         │    ├─ Tract branch:
-        │    │    ├─ TransformTractProducerYearPreprocessSpine (`--task_mode=preprocess_spine`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureLink (`--task_mode=preprocess_structure_link`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmFilter (`--task_mode=preprocess_structure_farm_filter`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB0 (`--task_mode=preprocess_structure_farm_b0`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB1 (`--task_mode=preprocess_structure_farm_b1`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB2 (`--task_mode=preprocess_structure_farm_b2`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB3S0 (`--task_mode=preprocess_structure_farm_b3_s0`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB3S1 (`--task_mode=preprocess_structure_farm_b3_s1`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB3S2 (`--task_mode=preprocess_structure_farm_b3_s2`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB3S3 (`--task_mode=preprocess_structure_farm_b3_s3`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB4 (`--task_mode=preprocess_structure_farm_b4`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB5 (`--task_mode=preprocess_structure_farm_b5`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB6 (`--task_mode=preprocess_structure_farm_b6`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB7 (`--task_mode=preprocess_structure_farm_b7`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB8 (`--task_mode=preprocess_structure_farm_b8`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB9 (`--task_mode=preprocess_structure_farm_b9`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB10 (`--task_mode=preprocess_structure_farm_b10`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB11 (`--task_mode=preprocess_structure_farm_b11`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB12 (`--task_mode=preprocess_structure_farm_b12`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB13 (`--task_mode=preprocess_structure_farm_b13`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB14 (`--task_mode=preprocess_structure_farm_b14`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureFarmB15 (`--task_mode=preprocess_structure_farm_b15`)
-        │    │    ├─ TransformTractProducerYearPreprocessStructureMerge (`--task_mode=preprocess_structure_merge`)
-        │    │    ├─ TransformTractProducerYearPreprocessCore2Extract (`--task_mode=preprocess_core2_extract`)
-        │    │    ├─ TransformTractProducerYearPreprocessCore2 (`--task_mode=preprocess_core2`)
-        │    │    ├─ TransformTractProducerYearPreprocessPartner (`--task_mode=preprocess_partner`)
-        │    │    ├─ TransformTractProducerYearPreprocessEnrich (`--task_mode=preprocess_enrich`)
-        │    │    ├─ TransformTractProducerYearFinalizeResolve (`--task_mode=finalize_resolve`)
-        │    │    └─ TransformTractProducerYearFinalizePublish (`--task_mode=finalize_publish`)
+        │    │    └─ TransformTractProducerYearSingleFast (`--task_mode=single_fast`)
         │    └─ Farm branch:
         │         └─ Transform-Farm-Producer-Year           (full-load only)
         │
@@ -276,11 +121,7 @@ Via the master deployer (preferred):
 
 ```bash
 cd deploy
-
-# Dry run first
 python deploy.py --config config/athenafarm/dev.json --region us-east-1 --project-type athenafarm
-
-# Deploy
 python deploy.py --config config/athenafarm/prod.json --region us-east-1 --project-type athenafarm
 ```
 
@@ -288,7 +129,7 @@ Or standalone:
 
 ```bash
 cd deploy/projects/athenafarm
-python deploy.py --config ../../config/athenafarm/dev.json --dry-run
+python deploy.py --config ../../config/athenafarm/dev.json
 python deploy.py --config ../../config/athenafarm/prod.json
 ```
 
@@ -729,99 +570,35 @@ structured metric lines to the driver log for every run:
 - `[METRIC] mode=full_load`
 - `[METRIC] total_job_seconds=<float>`
 
-`Transform-Tract-Producer-Year` also emits stage-prefixed log lines to make
-CloudWatch filtering easier for the 26-stage tract flow:
+`Transform-Tract-Producer-Year` emits single-pass-prefixed lines for CloudWatch filtering:
 
-- `[PP_SPINE_STAGE] ...`
-- `[PP_STRUCTURE_LINK_STAGE] ...`
-- `[PP_STRUCTURE_FARM_FILTER_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B0_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B1_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B2_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B3_S0_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B3_S1_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B3_S2_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B3_S3_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B4_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B5_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B6_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B7_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B8_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B9_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B10_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B11_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B12_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B13_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B14_STAGE] ...`
-- `[PP_STRUCTURE_FARM_B15_STAGE] ...`
-- `[PP_STRUCTURE_MERGE_STAGE] ...`
-- `[PP_CORE2_EXTRACT_STAGE] ...`
-- `[PP_CORE2_STAGE] ...`
-- `[PP_PARTNER_STAGE] ...`
-- `[PP_ENRICH_STAGE] ...`
-- `[FINALIZE_RESOLVE_STAGE] ...`
-- `[FINALIZE_PUBLISH_STAGE] ...`
+- `[SINGLE_FAST_STAGE] ...`
 - `[JOB_STAGE] ...`
 
 Prefix convention for tract logging/metrics:
 
 - Stage log format: `[<STAGE_PREFIX>] <message>`
 - Stage metric format: `[<STAGE_PREFIX>] [METRIC] <name>=<value>`
-- Examples:
-  - `[PP_SPINE_STAGE] [METRIC] phase_preprocess_spine_seconds=<float>`
-  - `[PP_SPINE_STAGE] [METRIC] stage_spine_row_count=<int>`
-  - `[PP_STRUCTURE_LINK_STAGE] [METRIC] phase_preprocess_structure_link_seconds=<float>`
-  - `[PP_STRUCTURE_LINK_STAGE] [METRIC] stage_core1_row_count=<int>`
-  - `[PP_STRUCTURE_FARM_FILTER_STAGE] [METRIC] phase_preprocess_structure_farm_filter_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_FILTER_STAGE] [METRIC] stage_structure_filter_row_count=<int>`
-  - `[PP_STRUCTURE_FARM_B0_STAGE] [METRIC] phase_preprocess_structure_farm_b0_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B1_STAGE] [METRIC] phase_preprocess_structure_farm_b1_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B2_STAGE] [METRIC] phase_preprocess_structure_farm_b2_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B3_S0_STAGE] [METRIC] phase_preprocess_structure_farm_b3_s0_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B3_S1_STAGE] [METRIC] phase_preprocess_structure_farm_b3_s1_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B3_S2_STAGE] [METRIC] phase_preprocess_structure_farm_b3_s2_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B3_S3_STAGE] [METRIC] phase_preprocess_structure_farm_b3_s3_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B4_STAGE] [METRIC] phase_preprocess_structure_farm_b4_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B5_STAGE] [METRIC] phase_preprocess_structure_farm_b5_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B6_STAGE] [METRIC] phase_preprocess_structure_farm_b6_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B7_STAGE] [METRIC] phase_preprocess_structure_farm_b7_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B8_STAGE] [METRIC] phase_preprocess_structure_farm_b8_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B9_STAGE] [METRIC] phase_preprocess_structure_farm_b9_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B10_STAGE] [METRIC] phase_preprocess_structure_farm_b10_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B11_STAGE] [METRIC] phase_preprocess_structure_farm_b11_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B12_STAGE] [METRIC] phase_preprocess_structure_farm_b12_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B13_STAGE] [METRIC] phase_preprocess_structure_farm_b13_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B14_STAGE] [METRIC] phase_preprocess_structure_farm_b14_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B15_STAGE] [METRIC] phase_preprocess_structure_farm_b15_seconds=<float>`
-  - `[PP_STRUCTURE_FARM_B15_STAGE] [METRIC] stage_structure_bucket_row_count=<int>`
-  - `[PP_STRUCTURE_MERGE_STAGE] [METRIC] phase_preprocess_structure_merge_seconds=<float>`
-  - `[PP_STRUCTURE_MERGE_STAGE] [METRIC] stage_structure_row_count=<int>`
-  - `[PP_CORE2_EXTRACT_STAGE] [METRIC] phase_preprocess_core2_extract_seconds=<float>`
-  - `[PP_CORE2_EXTRACT_STAGE] [METRIC] stage_core2_source_row_count=<int>`
-  - `[PP_CORE2_STAGE] [METRIC] phase_preprocess_core2_seconds=<float>`
-  - `[PP_CORE2_STAGE] [METRIC] stage_core2_row_count=<int>`
-  - `[PP_PARTNER_STAGE] [METRIC] phase_preprocess_partner_seconds=<float>`
-  - `[PP_PARTNER_STAGE] [METRIC] stage_base_row_count=<int>`
-  - `[PP_ENRICH_STAGE] [METRIC] phase_preprocess_enrich_seconds=<float>`
-  - `[PP_ENRICH_STAGE] [METRIC] stage_enrich_row_count=<int>`
-  - `[FINALIZE_RESOLVE_STAGE] [METRIC] phase_finalize_resolve_seconds=<float>`
-  - `[FINALIZE_PUBLISH_STAGE] [METRIC] phase_write_seconds=<float>`
+- Common single-pass metrics:
+  - `[SINGLE_FAST_STAGE] [METRIC] phase_write_seconds=<float>`
+  - `[SINGLE_FAST_STAGE] [METRIC] phase_single_fast_seconds=<float>`
+  - `[SINGLE_FAST_STAGE] [METRIC] tract_producer_year_row_count=<int>`
   - `[JOB_STAGE] [METRIC] total_job_seconds=<float>`
 
 Sample stage-focused filter:
 
 ```sql
 fields @timestamp, @message
-| filter @message like /\[PP_ENRICH_STAGE\]/
+| filter @message like /\[SINGLE_FAST_STAGE\]/
 | sort @timestamp desc
 | limit 200
 ```
 
-Sample all-stage filter (single query for all tract stage prefixes):
+Sample all-stage filter (single query for current tract prefixes):
 
 ```sql
 fields @timestamp, @message
-| filter @message like /\[(PP_SPINE_STAGE|PP_STRUCTURE_LINK_STAGE|PP_STRUCTURE_FARM_FILTER_STAGE|PP_STRUCTURE_FARM_B0_STAGE|PP_STRUCTURE_FARM_B1_STAGE|PP_STRUCTURE_FARM_B2_STAGE|PP_STRUCTURE_FARM_B3_S0_STAGE|PP_STRUCTURE_FARM_B3_S1_STAGE|PP_STRUCTURE_FARM_B3_S2_STAGE|PP_STRUCTURE_FARM_B3_S3_STAGE|PP_STRUCTURE_FARM_B4_STAGE|PP_STRUCTURE_FARM_B5_STAGE|PP_STRUCTURE_FARM_B6_STAGE|PP_STRUCTURE_FARM_B7_STAGE|PP_STRUCTURE_FARM_B8_STAGE|PP_STRUCTURE_FARM_B9_STAGE|PP_STRUCTURE_FARM_B10_STAGE|PP_STRUCTURE_FARM_B11_STAGE|PP_STRUCTURE_FARM_B12_STAGE|PP_STRUCTURE_FARM_B13_STAGE|PP_STRUCTURE_FARM_B14_STAGE|PP_STRUCTURE_FARM_B15_STAGE|PP_STRUCTURE_MERGE_STAGE|PP_CORE2_EXTRACT_STAGE|PP_CORE2_STAGE|PP_PARTNER_STAGE|PP_ENRICH_STAGE|FINALIZE_RESOLVE_STAGE|FINALIZE_PUBLISH_STAGE|JOB_STAGE)\]/
+| filter @message like /\[(SINGLE_FAST_STAGE|JOB_STAGE)\]/
 | sort @timestamp desc
 | limit 200
 ```
@@ -830,7 +607,7 @@ Sample all-stage parsed view (extract stage for grouping):
 
 ```sql
 fields @timestamp, @message
-| parse @message /\[(?<stage>PP_SPINE_STAGE|PP_STRUCTURE_LINK_STAGE|PP_STRUCTURE_FARM_FILTER_STAGE|PP_STRUCTURE_FARM_B0_STAGE|PP_STRUCTURE_FARM_B1_STAGE|PP_STRUCTURE_FARM_B2_STAGE|PP_STRUCTURE_FARM_B3_S0_STAGE|PP_STRUCTURE_FARM_B3_S1_STAGE|PP_STRUCTURE_FARM_B3_S2_STAGE|PP_STRUCTURE_FARM_B3_S3_STAGE|PP_STRUCTURE_FARM_B4_STAGE|PP_STRUCTURE_FARM_B5_STAGE|PP_STRUCTURE_FARM_B6_STAGE|PP_STRUCTURE_FARM_B7_STAGE|PP_STRUCTURE_FARM_B8_STAGE|PP_STRUCTURE_FARM_B9_STAGE|PP_STRUCTURE_FARM_B10_STAGE|PP_STRUCTURE_FARM_B11_STAGE|PP_STRUCTURE_FARM_B12_STAGE|PP_STRUCTURE_FARM_B13_STAGE|PP_STRUCTURE_FARM_B14_STAGE|PP_STRUCTURE_FARM_B15_STAGE|PP_STRUCTURE_MERGE_STAGE|PP_CORE2_EXTRACT_STAGE|PP_CORE2_STAGE|PP_PARTNER_STAGE|PP_ENRICH_STAGE|FINALIZE_RESOLVE_STAGE|FINALIZE_PUBLISH_STAGE|JOB_STAGE)\]/
+| parse @message /\[(?<stage>SINGLE_FAST_STAGE|JOB_STAGE)\]/
 | filter ispresent(stage)
 | stats count(*) as lines by stage
 | sort lines desc

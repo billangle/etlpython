@@ -27,6 +27,22 @@ def _duration_seconds(started_ms, completed_ms):
     return int((now_ms - started_ms) / 1000)
 
 
+def _fallback_progress_pct(state, elapsed_seconds, timeout_minutes):
+    if elapsed_seconds is None or timeout_minutes in (None, 0):
+        return None
+    if state not in {"STARTING", "RUNNING", "STOPPING", "WAITING"}:
+        return None
+    total_seconds = int(timeout_minutes) * 60
+    if total_seconds <= 0:
+        return None
+    pct = int((elapsed_seconds / total_seconds) * 100)
+    if pct < 0:
+        pct = 0
+    if pct > 99:
+        pct = 99
+    return pct
+
+
 _PROGRESS_RE = re.compile(
     r"\[PROGRESS\]\s+progress_pct=(\d+)\s+milestone=([^\s]+)\s+elapsed_seconds=([0-9]+(?:\.[0-9]+)?)"
 )
@@ -207,6 +223,12 @@ def main() -> int:
     run_id = selected.get("Id", "-")
     progress, progress_diag = _latest_progress(logs, run_id, started_ms, completed_ms)
 
+    elapsed_seconds = _duration_seconds(started_ms, completed_ms)
+    timeout_minutes = selected.get("Timeout")
+    explicit_progress_pct = progress.get("progress_pct") if progress else None
+    fallback_progress_pct = _fallback_progress_pct(state, elapsed_seconds, timeout_minutes)
+    effective_progress_pct = explicit_progress_pct if explicit_progress_pct is not None else fallback_progress_pct
+
     result = {
         "environment": env_upper,
         "region": region,
@@ -219,12 +241,14 @@ def main() -> int:
         "worker_type": selected.get("WorkerType"),
         "number_of_workers": selected.get("NumberOfWorkers"),
         "execution_time_seconds": selected.get("ExecutionTime"),
-        "elapsed_seconds": _duration_seconds(started_ms, completed_ms),
+        "elapsed_seconds": elapsed_seconds,
         "started_on_utc": _fmt_ms(started_ms),
         "completed_on_utc": _fmt_ms(completed_ms),
-        "timeout_minutes": selected.get("Timeout"),
+        "timeout_minutes": timeout_minutes,
         "error_message": selected.get("ErrorMessage", ""),
-        "runtime_progress_pct": progress.get("progress_pct") if progress else None,
+        "runtime_progress_pct": effective_progress_pct,
+        "runtime_progress_pct_source": "progress_logs" if explicit_progress_pct is not None else ("timeout_estimate" if fallback_progress_pct is not None else None),
+        "runtime_progress_pct_estimate": fallback_progress_pct,
         "runtime_progress_milestone": progress.get("milestone") if progress else None,
         "runtime_progress_elapsed_seconds": progress.get("elapsed_seconds") if progress else None,
         "runtime_progress_event_time_utc": progress.get("event_time_utc") if progress else None,

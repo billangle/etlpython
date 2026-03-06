@@ -65,6 +65,13 @@ When progress log lines are available in CloudWatch, the JSON also includes:
 - `runtime_progress_elapsed_seconds`
 - `runtime_progress_event_time_utc`
 
+Progress percent behavior:
+
+- `runtime_progress_pct` uses progress logs when present.
+- If progress logs are missing, it falls back to a timeout-based estimate (`elapsed_seconds / (timeout_minutes * 60)` capped at 99 while running).
+- `runtime_progress_pct_source` indicates `progress_logs` or `timeout_estimate`.
+- `runtime_progress_pct_estimate` always contains the timeout-based estimate when calculable.
+
 Lookup diagnostics are also included:
 
 - `runtime_progress_lookup_status` (`ok`, `no_events`, `no_progress_lines`, `no_start_time`)

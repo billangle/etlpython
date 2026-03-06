@@ -86,6 +86,7 @@ GLUE JOB ARGUMENTS:
     --debug               : DEBUG logging flag (default: false)
 
 VERSION HISTORY:
+    v4.4.4 - 2026-03-06 - Remove remaining durable checkpoints in single_fast and lower forced partition sizes to reduce long-running shuffle/checkpoint bottlenecks.
     v4.4.3 - 2026-03-06 - Reduce checkpoint write pressure (fewer checkpointed stages, lower checkpoint partitions) and increase S3 retry headroom.
     v4.4.2 - 2026-03-06 - Add minimal progress markers for single_fast milestones across all environments.
     v4.4.1 - 2026-03-06 - Move static Spark resiliency configs to SparkConf initialization to avoid runtime AnalysisException on immutable keys.
@@ -1027,10 +1028,10 @@ def run_single_fast():
     stage_log("SINGLE_FAST_STAGE", "Running single_fast architecture-aligned in-memory transform")
     progress_log(5, "single_fast_started", phase_t0)
 
-    base_shuffle_parts = max(1200, int(SHUFFLE_PARTITIONS))
-    wide_shuffle_parts = max(1600, base_shuffle_parts)
-    final_shuffle_parts = max(1200, int(base_shuffle_parts * 0.85))
-    checkpoint_parts = max(400, min(800, base_shuffle_parts))
+    requested_parts = int(SHUFFLE_PARTITIONS)
+    base_shuffle_parts = max(500, min(900, requested_parts))
+    wide_shuffle_parts = max(700, min(1100, int(base_shuffle_parts * 1.2)))
+    final_shuffle_parts = max(500, min(900, int(base_shuffle_parts * 0.9)))
 
     spark.conf.set("spark.sql.autoBroadcastJoinThreshold", str(128 * 1024 * 1024))
     spark.conf.set("spark.sql.broadcastTimeout", "1200")
@@ -1040,6 +1041,7 @@ def run_single_fast():
     spark.conf.set("spark.sql.optimizer.dynamicPartitionPruning.enabled", "true")
     spark.conf.set("spark.sql.adaptive.advisoryPartitionSizeInBytes", str(64 * 1024 * 1024))
     spark.conf.set("spark.sql.adaptive.coalescePartitions.initialPartitionNum", str(wide_shuffle_parts))
+    spark.conf.set("spark.sql.shuffle.partitions", str(base_shuffle_parts))
     spark.conf.set("spark.sql.files.maxPartitionBytes", str(128 * 1024 * 1024))
     checkpoint_dir = f"{ICEBERG_WAREHOUSE.rstrip('/')}/_spark_checkpoints/{TGT_TABLE}"
     spark.sparkContext.setCheckpointDir(checkpoint_dir)
@@ -1081,7 +1083,7 @@ def run_single_fast():
     structure_filter_df = spark.sql(PREPROCESS_STRUCTURE_FARM_FILTER_SQL).repartition(wide_shuffle_parts, "f_ibase")
     structure_filter_df.createOrReplaceTempView("sss_details_structure_filter_stage")
 
-    structure_df = spark.sql(PREPROCESS_STRUCTURE_FARM_SQL).repartition(checkpoint_parts, "instance", "client", "f_ibase").checkpoint(eager=True)
+    structure_df = spark.sql(PREPROCESS_STRUCTURE_FARM_SQL).repartition(base_shuffle_parts, "instance", "client", "f_ibase")
     structure_df.createOrReplaceTempView("sss_details_structure_stage")
     progress_log(50, "structure_ready", phase_t0)
 
@@ -1095,7 +1097,7 @@ def run_single_fast():
     base_df.createOrReplaceTempView("sss_details_base_stage")
     progress_log(65, "partner_ready", phase_t0)
 
-    stage_df = spark.sql(PREPROCESS_ENRICH_SQL).repartition(checkpoint_parts, "county_office_control_identifier", "time_period_identifier").checkpoint(eager=True)
+    stage_df = spark.sql(PREPROCESS_ENRICH_SQL).repartition(base_shuffle_parts, "county_office_control_identifier", "time_period_identifier")
     stage_df.createOrReplaceTempView("tract_current_stage")
     progress_log(80, "enrich_ready", phase_t0)
 

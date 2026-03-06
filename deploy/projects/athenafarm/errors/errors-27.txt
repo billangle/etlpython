@@ -1,0 +1,567 @@
+{
+  "full_load": "true",
+  "skip_rds_sync": true,
+  "ingest_results": [
+    {
+      "AllocatedCapacity": 20,
+      "Arguments": {
+        "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+        "--env": "PROD"
+      },
+      "Attempt": 0,
+      "CompletedOn": 1772814284208,
+      "ExecutionTime": 1445,
+      "GlueVersion": "4.0",
+      "Id": "jr_4aa5e7c65f544a1c785cb8df4c1e1f51dfd9ef2af81e70d905364ae5f2dc69c9",
+      "JobMode": "SCRIPT",
+      "JobName": "FSA-PROD-ATHENAFARM-Ingest-SSS-Farmrecords",
+      "JobRunState": "SUCCEEDED",
+      "LastModifiedOn": 1772814284208,
+      "LogGroupName": "/aws-glue/jobs",
+      "MaxCapacity": 20,
+      "NumberOfWorkers": 10,
+      "PredecessorRuns": [],
+      "StartedOn": 1772812830185,
+      "Timeout": 120,
+      "WorkerType": "G.2X"
+    },
+    {
+      "AllocatedCapacity": 8,
+      "Arguments": {
+        "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+        "--env": "PROD"
+      },
+      "Attempt": 0,
+      "CompletedOn": 1772814445207,
+      "ExecutionTime": 1820,
+      "GlueVersion": "4.0",
+      "Id": "jr_34512afca91c8ebf2bcce2ba250878220e389be37692d1d1d274ba3c5c378e4b",
+      "JobMode": "SCRIPT",
+      "JobName": "FSA-PROD-ATHENAFARM-Ingest-PG-Reference-Tables",
+      "JobRunState": "SUCCEEDED",
+      "LastModifiedOn": 1772814445207,
+      "LogGroupName": "/aws-glue/jobs",
+      "MaxCapacity": 8,
+      "NumberOfWorkers": 4,
+      "PredecessorRuns": [],
+      "StartedOn": 1772812606331,
+      "Timeout": 480,
+      "WorkerType": "G.2X"
+    },
+    {
+      "AllocatedCapacity": 8,
+      "Arguments": {
+        "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+        "--env": "PROD"
+      },
+      "Attempt": 0,
+      "CompletedOn": 1772813304145,
+      "ExecutionTime": 678,
+      "GlueVersion": "4.0",
+      "Id": "jr_48c8646a5c2fd3486dcf0febe6109e7427949442bbb82a9f3265014d501def11",
+      "JobMode": "SCRIPT",
+      "JobName": "FSA-PROD-ATHENAFARM-Ingest-PG-CDC-Targets",
+      "JobRunState": "SUCCEEDED",
+      "LastModifiedOn": 1772813304145,
+      "LogGroupName": "/aws-glue/jobs",
+      "MaxCapacity": 8,
+      "NumberOfWorkers": 4,
+      "PredecessorRuns": [],
+      "StartedOn": 1772812606307,
+      "Timeout": 480,
+      "WorkerType": "G.2X"
+    }
+  ]
+}
+
+{
+  "JobRunId": "jr_9355f6f432203f81caf1b33a3aecca486598067e6a9b8ebb2d67a9f61ae67b9c",
+  "SdkHttpMetadata": {
+    "AllHttpHeaders": {
+      "Cache-Control": [
+        "no-cache"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "x-amzn-RequestId": [
+        "66104805-e8d2-4857-b4e1-d6851acf1a72"
+      ],
+      "Content-Length": [
+        "82"
+      ],
+      "Date": [
+        "Fri, 06 Mar 2026 16:35:36 GMT"
+      ],
+      "Content-Type": [
+        "application/x-amz-json-1.1"
+      ]
+    },
+    "HttpHeaders": {
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "Content-Length": "82",
+      "Content-Type": "application/x-amz-json-1.1",
+      "Date": "Fri, 06 Mar 2026 16:35:36 GMT",
+      "x-amzn-RequestId": "66104805-e8d2-4857-b4e1-d6851acf1a72"
+    },
+    "HttpStatusCode": 200
+  },
+  "SdkResponseMetadata": {
+    "RequestId": "66104805-e8d2-4857-b4e1-d6851acf1a72"
+  },
+  "JobName": "FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year"
+}
+
+{
+  "AllocatedCapacity": 160,
+  "Arguments": {
+    "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+    "--max_job_seconds": "0",
+    "--shuffle_partitions": "1400",
+    "--task_mode": "single_fast",
+    "--env": "PROD"
+  },
+  "Attempt": 0,
+  "CompletedOn": 1772814988782,
+  "ErrorMessage": "AnalysisException:  Cannot modify the value of a Spark config: spark.network.timeout. See also 'https://spark.apache.org/docs/latest/sql-migration-guide.html#ddl-statements'        ",
+  "ExecutionTime": 46,
+  "GlueVersion": "4.0",
+  "Id": "jr_9355f6f432203f81caf1b33a3aecca486598067e6a9b8ebb2d67a9f61ae67b9c",
+  "JobMode": "SCRIPT",
+  "JobName": "FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year",
+  "JobRunState": "FAILED",
+  "LastModifiedOn": 1772814988782,
+  "LogGroupName": "/aws-glue/jobs",
+  "MaxCapacity": 160,
+  "NumberOfWorkers": 40,
+  "PredecessorRuns": [],
+  "StartedOn": 1772814936124,
+  "Timeout": 480,
+  "WorkerType": "G.4X"
+}
+
+AnalysisException: Cannot modify the value of a Spark config: spark.network.timeout. See also 'https://spark.apache.org/docs/latest/sql-migration-guide.html#ddl-statements'
+
+26/03/06 16:36:17 INFO ProcessLauncher: postprocessing finished
+26/03/06 16:36:17 INFO AnalyzerLogHelper$: Analyzer stopped
+26/03/06 16:36:17 INFO TaskGroupInterface: createChildTask API response code 200
+26/03/06 16:36:17 INFO ExecutorTaskManagement: executor task g-043673ac239429abf64581352aaf655b27c43743 created for executor 29
+26/03/06 16:36:17 INFO TaskGroupInterface: creating executor task for executor 30; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_30_a_spark-application-1772814970008
+26/03/06 16:36:17 INFO ExecutorTaskManagement: executor task g-3392ed55c5cd41f2c7d0c237fa3ee927e12c7267 created for executor 28
+26/03/06 16:36:17 INFO TaskGroupInterface: creating executor task for executor 29; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_29_a_spark-application-1772814970008
+26/03/06 16:36:17 INFO ExecutorTaskManagement: executor task g-9bfde5c298ff0ae87981d599eab9fad943aab5ea created for executor 27
+26/03/06 16:36:17 INFO TaskGroupInterface: creating executor task for executor 28; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_28_a_spark-application-1772814970008
+26/03/06 16:36:17 INFO ExecutorTaskManagement: executor task g-d49858d6466d190fa8441098aaaece82ec9f1f4b created for executor 26
+26/03/06 16:36:17 INFO TaskGroupInterface: creating executor task for executor 27; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_27_a_spark-application-1772814970008
+26/03/06 16:36:16 INFO TaskGroupInterface: createChildTask API response code 200
+26/03/06 16:36:16 INFO ExecutorTaskManagement: executor task g-5355135366b23123c665bc05e374691e83458415 created for executor 25
+26/03/06 16:36:16 INFO TaskGroupInterface: creating executor task for executor 26; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_26_a_spark-application-1772814970008
+26/03/06 16:36:16 INFO ExecutorTaskManagement: executor task g-8ffaa90679513043073c7907b1bf118519e4fa9e created for executor 24
+26/03/06 16:36:16 INFO TaskGroupInterface: creating executor task for executor 25; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_25_a_spark-application-1772814970008
+26/03/06 16:36:16 INFO ExecutorTaskManagement: executor task g-092e54de68b894915720ee69692bbcfb9665a77a created for executor 23
+26/03/06 16:36:16 INFO TaskGroupInterface: creating executor task for executor 24; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_24_a_spark-application-1772814970008
+26/03/06 16:36:16 INFO ExecutorTaskManagement: executor task g-b54adcaa37dbaa7ea5d991dd25723431de003696 created for executor 22
+26/03/06 16:36:16 INFO TaskGroupInterface: creating executor task for executor 23; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_23_a_spark-application-1772814970008
+26/03/06 16:36:15 INFO TaskGroupInterface: createChildTask API response code 200
+26/03/06 16:36:15 INFO ExecutorTaskManagement: executor task g-6b165b67b1e9d3be4529b8a4e59cbec36bff8d8e created for executor 21
+26/03/06 16:36:15 INFO TaskGroupInterface: creating executor task for executor 22; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_22_a_spark-application-1772814970008
+26/03/06 16:36:15 INFO ExecutorTaskManagement: executor task g-649a7438137f86f47644824273fa0a355e5228a4 created for executor 20
+26/03/06 16:36:15 INFO TaskGroupInterface: creating executor task for executor 21; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_21_a_spark-application-1772814970008
+26/03/06 16:36:15 INFO TaskGroupInterface: creating executor task for executor 20; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_20_a_spark-application-1772814970008
+26/03/06 16:36:15 INFO ExecutorTaskManagement: executor task g-36ea1c70c933590298bda868964aee1ddfb7993a created for executor 19
+26/03/06 16:36:15 INFO ExecutorTaskManagement: executor task g-534091ffbc3c4bd2e8ac26539602cef9fa7fc3af created for executor 18
+26/03/06 16:36:15 INFO TaskGroupInterface: creating executor task for executor 19; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_19_a_spark-application-1772814970008
+26/03/06 16:36:14 INFO TaskGroupInterface: creating executor task for executor 18; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_18_a_spark-application-1772814970008
+26/03/06 16:36:14 INFO TaskGroupInterface: createChildTask API response code 200
+26/03/06 16:36:14 INFO ExecutorTaskManagement: executor task g-e95ea4144aa5bbd7e596a06f56923fa1fd29c1f6 created for executor 17
+26/03/06 16:36:14 INFO TaskGroupInterface: creating executor task for executor 17; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_17_a_spark-application-1772814970008
+26/03/06 16:36:14 INFO ExecutorTaskManagement: executor task g-d111acbb43fd6eaade9a532e558630e82c967182 created for executor 16
+26/03/06 16:36:14 INFO ExecutorTaskManagement: executor task g-275c9e5a333a98463c1a10fc5e7179c5f59a3551 created for executor 15
+26/03/06 16:36:14 INFO TaskGroupInterface: creating executor task for executor 16; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_16_a_spark-application-1772814970008
+26/03/06 16:36:13 INFO ExecutorTaskManagement: executor task g-56cc4b4549fb5bef4009d9082a15c30ad6edc854 created for executor 14
+26/03/06 16:36:13 INFO TaskGroupInterface: creating executor task for executor 15; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_15_a_spark-application-1772814970008
+26/03/06 16:36:13 INFO TaskGroupInterface: createChildTask API response code 200
+26/03/06 16:36:13 INFO ExecutorTaskManagement: executor task g-1707159007b527c20fb9bd5e4586be1bbba0d8c5 created for executor 13
+26/03/06 16:36:13 INFO TaskGroupInterface: creating executor task for executor 14; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_14_a_spark-application-1772814970008
+26/03/06 16:36:13 INFO ExecutorTaskManagement: executor task g-8c5da6fcc972ff53bd10671127d512fc1f6c9c40 created for executor 12
+26/03/06 16:36:13 INFO TaskGroupInterface: creating executor task for executor 13; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_13_a_spark-application-1772814970008
+26/03/06 16:36:13 INFO TaskGroupInterface: creating executor task for executor 12; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_12_a_spark-application-1772814970008
+26/03/06 16:36:13 INFO ExecutorTaskManagement: executor task g-6f601b56e1a0092cfb9614e7b0bb870387877662 created for executor 11
+26/03/06 16:36:12 INFO TaskGroupInterface: createChildTask API response code 200
+26/03/06 16:36:12 INFO ExecutorTaskManagement: executor task g-b19354224bcf7d8ea045d9e54d93d78e7d870eef created for executor 10
+26/03/06 16:36:12 INFO TaskGroupInterface: creating executor task for executor 11; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_11_a_spark-application-1772814970008
+26/03/06 16:36:12 INFO ProcessLauncher: postprocessing
+26/03/06 16:36:12 WARN ResourceManagerSocketWriter: Exception io.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: localhost/127.0.0.1:6680 was thrown when initializing socket client for com.amazonaws.services.glue.ResourceManagerSocketWriter.
+26/03/06 16:36:12 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] Last Executed Line number from script FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py: 1097
+26/03/06 16:36:12 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] {"Event":"GlueETLJobExceptionEvent","Timestamp":1772814972778,"Failure Reason":"Traceback (most recent call last):\n  File \"/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py\", line 1097, in <module>\n    run_single_fast()\n  File \"/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py\", line 1028, in run_single_fast\n    spark.conf.set(\"spark.network.timeout\", \"800s\")\n  File \"/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/conf.py\", line 40, in set\n    self._jconf.set(key, value)\n  File \"/opt/amazon/spark/python/lib/py4j-0.10.9.5-src.zip/py4j/java_gateway.py\", line 1321, in __call__\n    return_value = get_return_value(\n  File \"/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/utils.py\", line 196, in deco\n    raise converted from None\npyspark.sql.utils.AnalysisException:  Cannot modify the value of a Spark config: spark.network.timeout. See also 'https://spark.apache.org/docs/latest/sql-migration-guide.html#ddl-statements'        ","Stack Trace":[{"Declaring Class":"deco","Method Name":"raise converted from None","File Name":"/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/utils.py","Line Number":196},{"Declaring Class":"__call__","Method Name":"return_value = get_return_value(","File Name":"/opt/amazon/spark/python/lib/py4j-0.10.9.5-src.zip/py4j/java_gateway.py","Line Number":1321},{"Declaring Class":"set","Method Name":"self._jconf.set(key, value)","File Name":"/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/conf.py","Line Number":40},{"Declaring Class":"run_single_fast","Method Name":"spark.conf.set(\"spark.network.timeout\", \"800s\")","File Name":"/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py","Line Number":1028},{"Declaring Class":"<module>","Method Name":"run_single_fast()","File Name":"/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py","Line Number":1097}],"Last Executed Line number":1097,"script":"FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py"}
+26/03/06 16:36:12 INFO ExecutorTaskManagement: executor task g-2e62b2fe1f81ec783e8a28789c7323fdc117c411 created for executor 9
+26/03/06 16:36:12 INFO TaskGroupInterface: creating executor task for executor 10; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_10_a_spark-application-1772814970008
+26/03/06 16:36:12 ERROR ProcessLauncher: Error from Python:Traceback (most recent call last):
+  File "/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py", line 1097, in <module>
+    run_single_fast()
+  File "/tmp/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year.py", line 1028, in run_single_fast
+    spark.conf.set("spark.network.timeout", "800s")
+  File "/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/conf.py", line 40, in set
+    self._jconf.set(key, value)
+  File "/opt/amazon/spark/python/lib/py4j-0.10.9.5-src.zip/py4j/java_gateway.py", line 1321, in __call__
+    return_value = get_return_value(
+  File "/opt/amazon/spark/python/lib/pyspark.zip/pyspark/sql/utils.py", line 196, in deco
+    raise converted from None
+pyspark.sql.utils.AnalysisException:  Cannot modify the value of a Spark config: spark.network.timeout. See also 'https://spark.apache.org/docs/latest/sql-migration-guide.html#ddl-statements'        
+26/03/06 16:36:12 INFO ExecutorTaskManagement: executor task g-a0a2af00aaa5d0d39c59777f354173a8d3108623 created for executor 8
+26/03/06 16:36:12 INFO TaskGroupInterface: creating executor task for executor 9; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_9_a_spark-application-1772814970008
+26/03/06 16:36:12 INFO ExecutorTaskManagement: executor task g-6daa1b05057108675fdb1d151cf71a9188a2da92 created for executor 7
+26/03/06 16:36:12 INFO TaskGroupInterface: creating executor task for executor 8; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_8_a_spark-application-1772814970008
+26/03/06 16:36:12 INFO ExecutorTaskManagement: executor task g-9e683c316c91e358b7e032f4705efed733253e0b created for executor 6
+26/03/06 16:36:12 INFO TaskGroupInterface: creating executor task for executor 7; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_7_a_spark-application-1772814970008
+26/03/06 16:36:11 INFO TaskGroupInterface: createChildTask API response code 200
+26/03/06 16:36:11 INFO ExecutorTaskManagement: executor task g-5fdbbdc314522fd48c6ae3f5dae55d29ba5abdfc created for executor 5
+26/03/06 16:36:11 INFO TaskGroupInterface: creating executor task for executor 6; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_6_a_spark-application-1772814970008
+26/03/06 16:36:11 INFO SharedState: Warehouse path is 'file:/tmp/spark-warehouse'.
+26/03/06 16:36:11 INFO SharedState: spark.sql.warehouse.dir is not set, but hive.metastore.warehouse.dir is set. Setting spark.sql.warehouse.dir to the value of hive.metastore.warehouse.dir.
+26/03/06 16:36:11 INFO JobBookmark$: jobbookmark is not enabled, do not init AWSGlueJobBookMarkService
+26/03/06 16:36:11 INFO BlockManagerInfo: Added broadcast_1_piece0 in memory on 172.35.153.224:40027 (size: 33.5 KiB, free: 23.8 GiB)
+26/03/06 16:36:11 INFO SparkContext: Created broadcast 1 from broadcast at DynamoConnection.scala:52
+26/03/06 16:36:11 INFO MemoryStore: Block broadcast_1_piece0 stored as bytes in memory (estimated size 33.5 KiB, free 23.8 GiB)
+26/03/06 16:36:11 INFO MemoryStore: Block broadcast_1 stored as values in memory (estimated size 451.6 KiB, free 23.8 GiB)
+26/03/06 16:36:11 INFO SparkContext: Created broadcast 0 from broadcast at DynamoConnection.scala:52
+26/03/06 16:36:11 INFO BlockManagerInfo: Added broadcast_0_piece0 in memory on 172.35.153.224:40027 (size: 33.5 KiB, free: 23.8 GiB)
+26/03/06 16:36:11 INFO MemoryStore: Block broadcast_0_piece0 stored as bytes in memory (estimated size 33.5 KiB, free 23.8 GiB)
+26/03/06 16:36:11 INFO TaskGroupInterface: creating executor task for executor 5; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_5_a_spark-application-1772814970008
+26/03/06 16:36:11 INFO ExecutorTaskManagement: executor task g-242393fd62e88274e91f15a3961aaedfba38e591 created for executor 4
+26/03/06 16:36:11 INFO MemoryStore: Block broadcast_0 stored as values in memory (estimated size 451.6 KiB, free 23.8 GiB)
+26/03/06 16:36:11 INFO AvroReaderUtil$: Creating default Avro field parser for version 1.7.
+26/03/06 16:36:11 INFO Job$: runId Method is Invoked 
+26/03/06 16:36:11 INFO Job$: Job run ID under runId method is jr_9355f6f432203f81caf1b33a3aecca486598067e6a9b8ebb2d67a9f61ae67b9c 
+26/03/06 16:36:11 INFO LzoCodec: Successfully loaded & initialized native-lzo library [hadoop-lzo rev 049362b7cf53ff5f739d6b1532457f2c6cd495e8]
+26/03/06 16:36:11 INFO GPLNativeCodeLoader: Loaded native gpl library
+26/03/06 16:36:11 INFO ExecutorTaskManagement: executor task g-ad12570a47df0fff18149e1504e86c8c7fcbbcc7 created for executor 3
+26/03/06 16:36:11 INFO TaskGroupInterface: creating executor task for executor 4; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_4_a_spark-application-1772814970008
+26/03/06 16:36:11 INFO GlueContext: ObservabilityMetrics not configured
+26/03/06 16:36:11 INFO GlueContext: GlueMetrics not configured
+26/03/06 16:36:11 INFO AnalyzerLogHelper$: 16:36:11.407 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.app.GlueJobEventsInputHandler - GlueJobEventReplayListener initialized
+26/03/06 16:36:11 INFO AnalyzerLogHelper$: 16:36:11.407 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.GlueJobEventReplayListener - Initialized rule engine session
+26/03/06 16:36:11 INFO ExecutorTaskManagement: executor task g-eb3ac97ba638f7b240e79e3f0315d1d75c25ae0f created for executor 2
+26/03/06 16:36:11 INFO TaskGroupInterface: creating executor task for executor 3; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_3_a_spark-application-1772814970008
+26/03/06 16:36:11 INFO JESSchedulerBackend: SchedulerBackend is ready for scheduling beginning after reached minRegisteredResourcesRatio: 0.0
+26/03/06 16:36:10 INFO log: Logging initialized @9675ms to org.sparkproject.jetty.util.log.Slf4jLog
+26/03/06 16:36:10 INFO TaskGroupInterface: creating executor task for executor 2; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_2_a_spark-application-1772814970008
+26/03/06 16:36:10 INFO ExecutorTaskManagement: executor task g-db8923209fa79a8472c28c2881851a7b25605ffb created for executor 1
+26/03/06 16:36:10 INFO TaskGroupInterface: createChildTask API response code 200
+26/03/06 16:36:10 INFO JESSchedulerBackend: getDriverLogUrls Map()
+26/03/06 16:36:10 INFO SparkContext: Registered listener com.amazonaws.services.gluedi.sensei.autodebugging.AutoDebuggingListener
+26/03/06 16:36:10 INFO SparkContext: Registered listener glue.ch.cern.sparkmeasure.FlightRecorderStageMetrics
+26/03/06 16:36:10 INFO SparkContext: Registered listener glue.ch.cern.sparkmeasure.FlightRecorderTaskMetrics
+26/03/06 16:36:10 INFO SparkContext: Registered listener com.amazonaws.services.glueexceptionanalysis.GlueExceptionAnalysisListener
+26/03/06 16:36:10 INFO FlightRecorderTaskMetrics: Using json as serialization format.
+26/03/06 16:36:10 INFO FlightRecorderTaskMetrics: Writing output to /tmp/taskMetrics_flightRecorder
+26/03/06 16:36:10 INFO FlightRecorderStageMetrics: Using json as serialization format.
+26/03/06 16:36:10 INFO FlightRecorderStageMetrics: Writing output to /tmp/stageMetrics_flightRecorder
+26/03/06 16:36:10 INFO AutoDebuggingEventLogFileWriter: Started file writer.
+26/03/06 16:36:10 WARN EventLogSocketWriter: Exception io.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: localhost/127.0.0.1:6680 was thrown when initializing socket client for com.amazonaws.services.glueexceptionanalysis.EventLogSocketWriter.
+26/03/06 16:36:10 INFO EventLogFileWriter: Started file writer for com.amazonaws.services.glueexceptionanalysis.EventLogFileWriter
+26/03/06 16:36:10 INFO BlockManager: Initialized BlockManager: BlockManagerId(driver, 172.35.153.224, 40027, None)
+26/03/06 16:36:10 INFO BlockManagerMaster: Registered BlockManager BlockManagerId(driver, 172.35.153.224, 40027, None)
+26/03/06 16:36:10 INFO BlockManagerMasterEndpoint: Registering block manager 172.35.153.224:40027 with 23.8 GiB RAM, BlockManagerId(driver, 172.35.153.224, 40027, None)
+26/03/06 16:36:10 INFO BlockManagerMaster: Registering BlockManager BlockManagerId(driver, 172.35.153.224, 40027, None)
+26/03/06 16:36:10 INFO BlockManager: Using org.apache.spark.storage.RandomBlockReplicationPolicy for block replication policy
+26/03/06 16:36:10 INFO Utils: Successfully started service 'org.apache.spark.network.netty.NettyBlockTransferService' on port 40027.
+26/03/06 16:36:10 INFO NettyBlockTransferService: Server created on 172.35.153.224:40027
+26/03/06 16:36:10 INFO TaskGroupInterface: creating executor task for executor 1; clientToken gr_tg-53ded68612cbc6ad4da79510c38519c45e2f0b3d_e_1_a_spark-application-1772814970008
+26/03/06 16:36:10 INFO JESSchedulerBackend: JESClusterManager: Initializing JES client with proxy: host: null, port: -1
+26/03/06 16:36:10 INFO JESSchedulerBackend: JESSchedulerBackend
+26/03/06 16:36:10 INFO JESSchedulerBackend$JESAsSchedulerBackendEndpoint: JESAsSchedulerBackendEndpoint
+26/03/06 16:36:09 INFO SubResultCacheManager: Sub-result caches are disabled.
+26/03/06 16:36:09 INFO SparkEnv: Registering OutputCommitCoordinator
+26/03/06 16:36:09 INFO MemoryStore: MemoryStore started with capacity 23.8 GiB
+26/03/06 16:36:09 INFO DiskBlockManager: Created local directory at /tmp/blockmgr-bbaeae4f-b35b-46a9-986c-38191db7b37f
+26/03/06 16:36:09 INFO SparkEnv: Registering BlockManagerMasterHeartbeat
+26/03/06 16:36:09 INFO BlockManagerMasterEndpoint: BlockManagerMasterEndpoint up
+26/03/06 16:36:09 INFO BlockManagerMasterEndpoint: Using org.apache.spark.storage.DefaultTopologyMapper for getting topology information
+26/03/06 16:36:09 INFO SparkEnv: Registering BlockManagerMaster
+26/03/06 16:36:09 INFO SparkEnv: Registering MapOutputTracker
+26/03/06 16:36:09 INFO Utils: Successfully started service 'sparkDriver' on port 37335.
+26/03/06 16:36:09 INFO SecurityManager: Changing view acls groups to: 
+26/03/06 16:36:09 INFO SecurityManager: Changing modify acls groups to: 
+26/03/06 16:36:09 INFO SecurityManager: SecurityManager: authentication enabled; ui acls disabled; users  with view permissions: Set(spark); groups with view permissions: Set(); users  with modify permissions: Set(spark); groups with modify permissions: Set()
+26/03/06 16:36:09 INFO SecurityManager: Changing modify acls to: spark
+26/03/06 16:36:09 INFO SecurityManager: Changing view acls to: spark
+26/03/06 16:36:09 INFO ResourceProfileManager: Added ResourceProfile id: 0
+26/03/06 16:36:09 INFO ResourceProfile: Limiting resource is cpus at 16 tasks per executor
+26/03/06 16:36:09 INFO ResourceProfile: Default ResourceProfile created, executor resources: Map(cores -> name: cores, amount: 16, script: , vendor: , memory -> name: memory, amount: 40960, script: , vendor: , offHeap -> name: offHeap, amount: 0, script: , vendor: ), task resources: Map(cpus -> name: cpus, amount: 1.0)
+26/03/06 16:36:09 INFO SparkContext: Submitted application: nativespark-FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year-jr_9355f6f432203f81caf1b33a3aecca486598067e6a9b8ebb2d67a9f61ae67b9c
+26/03/06 16:36:09 INFO ResourceUtils: No custom resources configured for spark.driver.
+26/03/06 16:36:09 INFO ResourceUtils: ==============================================================
+26/03/06 16:36:09 INFO SparkContext: Running Spark version 3.3.0-amzn-1
+26/03/06 16:36:06 INFO SafeLogging: Initializing logging subsystem
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 16:36:06.839 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Type_error_on_endpoint_config.drl
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 16:36:06.839 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Name_error_in_glue_app.drl
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 16:36:06.838 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Analysis_Exception_Cannot_Resolve.drl
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 16:36:06.839 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/JDBC_connection_failed.drl
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 16:36:06.839 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Data_with_invalid_value.drl
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 16:36:06.839 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/OOM_on_driver_no_heap_space_with_G2X.drl
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 16:36:06.839 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/OOM_on_driver_no_heap_space_non_G2X.drl
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 16:36:06.839 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Missing_required_glue_argument.drl
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 16:36:06.839 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Missing_optional_dependency_XLRD.drl
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 16:36:06.838 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Arithmetic_Exception_in_Glue_job.drl
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 16:36:06.828 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Module_Not_Found_Error.drl
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 16:36:06.441 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.RulesEngineConfig - Loaded Drools Files : [com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@63fcd350, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@7599df17, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@7abef48, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@29848f34, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@2ce7af07, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@17bdbceb, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@4fb4d0fb, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@42c40b16, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@53ca1bde, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@29eaafa8, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@40309166]
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 	at java.lang.Thread.run(Thread.java:750) ~[?:1.8.0_472]
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 16:36:06.366 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.utils.FileUtils - Reading file using thread context class loader FailureAnalysisRules.csv
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 	at com.amazonaws.gluejob.utils.FileUtils.readCsvFile(FileUtils.java:25) ~[AWSGlueJobLogsAnalysisLib.jar:?]
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 	at com.amazonaws.gluejob.utils.rules_generator.DroolsRuleGenerator.readCsvToGenerateDrools(DroolsRuleGenerator.java:34) ~[AWSGlueJobLogsAnalysisLib.jar:?]
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 	at com.amazonaws.gluejob.app.GlueJobEventsInputHandler.run(GlueJobEventsInputHandler.scala:36) ~[AWSGlueJobLogsAnalysisLib.jar:?]
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149) ~[?:1.8.0_472]
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624) ~[?:1.8.0_472]
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 16:36:06.362 [pool-3-thread-1] ERROR [] com.amazonaws.gluejob.utils.FileUtils - Error getting file with getResourceAsStream 
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: java.lang.NullPointerException: null
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 	at java.io.Reader.<init>(Reader.java:78) ~[?:1.8.0_472]
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 	at java.io.InputStreamReader.<init>(InputStreamReader.java:97) ~[?:1.8.0_472]
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: input rulesFilePath=/tmp/glue_app_analyzer_rules
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: ==== Netty Server Started ====
+26/03/06 16:36:06 INFO AnalyzerLogHelper$: 16:36:06.356 [main] INFO  [] com.amazonaws.gluejob.app.GlueJobEventsInputHandler - Initialized events handler
+26/03/06 16:36:05 INFO AnalyzerLogHelper$: 16:36:05.986 [main] INFO  [] com.amazonaws.gluejob.app.LogFileWriter - Started file writer for com.amazonaws.gluejob.app.LogFileWriter
+26/03/06 16:36:05 INFO AnalyzerLogHelper$: SLF4J: Actual binding is of type [org.apache.logging.slf4j.Log4jLoggerFactory]
+26/03/06 16:36:05 INFO AnalyzerLogHelper$: SLF4J: Found binding in [jar:file:/opt/amazon/spark/jars/log4j-slf4j-impl-2.17.2.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+26/03/06 16:36:05 INFO AnalyzerLogHelper$: SLF4J: Found binding in [jar:file:/opt/amazon/spark/jars/slf4j-reload4j-1.7.36.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+26/03/06 16:36:05 INFO AnalyzerLogHelper$: SLF4J: Found binding in [jar:file:/opt/amazon/lib/Log4j-slf4j-2.x.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+26/03/06 16:36:05 INFO AnalyzerLogHelper$: SLF4J: Found binding in [jar:file:/opt/amazon/lib/slf4j-log4j12-1.7.10.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+26/03/06 16:36:05 INFO AnalyzerLogHelper$: SLF4J: See http://www.slf4j.org/codes.html#multiple_bindings for an explanation.
+26/03/06 16:36:05 INFO AnalyzerLogHelper$: SLF4J: Class path contains multiple SLF4J bindings.
+
+2026-03-06T16:36:19.205Z
+Preparing ...
+2026-03-06T16:36:19.327Z
+Fri Mar 6 16:36:19 UTC 2026
+2026-03-06T16:36:19.413Z
+/usr/bin/java -cp /tmp:/opt/amazon/conf:/opt/amazon/glue-manifest.jar com.amazonaws.services.glue.PrepareLaunch --conf spark.dynamicAllocation.enabled=true --conf spark.shuffle.service.enabled=true --conf spark.dynamicAllocation.minExecutors=1 --conf spark.dynamicAllocation.maxExecutors=-1 --conf spark.executor.memory=40g --conf spark.driver.memory=40g --conf spark.network.timeout=600 --driver-url spark://CoarseGrainedScheduler@172.35.153.224:37335 --executor-id 22 --app-id spark-application-1772814970008 --cores 16
+2026-03-06T16:36:20.273Z
+openjdk version "1.8.0_472" OpenJDK Runtime Environment Corretto-8.472.08.1 (build 1.8.0_472-b08)
+2026-03-06T16:36:20.273Z
+OpenJDK 64-Bit Server VM Corretto-8.472.08.1 (build 25.472-b08, mixed mode)
+2026-03-06T16:36:27.860Z
+1772814987857
+2026-03-06T16:36:32.768Z
+SLF4J: Class path contains multiple SLF4J bindings. SLF4J: Found binding in [jar:file:/opt/amazon/spark/jars/log4j-slf4j-impl-2.17.2.jar!/org/slf4j/impl/StaticLoggerBinder.class] SLF4J: Found binding in [jar:file:/opt/amazon/spark/jars/slf4j-reload4j-1.7.36.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+2026-03-06T16:36:32.768Z
+SLF4J: Found binding in [jar:file:/opt/amazon/lib/Log4j-slf4j-2.x.jar!/org/slf4j/impl/StaticLoggerBinder.class] SLF4J: Found binding in [jar:file:/opt/amazon/lib/slf4j-log4j12-1.7.10.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+2026-03-06T16:36:32.768Z
+SLF4J: See http://www.slf4j.org/codes.html#multiple_bindings for an explanation.
+2026-03-06T16:36:32.868Z
+SLF4J: Actual binding is of type [org.apache.logging.slf4j.Log4jLoggerFactory]
+2026-03-06T16:36:35.686Z
+INFO 2026-03-06T16:36:35,682 15365 com.amazonaws.services.glue.utils.AWSClientUtils$ [main] AWSClientUtils: create aws sts client with conf: proxy host null, proxy port -1
+2026-03-06T16:36:36.314Z
+INFO 2026-03-06T16:36:36,314 15997 com.amazonaws.services.glue.utils.AWSClientUtils$ [main] Created STS client in region us-east-1
+2026-03-06T16:36:36.753Z
+GlueTelemetry: Current region us-east-1
+2026-03-06T16:36:36.870Z
+GlueTelemetry: Glue Endpoint https://glue.us-east-1.amazonaws.com
+2026-03-06T16:36:36.873Z
+GlueTelemetry: Prod env...false GlueTelemetry: is disabled
+2026-03-06T16:36:36.894Z
+INFO 2026-03-06T16:36:36,894 16577 com.amazonaws.services.glue.PrepareLaunch [main] Glue Connectors: attached connection types: ListBuffer()
+2026-03-06T16:36:36.896Z
+successfully created /opt/aws_glue_connectors/selected/redshift
+2026-03-06T16:36:36.896Z
+successfully created /opt/aws_glue_connectors/selected/datalake successfully created /opt/aws_glue_connectors/selected/native successfully created /opt/aws_glue_connectors/selected/marketplace
+2026-03-06T16:36:36.896Z
+successfully created /opt/aws_glue_connectors/selected/downloaded
+2026-03-06T16:36:36.897Z
+INFO 2026-03-06T16:36:36,897 16580 com.amazonaws.services.glue.PrepareLaunch [main] glue.etl.telemetry.runtimeImproveFeature.dataLakeFormats30.iceberg-1.0.0, jr_9355f6f432203f81caf1b33a3aecca486598067e6a9b8ebb2d67a9f61ae67b9c INFO 2026-03-06T16:36:36,897 16580 com.amazonaws.services.glue.PrepareLaunch [main] Setup data lake format 'iceberg'.
+2026-03-06T16:36:36.911Z
+INFO 2026-03-06T16:36:36,911 16594 com.amazonaws.services.glue.PrepareLaunch [main] Create symbolic link /opt/aws_glue_connectors/selected/datalake/bundle-2.31.56.jar -> /opt/aws_glue_connectors/aws_glue_datalake_connectors/iceberg-1.0.0/bundle-2.31.56.jar
+2026-03-06T16:36:36.912Z
+INFO 2026-03-06T16:36:36,911 16594 com.amazonaws.services.glue.PrepareLaunch [main] Create symbolic link /opt/aws_glue_connectors/selected/datalake/iceberg-spark-runtime-3.3_2.12-1.0.0.jar -> /opt/aws_glue_connectors/aws_glue_datalake_connectors/iceberg-1.0.0/iceberg-spark-runtime-3.3_2.12-1.0.0.jar
+2026-03-06T16:36:36.912Z
+INFO 2026-03-06T16:36:36,912 16595 com.amazonaws.services.glue.PrepareLaunch [main] Create symbolic link /opt/aws_glue_connectors/selected/datalake/url-connection-client-2.31.56.jar -> /opt/aws_glue_connectors/aws_glue_datalake_connectors/iceberg-1.0.0/url-connection-client-2.31.56.jar
+2026-03-06T16:36:36.933Z
+INFO 2026-03-06T16:36:36,933 16616 com.amazonaws.services.glue.connectors.NativeConnectorService$ [main] Glue connectors: redshift connector jar dir -> new
+2026-03-06T16:36:36.933Z
+INFO 2026-03-06T16:36:36,933 16616 com.amazonaws.services.glue.connectors.NativeConnectorService$ [main] Glue connectors: copying jars and metadata for Redshift
+2026-03-06T16:36:36.946Z
+INFO 2026-03-06T16:36:36,946 16629 com.amazonaws.services.glue.connectors.NativeConnectorService$ [main] File is spark-redshift_2.12-6.1.3-spark_3.3.jar
+2026-03-06T16:36:36.947Z
+INFO 2026-03-06T16:36:36,946 16629 com.amazonaws.services.glue.connectors.NativeConnectorService$ [main] File Destination is /opt/aws_glue_connectors/selected/redshift/spark-redshift_2.12-6.1.3-spark_3.3.jar
+2026-03-06T16:36:36.965Z
+INFO 2026-03-06T16:36:36,965 16648 com.amazonaws.services.glue.connectors.NativeConnectorService$ [main] Glue connectors: Copy connector /connectors/redshift/new/spark-redshift_2.12-6.1.3-spark_3.3.jar to /opt/aws_glue_connectors/selected/redshift/spark-redshift_2.12-6.1.3-spark_3.3.jar
+2026-03-06T16:36:36.966Z
+INFO 2026-03-06T16:36:36,965 16648 com.amazonaws.services.glue.connectors.NativeConnectorService$ [main] File is spark-avro_2.12-3.3.0-amzn-1.jar
+2026-03-06T16:36:36.966Z
+INFO 2026-03-06T16:36:36,965 16648 com.amazonaws.services.glue.connectors.NativeConnectorService$ [main] File Destination is /opt/aws_glue_connectors/selected/redshift/spark-avro_2.12-3.3.0-amzn-1.jar
+2026-03-06T16:36:36.969Z
+INFO 2026-03-06T16:36:36,968 16651 com.amazonaws.services.glue.connectors.NativeConnectorService$ [main] Glue connectors: Copy connector /connectors/redshift/new/spark-avro_2.12-3.3.0-amzn-1.jar to /opt/aws_glue_connectors/selected/redshift/spark-avro_2.12-3.3.0-amzn-1.jar
+2026-03-06T16:36:36.969Z
+INFO 2026-03-06T16:36:36,969 16652 com.amazonaws.services.glue.connectors.NativeConnectorService$ [main] File is redshift-jdbc42-2.1.0.16.jar
+2026-03-06T16:36:36.969Z
+INFO 2026-03-06T16:36:36,969 16652 com.amazonaws.services.glue.connectors.NativeConnectorService$ [main] File Destination is /opt/aws_glue_connectors/selected/redshift/redshift-jdbc42-2.1.0.16.jar
+2026-03-06T16:36:36.998Z
+INFO 2026-03-06T16:36:36,997 16680 com.amazonaws.services.glue.connectors.NativeConnectorService$ [main] Glue connectors: Copy connector /connectors/redshift/new/redshift-jdbc42-2.1.0.16.jar to /opt/aws_glue_connectors/selected/redshift/redshift-jdbc42-2.1.0.16.jar INFO 2026-03-06T16:36:36,998 16681 com.amazonaws.services.glue.connectors.NativeConnectorService$ [main] Glue connectors: Copy is finished
+2026-03-06T16:36:37.133Z
+Glue ETL Marketplace - Start ETL connector activation process... Glue ETL Marketplace - no connections are attached to job FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year, no need to download custom connector jar for it. Glue ETL Marketplace - Retrieved no ETL connector jars, this may be due to no marketplace/custom connection attached to the job or failure of downloading them, please scroll back to the previous logs to find out the root cause. Container setup continues.
+2026-03-06T16:36:37.133Z
+Glue ETL Marketplace - ETL connector activation process finished, container setup continues...
+2026-03-06T16:36:37.209Z
+Launching ...
+2026-03-06T16:36:37.210Z
+Fri Mar 6 16:36:37 UTC 2026
+2026-03-06T16:36:37.213Z
+/usr/bin/java -cp /tmp:/opt/amazon/conf:/opt/amazon/glue-manifest.jar:/opt/aws_glue_connectors/selected/redshift/*:/opt/aws_glue_connectors/selected/datalake/*::/opt/aws_glue_connectors/selected/marketplace/*:/opt/aws_glue_connectors/selected/downloaded/*:/tmp/* -Dlog4j.configurationFile=/tmp/log4j2.properties -server -Xmx40g -XX:+UseG1GC -XX:MaxHeapFreeRatio=70 -XX:InitiatingHeapOccupancyPercent=45 -XX:OnOutOfMemoryError=/opt/exception_catch/onOOMError.sh %p jr_9355f6f432203f81caf1b33a3aecca486598067e6a9b8ebb2d67a9f61ae67b9c FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year false false -XX:+UseCompressedOops -Djavax.net.ssl.trustStore=/opt/amazon/certs/InternalAndExternalAndAWSTrustStore.jks -Djavax.net.ssl.trustStoreType=JKS -Djavax.net.ssl.trustStorePassword=amazon -DRDS_ROOT_CERT_PATH=/opt/amazon/certs/rds-combined-ca-bundle.pem -DREDSHIFT_ROOT_CERT_PATH=/opt/amazon/certs/redshift-ssl-ca-cert.pem -DRDS_TRUSTSTORE_URL=file:/opt/amazon/certs/RDSTrustStore.jks -Dspark.datasource.redshift.community.trace_id=jr_9355f6f432203f81caf1b33a3aecca486598067e6a9b8ebb2d67a9f61ae67b9c -Dspark.hadoop.mapred.output.committer.class=org.apache.hadoop.mapred.DirectOutputCommitter -Dspark.executor.extraClassPath=/tmp:/opt/amazon/conf:/opt/amazon/glue-manifest.jar -Dspark.sql.parquet.output.committer.class=com.amazon.emr.committer.EmrOptimizedSparkSqlParquetOutputCommitter -Dspark.glue.datalake-formats=iceberg -Dspark.authenticate.secret=<HIDDEN> -Dspark.script.location=N/A -Dspark.hadoop.lakeformation.credentials.url=http://localhost:9998/lakeformationcredentials -Dspark.glueExceptionAnalysisEventLog.dir=/tmp/glue-exception-analysis-logs/ -Dspark.hadoop.mapred.output.direct.EmrFileSystem=true -Dspark.glue.continuous-log-logGroup=/aws-glue/jobs/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year -Dspark.glueJobInsights.enabled=true -Dspark.glue.USE_PROXY=false -Dspark.eventLog.dir=/tmp/spark-event-logs/ -Dspark.hadoop.fs.s3.maxConnections=500 -Dspark.sql.parquet.fs.optimized.committer.optimization-enabled=true -Dspark.rpc.askTimeout=600 -Dspark.hadoop.fs.s3.impl=com.amazon.ws.emr.hadoop.fs.EmrFileSystem -Dspark.hadoop.hive.metastore.warehouse.dir=/tmp/spark-warehouse -Dspark.glue.JOB_NAME=FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year -Dspark.hadoop.fs.s3a.connection.maximum=500 -Dspark.glue.nativeconnectors= -Dspark.hadoop.mapred.output.direct.NativeS3FileSystem=true -Dspark.hadoop.fs.s3.buffer.dir=/tmp/hadoop-spark/s3 -Dspark.glue.JOB_RUN_ID=jr_9355f6f432203f81caf1b33a3aecca486598067e6a9b8ebb2d67a9f61ae67b9c -Dspark.master=jes -Dspark.cloudwatch.logging.ui.showConsoleProgress=true -Dspark.hadoop.mapreduce.fileoutputcommitter.algorithm.version=2 -Dspark.hadoop.mapreduce.fileoutputcommitter.marksuccessfuljobs=false -Dspark.cloudwatch.logging.conf.jobRunId=jr_9355f6f432203f81caf1b33a3aecca486598067e6a9b8ebb2d67a9f61ae67b9c -Dspark.unsafe.sorter.spill.read.ahead.enabled=false -Dspark.hadoop.parquet.enable.summary-metadata=false -Dspark.hadoop.glue.michiganCredentialsProviderProxy=com.amazonaws.services.glue.remote.LakeformationCredentialsProvider -Dspark.glueAppInsightsLog.dir=/tmp/glue-app-insights-logs/ -Dspark.glue.enable-continuous-cloudwatch-log=true -Dspark.glue.jobLanguage=python -Dspark.glue.endpoint=https://glue-jes-prod.us-east-1.amazonaws.com -Dspark.ui.enabled=false -Dspark.driver.extraClassPath=/tmp:/opt/amazon/conf:/opt/amazon/glue-manifest.jar -Dspark.files.overwrite=true -Dspark.authenticate=true -Dspark.glue.continuous-log-logStreamPrefix=FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year/ com.amazonaws.services.glue.ProcessLauncher --launch-class org.apache.spark.executor.CoarseGrainedExecutorBackendWrapper --hostname 172.38.176.250 --driver-url spark://CoarseGrainedScheduler@172.35.153.224:37335 --executor-id 22 --app-id spark-application-1772814970008 --cores 16
+2026-03-06T16:36:37.218Z
+OpenJDK 64-Bit Server VM warning: Max heap size too large for Compressed Oops
+2026-03-06T16:36:39.935Z
+SLF4J: Class path contains multiple SLF4J bindings. SLF4J: Found binding in [jar:file:/opt/amazon/spark/jars/log4j-slf4j-impl-2.17.2.jar!/org/slf4j/impl/StaticLoggerBinder.class] SLF4J: Found binding in [jar:file:/opt/amazon/spark/jars/slf4j-reload4j-1.7.36.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+2026-03-06T16:36:39.936Z
+SLF4J: Found binding in [jar:file:/opt/amazon/lib/Log4j-slf4j-2.x.jar!/org/slf4j/impl/StaticLoggerBinder.class] SLF4J: Found binding in [jar:file:/opt/amazon/lib/slf4j-log4j12-1.7.10.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+2026-03-06T16:36:39.936Z
+SLF4J: See http://www.slf4j.org/codes.html#multiple_bindings for an explanation.
+2026-03-06T16:36:39.997Z
+SLF4J: Actual binding is of type [org.apache.logging.slf4j.Log4jLoggerFactory]
+2026-03-06T16:36:40.517Z
+Continuous Logging: Creating cloudwatch appender with AWSRegion us-east-1, AWSLogGroup /aws-glue/jobs/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year, AWSLogStream FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year/, flushInterval(sec) 5, maxRetries 5
+2026-03-06T16:36:41.505Z
+Continuous Logging: Creating cloudwatch appender with AWSRegion us-east-1, AWSLogGroup /aws-glue/jobs/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year, AWSLogStream jr_9355f6f432203f81caf1b33a3aecca486598067e6a9b8ebb2d67a9f61ae67b9c-job-insights-rca, flushInterval(sec) 5, maxRetries 5
+2026-03-06T16:36:41.513Z
+Continuous Logging: Creating cloudwatch appender with AWSRegion us-east-1, AWSLogGroup /aws-glue/jobs/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year, AWSLogStream jr_9355f6f432203f81caf1b33a3aecca486598067e6a9b8ebb2d67a9f61ae67b9c-job-insights-rule, flushInterval(sec) 5, maxRetries 5
+2026-03-06T16:36:41.520Z
+Continuous Logging: Creating cloudwatch appender with AWSRegion us-east-1, AWSLogGroup /aws-glue/jobs/FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year, AWSLogStream FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year/-jr_9355f6f432203f81caf1b33a3aecca486598067e6a9b8ebb2d67a9f61ae67b9c-progress-bar, flushInterval(sec) 5, maxRetries 5
+2026-03-06T16:36:41.975Z
+2026-03-06 16:36:41,973 INFO [main] executor.CoarseGrainedExecutorBackend (Utils.scala:initDaemon(2869)): Started daemon with process name: 7@ip-172-38-176-250.ec2.internal
+2026-03-06T16:36:41.997Z
+2026-03-06 16:36:41,996 INFO [main] util.SignalUtils (Logging.scala:logInfo(61)): Registering signal handler for TERM
+2026-03-06T16:36:41.998Z
+2026-03-06 16:36:41,997 INFO [main] util.SignalUtils (Logging.scala:logInfo(61)): Registering signal handler for HUP
+2026-03-06T16:36:41.998Z
+2026-03-06 16:36:41,998 INFO [main] util.SignalUtils (Logging.scala:logInfo(61)): Registering signal handler for INT
+2026-03-06T16:36:42.171Z
+2026-03-06 16:36:42,170 INFO [main] spark.SecurityManager (Logging.scala:logInfo(61)): Changing view acls to: spark
+2026-03-06T16:36:42.174Z
+2026-03-06 16:36:42,171 INFO [main] spark.SecurityManager (Logging.scala:logInfo(61)): Changing modify acls to: spark
+2026-03-06T16:36:42.175Z
+2026-03-06 16:36:42,175 INFO [main] spark.SecurityManager (Logging.scala:logInfo(61)): Changing view acls groups to:
+2026-03-06T16:36:42.176Z
+2026-03-06 16:36:42,175 INFO [main] spark.SecurityManager (Logging.scala:logInfo(61)): Changing modify acls groups to:
+2026-03-06T16:36:42.176Z
+2026-03-06 16:36:42,176 INFO [main] spark.SecurityManager (Logging.scala:logInfo(61)): SecurityManager: authentication enabled; ui acls disabled; users with view permissions: Set(spark); groups with view permissions: Set(); users with modify permissions: Set(spark); groups with modify permissions: Set()
+2026-03-06T16:36:42.590Z
+2026-03-06 16:36:42,589 ERROR [main] glue.ProcessLauncher (Logging.scala:logError(77)): InvocationTargetException java.lang.reflect.InvocationTargetException
+2026-03-06T16:36:42.599Z
+2026-03-06 16:36:42,590 ERROR [main] glue.ProcessLauncher (Logging.scala:logError(98)): Exception in User Class java.lang.reflect.UndeclaredThrowableException: null at org.apache.hadoop.security.UserGroupInformation.doAs(UserGroupInformation.java:1894) ~[hadoop-client-api-3.3.3-amzn-0.jar:?] at org.apache.spark.deploy.SparkHadoopUtil.runAsSparkUser(SparkHadoopUtil.scala:61) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.executor.CoarseGrainedExecutorBackend$.run(CoarseGrainedExecutorBackend.scala:471) ~[spark-core_2.12-3.3.0-amzn-1.jar:?] at org.apache.spark.executor.CoarseGrainedExecutorBackend$.main(CoarseGrainedExecutorBackend.scala:460) ~[spark-core_2.12-3.3.0-amzn-1.jar:?] at org.apache.spark.executor.CoarseGrainedExecutorBackendPlugin.launch(CoarseGrainedExecutorBackendWrapper.scala:10) ~[AWSGlueSparkResourceManager-1.0.jar:?] at org.apache.spark.executor.CoarseGrainedExecutorBackendPlugin.launch$(CoarseGrainedExecutorBackendWrapper.scala:10) ~[AWSGlueSparkResourceManager-1.0.jar:?] at org.apache.spark.executor.CoarseGrainedExecutorBackendWrapper$$anon$1.launch(CoarseGrainedExecutorBackendWrapper.scala:15) ~[AWSGlueSparkResourceManager-1.0.jar:?] at org.apache.spark.executor.CoarseGrainedExecutorBackendWrapper.launch(CoarseGrainedExecutorBackendWrapper.scala:19) ~[AWSGlueSparkResourceManager-1.0.jar:?] at org.apache.spark.executor.CoarseGrainedExecutorBackendWrapper$.main(CoarseGrainedExecutorBackendWrapper.scala:5) ~[AWSGlueSparkResourceManager-1.0.jar:?] at org.apache.spark.executor.CoarseGrainedExecutorBackendWrapper.main(CoarseGrainedExecutorBackendWrapper.scala) ~[AWSGlueSparkResourceManager-1.0.jar:?] at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[?:1.8.0_472] at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62) ~[?:1.8.0_472] at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[?:1.8.0_472] at java.lang.reflect.Method.invoke(Method.java:498) ~[?:1.8.0_472] at com.amazonaws.services.glue.SparkProcessLauncherPlugin.invoke(ProcessLauncher.scala:68) ~[AWSGlueSparkResourceManager-1.0.jar:?] at com.amazonaws.services.glue.SparkProcessLauncherPlugin.invoke$(ProcessLauncher.scala:68) ~[AWSGlueSparkResourceManager-1.0.jar:?] at com.amazonaws.services.glue.ProcessLauncher$$anon$2.invoke(ProcessLauncher.scala:227) ~[AWSGlueSparkResourceManager-1.0.jar:?] at com.amazonaws.services.glue.ProcessLauncher.launch(ProcessLauncher.scala:493) ~[AWSGlueSparkResourceManager-1.0.jar:?] at com.amazonaws.services.glue.ProcessLauncher$.main(ProcessLauncher.scala:48) ~[AWSGlueSparkResourceManager-1.0.jar:?] at com.amazonaws.services.glue.ProcessLauncher.main(ProcessLauncher.scala) ~[AWSGlueSparkResourceManager-1.0.jar:?] Caused by: org.apache.spark.SparkException: Exception thrown in awaitResult: at org.apache.spark.util.ThreadUtils$.awaitResult(ThreadUtils.scala:301) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.rpc.RpcTimeout.awaitResult(RpcTimeout.scala:75) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.rpc.RpcEnv.setupEndpointRefByURI(RpcEnv.scala:102) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.executor.CoarseGrainedExecutorBackend$.$anonfun$run$9(CoarseGrainedExecutorBackend.scala:491) ~[spark-core_2.12-3.3.0-amzn-1.jar:?] at scala.runtime.java8.JFunction1$mcVI$sp.apply(JFunction1$mcVI$sp.java:23) ~[scala-library-2.12.15.jar:?] at scala.collection.TraversableLike$WithFilter.$anonfun$foreach$1(TraversableLike.scala:985) ~[scala-library-2.12.15.jar:?] at scala.collection.immutable.Range.foreach(Range.scala:158) ~[scala-library-2.12.15.jar:?] at scala.collection.TraversableLike$WithFilter.foreach(TraversableLike.scala:984) ~[scala-library-2.12.15.jar:?] at org.apache.spark.executor.CoarseGrainedExecutorBackend$.$anonfun$run$7(CoarseGrainedExecutorBackend.scala:489) ~[spark-core_2.12-3.3.0-amzn-1.jar:?] at org.apache.spark.deploy.SparkHadoopUtil$$anon$1.run(SparkHadoopUtil.scala:62) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.deploy.SparkHadoopUtil$$anon$1.run(SparkHadoopUtil.scala:61) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at java.security.AccessController.doPrivileged(Native Method) ~[?:1.8.0_472] at javax.security.auth.Subject.doAs(Subject.java:422) ~[?:1.8.0_472] at org.apache.hadoop.security.UserGroupInformation.doAs(UserGroupInformation.java:1878) ~[hadoop-client-api-3.3.3-amzn-0.jar:?] ... 19 more Caused by: java.io.IOException: Failed to connect to /172.35.153.224:37335 at org.apache.spark.network.client.TransportClientFactory.createClient(TransportClientFactory.java:288) ~[spark-network-common_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.network.client.TransportClientFactory.createClient(TransportClientFactory.java:218) ~[spark-network-common_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.network.client.TransportClientFactory.createClient(TransportClientFactory.java:230) ~[spark-network-common_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.rpc.netty.NettyRpcEnv.createClient(NettyRpcEnv.scala:204) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.rpc.netty.Outbox$$anon$1.call(Outbox.scala:202) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at org.apache.spark.rpc.netty.Outbox$$anon$1.call(Outbox.scala:198) ~[spark-core_2.12-3.3.0-amzn-1.jar:3.3.0-amzn-1] at java.util.concurrent.FutureTask.run(FutureTask.java:266) ~[?:1.8.0_472] at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149) ~[?:1.8.0_472] at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624) ~[?:1.8.0_472] at java.lang.Thread.run(Thread.java:750) ~[?:1.8.0_472] Caused by: io.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /172.35.153.224:37335 Caused by: java.net.ConnectException: Connection refused at sun.nio.ch.SocketChannelImpl.checkConnect(Native Method) ~[?:1.8.0_472] at sun.nio.ch.SocketChannelImpl.finishConnect(SocketChannelImpl.java:716) ~[?:1.8.0_472] at io.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:330) ~[netty-transport-4.1.74.Final.jar:4.1.74.Final] at io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:334) ~[netty-transport-4.1.74.Final.jar:4.1.74.Final] at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:710) ~[netty-transport-4.1.74.Final.jar:4.1.74.Final] at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:658) ~[netty-transport-4.1.74.Final.jar:4.1.74.Final] at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:584) ~[netty-transport-4.1.74.Final.jar:4.1.74.Final] at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:496) ~[netty-transport-4.1.74.Final.jar:4.1.74.Final] at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:986) ~[netty-common-4.1.74.Final.jar:4.1.74.Final] at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74) ~[netty-common-4.1.74.Final.jar:4.1.74.Final] at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30) ~[netty-common-4.1.74.Final.jar:4.1.74.Final] at java.lang.Thread.run(Thread.java:750) ~[?:1.8.0_472]
+2026-03-06T16:36:42.600Z
+2026-03-06 16:36:42,599 ERROR [main] glue.ProcessLauncher (Logging.scala:logError(77)): Exception in User Class: java.lang.reflect.UndeclaredThrowableException org.apache.hadoop.security.UserGroupInformation.doAs(UserGroupInformation.java:1894) org.apache.spark.deploy.SparkHadoopUtil.runAsSparkUser(SparkHadoopUtil.scala:61) org.apache.spark.executor.CoarseGrainedExecutorBackend$.run(CoarseGrainedExecutorBackend.scala:471) org.apache.spark.executor.CoarseGrainedExecutorBackend$.main(CoarseGrainedExecutorBackend.scala:460) org.apache.spark.executor.CoarseGrainedExecutorBackendPlugin.launch(CoarseGrainedExecutorBackendWrapper.scala:10) org.apache.spark.executor.CoarseGrainedExecutorBackendPlugin.launch$(CoarseGrainedExecutorBackendWrapper.scala:10) org.apache.spark.executor.CoarseGrainedExecutorBackendWrapper$$anon$1.launch(CoarseGrainedExecutorBackendWrapper.scala:15) org.apache.spark.executor.CoarseGrainedExecutorBackendWrapper.launch(CoarseGrainedExecutorBackendWrapper.scala:19) org.apache.spark.executor.CoarseGrainedExecutorBackendWrapper$.main(CoarseGrainedExecutorBackendWrapper.scala:5) org.apache.spark.executor.CoarseGrainedExecutorBackendWrapper.main(CoarseGrainedExecutorBackendWrapper.scala) sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method) sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62) sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) java.lang.reflect.Method.invoke(Method.java:498) com.amazonaws.services.glue.SparkProcessLauncherPlugin.invoke(ProcessLauncher.scala:68) com.amazonaws.services.glue.SparkProcessLauncherPlugin.invoke$(ProcessLauncher.scala:68) com.amazonaws.services.glue.ProcessLauncher$$anon$2.invoke(ProcessLauncher.scala:227) com.amazonaws.services.glue.ProcessLauncher.launch(ProcessLauncher.scala:493) com.amazonaws.services.glue.ProcessLauncher$.main(ProcessLauncher.scala:48) com.amazonaws.services.glue.ProcessLauncher.main(ProcessLauncher.scala)
+2026-03-06T16:36:42.611Z
+2026-03-06 16:36:42,610 INFO [main] glue.ProcessLauncher (Logging.scala:logInfo(61)): postprocessing
+2026-03-06T16:36:42.615Z
+2026-03-06 16:36:42,615 INFO [main] glue.ProcessLauncher (Logging.scala:logInfo(61)): postprocessing finished
+2026-03-06T16:36:42.615Z
+java.lang.reflect.UndeclaredThrowableException at org.apache.hadoop.security.UserGroupInformation.doAs(UserGroupInformation.java:1894)
+2026-03-06T16:36:42.616Z
+at org.apache.spark.deploy.SparkHadoopUtil.runAsSparkUser(SparkHadoopUtil.scala:61) at org.apache.spark.executor.CoarseGrainedExecutorBackend$.run(CoarseGrainedExecutorBackend.scala:471)
+2026-03-06T16:36:42.616Z
+at org.apache.spark.executor.CoarseGrainedExecutorBackend$.main(CoarseGrainedExecutorBackend.scala:460) at org.apache.spark.executor.CoarseGrainedExecutorBackendPlugin.launch(CoarseGrainedExecutorBackendWrapper.scala:10)
+2026-03-06T16:36:42.616Z
+at org.apache.spark.executor.CoarseGrainedExecutorBackendPlugin.launch$(CoarseGrainedExecutorBackendWrapper.scala:10) at org.apache.spark.executor.CoarseGrainedExecutorBackendWrapper$$anon$1.launch(CoarseGrainedExecutorBackendWrapper.scala:15)
+2026-03-06T16:36:42.616Z
+at org.apache.spark.executor.CoarseGrainedExecutorBackendWrapper.launch(CoarseGrainedExecutorBackendWrapper.scala:19) at org.apache.spark.executor.CoarseGrainedExecutorBackendWrapper$.main(CoarseGrainedExecutorBackendWrapper.scala:5)
+2026-03-06T16:36:42.616Z
+2026-03-06T16:36:42.616Z
+at org.apache.spark.executor.CoarseGrainedExecutorBackendWrapper.main(CoarseGrainedExecutorBackendWrapper.scala)
+2026-03-06T16:36:42.616Z
+Caused by: org.apache.spark.SparkException: Exception thrown in awaitResult:
+2026-03-06T16:36:42.616Z
+at org.apache.spark.util.ThreadUtils$.awaitResult(ThreadUtils.scala:301) at org.apache.spark.rpc.RpcTimeout.awaitResult(RpcTimeout.scala:75)
+2026-03-06T16:36:42.616Z
+at org.apache.spark.rpc.RpcEnv.setupEndpointRefByURI(RpcEnv.scala:102) at org.apache.spark.executor.CoarseGrainedExecutorBackend$.$anonfun$run$9(CoarseGrainedExecutorBackend.scala:491) at scala.runtime.java8.JFunction1$mcVI$sp.apply(JFunction1$mcVI$sp.java:23) at scala.collection.TraversableLike$WithFilter.$anonfun$foreach$1(TraversableLike.scala:985)
+2026-03-06T16:36:42.616Z
+2026-03-06T16:36:42.616Z
+at scala.collection.immutable.Range.foreach(Range.scala:158) at scala.collection.TraversableLike$WithFilter.foreach(TraversableLike.scala:984)
+2026-03-06T16:36:42.616Z
+at org.apache.spark.executor.CoarseGrainedExecutorBackend$.$anonfun$run$7(CoarseGrainedExecutorBackend.scala:489)
+2026-03-06T16:36:42.616Z
+at org.apache.spark.deploy.SparkHadoopUtil$$anon$1.run(SparkHadoopUtil.scala:62) at org.apache.spark.deploy.SparkHadoopUtil$$anon$1.run(SparkHadoopUtil.scala:61)
+2026-03-06T16:36:42.616Z
+2026-03-06T16:36:42.616Z
+at java.security.AccessController.doPrivileged(Native Method)
+2026-03-06T16:36:42.635Z
+at javax.security.auth.Subject.doAs(Subject.java:422)
+2026-03-06T16:36:42.635Z
+at org.apache.hadoop.security.UserGroupInformation.doAs(UserGroupInformation.java:1878) at org.apache.spark.deploy.SparkHadoopUtil.runAsSparkUser(SparkHadoopUtil.scala:61)
+2026-03-06T16:36:42.635Z
+at org.apache.spark.executor.CoarseGrainedExecutorBackend$.run(CoarseGrainedExecutorBackend.scala:471)
+2026-03-06T16:36:42.635Z
+at org.apache.spark.executor.CoarseGrainedExecutorBackend$.main(CoarseGrainedExecutorBackend.scala:460) at org.apache.spark.executor.CoarseGrainedExecutorBackendPlugin.launch(CoarseGrainedExecutorBackendWrapper.scala:10) at org.apache.spark.executor.CoarseGrainedExecutorBackendPlugin.launch$(CoarseGrainedExecutorBackendWrapper.scala:10)
+2026-03-06T16:36:42.635Z
+at org.apache.spark.executor.CoarseGrainedExecutorBackendWrapper$$anon$1.launch(CoarseGrainedExecutorBackendWrapper.scala:15)
+2026-03-06T16:36:42.636Z
+at org.apache.spark.executor.CoarseGrainedExecutorBackendWrapper.launch(CoarseGrainedExecutorBackendWrapper.scala:19) at org.apache.spark.executor.CoarseGrainedExecutorBackendWrapper$.main(CoarseGrainedExecutorBackendWrapper.scala:5)
+2026-03-06T16:36:42.636Z
+at org.apache.spark.executor.CoarseGrainedExecutorBackendWrapper.main(CoarseGrainedExecutorBackendWrapper.scala)
+2026-03-06T16:36:42.636Z
+at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+2026-03-06T16:36:42.636Z
+at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+2026-03-06T16:36:42.636Z
+at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+2026-03-06T16:36:42.636Z
+at java.lang.reflect.Method.invoke(Method.java:498) at com.amazonaws.services.glue.SparkProcessLauncherPlugin.invoke(ProcessLauncher.scala:68)
+2026-03-06T16:36:42.636Z
+2026-03-06T16:36:42.636Z
+at com.amazonaws.services.glue.SparkProcessLauncherPlugin.invoke$(ProcessLauncher.scala:68)
+2026-03-06T16:36:42.636Z
+at com.amazonaws.services.glue.ProcessLauncher$$anon$2.invoke(ProcessLauncher.scala:227)
+2026-03-06T16:36:42.636Z
+2026-03-06T16:36:42.636Z
+at com.amazonaws.services.glue.ProcessLauncher.launch(ProcessLauncher.scala:493) at com.amazonaws.services.glue.ProcessLauncher$.main(ProcessLauncher.scala:48)
+2026-03-06T16:36:42.636Z
+at com.amazonaws.services.glue.ProcessLauncher.main(ProcessLauncher.scala)
+2026-03-06T16:36:42.636Z
+Caused by: java.io.IOException: Failed to connect to /172.35.153.224:37335
+2026-03-06T16:36:42.636Z
+2026-03-06T16:36:42.636Z
+at org.apache.spark.network.client.TransportClientFactory.createClient(TransportClientFactory.java:288)
+2026-03-06T16:36:42.654Z
+at org.apache.spark.network.client.TransportClientFactory.createClient(TransportClientFactory.java:218) at org.apache.spark.network.client.TransportClientFactory.createClient(TransportClientFactory.java:230)
+2026-03-06T16:36:42.654Z
+at org.apache.spark.rpc.netty.NettyRpcEnv.createClient(NettyRpcEnv.scala:204) at org.apache.spark.rpc.netty.Outbox$$anon$1.call(Outbox.scala:202)
+2026-03-06T16:36:42.654Z
+at org.apache.spark.rpc.netty.Outbox$$anon$1.call(Outbox.scala:198)
+2026-03-06T16:36:42.654Z
+at java.util.concurrent.FutureTask.run(FutureTask.java:266)
+2026-03-06T16:36:42.654Z
+at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149) at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+2026-03-06T16:36:42.654Z
+at java.lang.Thread.run(Thread.java:750)
+2026-03-06T16:36:42.654Z
+Caused by: io.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /172.35.153.224:37335 Caused by: java.net.ConnectException: Connection refused
+2026-03-06T16:36:42.654Z
+2026-03-06T16:36:42.654Z
+at sun.nio.ch.SocketChannelImpl.checkConnect(Native Method)
+2026-03-06T16:36:42.654Z
+at sun.nio.ch.SocketChannelImpl.finishConnect(SocketChannelImpl.java:716) at io.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:330)
+2026-03-06T16:36:42.654Z
+at io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:334)
+2026-03-06T16:36:42.654Z
+at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:710)
+2026-03-06T16:36:42.654Z
+at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:658) at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:584) at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:496)
+2026-03-06T16:36:42.655Z
+at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:986)
+2026-03-06T16:36:42.655Z
+at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+2026-03-06T16:36:42.655Z
+2026-03-06T16:36:42.655Z
+at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30) at java.lang.Thread.run(Thread.java:750)
+2026-03-06T16:36:42.655Z
+Continuous Logging: Shutting down cloudwatch appender.
+2026-03-06T16:36:42.655Z
+Continuous Logging: Shutting down cloudwatch appender.
+2026-03-06T16:36:42.655Z
+Continuous Logging: Shutting down cloudwatch appender.
+2026-03-06T16:36:42.670Z
+Continuous Logging: Shutting down cloudwatch appender.
+2026-03-06T16:36:43.049Z
+Continuous Logging: Duplicate logStream name FSA-PROD-ATHENAFARM-Transform-Tract-Producer-Year/-null when creating log stream.
+2026-03-06T16:36:43.084Z
+2026-03-06 16:36:42,621 INFO [shutdown-hook-0] util.ShutdownHookManager (Logging.scala:logInfo(61)): Shutdown hook called
+

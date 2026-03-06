@@ -1,1 +1,78 @@
+{
+  "full_load": "true",
+  "skip_rds_sync": true,
+  "ingest_results": [
+    {
+      "AllocatedCapacity": 20,
+      "Arguments": {
+        "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+        "--env": "PROD"
+      },
+      "Attempt": 0,
+      "CompletedOn": 1772805401470,
+      "ExecutionTime": 1360,
+      "GlueVersion": "4.0",
+      "Id": "jr_3276e8f20ccb15ada70bc6c97d6b83b401a343f3c3fa2643cb8939e0bcd4c280",
+      "JobMode": "SCRIPT",
+      "JobName": "FSA-PROD-ATHENAFARM-Ingest-SSS-Farmrecords",
+      "JobRunState": "SUCCEEDED",
+      "LastModifiedOn": 1772805401470,
+      "LogGroupName": "/aws-glue/jobs",
+      "MaxCapacity": 20,
+      "NumberOfWorkers": 10,
+      "PredecessorRuns": [],
+      "StartedOn": 1772804034182,
+      "Timeout": 120,
+      "WorkerType": "G.2X"
+    },
+    {
+      "AllocatedCapacity": 8,
+      "Arguments": {
+        "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+        "--env": "PROD"
+      },
+      "Attempt": 0,
+      "CompletedOn": 1772805790558,
+      "ExecutionTime": 1802,
+      "GlueVersion": "4.0",
+      "Id": "jr_79865beb7fa283a770ed318f5f2fdf851450005867528e88dd152076f0e58858",
+      "JobMode": "SCRIPT",
+      "JobName": "FSA-PROD-ATHENAFARM-Ingest-PG-Reference-Tables",
+      "JobRunState": "SUCCEEDED",
+      "LastModifiedOn": 1772805790558,
+      "LogGroupName": "/aws-glue/jobs",
+      "MaxCapacity": 8,
+      "NumberOfWorkers": 4,
+      "PredecessorRuns": [],
+      "StartedOn": 1772803973013,
+      "Timeout": 480,
+      "WorkerType": "G.2X"
+    },
+    {
+      "AllocatedCapacity": 8,
+      "Arguments": {
+        "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+        "--env": "PROD"
+      },
+      "Attempt": 0,
+      "CompletedOn": 1772804671629,
+      "ExecutionTime": 684,
+      "GlueVersion": "4.0",
+      "Id": "jr_3f3f364dfd8ae281768fdca0f7fa68acb997f056f9c31dd54f36cdc03385f94f",
+      "JobMode": "SCRIPT",
+      "JobName": "FSA-PROD-ATHENAFARM-Ingest-PG-CDC-Targets",
+      "JobRunState": "SUCCEEDED",
+      "LastModifiedOn": 1772804671628,
+      "LogGroupName": "/aws-glue/jobs",
+      "MaxCapacity": 8,
+      "NumberOfWorkers": 4,
+      "PredecessorRuns": [],
+      "StartedOn": 1772803973011,
+      "Timeout": 480,
+      "WorkerType": "G.2X"
+    }
+  ]
+}
+
+
 An error occurred while executing the state 'SelectTransformTractPath' (entered at the event id #51). Invalid path '$.force_legacy_tract_path': The choice state's condition path references an invalid value.

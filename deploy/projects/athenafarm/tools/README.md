@@ -55,3 +55,14 @@ export TRACT_MAX_RESULTS=25
 - `4` — run failed (`FAILED`, `TIMEOUT`, `ERROR`, `STOPPED`)
 - `1` — API/job lookup error
 - `2` — dependency error (for example missing boto3)
+
+## Runtime progress fields
+
+When progress log lines are available in CloudWatch, the JSON also includes:
+
+- `runtime_progress_pct`
+- `runtime_progress_milestone`
+- `runtime_progress_elapsed_seconds`
+- `runtime_progress_event_time_utc`
+
+If no progress lines are found yet, these fields are `null`.

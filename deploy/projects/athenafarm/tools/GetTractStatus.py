@@ -45,11 +45,60 @@ def _extract_progress(message):
 
 def _latest_progress(logs, run_id, started_ms, completed_ms):
     if not started_ms:
-        return None
+        return None, {"status": "no_start_time"}
 
     end_ms = completed_ms or int(datetime.now(tz=timezone.utc).timestamp() * 1000)
     groups = ["/aws-glue/jobs/output", "/aws-glue/jobs/error", "/aws-glue/jobs"]
     events = []
+    scanned_streams = 0
+    scanned_events = 0
+
+    for group in groups:
+        if not run_id or run_id == "-":
+            continue
+        try:
+            streams_resp = logs.describe_log_streams(
+                logGroupName=group,
+                logStreamNamePrefix=run_id,
+                orderBy="LogStreamName",
+                descending=True,
+                limit=20,
+            )
+        except Exception:
+            continue
+
+        for stream in streams_resp.get("logStreams", []):
+            stream_name = stream.get("logStreamName")
+            if not stream_name:
+                continue
+            scanned_streams += 1
+            next_token = None
+            page_count = 0
+            while True:
+                kwargs = {
+                    "logGroupName": group,
+                    "logStreamName": stream_name,
+                    "startTime": started_ms,
+                    "endTime": end_ms,
+                    "startFromHead": True,
+                    "limit": 1000,
+                }
+                if next_token:
+                    kwargs["nextToken"] = next_token
+                try:
+                    response = logs.get_log_events(**kwargs)
+                except Exception:
+                    break
+
+                page_events = response.get("events", [])
+                scanned_events += len(page_events)
+                events.extend(page_events)
+
+                token = response.get("nextForwardToken")
+                page_count += 1
+                if not token or token == next_token or page_count >= 8:
+                    break
+                next_token = token
 
     for group in groups:
         next_token = None
@@ -59,7 +108,7 @@ def _latest_progress(logs, run_id, started_ms, completed_ms):
                 "logGroupName": group,
                 "startTime": started_ms,
                 "endTime": end_ms,
-                "filterPattern": '"[PROGRESS]" "progress_pct="',
+                "filterPattern": "PROGRESS",
                 "limit": 200,
             }
             if next_token:
@@ -70,7 +119,9 @@ def _latest_progress(logs, run_id, started_ms, completed_ms):
             except Exception:
                 break
 
-            events.extend(response.get("events", []))
+            page_events = response.get("events", [])
+            scanned_events += len(page_events)
+            events.extend(page_events)
             token = response.get("nextToken")
             page_count += 1
             if not token or token == next_token or page_count >= 5:
@@ -78,7 +129,11 @@ def _latest_progress(logs, run_id, started_ms, completed_ms):
             next_token = token
 
     if not events:
-        return None
+        return None, {
+            "status": "no_events",
+            "scanned_streams": scanned_streams,
+            "scanned_events": scanned_events,
+        }
 
     run_events = [event for event in events if run_id and run_id in (event.get("logStreamName") or "")]
     candidates = run_events or events
@@ -90,11 +145,19 @@ def _latest_progress(logs, run_id, started_ms, completed_ms):
             parsed.append((event.get("timestamp", 0), progress))
 
     if not parsed:
-        return None
+        return None, {
+            "status": "no_progress_lines",
+            "scanned_streams": scanned_streams,
+            "scanned_events": scanned_events,
+        }
 
     timestamp_ms, progress = max(parsed, key=lambda row: row[0])
     progress["event_time_utc"] = _fmt_ms(timestamp_ms)
-    return progress
+    return progress, {
+        "status": "ok",
+        "scanned_streams": scanned_streams,
+        "scanned_events": scanned_events,
+    }
 
 
 def main() -> int:
@@ -142,7 +205,7 @@ def main() -> int:
     started_ms = int(started_on.timestamp() * 1000) if started_on else None
     completed_ms = int(completed_on.timestamp() * 1000) if completed_on else None
     run_id = selected.get("Id", "-")
-    progress = _latest_progress(logs, run_id, started_ms, completed_ms)
+    progress, progress_diag = _latest_progress(logs, run_id, started_ms, completed_ms)
 
     result = {
         "environment": env_upper,
@@ -165,6 +228,9 @@ def main() -> int:
         "runtime_progress_milestone": progress.get("milestone") if progress else None,
         "runtime_progress_elapsed_seconds": progress.get("elapsed_seconds") if progress else None,
         "runtime_progress_event_time_utc": progress.get("event_time_utc") if progress else None,
+        "runtime_progress_lookup_status": progress_diag.get("status") if progress_diag else None,
+        "runtime_progress_scanned_streams": progress_diag.get("scanned_streams") if progress_diag else None,
+        "runtime_progress_scanned_events": progress_diag.get("scanned_events") if progress_diag else None,
     }
 
     print(json.dumps(result, indent=2))

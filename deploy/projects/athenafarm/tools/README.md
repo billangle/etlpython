@@ -65,4 +65,10 @@ When progress log lines are available in CloudWatch, the JSON also includes:
 - `runtime_progress_elapsed_seconds`
 - `runtime_progress_event_time_utc`
 
+Lookup diagnostics are also included:
+
+- `runtime_progress_lookup_status` (`ok`, `no_events`, `no_progress_lines`, `no_start_time`)
+- `runtime_progress_scanned_streams`
+- `runtime_progress_scanned_events`
+
 If no progress lines are found yet, these fields are `null`.

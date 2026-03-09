@@ -17,16 +17,22 @@ pipeline {
     triggers {
         GenericTrigger(
             genericVariables: [
-                [key: 'eventKey', value: '$.eventKey'],
-                [key: 'projectKey', value: '$.repository.project.key'],
-                [key: 'repoSlug', value: '$.repository.slug'],
-                [key: 'branchName', value: '$.changes[0].ref.displayId'],
-                [key: 'postBuffer', value: '$']
+                [key: 'eventKey', value: '$.eventKey', expressionType: 'JSONPath', defaultValue: ''],
+                [key: 'projectKey', value: '$.repository.project.key', expressionType: 'JSONPath', defaultValue: ''],
+                [key: 'repoSlug', value: '$.repository.slug', expressionType: 'JSONPath', defaultValue: ''],
+                [key: 'branchName', value: '$.changes[0].ref.displayId', expressionType: 'JSONPath', defaultValue: ''],
+                [key: 'postBuffer', value: '$', expressionType: 'JSONPath', defaultValue: '']
+            ],
+            genericRequestVariables: [
+                [key: 'payload', regexpFilter: '.*']
+            ],
+            genericHeaderVariables: [
+                [key: 'content_type', regexpFilter: '.*']
             ],
             causeString: 'Triggered by Bitbucket webhook',
             token: '72305AD4-A19D-462C-9CEB-275E01BDFAFD',
             printContributedVariables: true,
-            printPostContent: false,
+            printPostContent: true,
             silentResponse: true
         )
     }
@@ -40,6 +46,31 @@ pipeline {
                     def projectKey = (env.projectKey ?: params.projectKey ?: '').toString()
                     def repoSlug = (env.repoSlug ?: params.repoSlug ?: '').toString()
                     def branchName = (env.branchName ?: params.branchName ?: '').toString()
+
+                    def envWebhookKeys = env.keySet().findAll { k ->
+                        def lower = k.toLowerCase()
+                        lower.contains('event') || lower.contains('payload') || lower.contains('post') || lower.contains('bitbucket') || lower.contains('content_type')
+                    }.sort()
+                    if (envWebhookKeys) {
+                        echo 'Detected webhook-related environment keys:'
+                        envWebhookKeys.each { k ->
+                            def v = (env[k] ?: '').toString()
+                            echo "  ${k} = ${v.take(200)}"
+                        }
+                    }
+
+                    def payloadCandidate = (env.payload ?: params.payload ?: '').toString()
+                    if ((!eventKey || !projectKey || !repoSlug || !branchName) && payloadCandidate.trim().startsWith('{')) {
+                        try {
+                            def parsed = new groovy.json.JsonSlurperClassic().parseText(payloadCandidate)
+                            eventKey = eventKey ?: (parsed?.eventKey ?: '').toString()
+                            projectKey = projectKey ?: (parsed?.repository?.project?.key ?: '').toString()
+                            repoSlug = repoSlug ?: (parsed?.repository?.slug ?: '').toString()
+                            branchName = branchName ?: (parsed?.changes?.getAt(0)?.ref?.displayId ?: '').toString()
+                        } catch (Exception ex) {
+                            echo "Payload parse fallback failed: ${ex.getClass().getSimpleName()}"
+                        }
+                    }
 
                     echo "eventKey  : ${eventKey ?: 'N/A'}"
                     echo "projectKey : ${projectKey ?: 'N/A'}"
@@ -67,7 +98,7 @@ pipeline {
                         echo 'refs_changed event detected. Detailed commit/ref JSON is in webhook POST body, not in eventKey.'
                     }
 
-                    def rawPostBuffer = (env.postBuffer ?: params.postBuffer ?: params.payload ?: env.BITBUCKET_PAYLOAD ?: env.payload ?: '').toString()
+                    def rawPostBuffer = (env.postBuffer ?: params.postBuffer ?: payloadCandidate ?: params.payload ?: env.BITBUCKET_PAYLOAD ?: env.payload ?: '').toString()
                     if (rawPostBuffer.trim()) {
                         echo "POST buffer detected. Length: ${rawPostBuffer.length()} chars"
                         echo 'POST buffer preview (first 4000 chars):'

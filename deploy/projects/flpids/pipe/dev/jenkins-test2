@@ -47,16 +47,17 @@ pipeline {
                     def repoSlug = (env.repoSlug ?: params.repoSlug ?: '').toString()
                     def branchName = (env.branchName ?: params.branchName ?: '').toString()
 
-                    def envWebhookKeys = env.keySet().findAll { k ->
-                        def lower = k.toLowerCase()
-                        lower.contains('event') || lower.contains('payload') || lower.contains('post') || lower.contains('bitbucket') || lower.contains('content_type')
-                    }.sort()
-                    if (envWebhookKeys) {
+                    def envWebhookDump = sh(
+                        script: """
+                            printenv | sort | grep -Ei 'event|payload|post|bitbucket|content_type' || true
+                        """.stripIndent(),
+                        returnStdout: true
+                    ).trim()
+                    if (envWebhookDump) {
                         echo 'Detected webhook-related environment keys:'
-                        envWebhookKeys.each { k ->
-                            def v = (env[k] ?: '').toString()
-                            echo "  ${k} = ${v.take(200)}"
-                        }
+                        echo envWebhookDump.readLines().collect { line ->
+                            line.length() > 220 ? line.take(220) + '...' : line
+                        }.join('\n')
                     }
 
                     def payloadCandidate = (env.payload ?: params.payload ?: '').toString()

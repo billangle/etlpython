@@ -5,8 +5,10 @@ pipeline {
         timestamps()
     }
 
-    environment {
-        WEBHOOK_PAYLOAD_FILE = 'bitbucket-webhook-payload.json'
+    parameters {
+        string(name: 'projectKey', defaultValue: '', description: 'Bitbucket URL variable: project.key')
+        string(name: 'repoSlug', defaultValue: '', description: 'Bitbucket URL variable: repo.slug')
+        string(name: 'branchName', defaultValue: '', description: 'Bitbucket URL variable: repo.ref.branchName')
     }
 
     triggers {
@@ -18,18 +20,17 @@ pipeline {
             steps {
                 script {
                     echo 'Bitbucket webhook received by jenkins-test2.'
-                    sh 'printenv | sort | grep -Ei "bitbucket|payload|webhook" || true'
+                    echo "projectKey : ${params.projectKey ?: 'N/A'}"
+                    echo "repoSlug   : ${params.repoSlug ?: 'N/A'}"
+                    echo "branchName : ${params.branchName ?: 'N/A'}"
 
-                    def rawPayload = env.BITBUCKET_PAYLOAD ?: env.payload ?: ''
-                    if (rawPayload?.trim()) {
-                        writeFile file: env.WEBHOOK_PAYLOAD_FILE, text: rawPayload
-                        echo "Saved raw webhook POST body to ${env.WEBHOOK_PAYLOAD_FILE}."
-                        echo 'Raw webhook payload (first 4000 chars):'
-                        echo rawPayload.take(4000)
-                    } else {
-                        echo 'No raw payload variable was found (checked BITBUCKET_PAYLOAD and payload).'
-                        echo 'If needed, expose the POST body in your Jenkins Bitbucket plugin/job config.'
-                    }
+                    def captured = [
+                        projectKey: params.projectKey ?: '',
+                        repoSlug: params.repoSlug ?: '',
+                        branchName: params.branchName ?: ''
+                    ]
+                    writeFile file: 'bitbucket-webhook-url-variables.json', text: groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(captured))
+                    echo 'Saved captured URL variables to bitbucket-webhook-url-variables.json'
                 }
             }
         }
@@ -37,7 +38,7 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: 'bitbucket-webhook-payload.json', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'bitbucket-webhook-url-variables.json', allowEmptyArchive: true
         }
     }
 }

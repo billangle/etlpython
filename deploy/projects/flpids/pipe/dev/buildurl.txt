@@ -1,0 +1,1 @@
+https://<jenkins>/job/BuildProcess/job/DeployFlpids/buildWithParameters?token=<TOKEN>&projectKey=${project.key}&repoSlug=${repo.slug}&branchName=${repo.ref.branchName}

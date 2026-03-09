@@ -15,7 +15,20 @@ pipeline {
     }
 
     triggers {
-        bitbucketPush()
+        GenericTrigger(
+            genericVariables: [
+                [key: 'eventKey', value: '$.eventKey'],
+                [key: 'projectKey', value: '$.repository.project.key'],
+                [key: 'repoSlug', value: '$.repository.slug'],
+                [key: 'branchName', value: '$.changes[0].ref.displayId'],
+                [key: 'postBuffer', value: '$']
+            ],
+            causeString: 'Triggered by Bitbucket webhook',
+            token: '72305AD4-A19D-462C-9CEB-275E01BDFAFD',
+            printContributedVariables: true,
+            printPostContent: false,
+            silentResponse: true
+        )
     }
 
     stages {
@@ -23,10 +36,15 @@ pipeline {
             steps {
                 script {
                     echo 'Bitbucket webhook received by jenkins-test2.'
-                    echo "eventKey  : ${params.eventKey ?: 'N/A'}"
-                    echo "projectKey : ${params.projectKey ?: 'N/A'}"
-                    echo "repoSlug   : ${params.repoSlug ?: 'N/A'}"
-                    echo "branchName : ${params.branchName ?: 'N/A'}"
+                    def eventKey = (env.eventKey ?: params.eventKey ?: '').toString()
+                    def projectKey = (env.projectKey ?: params.projectKey ?: '').toString()
+                    def repoSlug = (env.repoSlug ?: params.repoSlug ?: '').toString()
+                    def branchName = (env.branchName ?: params.branchName ?: '').toString()
+
+                    echo "eventKey  : ${eventKey ?: 'N/A'}"
+                    echo "projectKey : ${projectKey ?: 'N/A'}"
+                    echo "repoSlug   : ${repoSlug ?: 'N/A'}"
+                    echo "branchName : ${branchName ?: 'N/A'}"
 
                     echo 'Received parameter dump:'
                     params.keySet().sort().each { k ->
@@ -34,8 +52,7 @@ pipeline {
                     }
 
                     def unresolved = []
-                    ['eventKey', 'projectKey', 'repoSlug', 'branchName'].each { k ->
-                        def v = (params[k] ?: '').toString()
+                    [eventKey: eventKey, projectKey: projectKey, repoSlug: repoSlug, branchName: branchName].each { k, v ->
                         if (v.startsWith('$')) {
                             unresolved << "${k}=${v}"
                         }
@@ -46,11 +63,11 @@ pipeline {
                         echo 'Use Bitbucket webhook URL variable syntax that your server version supports.'
                     }
 
-                    if ((params.eventKey ?: '') == 'repo:refs_changed') {
+                    if (eventKey == 'repo:refs_changed') {
                         echo 'refs_changed event detected. Detailed commit/ref JSON is in webhook POST body, not in eventKey.'
                     }
 
-                    def rawPostBuffer = (params.postBuffer ?: params.payload ?: env.BITBUCKET_PAYLOAD ?: env.payload ?: '').toString()
+                    def rawPostBuffer = (env.postBuffer ?: params.postBuffer ?: params.payload ?: env.BITBUCKET_PAYLOAD ?: env.payload ?: '').toString()
                     if (rawPostBuffer.trim()) {
                         echo "POST buffer detected. Length: ${rawPostBuffer.length()} chars"
                         echo 'POST buffer preview (first 4000 chars):'
@@ -62,10 +79,10 @@ pipeline {
                     }
 
                     def captured = [
-                        eventKey: params.eventKey ?: '',
-                        projectKey: params.projectKey ?: '',
-                        repoSlug: params.repoSlug ?: '',
-                        branchName: params.branchName ?: '',
+                        eventKey: eventKey,
+                        projectKey: projectKey,
+                        repoSlug: repoSlug,
+                        branchName: branchName,
                         postBufferPresent: rawPostBuffer.trim() ? true : false,
                         postBufferLength: rawPostBuffer.length()
                     ]

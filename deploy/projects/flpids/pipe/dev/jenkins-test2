@@ -6,6 +6,7 @@ pipeline {
     }
 
     parameters {
+        string(name: 'eventKey', defaultValue: '', description: 'Bitbucket webhook event key (for example repo:refs_changed)')
         string(name: 'projectKey', defaultValue: '', description: 'Bitbucket URL variable: project.key')
         string(name: 'repoSlug', defaultValue: '', description: 'Bitbucket URL variable: repo.slug')
         string(name: 'branchName', defaultValue: '', description: 'Bitbucket URL variable: repo.ref.branchName')
@@ -20,11 +21,13 @@ pipeline {
             steps {
                 script {
                     echo 'Bitbucket webhook received by jenkins-test2.'
+                    echo "eventKey  : ${params.eventKey ?: 'N/A'}"
                     echo "projectKey : ${params.projectKey ?: 'N/A'}"
                     echo "repoSlug   : ${params.repoSlug ?: 'N/A'}"
                     echo "branchName : ${params.branchName ?: 'N/A'}"
 
                     def captured = [
+                        eventKey: params.eventKey ?: '',
                         projectKey: params.projectKey ?: '',
                         repoSlug: params.repoSlug ?: '',
                         branchName: params.branchName ?: ''

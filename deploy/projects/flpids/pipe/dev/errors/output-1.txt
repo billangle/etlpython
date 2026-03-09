@@ -44,3 +44,127 @@
 11:04:18  [Pipeline] // node
 11:04:18  [Pipeline] End of Pipeline
 11:04:18  Finished: SUCCESS
+
+
+BitBucket claims this is part of a push:
+
+{
+  "eventKey": "repo:refs_changed",
+  "date": "2023-01-13T22:26:25+1100",
+  "actor": {
+    "name": "admin",
+    "emailAddress": "admin@example.com",
+    "active": true,
+    "displayName": "Administrator",
+    "id": 2,
+    "slug": "admin",
+    "type": "NORMAL"
+    },
+    "repository": {
+      "slug": "rep_1",
+      "id": 1,
+      "name": "rep_1",
+      "hierarchyId": "af05451fc6eb4bf4e0bd",
+      "scmId": "git",
+      "state": "AVAILABLE",
+      "statusMessage": "Available",
+      "forkable": true,
+      "project": {
+          "key": "PROJECT_1",
+          "id": 1,
+          "name": "Project 1",
+          "description": "PROJECT_1",
+          "public": false,
+          "type": "NORMAL"
+      },
+      "public": false,
+      "archived": false
+    },
+    "changes": [
+      {
+        "ref": {
+          "id": "refs/heads/master",
+          "displayId": "master",
+          "type": "BRANCH"
+        },
+        "refId": "refs/heads/master",
+        "fromHash": "197a3e0d2f9a2b3ed1c4fe5923d5dd701bee9fdd",
+        "toHash": "a00945762949b7b787ecabc388c0e20b1b85f0b4",
+        "type": "UPDATE"
+      }
+    ],
+    "commits": [
+      {
+        "id": "a00945762949b7b787ecabc388c0e20b1b85f0b4",
+        "displayId": "a0094576294",
+        "author": {
+          "name": "Administrator",
+          "emailAddress": "admin@example.com"
+        },
+        "authorTimestamp": 1673403328000,
+        "committer": {
+          "name": "Administrator",
+          "emailAddress": "admin@example.com"
+        },
+        "committerTimestamp": 1673403328000,
+        "message": "My commit message",
+        "parents": [
+            {
+              "id": "197a3e0d2f9a2b3ed1c4fe5923d5dd701bee9fdd",
+              "displayId": "197a3e0d2f9"
+            }
+        ]
+      }
+    ],
+    "toCommit": {
+        "id": "a00945762949b7b787ecabc388c0e20b1b85f0b4",
+        "displayId": "a0094576294",
+        "author": {
+            "name": "Administrator",
+            "emailAddress": "admin@example.com"
+        },
+        "authorTimestamp": 1673403328000,
+        "committer": {
+            "name": "Administrator",
+            "emailAddress": "admin@example.com"
+        },
+        "committerTimestamp": 1673403328000,
+        "message": "My commit message",
+        "parents": [
+            {
+              "id": "197a3e0d2f9a2b3ed1c4fe5923d5dd701bee9fdd",
+              "displayId": "197a3e0d2f9",
+              "author": {
+                  "name": "Administrator",
+                  "emailAddress": "admin@example.com"
+              },
+              "authorTimestamp": 1673403292000,
+              "committer": {
+                  "name": "Administrator",
+                  "emailAddress": "admin@example.com"
+              },
+              "committerTimestamp": 1673403292000,
+              "message": "My commit message",
+              "parents": [
+                  {
+                    "id": "f870ce6bf6fe633e1a2bbe655970bde25535669f",
+                    "displayId": "f870ce6bf6f"
+                  }
+              ]
+            }
+        ]
+    }
+} 
+
+https://confluence.atlassian.com/bitbucketserver094/manage-webhooks-1489802210.html?utm_campaign=in-app-help&utm_medium=in-app-help&utm_source=stash
+
+
+Adding URL variables
+You can add the following URL variables:
+
+URL variables	Can be used with
+project.key	All events
+repo.slug	Repository and pull request events
+repo.ref.branchName	Repository push events
+pr.fromRef.branchName	Pull request events
+pr.toRef.branchName	Pull request events

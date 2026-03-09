@@ -1,0 +1,25 @@
+13:30:24  Started by remote host 199.135.69.213
+13:30:24  [Pipeline] Start of Pipeline
+13:30:24  [Pipeline] node
+13:30:24  Running on Jenkins in /var/lib/jenkins/workspace/BuildProcess/DeployFlpids
+13:30:24  [Pipeline] {
+13:30:24  [Pipeline] timestamps
+13:30:24  The timestamps step is unnecessary when timestamps are enabled for all Pipeline builds.
+13:30:24  [Pipeline] {
+13:30:24  [Pipeline] stage
+13:30:24  [Pipeline] { (Capture Webhook Request)
+13:30:24  [Pipeline] script
+13:30:24  [Pipeline] {
+13:30:24  [Pipeline] echo
+13:30:24  Bitbucket webhook received by jenkins-test2.
+13:30:24  [Pipeline] echo
+13:30:24  eventKey  : repo:refs_changed
+13:30:24  [Pipeline] echo
+13:30:24  projectKey : $FSADM
+13:30:24  [Pipeline] echo
+13:30:24  repoSlug   : $fpac-py-deploy
+13:30:24  [Pipeline] echo
+13:30:24  branchName : $main
+13:30:24  [Pipeline] writeFile (hide)
+13:30:24  [Pipeline] echo
+13:30:24  Saved captured URL variables to bitbucket-webhook-url-variables.json

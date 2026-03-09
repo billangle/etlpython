@@ -1,0 +1,78 @@
+15:37:54  Started by remote host 199.135.69.213
+15:37:55  [Pipeline] Start of Pipeline
+15:37:55  [Pipeline] node
+15:37:55  Running on Jenkins
+ in /var/lib/jenkins/workspace/BuildProcess/DeployFlpids
+15:37:55  [Pipeline] {
+15:37:55  [Pipeline] timestamps
+15:37:55  The timestamps step is unnecessary when timestamps are enabled for all Pipeline builds.
+15:37:55  [Pipeline] {
+15:37:55  [Pipeline] stage
+15:37:55  [Pipeline] { (Capture Webhook Request)
+15:37:55  [Pipeline] script
+15:37:55  [Pipeline] {
+15:37:55  [Pipeline] echo
+15:37:55  Bitbucket webhook received by jenkins-test2.
+15:37:56  [Pipeline] sh
+15:37:56  + printenv
+15:37:56  + sort
+15:37:56  + grep -Ei 'event|payload|post|bitbucket|content_type'
+15:37:56  [Pipeline] echo
+15:37:56  Detected webhook-related environment keys:
+15:37:56  [Pipeline] echo
+15:37:56  eventKey=repo:refs_changed
+15:37:56  [Pipeline] echo
+15:37:56  eventKey  : repo:refs_changed
+15:37:56  [Pipeline] echo
+15:37:56  projectKey : $FSADM
+15:37:56  [Pipeline] echo
+15:37:56  repoSlug   : $fpac-py-deploy
+15:37:56  [Pipeline] echo
+15:37:56  branchName : $main
+15:37:56  [Pipeline] echo
+15:37:56  Received parameter dump:
+15:37:56  [Pipeline] echo
+15:37:56    branchName = $main
+15:37:56  [Pipeline] echo
+15:37:56    eventKey = repo:refs_changed
+15:37:56  [Pipeline] echo
+15:37:56    payload = 
+15:37:56  [Pipeline] echo
+15:37:56    postBuffer = 
+15:37:56  [Pipeline] echo
+15:37:56    projectKey = $FSADM
+15:37:56  [Pipeline] echo
+15:37:56    repoSlug = $fpac-py-deploy
+15:37:56  [Pipeline] echo
+15:37:56  Detected unresolved webhook URL variables:
+15:37:56  [Pipeline] echo
+15:37:56    projectKey=$FSADM
+15:37:56  [Pipeline] echo
+15:37:56    repoSlug=$fpac-py-deploy
+15:37:56  [Pipeline] echo
+15:37:56    branchName=$main
+15:37:56  [Pipeline] echo
+15:37:56  Use Bitbucket webhook URL variable syntax that your server version supports.
+15:37:56  [Pipeline] echo
+15:37:56  refs_changed event detected. Detailed commit/ref JSON is in webhook POST body, not in eventKey.
+15:37:56  [Pipeline] echo
+15:37:56  No POST buffer found. Checked params.postBuffer, params.payload, env.BITBUCKET_PAYLOAD, env.payload.
+15:37:56  [Pipeline] writeFile
+15:37:57  [Pipeline] echo
+15:37:57  Saved captured URL variables to bitbucket-webhook-url-variables.json
+15:37:57  [Pipeline] }
+15:37:57  [Pipeline] // script
+15:37:57  [Pipeline] }
+15:37:57  [Pipeline] // stage
+15:37:57  [Pipeline] stage
+15:37:57  [Pipeline] { (Declarative: Post Actions)
+15:37:57  [Pipeline] archiveArtifacts
+15:37:57  Archiving artifacts
+15:37:57  [Pipeline] }
+15:37:57  [Pipeline] // stage
+15:37:57  [Pipeline] }
+15:37:57  [Pipeline] // timestamps
+15:37:57  [Pipeline] }
+15:37:57  [Pipeline] // node
+15:37:57  [Pipeline] End of Pipeline
+15:37:57  Finished: SUCCESS

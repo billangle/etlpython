@@ -10,6 +10,8 @@ pipeline {
         string(name: 'projectKey', defaultValue: '', description: 'Bitbucket URL variable: project.key')
         string(name: 'repoSlug', defaultValue: '', description: 'Bitbucket URL variable: repo.slug')
         string(name: 'branchName', defaultValue: '', description: 'Bitbucket URL variable: repo.ref.branchName')
+        text(name: 'postBuffer', defaultValue: '', description: 'Raw webhook POST body if forwarded as a parameter')
+        text(name: 'payload', defaultValue: '', description: 'Alternate raw webhook payload parameter name')
     }
 
     triggers {
@@ -48,11 +50,24 @@ pipeline {
                         echo 'refs_changed event detected. Detailed commit/ref JSON is in webhook POST body, not in eventKey.'
                     }
 
+                    def rawPostBuffer = (params.postBuffer ?: params.payload ?: env.BITBUCKET_PAYLOAD ?: env.payload ?: '').toString()
+                    if (rawPostBuffer.trim()) {
+                        echo "POST buffer detected. Length: ${rawPostBuffer.length()} chars"
+                        echo 'POST buffer preview (first 4000 chars):'
+                        echo rawPostBuffer.take(4000)
+                        writeFile file: 'bitbucket-webhook-post-buffer.json', text: rawPostBuffer
+                        echo 'Saved POST buffer to bitbucket-webhook-post-buffer.json'
+                    } else {
+                        echo 'No POST buffer found. Checked params.postBuffer, params.payload, env.BITBUCKET_PAYLOAD, env.payload.'
+                    }
+
                     def captured = [
                         eventKey: params.eventKey ?: '',
                         projectKey: params.projectKey ?: '',
                         repoSlug: params.repoSlug ?: '',
-                        branchName: params.branchName ?: ''
+                        branchName: params.branchName ?: '',
+                        postBufferPresent: rawPostBuffer.trim() ? true : false,
+                        postBufferLength: rawPostBuffer.length()
                     ]
                     writeFile file: 'bitbucket-webhook-url-variables.json', text: groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(captured))
                     echo 'Saved captured URL variables to bitbucket-webhook-url-variables.json'
@@ -63,7 +78,7 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: 'bitbucket-webhook-url-variables.json', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'bitbucket-webhook-url-variables.json,bitbucket-webhook-post-buffer.json', allowEmptyArchive: true
         }
     }
 }

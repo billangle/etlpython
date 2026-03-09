@@ -10,30 +10,7 @@ pipeline {
     }
 
     triggers {
-        GenericTrigger(
-            token: 'flpids-bitbucket-webhook-test2',
-            causeString: 'Triggered by Bitbucket webhook',
-            printContributedVariables: true,
-            printPostContent: false,
-            genericVariables: [
-                [key: 'BB_RAW_PAYLOAD', value: '$'],
-                [key: 'BB_EVENT_KEY', value: '$.eventKey'],
-                [key: 'BB_DATE', value: '$.date'],
-                [key: 'BB_ACTOR', value: '$.actor.displayName'],
-                [key: 'BB_REPO', value: '$.repository.fullName'],
-                [key: 'BB_PROJECT', value: '$.repository.project.key'],
-                [key: 'BB_BRANCH', value: '$.changes[0].ref.displayId'],
-                [key: 'BB_COMMIT', value: '$.changes[0].toHash']
-            ],
-            genericHeaderVariables: [
-                [key: 'HDR_X_EVENT_KEY', regexpFilter: ''],
-                [key: 'HDR_X_REQUEST_ID', regexpFilter: ''],
-                [key: 'HDR_CONTENT_TYPE', regexpFilter: ''],
-                [key: 'HDR_USER_AGENT', regexpFilter: '']
-            ],
-            regexpFilterText: '$BB_EVENT_KEY',
-            regexpFilterExpression: '.*'
-        )
+        bitbucketPush()
     }
 
     stages {
@@ -41,29 +18,17 @@ pipeline {
             steps {
                 script {
                     echo 'Bitbucket webhook received by jenkins-test2.'
-                    echo "Event Key      : ${env.BB_EVENT_KEY ?: 'N/A'}"
-                    echo "Event Date     : ${env.BB_DATE ?: 'N/A'}"
-                    echo "Actor          : ${env.BB_ACTOR ?: 'N/A'}"
-                    echo "Repository     : ${env.BB_REPO ?: 'N/A'}"
-                    echo "Project Key    : ${env.BB_PROJECT ?: 'N/A'}"
-                    echo "Branch         : ${env.BB_BRANCH ?: 'N/A'}"
-                    echo "Commit         : ${env.BB_COMMIT ?: 'N/A'}"
-                    echo "Header X-Event : ${env.HDR_X_EVENT_KEY ?: 'N/A'}"
-                    echo "Header Req-Id  : ${env.HDR_X_REQUEST_ID ?: 'N/A'}"
-                    echo "Content-Type   : ${env.HDR_CONTENT_TYPE ?: 'N/A'}"
-                    echo "User-Agent     : ${env.HDR_USER_AGENT ?: 'N/A'}"
+                    sh 'printenv | sort | grep -Ei "bitbucket|payload|webhook" || true'
 
-                    if (env.BB_RAW_PAYLOAD?.trim()) {
-                        writeFile file: env.WEBHOOK_PAYLOAD_FILE, text: env.BB_RAW_PAYLOAD
-                        echo "Saved webhook POST body to ${env.WEBHOOK_PAYLOAD_FILE}."
-
-                        def payload = readJSON text: env.BB_RAW_PAYLOAD
-                        if (payload instanceof Map) {
-                            def changeCount = payload.changes instanceof List ? payload.changes.size() : 0
-                            echo "Parsed payload successfully. Change count: ${changeCount}"
-                        }
+                    def rawPayload = env.BITBUCKET_PAYLOAD ?: env.payload ?: ''
+                    if (rawPayload?.trim()) {
+                        writeFile file: env.WEBHOOK_PAYLOAD_FILE, text: rawPayload
+                        echo "Saved raw webhook POST body to ${env.WEBHOOK_PAYLOAD_FILE}."
+                        echo 'Raw webhook payload (first 4000 chars):'
+                        echo rawPayload.take(4000)
                     } else {
-                        echo 'No POST body payload captured (BB_RAW_PAYLOAD was empty).'
+                        echo 'No raw payload variable was found (checked BITBUCKET_PAYLOAD and payload).'
+                        echo 'If needed, expose the POST body in your Jenkins Bitbucket plugin/job config.'
                     }
                 }
             }

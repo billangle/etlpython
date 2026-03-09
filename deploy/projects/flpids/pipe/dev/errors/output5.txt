@@ -1,0 +1,57 @@
+15:02:34  Started by remote host 199.135.69.213
+15:02:34  [Pipeline] Start of Pipeline
+15:02:35  [Pipeline] node
+15:02:35  Running on Jenkins in /var/lib/jenkins/workspace/BuildProcess/DeployFlpids
+15:02:35  [Pipeline] {
+15:02:35  [Pipeline] timestamps
+15:02:35  The timestamps step is unnecessary when timestamps are enabled for all Pipeline builds.
+15:02:35  [Pipeline] {
+15:02:35  [Pipeline] stage
+15:02:35  [Pipeline] { (Capture Webhook Request)
+15:02:35  [Pipeline] script
+15:02:35  [Pipeline] {
+15:02:35  [Pipeline] echo
+15:02:35  Bitbucket webhook received by jenkins-test2.
+15:02:35  [Pipeline] echo
+15:02:35  eventKey  : N/A
+15:02:35  [Pipeline] echo
+15:02:35  projectKey : N/A
+15:02:35  [Pipeline] echo
+15:02:35  repoSlug   : N/A
+15:02:35  [Pipeline] echo
+15:02:35  branchName : N/A
+15:02:35  [Pipeline] echo
+15:02:35  Received parameter dump:
+15:02:35  [Pipeline] echo
+15:02:35    branchName = 
+15:02:35  [Pipeline] echo
+15:02:35    eventKey = 
+15:02:35  [Pipeline] echo
+15:02:35    payload = 
+15:02:35  [Pipeline] echo
+15:02:35    postBuffer = 
+15:02:35  [Pipeline] echo
+15:02:35    projectKey = 
+15:02:35  [Pipeline] echo
+15:02:35    repoSlug = 
+15:02:35  [Pipeline] echo
+15:02:35  No POST buffer found. Checked params.postBuffer, params.payload, env.BITBUCKET_PAYLOAD, env.payload.
+15:02:35  [Pipeline] writeFile
+15:02:35  [Pipeline] echo
+15:02:35  Saved captured URL variables to bitbucket-webhook-url-variables.json
+15:02:35  [Pipeline] }
+15:02:35  [Pipeline] // script
+15:02:35  [Pipeline] }
+15:02:36  [Pipeline] // stage
+15:02:36  [Pipeline] stage
+15:02:36  [Pipeline] { (Declarative: Post Actions)
+15:02:36  [Pipeline] archiveArtifacts
+15:02:36  Archiving artifacts
+15:02:36  [Pipeline] }
+15:02:36  [Pipeline] // stage
+15:02:36  [Pipeline] }
+15:02:36  [Pipeline] // timestamps
+15:02:36  [Pipeline] }
+15:02:36  [Pipeline] // node
+15:02:36  [Pipeline] End of Pipeline
+15:02:36  Finished: SUCCESS

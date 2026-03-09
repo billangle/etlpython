@@ -1,0 +1,63 @@
+13:37:19  Started by remote host 199.135.69.213
+13:37:19  [Pipeline] Start of Pipeline
+13:37:20  [Pipeline] node
+13:37:20  Running on Jenkins in /var/lib/jenkins/workspace/BuildProcess/DeployFlpids
+13:37:20  [Pipeline] {
+13:37:20  [Pipeline] timestamps
+13:37:20  The timestamps step is unnecessary when timestamps are enabled for all Pipeline builds.
+13:37:20  [Pipeline] {
+13:37:20  [Pipeline] stage
+13:37:20  [Pipeline] { (Capture Webhook Request)
+13:37:20  [Pipeline] script
+13:37:20  [Pipeline] {
+13:37:20  [Pipeline] echo
+13:37:20  Bitbucket webhook received by jenkins-test2.
+13:37:20  [Pipeline] echo
+13:37:20  eventKey  : repo:refs_changed
+13:37:20  [Pipeline] echo
+13:37:20  projectKey : $FSADM
+13:37:20  [Pipeline] echo
+13:37:20  repoSlug   : $fpac-py-deploy
+13:37:20  [Pipeline] echo
+13:37:20  branchName : $main
+13:37:20  [Pipeline] echo
+13:37:20  Received parameter dump:
+13:37:20  [Pipeline] echo
+13:37:20    branchName = $main
+13:37:20  [Pipeline] echo
+13:37:20    eventKey = repo:refs_changed
+13:37:20  [Pipeline] echo
+13:37:20    projectKey = $FSADM
+13:37:20  [Pipeline] echo
+13:37:20    repoSlug = $fpac-py-deploy
+13:37:20  [Pipeline] echo
+13:37:20  Detected unresolved webhook URL variables:
+13:37:20  [Pipeline] echo
+13:37:20    projectKey=$FSADM
+13:37:20  [Pipeline] echo
+13:37:20    repoSlug=$fpac-py-deploy
+13:37:20  [Pipeline] echo
+13:37:20    branchName=$main
+13:37:20  [Pipeline] echo
+13:37:20  Use Bitbucket webhook URL variable syntax that your server version supports.
+13:37:20  [Pipeline] echo
+13:37:20  refs_changed event detected. Detailed commit/ref JSON is in webhook POST body, not in eventKey.
+13:37:20  [Pipeline] writeFile
+13:37:21  [Pipeline] echo
+13:37:21  Saved captured URL variables to bitbucket-webhook-url-variables.json
+13:37:21  [Pipeline] }
+13:37:21  [Pipeline] // script
+13:37:21  [Pipeline] }
+13:37:21  [Pipeline] // stage
+13:37:21  [Pipeline] stage
+13:37:21  [Pipeline] { (Declarative: Post Actions)
+13:37:21  [Pipeline] archiveArtifacts (hide)
+13:37:21  Archiving artifacts
+13:37:21  [Pipeline] }
+13:37:21  [Pipeline] // stage
+13:37:21  [Pipeline] }
+13:37:21  [Pipeline] // timestamps
+13:37:21  [Pipeline] }
+13:37:21  [Pipeline] // node
+13:37:21  [Pipeline] End of Pipeline
+13:37:21  Finished: SUCCESS

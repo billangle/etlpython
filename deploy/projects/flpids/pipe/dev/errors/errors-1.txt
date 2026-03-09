@@ -1,0 +1,23 @@
+org.codehaus.groovy.control.MultipleCompilationErrorsException: startup failed:
+10:57:55  WorkflowScript: 13: Invalid trigger type "GenericTrigger". Valid trigger types: [bitbucketpr, upstream, cron, bitbucketPush, githubPush, pollSCM] @ line 13, column 9.
+10:57:55             GenericTrigger(
+10:57:55             ^
+10:57:55  
+10:57:55  1 error
+10:57:55  
+10:57:55  	at org.codehaus.groovy.control.ErrorCollector.failIfErrors(ErrorCollector.java:309)
+10:57:55  	at org.codehaus.groovy.control.CompilationUnit.applyToPrimaryClassNodes(CompilationUnit.java:1107)
+10:57:55  	at org.codehaus.groovy.control.CompilationUnit.doPhaseOperation(CompilationUnit.java:624)
+10:57:55  	at org.codehaus.groovy.control.CompilationUnit.processPhaseOperations(CompilationUnit.java:602)
+10:57:55  	at org.codehaus.groovy.control.CompilationUnit.compile(CompilationUnit.java:579)
+10:57:55  	at groovy.lang.GroovyClassLoader.doParseClass(GroovyClassLoader.java:323)
+10:57:55  	at groovy.lang.GroovyClassLoader.parseClass(GroovyClassLoader.java:293)
+10:57:55  	at PluginClassLoader for script-security//org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.GroovySandbox$Scope.parse(GroovySandbox.java:162)
+10:57:55  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsGroovyShell.doParse(CpsGroovyShell.java:202)
+10:57:55  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsGroovyShell.reparse(CpsGroovyShell.java:186)
+10:57:55  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsFlowExecution.parseScript(CpsFlowExecution.java:669)
+10:57:55  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsFlowExecution.start(CpsFlowExecution.java:615)
+10:57:55  	at PluginClassLoader for workflow-job//org.jenkinsci.plugins.workflow.job.WorkflowRun.run(WorkflowRun.java:341)
+10:57:55  	at hudson.model.ResourceController.execute(ResourceController.java:101)
+10:57:55  	at hudson.model.Executor.run(Executor.java:460)
+10:57:55  Finished: FAILURE

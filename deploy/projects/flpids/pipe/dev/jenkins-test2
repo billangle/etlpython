@@ -26,6 +26,28 @@ pipeline {
                     echo "repoSlug   : ${params.repoSlug ?: 'N/A'}"
                     echo "branchName : ${params.branchName ?: 'N/A'}"
 
+                    echo 'Received parameter dump:'
+                    params.keySet().sort().each { k ->
+                        echo "  ${k} = ${params[k]}"
+                    }
+
+                    def unresolved = []
+                    ['eventKey', 'projectKey', 'repoSlug', 'branchName'].each { k ->
+                        def v = (params[k] ?: '').toString()
+                        if (v.startsWith('$')) {
+                            unresolved << "${k}=${v}"
+                        }
+                    }
+                    if (unresolved) {
+                        echo 'Detected unresolved webhook URL variables:'
+                        unresolved.each { echo "  ${it}" }
+                        echo 'Use Bitbucket webhook URL variable syntax that your server version supports.'
+                    }
+
+                    if ((params.eventKey ?: '') == 'repo:refs_changed') {
+                        echo 'refs_changed event detected. Detailed commit/ref JSON is in webhook POST body, not in eventKey.'
+                    }
+
                     def captured = [
                         eventKey: params.eventKey ?: '',
                         projectKey: params.projectKey ?: '',

@@ -1,0 +1,46 @@
+ Started by remote host 199.135.69.213
+11:04:14  [Pipeline] Start of Pipeline
+11:04:14  [Pipeline] node
+11:04:14  Running on Jenkins in /var/lib/jenkins/workspace/BuildProcess/DeployFlpids
+11:04:14  [Pipeline] {
+11:04:14  [Pipeline] withEnv
+11:04:14  [Pipeline] {
+11:04:15  [Pipeline] timestamps
+11:04:15  The timestamps step is unnecessary when timestamps are enabled for all Pipeline builds.
+11:04:15  [Pipeline] {
+11:04:15  [Pipeline] stage
+11:04:15  [Pipeline] { (Capture Webhook Request)
+11:04:15  [Pipeline] script
+11:04:15  [Pipeline] {
+11:04:15  [Pipeline] echo
+11:04:15  Bitbucket webhook received by jenkins-test2.
+11:04:15  [Pipeline] sh
+11:04:15  + printenv
+11:04:15  + sort
+11:04:15  + grep -Ei 'bitbucket|payload|webhook'
+11:04:15  STAGE_NAME=Capture Webhook Request
+11:04:15  WEBHOOK_PAYLOAD_FILE=bitbucket-webhook-payload.json
+11:04:15  [Pipeline] echo
+11:04:15  No raw payload variable was found (checked BITBUCKET_PAYLOAD and payload).
+11:04:15  [Pipeline] echo
+11:04:15  If needed, expose the POST body in your Jenkins Bitbucket plugin/job config.
+11:04:15  [Pipeline] }
+11:04:15  [Pipeline] // script
+11:04:15  [Pipeline] }
+11:04:15  [Pipeline] // stage
+11:04:15  [Pipeline] stage
+11:04:15  [Pipeline] { (Declarative: Post Actions)
+11:04:15  [Pipeline] archiveArtifacts
+11:04:15  Archiving artifacts
+11:04:18  ‘bitbucket-webhook-payload.json’ doesn’t match anything
+11:04:18  No artifacts found that match the file pattern "bitbucket-webhook-payload.json". Configuration error?
+11:04:18  [Pipeline] }
+11:04:18  [Pipeline] // stage
+11:04:18  [Pipeline] }
+11:04:18  [Pipeline] // timestamps
+11:04:18  [Pipeline] }
+11:04:18  [Pipeline] // withEnv
+11:04:18  [Pipeline] }
+11:04:18  [Pipeline] // node
+11:04:18  [Pipeline] End of Pipeline
+11:04:18  Finished: SUCCESS

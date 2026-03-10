@@ -22,9 +22,12 @@ pipeline {
         stage('Resolve Project From Branch') {
             steps {
                 script {
-                    env.CHECKOUT_BRANCH = (params.branchName ?: '').toString().trim().replace('$', '')
-                    def derivedProject = env.CHECKOUT_BRANCH.tokenize('-') ? env.CHECKOUT_BRANCH.tokenize('-')[0] : ''
+                    def safeBranch = (params?.branchName ?: env?.branchName ?: '').toString().trim().replace('$', '')
+                    def branchParts = safeBranch ? safeBranch.tokenize('-') : []
+                    def derivedProject = branchParts ? branchParts[0] : ''
                     def normalizedProject = derivedProject.toLowerCase()
+
+                    env.CHECKOUT_BRANCH = safeBranch
 
                     echo "CHECKOUT_BRANCH: ${env.CHECKOUT_BRANCH ?: 'N/A'}"
 

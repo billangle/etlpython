@@ -1,10 +1,25 @@
 pipeline {
     agent any
 
+    parameters {
+        text(name: 'POST_BUFFER', defaultValue: '', description: 'Raw webhook JSON body passed by remote trigger caller')
+        text(name: 'payload', defaultValue: '', description: 'Alternate raw webhook JSON body key')
+    }
+
     triggers {
         GenericTrigger(
             genericVariables: [
-                [key: 'eventKey', value: '$.eventKey']
+                [key: 'eventKey', value: '$.eventKey', expressionType: 'JSONPath', defaultValue: ''],
+                [key: 'projectKey', value: '$.repository.project.key', expressionType: 'JSONPath', defaultValue: ''],
+                [key: 'repoSlug', value: '$.repository.slug', expressionType: 'JSONPath', defaultValue: ''],
+                [key: 'branchName', value: '$.changes[0].ref.displayId', expressionType: 'JSONPath', defaultValue: ''],
+                [key: 'postBuffer', value: '$', expressionType: 'JSONPath', defaultValue: '']
+            ],
+            genericRequestVariables: [
+                [key: 'payload', regexpFilter: '.*']
+            ],
+            genericHeaderVariables: [
+                [key: 'content_type', regexpFilter: '.*']
             ],
             causeString: 'Triggered by webhook: $eventKey',
             regexpFilterText: '',
@@ -12,16 +27,57 @@ pipeline {
             printContributedVariables: true,
             printPostContent: true,
             silentResponse: false,
-            token: 'bitbucket-echo-debug'
+            token: '72305AD4-A19D-462C-9CEB-275E01BDFAFD'
         )
     }
 
     stages {
         stage('Webhook') {
             steps {
-                echo 'Webhook triggered.'
-                sh 'echo "eventKey=$eventKey"'
+                script {
+                    echo 'Webhook triggered.'
+                    def eventKey = (env.eventKey ?: params.eventKey ?: '').toString()
+                    def projectKey = (env.projectKey ?: params.projectKey ?: '').toString()
+                    def repoSlug = (env.repoSlug ?: params.repoSlug ?: '').toString()
+                    def branchName = (env.branchName ?: params.branchName ?: '').toString()
+
+                    def payloadCandidate = (env.payload ?: params.payload ?: env.POST_BUFFER ?: params.POST_BUFFER ?: '').toString()
+                    def postBuffer = (env.postBuffer ?: params.postBuffer ?: env.POST_BUFFER ?: params.POST_BUFFER ?: payloadCandidate).toString()
+
+                    if ((!eventKey || !projectKey || !repoSlug || !branchName) && payloadCandidate.trim().startsWith('{')) {
+                        try {
+                            def parsed = new groovy.json.JsonSlurperClassic().parseText(payloadCandidate)
+                            eventKey = eventKey ?: (parsed?.eventKey ?: '').toString()
+                            projectKey = projectKey ?: (parsed?.repository?.project?.key ?: '').toString()
+                            repoSlug = repoSlug ?: (parsed?.repository?.slug ?: '').toString()
+                            branchName = branchName ?: (parsed?.changes?.getAt(0)?.ref?.displayId ?: '').toString()
+                        } catch (Exception ex) {
+                            echo "Payload parse fallback failed: ${ex.getClass().getSimpleName()}"
+                        }
+                    }
+
+                    echo "eventKey: ${eventKey ?: 'N/A'}"
+                    echo "projectKey: ${projectKey ?: 'N/A'}"
+                    echo "repoSlug: ${repoSlug ?: 'N/A'}"
+                    echo "branchName: ${branchName ?: 'N/A'}"
+                    echo "content_type header: ${(env.content_type ?: params.content_type ?: 'N/A').toString()}"
+                    echo "payload length: ${payloadCandidate.length()}"
+                    echo "postBuffer length: ${postBuffer.length()}"
+
+                    if (postBuffer.trim()) {
+                        writeFile file: 'bitbucket-webhook-post-buffer.json', text: postBuffer
+                        echo 'Saved POST buffer to bitbucket-webhook-post-buffer.json'
+                    } else {
+                        echo 'No POST buffer captured. Check webhook endpoint and content type.'
+                    }
+                }
             }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'bitbucket-webhook-post-buffer.json', allowEmptyArchive: true
         }
     }
 }

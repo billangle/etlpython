@@ -1,0 +1,58 @@
+09:49:45  Started by remote host 199.135.69.213
+09:49:45  [Pipeline] Start of Pipeline
+09:49:45  [Pipeline] node
+09:49:45  Running on Jenkins
+ in /var/lib/jenkins/workspace/BuildProcess/DeployFlpids
+09:49:45  [Pipeline] {
+09:49:46  [Pipeline] stage
+09:49:46  [Pipeline] { (Echo webhook payload)
+09:49:46  [Pipeline] script
+09:49:46  [Pipeline] {
+09:49:46  [Pipeline] echo
+09:49:46  ================ RAW POST BODY ================
+09:49:46  [Pipeline] }
+09:49:46  [Pipeline] // script
+09:49:46  [Pipeline] }
+09:49:46  [Pipeline] // stage
+09:49:46  [Pipeline] }
+09:49:46  [Pipeline] // node
+09:49:46  [Pipeline] End of Pipeline
+09:49:46  Also:   hudson.remoting.ProxyException: org.jenkinsci.plugins.workflow.actions.ErrorAction$ErrorId: 72a51f64-1ab0-4ca2-9ce3-408dbb925760
+09:49:46  hudson.remoting.ProxyException: groovy.lang.MissingPropertyException: No such property: POST_BODY for class: WorkflowScript
+09:49:46  	at org.codehaus.groovy.runtime.ScriptBytecodeAdapter.unwrap(ScriptBytecodeAdapter.java:66)
+09:49:46  	at org.codehaus.groovy.runtime.ScriptBytecodeAdapter.getProperty(ScriptBytecodeAdapter.java:471)
+09:49:46  	at PluginClassLoader for workflow-cps//com.cloudbees.groovy.cps.sandbox.DefaultInvoker.getProperty(DefaultInvoker.java:39)
+09:49:46  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.LoggingInvoker.getProperty(LoggingInvoker.java:139)
+09:49:46  	at PluginClassLoader for workflow-cps//com.cloudbees.groovy.cps.impl.PropertyAccessBlock.rawGet(PropertyAccessBlock.java:20)
+09:49:46  	at WorkflowScript.run(WorkflowScript:38)
+09:49:46  	at ___cps.transform___(Native Method)
+09:49:46  	at PluginClassLoader for workflow-cps//com.cloudbees.groovy.cps.impl.PropertyishBlock$ContinuationImpl.get(PropertyishBlock.java:74)
+09:49:46  	at PluginClassLoader for workflow-cps//com.cloudbees.groovy.cps.LValueBlock$GetAdapter.receive(LValueBlock.java:30)
+09:49:46  	at PluginClassLoader for workflow-cps//com.cloudbees.groovy.cps.impl.PropertyishBlock$ContinuationImpl.fixName(PropertyishBlock.java:66)
+09:49:46  	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+09:49:46  	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+09:49:46  	at PluginClassLoader for workflow-cps//com.cloudbees.groovy.cps.impl.ContinuationPtr$ContinuationImpl.receive(ContinuationPtr.java:71)
+09:49:46  	at PluginClassLoader for workflow-cps//com.cloudbees.groovy.cps.impl.ConstantBlock.eval(ConstantBlock.java:21)
+09:49:46  	at PluginClassLoader for workflow-cps//com.cloudbees.groovy.cps.Next.step(Next.java:84)
+09:49:46  	at PluginClassLoader for workflow-cps//com.cloudbees.groovy.cps.Continuable.run0(Continuable.java:142)
+09:49:46  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsThread.runNextChunk(CpsThread.java:188)
+09:49:46  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsThreadGroup.run(CpsThreadGroup.java:464)
+09:49:46  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsThreadGroup$2.call(CpsThreadGroup.java:372)
+09:49:46  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsThreadGroup$2.call(CpsThreadGroup.java:302)
+09:49:46  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsVmExecutorService.lambda$wrap$4(CpsVmExecutorService.java:143)
+09:49:46  	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+09:49:46  	at hudson.remoting.SingleLaneExecutorService$1.run(SingleLaneExecutorService.java:139)
+09:49:46  	at jenkins.util.ContextResettingExecutorService$1.run(ContextResettingExecutorService.java:28)
+09:49:46  	at jenkins.security.ImpersonatingExecutorService$1.run(ImpersonatingExecutorService.java:68)
+09:49:46  	at jenkins.util.ErrorLoggingExecutorService.lambda$wrap$0(ErrorLoggingExecutorService.java:51)
+09:49:46  	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+09:49:46  	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+09:49:46  	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+09:49:46  	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+09:49:46  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsVmExecutorService$1.call(CpsVmExecutorService.java:53)
+09:49:46  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsVmExecutorService$1.call(CpsVmExecutorService.java:50)
+09:49:46  	at org.codehaus.groovy.runtime.GroovyCategorySupport$ThreadCategoryInfo.use(GroovyCategorySupport.java:136)
+09:49:46  	at org.codehaus.groovy.runtime.GroovyCategorySupport.use(GroovyCategorySupport.java:275)
+09:49:46  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsVmExecutorService.lambda$categoryThreadFactory$0(CpsVmExecutorService.java:50)
+09:49:46  	at java.base/java.lang.Thread.run(Thread.java:1583)
+09:49:46  Finished: FAILURE

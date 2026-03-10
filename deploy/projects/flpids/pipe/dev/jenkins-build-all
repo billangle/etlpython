@@ -9,6 +9,7 @@ pipeline {
         AWS_REGION = 'us-east-1'
         PROJECT = ''
         DEPLOY_ENV = ''
+        CHECKOUT_BRANCH = ''
     }
 
     stages {
@@ -21,13 +22,11 @@ pipeline {
         stage('Resolve Project From Branch') {
             steps {
                 script {
-                    def rawBranch = (params.branchName ?: '').toString().trim()
-                    def cleanedBranch = rawBranch.replace('$', '')
-                    def derivedProject = cleanedBranch.tokenize('-') ? cleanedBranch.tokenize('-')[0] : ''
+                    env.CHECKOUT_BRANCH = (params.branchName ?: '').toString().trim().replace('$', '')
+                    def derivedProject = env.CHECKOUT_BRANCH.tokenize('-') ? env.CHECKOUT_BRANCH.tokenize('-')[0] : ''
                     def normalizedProject = derivedProject.toLowerCase()
 
-                    echo "branchName: ${rawBranch ?: 'N/A'}"
-                    echo "cleanedBranch: ${cleanedBranch ?: 'N/A'}"
+                    echo "CHECKOUT_BRANCH: ${env.CHECKOUT_BRANCH ?: 'N/A'}"
 
                     if (!normalizedProject) {
                         error('Unable to derive PROJECT from branchName. Expected format like $flpids-popsup-7373.')
@@ -38,19 +37,20 @@ pipeline {
 
                     echo "PROJECT: ${env.PROJECT}"
                     echo "DEPLOY_ENV: ${env.DEPLOY_ENV}"
+                    echo "CHECKOUT_BRANCH: ${env.CHECKOUT_BRANCH}"
                 }
             }
         }
 
-        stage('Checkout Code') {
+    stage('Checkout Code') {
             steps {
                 echo 'Checking out code from Bitbucket'
                 script {
                     checkout scm: [
                         $class: 'GitSCM',
-                        branches: [[name: 'main']],
+                        branches: [[name: "${env.CHECKOUT_BRANCH}"]],
                         userRemoteConfigs: [[
-                            url: 'https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git',
+                            url: 'https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git', 
                             credentialsId: 'BitBucketRepoAccess'
                         ]]
                     ]
@@ -61,9 +61,8 @@ pipeline {
         stage('Validate Project Directory') {
             steps {
                 script {
-                    def rawBranch = (params.branchName ?: '').toString().trim()
                     if (!fileExists("deploy/projects/${env.PROJECT}")) {
-                        error("Project does not exist for branch '${rawBranch}'. Missing directory: deploy/projects/${env.PROJECT}")
+                        error("Project does not exist for branch '${env.CHECKOUT_BRANCH}'. Missing directory: deploy/projects/${env.PROJECT}")
                     }
                 }
             }

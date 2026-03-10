@@ -35,16 +35,15 @@ pipeline {
                     echo "branchName (incoming): ${incomingBranch}"
                     echo "branchName (sanitized): ${sanitizedBranch}"
 
-                    env.CHECKOUT_BRANCH = sanitizedBranch
-
-                    def branchParts = env.CHECKOUT_BRANCH.tokenize('-')
+                    def branchParts = sanitizedBranch.tokenize('-')
                     def derivedProject = branchParts ? branchParts[0] : ''
                     def normalizedProject = derivedProject.toLowerCase()
 
                     if (!normalizedProject) {
-                        error("Unable to derive PROJECT from branch '${env.CHECKOUT_BRANCH}'.")
+                        error("Unable to derive PROJECT from branch '${sanitizedBranch}'.")
                     }
 
+                    env.CHECKOUT_BRANCH = sanitizedBranch
                     env.PROJECT = normalizedProject
                     env.DEPLOY_ENV = "config/${env.PROJECT}/dev.json"
 

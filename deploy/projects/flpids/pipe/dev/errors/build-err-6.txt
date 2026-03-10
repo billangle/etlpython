@@ -1,0 +1,197 @@
+14:56:01  Started by remote host 199.135.69.213
+14:56:02  [Pipeline] Start of Pipeline
+14:56:02  [Pipeline] node
+14:56:02  Running on Jenkins
+ in /var/lib/jenkins/workspace/BuildProcess/DeployFlpids
+14:56:02  [Pipeline] {
+14:56:02  [Pipeline] withEnv
+14:56:02  [Pipeline] {
+14:56:02  [Pipeline] stage
+14:56:02  [Pipeline] { (Clean Workspace)
+14:56:03  [Pipeline] cleanWs
+14:56:03  [WS-CLEANUP] Deleting project workspace...
+14:56:03  [WS-CLEANUP] Deferred wipeout is used...
+14:56:03  [WS-CLEANUP] done
+14:56:03  [Pipeline] }
+14:56:03  [Pipeline] // stage
+14:56:03  [Pipeline] stage
+14:56:03  [Pipeline] { (Resolve Project From Branch)
+14:56:03  [Pipeline] script
+14:56:03  [Pipeline] {
+14:56:03  [Pipeline] echo
+14:56:03  branchName (incoming): $flpids-popsup-7373
+14:56:03  [Pipeline] echo
+14:56:03  branchName (sanitized): flpids-popsup-7373
+14:56:03  [Pipeline] echo
+14:56:03  PROJECT: flpids
+14:56:03  [Pipeline] echo
+14:56:03  DEPLOY_ENV: config/flpids/dev.json
+14:56:03  [Pipeline] echo
+14:56:03  CHECKOUT_BRANCH: flpids-popsup-7373
+14:56:03  [Pipeline] }
+14:56:03  [Pipeline] // script
+14:56:03  [Pipeline] }
+14:56:04  [Pipeline] // stage
+14:56:04  [Pipeline] stage
+14:56:04  [Pipeline] { (Checkout Code)
+14:56:04  [Pipeline] echo
+14:56:04  Checking out code from Bitbucket
+14:56:04  [Pipeline] script
+14:56:04  [Pipeline] {
+14:56:04  [Pipeline] echo
+14:56:04  Checkout branch used: flpids-popsup-7373
+14:56:04  [Pipeline] checkout
+14:56:04  The recommended git tool is: NONE
+14:56:04  using credential BitBucketRepoAccess
+14:56:04  Cloning the remote Git repository
+14:56:04  Cloning repository https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git
+14:56:04   > git init /var/lib/jenkins/workspace/BuildProcess/DeployFlpids # timeout=10
+14:56:04  Fetching upstream changes from https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git
+14:56:04   > git --version # timeout=10
+14:56:04   > git --version # 'git version 2.47.3'
+14:56:04  using GIT_ASKPASS to set credentials This supports repo access to BitBucket.
+14:56:04   > git fetch --tags --force --progress -- https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git +refs/heads/*:refs/remotes/origin/* # timeout=10
+14:56:27   > git config remote.origin.url https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git # timeout=10
+14:56:27   > git config --add remote.origin.fetch +refs/heads/*:refs/remotes/origin/* # timeout=10
+14:56:27  Avoid second fetch
+14:56:27   > git rev-parse origin/flpids-popsup-7373^{commit} # timeout=10
+14:56:27  Checking out Revision 6b40d208ebbf23fb8818eb459364ed5f18a3e0a1 (origin/flpids-popsup-7373)
+14:56:27   > git config core.sparsecheckout # timeout=10
+14:56:27   > git checkout -f 6b40d208ebbf23fb8818eb459364ed5f18a3e0a1 # timeout=10
+14:56:28  Commit message: "POPSUP-7373: updates for web hook - build all-6"
+14:56:28  First time build. Skipping changelog.
+14:56:28  [Pipeline] }
+14:56:28  [Pipeline] // script
+14:56:28  [Pipeline] }
+14:56:28  [Pipeline] // stage
+14:56:28  [Pipeline] stage
+14:56:28  [Pipeline] { (Validate Project Directory)
+14:56:28  [Pipeline] script
+14:56:28  [Pipeline] {
+14:56:28  [Pipeline] fileExists
+14:56:28  [Pipeline] }
+14:56:28  [Pipeline] // script
+14:56:28  [Pipeline] }
+14:56:28  [Pipeline] // stage
+14:56:28  [Pipeline] stage
+14:56:28  [Pipeline] { (Install)
+14:56:28  [Pipeline] sh
+14:56:29  + cd deploy
+14:56:29  + python3 -m venv .venv
+14:56:34  + . .venv/bin/activate
+14:56:34  ++ deactivate nondestructive
+14:56:34  ++ '[' -n '' ']'
+14:56:34  ++ '[' -n '' ']'
+14:56:34  ++ '[' -n /usr/bin/sh -o -n '' ']'
+14:56:34  ++ hash -r
+14:56:34  ++ '[' -n '' ']'
+14:56:34  ++ unset VIRTUAL_ENV
+14:56:34  ++ '[' '!' nondestructive = nondestructive ']'
+14:56:34  ++ VIRTUAL_ENV=/app/jenkins/workspace/BuildProcess/DeployFlpids/deploy/.venv
+14:56:34  ++ export VIRTUAL_ENV
+14:56:34  ++ _OLD_VIRTUAL_PATH=/sbin:/bin:/usr/sbin:/usr/bin:/app/sonar-scanner/bin
+14:56:34  ++ PATH=/app/jenkins/workspace/BuildProcess/DeployFlpids/deploy/.venv/bin:/sbin:/bin:/usr/sbin:/usr/bin:/app/sonar-scanner/bin
+14:56:34  ++ export PATH
+14:56:34  ++ '[' -n '' ']'
+14:56:34  ++ '[' -z '' ']'
+14:56:34  ++ _OLD_VIRTUAL_PS1=
+14:56:34  ++ PS1='(.venv) '
+14:56:34  ++ export PS1
+14:56:34  ++ '[' -n /usr/bin/sh -o -n '' ']'
+14:56:34  ++ hash -r
+14:56:34  + pip install -U pip
+14:56:34  Requirement already satisfied: pip in ./.venv/lib/python3.9/site-packages (21.3.1)
+14:56:34  Collecting pip
+14:56:34    Using cached pip-26.0.1-py3-none-any.whl (1.8 MB)
+14:56:34  Installing collected packages: pip
+14:56:34    Attempting uninstall: pip
+14:56:34      Found existing installation: pip 21.3.1
+14:56:34      Uninstalling pip-21.3.1:
+14:56:34        Successfully uninstalled pip-21.3.1
+14:56:36  Successfully installed pip-26.0.1
+14:56:37  + pip install -r requirements.txt
+14:56:38  Collecting boto3 (from -r requirements.txt (line 1))
+14:56:38    Downloading boto3-1.42.64-py3-none-any.whl.metadata (6.7 kB)
+14:56:39  Collecting botocore (from -r requirements.txt (line 2))
+14:56:39    Downloading botocore-1.42.64-py3-none-any.whl.metadata (5.9 kB)
+14:56:39  Collecting jmespath<2.0.0,>=0.7.1 (from boto3->-r requirements.txt (line 1))
+14:56:39    Using cached jmespath-1.1.0-py3-none-any.whl.metadata (7.6 kB)
+14:56:39  Collecting s3transfer<0.17.0,>=0.16.0 (from boto3->-r requirements.txt (line 1))
+14:56:39    Using cached s3transfer-0.16.0-py3-none-any.whl.metadata (1.7 kB)
+14:56:39  Collecting python-dateutil<3.0.0,>=2.1 (from botocore->-r requirements.txt (line 2))
+14:56:39    Using cached python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+14:56:39  Collecting urllib3<1.27,>=1.25.4 (from botocore->-r requirements.txt (line 2))
+14:56:39    Using cached urllib3-1.26.20-py2.py3-none-any.whl.metadata (50 kB)
+14:56:39  Collecting six>=1.5 (from python-dateutil<3.0.0,>=2.1->botocore->-r requirements.txt (line 2))
+14:56:39    Using cached six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+14:56:39  Downloading boto3-1.42.64-py3-none-any.whl (140 kB)
+14:56:40  Downloading botocore-1.42.64-py3-none-any.whl (14.6 MB)
+14:56:46     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 14.6/14.6 MB 2.5 MB/s  0:00:05
+14:56:46  Using cached jmespath-1.1.0-py3-none-any.whl (20 kB)
+14:56:46  Using cached python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+14:56:46  Using cached s3transfer-0.16.0-py3-none-any.whl (86 kB)
+14:56:46  Using cached urllib3-1.26.20-py2.py3-none-any.whl (144 kB)
+14:56:46  Using cached six-1.17.0-py2.py3-none-any.whl (11 kB)
+14:56:46  Installing collected packages: urllib3, six, jmespath, python-dateutil, botocore, s3transfer, boto3
+14:56:48  
+14:56:48  Successfully installed boto3-1.42.64 botocore-1.42.64 jmespath-1.1.0 python-dateutil-2.9.0.post0 s3transfer-0.16.0 six-1.17.0 urllib3-1.26.20
+14:56:48  + '[' -f projects//deploy_config.sh ']'
+14:56:48  + echo 'projects//deploy_config.sh not found. Skipping chmod block.'
+14:56:48  projects//deploy_config.sh not found. Skipping chmod block.
+14:56:48  [Pipeline] }
+14:56:48  [Pipeline] // stage
+14:56:48  [Pipeline] stage
+14:56:48  [Pipeline] { (Setup AWS Credentials)
+14:56:48  [Pipeline] withAWS
+14:56:48  Constructing AWS CredentialsSetting AWS region us-east-1 
+14:56:48  [Pipeline] {
+14:56:48  [Pipeline] echo
+14:56:48  AWS Credentials set up successfully.
+14:56:48  [Pipeline] }
+14:56:48  [Pipeline] // withAWS
+14:56:48  [Pipeline] }
+14:56:48  [Pipeline] // stage
+14:56:48  [Pipeline] stage
+14:56:48  [Pipeline] { (Deploy)
+14:56:48  [Pipeline] withAWS
+14:56:48  Constructing AWS CredentialsSetting AWS region us-east-1 
+14:56:48  [Pipeline] {
+14:56:48  [Pipeline] sh
+14:56:49  + cd deploy
+14:56:49  + . .venv/bin/activate
+14:56:49  ++ deactivate nondestructive
+14:56:49  ++ '[' -n '' ']'
+14:56:49  ++ '[' -n '' ']'
+14:56:49  ++ '[' -n /usr/bin/sh -o -n '' ']'
+14:56:49  ++ hash -r
+14:56:49  ++ '[' -n '' ']'
+14:56:49  ++ unset VIRTUAL_ENV
+14:56:49  ++ '[' '!' nondestructive = nondestructive ']'
+14:56:49  ++ VIRTUAL_ENV=/app/jenkins/workspace/BuildProcess/DeployFlpids/deploy/.venv
+14:56:49  ++ export VIRTUAL_ENV
+14:56:49  ++ _OLD_VIRTUAL_PATH=/sbin:/bin:/usr/sbin:/usr/bin:/app/sonar-scanner/bin
+14:56:49  ++ PATH=/app/jenkins/workspace/BuildProcess/DeployFlpids/deploy/.venv/bin:/sbin:/bin:/usr/sbin:/usr/bin:/app/sonar-scanner/bin
+14:56:49  ++ export PATH
+14:56:49  ++ '[' -n '' ']'
+14:56:49  ++ '[' -z '' ']'
+14:56:49  ++ _OLD_VIRTUAL_PS1=
+14:56:49  ++ PS1='(.venv) '
+14:56:49  ++ export PS1
+14:56:49  ++ '[' -n /usr/bin/sh -o -n '' ']'
+14:56:49  ++ hash -r
+14:56:49  + '[' -f deploy.py ']'
+14:56:49  + python deploy.py --config '' --region us-east-1 --project-type ''
+14:56:49  usage: deploy.py [-h] --config CONFIG --region REGION
+14:56:49                   [--project-type {fpac,farmrec,flpids,tsthooks,cars,carsdm,sbsd,pmrds,fmmi,cnsvbase,cnsvmaint,cnsvpymts,nps,athenafarm,cnsv}]
+14:56:49  deploy.py: error: argument --project-type: invalid choice: '' (choose from 'fpac', 'farmrec', 'flpids', 'tsthooks', 'cars', 'carsdm', 'sbsd', 'pmrds', 'fmmi', 'cnsvbase', 'cnsvmaint', 'cnsvpymts', 'nps', 'athenafarm', 'cnsv')
+14:56:49  [Pipeline] }
+14:56:49  [Pipeline] // withAWS
+14:56:49  [Pipeline] }
+14:56:49  [Pipeline] // stage
+14:56:49  [Pipeline] }
+14:56:49  [Pipeline] // withEnv
+14:56:49  [Pipeline] }
+14:56:49  [Pipeline] // node
+14:56:49  [Pipeline] End of Pipeline
+14:56:49  ERROR: script returned exit code 2
+14:56:49  Finished: FAILURE

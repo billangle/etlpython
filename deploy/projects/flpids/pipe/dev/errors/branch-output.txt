@@ -1,0 +1,20 @@
+13:36:56  Started by remote host 199.135.69.213
+13:36:56  [Pipeline] Start of Pipeline
+13:36:56  [Pipeline] node
+13:36:56  Running on Jenkins
+ in /var/lib/jenkins/workspace/BuildProcess/DeployFlpids
+13:36:56  [Pipeline] {
+13:36:56  [Pipeline] stage
+13:36:56  [Pipeline] { (Validate Branch Parameter)
+13:36:56  [Pipeline] script
+13:36:56  [Pipeline] {
+13:36:56  [Pipeline] echo
+13:36:56  branchName: $flpids-popsup-7373
+13:36:56  [Pipeline] }
+13:36:56  [Pipeline] // script
+13:36:56  [Pipeline] }
+13:36:56  [Pipeline] // stage
+13:36:56  [Pipeline] }
+13:36:56  [Pipeline] // node
+13:36:56  [Pipeline] End of Pipeline
+13:36:56  Finished: SUCCESS

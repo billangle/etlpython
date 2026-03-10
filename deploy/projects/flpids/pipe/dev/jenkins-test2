@@ -5,15 +5,7 @@ pipeline {
         timestamps()
     }
 
-    parameters {
-        string(name: 'eventKey', defaultValue: '', description: 'Bitbucket webhook event key (for example repo:refs_changed)')
-        string(name: 'projectKey', defaultValue: '', description: 'Bitbucket URL variable: project.key')
-        string(name: 'repoSlug', defaultValue: '', description: 'Bitbucket URL variable: repo.slug')
-        string(name: 'branchName', defaultValue: '', description: 'Bitbucket URL variable: repo.ref.branchName')
-        text(name: 'postBuffer', defaultValue: '', description: 'Raw webhook POST body if forwarded as a parameter')
-        text(name: 'payload', defaultValue: '', description: 'Alternate raw webhook payload parameter name')
-    }
-
+   
     triggers {
         GenericTrigger(
             genericVariables: [

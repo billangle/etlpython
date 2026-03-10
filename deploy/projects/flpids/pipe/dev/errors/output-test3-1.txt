@@ -1,0 +1,19 @@
+10:11:05  Started by remote host 199.135.69.213
+10:11:05  [Pipeline] Start of Pipeline
+10:11:05  [Pipeline] node
+10:11:05  Running on Jenkins
+ in /var/lib/jenkins/workspace/BuildProcess/DeployFlpids
+10:11:05  [Pipeline] {
+10:11:06  [Pipeline] stage
+10:11:06  [Pipeline] { (Webhook)
+10:11:06  [Pipeline] echo
+10:11:06  Webhook triggered.
+10:11:06  [Pipeline] sh
+10:11:06  + echo eventKey=
+10:11:06  eventKey=
+10:11:06  [Pipeline] }
+10:11:06  [Pipeline] // stage
+10:11:06  [Pipeline] }
+10:11:06  [Pipeline] // node
+10:11:06  [Pipeline] End of Pipeline
+10:11:06  Finished: SUCCESS

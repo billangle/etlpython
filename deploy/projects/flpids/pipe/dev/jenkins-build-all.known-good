@@ -1,0 +1,173 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'branchName', defaultValue: '', description: 'Branch value from Bitbucket (example: $flpids-popsup-7373)')
+    }
+
+    environment {
+        AWS_REGION = 'us-east-1'
+        PROJECT = ''
+        DEPLOY_ENV = ''
+        CHECKOUT_BRANCH = ''
+    }
+
+    stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Resolve Project From Branch') {
+            steps {
+                script {
+                    def incomingBranch = (params?.branchName ?: '').toString().trim()
+                    if (!incomingBranch || incomingBranch.equalsIgnoreCase('null')) {
+                        error("branchName parameter is missing. Received: '${incomingBranch}'.")
+                    }
+
+                    def sanitizedBranch = incomingBranch.replace('$', '')
+                    if (!sanitizedBranch) {
+                        error("branchName parameter is empty after sanitizing. Received: '${incomingBranch}'.")
+                    }
+
+                    echo "branchName (incoming): ${incomingBranch}"
+                    echo "branchName (sanitized): ${sanitizedBranch}"
+
+                    def branchParts = sanitizedBranch.tokenize('-')
+                    def derivedProject = branchParts ? branchParts[0] : ''
+                    def normalizedProject = derivedProject.toLowerCase()
+
+                    if (!normalizedProject) {
+                        error("Unable to derive PROJECT from branch '${sanitizedBranch}'.")
+                    }
+
+                    env.CHECKOUT_BRANCH = sanitizedBranch
+                    env.PROJECT = normalizedProject
+                    env.DEPLOY_ENV = "config/${env.PROJECT}/dev.json"
+
+                    echo "PROJECT: ${normalizedProject}"
+                    echo "DEPLOY_ENV: config/${normalizedProject}/dev.json"
+                    echo "CHECKOUT_BRANCH: ${sanitizedBranch}"
+                }
+            }
+        }
+
+    stage('Checkout Code') {
+            steps {
+                echo 'Checking out code from Bitbucket'
+                script {
+                    def checkoutBranch = (env.CHECKOUT_BRANCH ?: (params?.branchName ?: '').toString().trim().replace('$', '')).toString().trim()
+                    if (!checkoutBranch || checkoutBranch.equalsIgnoreCase('null')) {
+                        error("Checkout branch is empty. branchName parameter='${params?.branchName}'.")
+                    }
+                    env.CHECKOUT_BRANCH = checkoutBranch
+                    echo "Checkout branch used: ${checkoutBranch}"
+
+                    checkout scm: [
+                        $class: 'GitSCM',
+                        branches: [[name: checkoutBranch]],
+                        userRemoteConfigs: [[
+                            url: 'https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git', 
+                            credentialsId: 'BitBucketRepoAccess'
+                        ]]
+                    ]
+                }
+            }
+        }
+
+        stage('Validate Project Directory') {
+            steps {
+                script {
+                    def validatedBranch = (env.CHECKOUT_BRANCH ?: (params?.branchName ?: '').toString().trim().replace('$', '')).toString().trim()
+                    def validatedProject = (env.PROJECT ?: (validatedBranch.tokenize('-') ? validatedBranch.tokenize('-')[0].toLowerCase() : '')).toString().trim()
+
+                    if (!validatedProject) {
+                        error("Unable to validate project. Derived empty project from branch '${validatedBranch}'.")
+                    }
+
+                    env.CHECKOUT_BRANCH = validatedBranch
+                    env.PROJECT = validatedProject
+                    env.DEPLOY_ENV = "config/${validatedProject}/dev.json"
+
+                    if (!fileExists("deploy/projects/${validatedProject}")) {
+                        error("Project does not exist for branch '${validatedBranch}'. Missing directory: deploy/projects/${validatedProject}")
+                    }
+                }
+            }
+        }
+
+        stage('Install') {
+            steps {
+                sh '''
+                cd deploy
+                python3 -m venv .venv
+                . .venv/bin/activate
+                pip install -U pip
+                pip install -r requirements.txt
+
+                if [ -f "projects/$PROJECT/deploy_config.sh" ]; then
+                    cd "projects/$PROJECT"
+                    find . -maxdepth 1 -type f -name '*.sh' -exec chmod +x {} +
+                    if [ -d scripts ]; then
+                        cd scripts
+                        find . -maxdepth 1 -type f -name '*.sh' -exec chmod +x {} +
+                    fi
+                else
+                    echo "projects/$PROJECT/deploy_config.sh not found. Skipping chmod block."
+                fi
+                '''
+            }
+        }
+
+        stage('Setup AWS Credentials') {
+            steps {
+                withAWS(credentials: 'disc_fsafpac', region: "${AWS_REGION}") {
+                    echo 'AWS Credentials set up successfully.'
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                withAWS(credentials: 'disc_fsafpac', region: "${AWS_REGION}") {
+                    sh '''
+                    cd deploy
+                    . .venv/bin/activate
+
+                    if [ -z "$CHECKOUT_BRANCH" ] || [ "$CHECKOUT_BRANCH" = "null" ]; then
+                        CHECKOUT_BRANCH="${branchName#\$}"
+                    fi
+
+                    if [ -z "$PROJECT" ] || [ "$PROJECT" = "null" ]; then
+                        PROJECT="${CHECKOUT_BRANCH%%-*}"
+                    fi
+
+                    PROJECT="$(echo "$PROJECT" | tr '[:upper:]' '[:lower:]')"
+
+                    if [ -z "$DEPLOY_ENV" ] || [ "$DEPLOY_ENV" = "null" ]; then
+                        DEPLOY_ENV="config/$PROJECT/dev.json"
+                    fi
+
+                    echo "Running command: python deploy.py --config $DEPLOY_ENV --region $AWS_REGION --project-type $PROJECT"
+
+                    if [ -f "deploy.py" ]; then
+                        python deploy.py --config $DEPLOY_ENV --region $AWS_REGION --project-type $PROJECT
+                    else
+                        echo "deploy.py not found. Skipping deploy.py execution."
+                    fi
+
+                    if [ -f "projects/$PROJECT/deploy_config.sh" ]; then
+                        cd "projects/$PROJECT"
+                        echo "Running command: ./deploy_config.sh ../../$DEPLOY_ENV"
+                        ./deploy_config.sh ../../$DEPLOY_ENV
+                    else
+                        echo "projects/$PROJECT/deploy_config.sh not found. Skipping deploy_config.sh execution."
+                    fi
+                    '''
+                }
+            }
+        }
+    }
+}

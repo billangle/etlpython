@@ -47,9 +47,9 @@ pipeline {
                     env.PROJECT = normalizedProject
                     env.DEPLOY_ENV = "config/${env.PROJECT}/dev.json"
 
-                    echo "PROJECT: ${env.PROJECT}"
-                    echo "DEPLOY_ENV: ${env.DEPLOY_ENV}"
-                    echo "CHECKOUT_BRANCH: ${env.CHECKOUT_BRANCH}"
+                    echo "PROJECT: ${normalizedProject}"
+                    echo "DEPLOY_ENV: config/${normalizedProject}/dev.json"
+                    echo "CHECKOUT_BRANCH: ${sanitizedBranch}"
                 }
             }
         }
@@ -57,11 +57,17 @@ pipeline {
     stage('Checkout Code') {
             steps {
                 echo 'Checking out code from Bitbucket'
-                echo "Checkout branch used: ${env.CHECKOUT_BRANCH}"
                 script {
+                    def checkoutBranch = (env.CHECKOUT_BRANCH ?: (params?.branchName ?: '').toString().trim().replace('$', '')).toString().trim()
+                    if (!checkoutBranch || checkoutBranch.equalsIgnoreCase('null')) {
+                        error("Checkout branch is empty. branchName parameter='${params?.branchName}'.")
+                    }
+                    env.CHECKOUT_BRANCH = checkoutBranch
+                    echo "Checkout branch used: ${checkoutBranch}"
+
                     checkout scm: [
                         $class: 'GitSCM',
-                        branches: [[name: '${env.CHECKOUT_BRANCH}']],
+                        branches: [[name: checkoutBranch]],
                         userRemoteConfigs: [[
                             url: 'https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git', 
                             credentialsId: 'BitBucketRepoAccess'
@@ -74,8 +80,19 @@ pipeline {
         stage('Validate Project Directory') {
             steps {
                 script {
-                    if (!fileExists("deploy/projects/${env.PROJECT}")) {
-                        error("Project does not exist for branch '${env.CHECKOUT_BRANCH}'. Missing directory: deploy/projects/${env.PROJECT}")
+                    def validatedBranch = (env.CHECKOUT_BRANCH ?: (params?.branchName ?: '').toString().trim().replace('$', '')).toString().trim()
+                    def validatedProject = (env.PROJECT ?: (validatedBranch.tokenize('-') ? validatedBranch.tokenize('-')[0].toLowerCase() : '')).toString().trim()
+
+                    if (!validatedProject) {
+                        error("Unable to validate project. Derived empty project from branch '${validatedBranch}'.")
+                    }
+
+                    env.CHECKOUT_BRANCH = validatedBranch
+                    env.PROJECT = validatedProject
+                    env.DEPLOY_ENV = "config/${validatedProject}/dev.json"
+
+                    if (!fileExists("deploy/projects/${validatedProject}")) {
+                        error("Project does not exist for branch '${validatedBranch}'. Missing directory: deploy/projects/${validatedProject}")
                     }
                 }
             }

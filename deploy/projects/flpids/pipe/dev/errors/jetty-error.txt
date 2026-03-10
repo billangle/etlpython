@@ -1,0 +1,16 @@
+caught exception HttpConnection@35a7dbe9::SocketChannelEndPoint@4496dd0a[{l=null,r=null,CLOSED,fill=-,flush=-,to=0/30000}{io=1/0,kio=-1,kro=-1}]->[HttpConnection@35a7dbe9[p=HttpParser{s=CLOSE,0 of -1},g=HttpGenerator@36c0f22c{s=START}]=>HttpChannelState@23fead66{handling=null, handled=false, send=SENDING, completed=false, request=null}] HttpChannelState@23fead66{handling=null, handled=false, send=SENDING, completed=false, request=null}
+org.eclipse.jetty.io.RuntimeIOException: Parser is terminated
+	at Jenkins Main ClassLoader//org.eclipse.jetty.server.internal.HttpConnection.parseRequestBuffer(HttpConnection.java:582)
+	at Jenkins Main ClassLoader//org.eclipse.jetty.server.internal.HttpConnection.onFillable(HttpConnection.java:384)
+	at Jenkins Main ClassLoader//org.eclipse.jetty.io.AbstractConnection$ReadCallback.succeeded(AbstractConnection.java:322)
+	at Jenkins Main ClassLoader//org.eclipse.jetty.io.FillInterest.fillable(FillInterest.java:99)
+	at Jenkins Main ClassLoader//org.eclipse.jetty.io.SelectableChannelEndPoint$1.run(SelectableChannelEndPoint.java:53)
+	at Jenkins Main ClassLoader//org.eclipse.jetty.util.thread.strategy.AdaptiveExecutionStrategy.runTask(AdaptiveExecutionStrategy.java:480)
+	at Jenkins Main ClassLoader//org.eclipse.jetty.util.thread.strategy.AdaptiveExecutionStrategy.consumeTask(AdaptiveExecutionStrategy.java:443)
+	at Jenkins Main ClassLoader//org.eclipse.jetty.util.thread.strategy.AdaptiveExecutionStrategy.tryProduce(AdaptiveExecutionStrategy.java:293)
+	at Jenkins Main ClassLoader//org.eclipse.jetty.util.thread.strategy.AdaptiveExecutionStrategy.run(AdaptiveExecutionStrategy.java:201)
+	at Jenkins Main ClassLoader//org.eclipse.jetty.util.thread.ReservedThreadExecutor$ReservedThread.run(ReservedThreadExecutor.java:311)
+	at Jenkins Main ClassLoader//org.eclipse.jetty.util.thread.QueuedThreadPool.runJob(QueuedThreadPool.java:981)
+	at Jenkins Main ClassLoader//org.eclipse.jetty.util.thread.QueuedThreadPool$Runner.doRunJob(QueuedThreadPool.java:1211)
+	at Jenkins Main ClassLoader//org.eclipse.jetty.util.thread.QueuedThreadPool$Runner.run(QueuedThreadPool.java:1166)
+	at java.base/java.lang.Thread.run(Thread.java:1583)

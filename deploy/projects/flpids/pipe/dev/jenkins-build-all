@@ -1,0 +1,127 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'branchName', defaultValue: '', description: 'Branch value from Bitbucket (example: $flpids-popsup-7373)')
+    }
+
+    environment {
+        AWS_REGION = 'us-east-1'
+        PROJECT = ''
+        DEPLOY_ENV = ''
+    }
+
+    stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Resolve Project From Branch') {
+            steps {
+                script {
+                    def rawBranch = (params.branchName ?: '').toString().trim()
+                    def cleanedBranch = rawBranch.replace('$', '')
+                    def derivedProject = cleanedBranch.tokenize('-') ? cleanedBranch.tokenize('-')[0] : ''
+                    def normalizedProject = derivedProject.toLowerCase()
+
+                    echo "branchName: ${rawBranch ?: 'N/A'}"
+                    echo "cleanedBranch: ${cleanedBranch ?: 'N/A'}"
+
+                    if (!normalizedProject) {
+                        error('Unable to derive PROJECT from branchName. Expected format like $flpids-popsup-7373.')
+                    }
+
+                    env.PROJECT = normalizedProject
+                    env.DEPLOY_ENV = "config/${env.PROJECT}/dev.json"
+
+                    echo "PROJECT: ${env.PROJECT}"
+                    echo "DEPLOY_ENV: ${env.DEPLOY_ENV}"
+                }
+            }
+        }
+
+        stage('Checkout Code') {
+            steps {
+                echo 'Checking out code from Bitbucket'
+                script {
+                    checkout scm: [
+                        $class: 'GitSCM',
+                        branches: [[name: 'main']],
+                        userRemoteConfigs: [[
+                            url: 'https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git',
+                            credentialsId: 'BitBucketRepoAccess'
+                        ]]
+                    ]
+                }
+            }
+        }
+
+        stage('Validate Project Directory') {
+            steps {
+                script {
+                    def rawBranch = (params.branchName ?: '').toString().trim()
+                    if (!fileExists("deploy/projects/${env.PROJECT}")) {
+                        error("Project does not exist for branch '${rawBranch}'. Missing directory: deploy/projects/${env.PROJECT}")
+                    }
+                }
+            }
+        }
+
+        stage('Install') {
+            steps {
+                sh '''
+                cd deploy
+                python3 -m venv .venv
+                . .venv/bin/activate
+                pip install -U pip
+                pip install -r requirements.txt
+
+                if [ -f "projects/$PROJECT/deploy_config.sh" ]; then
+                    cd "projects/$PROJECT"
+                    find . -maxdepth 1 -type f -name '*.sh' -exec chmod +x {} +
+                    if [ -d scripts ]; then
+                        cd scripts
+                        find . -maxdepth 1 -type f -name '*.sh' -exec chmod +x {} +
+                    fi
+                else
+                    echo "projects/$PROJECT/deploy_config.sh not found. Skipping chmod block."
+                fi
+                '''
+            }
+        }
+
+        stage('Setup AWS Credentials') {
+            steps {
+                withAWS(credentials: 'disc_fsafpac', region: "${AWS_REGION}") {
+                    echo 'AWS Credentials set up successfully.'
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                withAWS(credentials: 'disc_fsafpac', region: "${AWS_REGION}") {
+                    sh '''
+                    cd deploy
+                    . .venv/bin/activate
+
+                    if [ -f "deploy.py" ]; then
+                        python deploy.py --config "$DEPLOY_ENV" --region "$AWS_REGION" --project-type "$PROJECT"
+                    else
+                        echo "deploy.py not found. Skipping deploy.py execution."
+                    fi
+
+                    if [ -f "projects/$PROJECT/deploy_config.sh" ]; then
+                        cd "projects/$PROJECT"
+                        ./deploy_config.sh "../../$DEPLOY_ENV"
+                    else
+                        echo "projects/$PROJECT/deploy_config.sh not found. Skipping deploy_config.sh execution."
+                    fi
+                    '''
+                }
+            }
+        }
+    }
+}

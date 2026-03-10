@@ -4,46 +4,23 @@ pipeline {
     triggers {
         GenericTrigger(
             genericVariables: [
-                // whole POST body as JSON
-                [key: 'POST_BODY', value: '$'],
-
-                // a few useful fields, optional
-                [key: 'EVENT_KEY', value: '$.eventKey'],
-                [key: 'BRANCH',    value: '$.changes[0].ref.displayId'],
-                [key: 'REPO',      value: '$.repository.slug'],
-                [key: 'COMMIT',    value: '$.toCommit.id'],
-                [key: 'MESSAGE',   value: '$.toCommit.message']
+                [key: 'eventKey', value: '$.eventKey']
             ],
-
-            causeString: 'Webhook: $EVENT_KEY $REPO $BRANCH $COMMIT',
-
-            token: 'bitbucket-echo-debug',
-
+            causeString: 'Triggered by webhook: $eventKey',
+            regexpFilterText: '',
+            regexpFilterExpression: '',
             printContributedVariables: true,
             printPostContent: true,
             silentResponse: false,
-            shouldNotFlatten: false,
-
-            // allow all webhook payloads through
-            regexpFilterText: '$EVENT_KEY',
-            regexpFilterExpression: '.*'
+            token: 'bitbucket-echo-debug'
         )
     }
 
     stages {
-        stage('Echo webhook payload') {
+        stage('Webhook') {
             steps {
-                script {
-                    echo '================ RAW POST BODY ================'
-                    echo "${POST_BODY}"
-                    echo '================ SUMMARY ======================'
-                    echo "eventKey : ${EVENT_KEY}"
-                    echo "repo     : ${REPO}"
-                    echo "branch   : ${BRANCH}"
-                    echo "commit   : ${COMMIT}"
-                    echo "message  : ${MESSAGE}"
-                    echo '==============================================='
-                }
+                echo 'Webhook triggered.'
+                sh 'echo "eventKey=$eventKey"'
             }
         }
     }

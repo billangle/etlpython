@@ -1,0 +1,133 @@
+Skip to content
+
+Jenkins
+BuildProcess
+DeployFlpids
+#363
+Console Output
+Search
+Manage Jenkins
+
+28722025092407116016427
+Status
+Changes
+Console Output
+Edit Build Information
+Delete build ‘#363’
+Parameters
+Timings
+Pipeline Overview
+Restart from Stage
+Replay
+Pipeline Steps
+Workspaces
+Previous Build
+Timestamps
+View as plain text
+System clock time
+
+Use browser timezone
+Elapsed time
+None
+FailedFailed
+Console Output
+Download
+
+Copy
+View as plain text
+14:50:51  Started by remote host 199.135.69.213
+14:50:51  [Pipeline] Start of Pipeline
+14:50:51  [Pipeline] node
+14:50:51  Running on Jenkins in /var/lib/jenkins/workspace/BuildProcess/DeployFlpids
+14:50:51  [Pipeline] {
+14:50:51  [Pipeline] withEnv
+14:50:51  [Pipeline] {
+14:50:51  [Pipeline] stage
+14:50:51  [Pipeline] { (Clean Workspace)
+14:50:51  [Pipeline] cleanWs
+14:50:51  [WS-CLEANUP] Deleting project workspace...
+14:50:51  [WS-CLEANUP] Deferred wipeout is used...
+14:50:51  [WS-CLEANUP] done
+14:50:51  [Pipeline] }
+14:50:51  [Pipeline] // stage
+14:50:51  [Pipeline] stage
+14:50:51  [Pipeline] { (Resolve Project From Branch)
+14:50:51  [Pipeline] script
+14:50:51  [Pipeline] {
+14:50:52  [Pipeline] echo
+14:50:52  branchName (incoming): $flpids-popsup-7373
+14:50:52  [Pipeline] echo
+14:50:52  branchName (sanitized): flpids-popsup-7373
+14:50:52  [Pipeline] echo
+14:50:52  PROJECT: null
+14:50:52  [Pipeline] echo
+14:50:52  DEPLOY_ENV: null
+14:50:52  [Pipeline] echo
+14:50:52  CHECKOUT_BRANCH: null
+14:50:52  [Pipeline] }
+14:50:52  [Pipeline] // script
+14:50:52  [Pipeline] }
+14:50:52  [Pipeline] // stage
+14:50:52  [Pipeline] stage
+14:50:52  [Pipeline] { (Checkout Code)
+14:50:52  [Pipeline] echo
+14:50:52  Checking out code from Bitbucket
+14:50:52  [Pipeline] echo
+14:50:52  Checkout branch used: null
+14:50:52  [Pipeline] script
+14:50:52  [Pipeline] {
+14:50:52  [Pipeline] checkout
+14:50:52  The recommended git tool is: NONE
+14:50:52  using credential BitBucketRepoAccess
+14:50:52  Cloning the remote Git repository
+14:50:52  Cloning repository https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git
+14:50:52   > git init /var/lib/jenkins/workspace/BuildProcess/DeployFlpids # timeout=10
+14:50:52  Fetching upstream changes from https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git
+14:50:52   > git --version # timeout=10
+14:50:52   > git --version # 'git version 2.47.3'
+14:50:52  using GIT_ASKPASS to set credentials This supports repo access to BitBucket.
+14:50:52   > git fetch --tags --force --progress -- https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git +refs/heads/*:refs/remotes/origin/* # timeout=10
+14:51:09   > git config remote.origin.url https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git # timeout=10
+14:51:09   > git config --add remote.origin.fetch +refs/heads/*:refs/remotes/origin/* # timeout=10
+14:51:09  Avoid second fetch
+14:51:09   > git rev-parse origin/${env.CHECKOUT_BRANCH}^{commit} # timeout=10
+14:51:09   > git rev-parse ${env.CHECKOUT_BRANCH}^{commit} # timeout=10
+14:51:09  ERROR: Couldn't find any revision to build. Verify the repository and branch configuration for this job.
+14:51:09  ERROR: Maximum checkout retry attempts reached, aborting
+14:51:09  [Pipeline] }
+14:51:09  [Pipeline] // script
+14:51:09  [Pipeline] }
+14:51:09  [Pipeline] // stage
+14:51:09  [Pipeline] stage
+14:51:09  [Pipeline] { (Validate Project Directory)
+14:51:09  Stage "Validate Project Directory" skipped due to earlier failure(s)
+14:51:09  [Pipeline] getContext
+14:51:09  [Pipeline] }
+14:51:09  [Pipeline] // stage
+14:51:09  [Pipeline] stage
+14:51:09  [Pipeline] { (Install)
+14:51:09  Stage "Install" skipped due to earlier failure(s)
+14:51:09  [Pipeline] getContext
+14:51:09  [Pipeline] }
+14:51:09  [Pipeline] // stage
+14:51:09  [Pipeline] stage
+14:51:09  [Pipeline] { (Setup AWS Credentials)
+14:51:09  Stage "Setup AWS Credentials" skipped due to earlier failure(s)
+14:51:09  [Pipeline] getContext
+14:51:09  [Pipeline] }
+14:51:09  [Pipeline] // stage
+14:51:10  [Pipeline] stage
+14:51:10  [Pipeline] { (Deploy)
+14:51:10  Stage "Deploy" skipped due to earlier failure(s)
+14:51:10  [Pipeline] getContext
+14:51:10  [Pipeline] }
+14:51:10  [Pipeline] // stage
+14:51:10  [Pipeline] }
+14:51:10  [Pipeline] // withEnv
+14:51:10  [Pipeline] }
+14:51:10  [Pipeline] // node
+14:51:10  [Pipeline] End of Pipeline
+14:51:10  ERROR: Couldn't find any revision to build. Verify the repository and branch configuration for this job.
+14:51:10  Finished: FAILURE
+REST API
+Jenkins 2.528.3

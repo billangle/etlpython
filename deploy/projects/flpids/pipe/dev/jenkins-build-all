@@ -22,17 +22,27 @@ pipeline {
         stage('Resolve Project From Branch') {
             steps {
                 script {
-                    def safeBranch = (params?.branchName ?: env?.branchName ?: '').toString().trim().replace('$', '')
-                    def branchParts = safeBranch ? safeBranch.tokenize('-') : []
+                    def incomingBranch = (params?.branchName ?: '').toString().trim()
+                    if (!incomingBranch || incomingBranch.equalsIgnoreCase('null')) {
+                        error("branchName parameter is missing. Received: '${incomingBranch}'.")
+                    }
+
+                    def sanitizedBranch = incomingBranch.replace('$', '')
+                    if (!sanitizedBranch) {
+                        error("branchName parameter is empty after sanitizing. Received: '${incomingBranch}'.")
+                    }
+
+                    echo "branchName (incoming): ${incomingBranch}"
+                    echo "branchName (sanitized): ${sanitizedBranch}"
+
+                    env.CHECKOUT_BRANCH = sanitizedBranch
+
+                    def branchParts = env.CHECKOUT_BRANCH.tokenize('-')
                     def derivedProject = branchParts ? branchParts[0] : ''
                     def normalizedProject = derivedProject.toLowerCase()
 
-                    env.CHECKOUT_BRANCH = safeBranch
-
-                    echo "CHECKOUT_BRANCH: ${env.CHECKOUT_BRANCH ?: 'N/A'}"
-
                     if (!normalizedProject) {
-                        error('Unable to derive PROJECT from branchName. Expected format like $flpids-popsup-7373.')
+                        error("Unable to derive PROJECT from branch '${env.CHECKOUT_BRANCH}'.")
                     }
 
                     env.PROJECT = normalizedProject
@@ -48,10 +58,11 @@ pipeline {
     stage('Checkout Code') {
             steps {
                 echo 'Checking out code from Bitbucket'
+                echo "Checkout branch used: ${env.CHECKOUT_BRANCH}"
                 script {
                     checkout scm: [
                         $class: 'GitSCM',
-                        branches: [[name: "${env.CHECKOUT_BRANCH}"]],
+                        branches: [[name: '${env.CHECKOUT_BRANCH}']],
                         userRemoteConfigs: [[
                             url: 'https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git', 
                             credentialsId: 'BitBucketRepoAccess'

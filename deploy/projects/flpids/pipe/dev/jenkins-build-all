@@ -136,15 +136,32 @@ pipeline {
                     cd deploy
                     . .venv/bin/activate
 
+                    if [ -z "$CHECKOUT_BRANCH" ] || [ "$CHECKOUT_BRANCH" = "null" ]; then
+                        CHECKOUT_BRANCH="${branchName#\$}"
+                    fi
+
+                    if [ -z "$PROJECT" ] || [ "$PROJECT" = "null" ]; then
+                        PROJECT="${CHECKOUT_BRANCH%%-*}"
+                    fi
+
+                    PROJECT="$(echo "$PROJECT" | tr '[:upper:]' '[:lower:]')"
+
+                    if [ -z "$DEPLOY_ENV" ] || [ "$DEPLOY_ENV" = "null" ]; then
+                        DEPLOY_ENV="config/$PROJECT/dev.json"
+                    fi
+
+                    echo "Running command: python deploy.py --config $DEPLOY_ENV --region $AWS_REGION --project-type $PROJECT"
+
                     if [ -f "deploy.py" ]; then
-                        python deploy.py --config "$DEPLOY_ENV" --region "$AWS_REGION" --project-type "$PROJECT"
+                        python deploy.py --config $DEPLOY_ENV --region $AWS_REGION --project-type $PROJECT
                     else
                         echo "deploy.py not found. Skipping deploy.py execution."
                     fi
 
                     if [ -f "projects/$PROJECT/deploy_config.sh" ]; then
                         cd "projects/$PROJECT"
-                        ./deploy_config.sh "../../$DEPLOY_ENV"
+                        echo "Running command: ./deploy_config.sh ../../$DEPLOY_ENV"
+                        ./deploy_config.sh ../../$DEPLOY_ENV
                     else
                         echo "projects/$PROJECT/deploy_config.sh not found. Skipping deploy_config.sh execution."
                     fi

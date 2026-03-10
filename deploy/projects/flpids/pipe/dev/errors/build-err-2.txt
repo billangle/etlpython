@@ -1,0 +1,91 @@
+14:36:36  Started by remote host 199.135.69.213
+14:36:37  [Pipeline] Start of Pipeline
+14:36:37  [Pipeline] node
+14:36:37  Running on Jenkins
+ in /var/lib/jenkins/workspace/BuildProcess/DeployFlpids
+14:36:37  [Pipeline] {
+14:36:37  [Pipeline] withEnv
+14:36:37  [Pipeline] {
+14:36:37  [Pipeline] stage
+14:36:37  [Pipeline] { (Clean Workspace)
+14:36:37  [Pipeline] cleanWs
+14:36:37  [WS-CLEANUP] Deleting project workspace...
+14:36:37  [WS-CLEANUP] Deferred wipeout is used...
+14:36:37  [WS-CLEANUP] done
+14:36:37  [Pipeline] }
+14:36:37  [Pipeline] // stage
+14:36:37  [Pipeline] stage
+14:36:37  [Pipeline] { (Resolve Project From Branch)
+14:36:37  [Pipeline] script
+14:36:37  [Pipeline] {
+14:36:37  [Pipeline] echo
+14:36:37  CHECKOUT_BRANCH: N/A
+14:36:37  [Pipeline] echo
+14:36:37  PROJECT: null
+14:36:37  [Pipeline] echo
+14:36:37  DEPLOY_ENV: null
+14:36:38  [Pipeline] echo
+14:36:38  CHECKOUT_BRANCH: null
+14:36:38  [Pipeline] }
+14:36:38  [Pipeline] // script
+14:36:38  [Pipeline] }
+14:36:38  [Pipeline] // stage
+14:36:38  [Pipeline] stage
+14:36:38  [Pipeline] { (Checkout Code)
+14:36:38  [Pipeline] echo
+14:36:38  Checking out code from Bitbucket
+14:36:38  [Pipeline] script
+14:36:38  [Pipeline] {
+14:36:38  [Pipeline] checkout
+14:36:38  The recommended git tool is: NONE
+14:36:38  using credential BitBucketRepoAccess
+14:36:38  Cloning the remote Git repository
+14:36:38  Cloning repository https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git
+14:36:38   > git init /var/lib/jenkins/workspace/BuildProcess/DeployFlpids # timeout=10
+14:36:38  Fetching upstream changes from https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git
+14:36:38   > git --version # timeout=10
+14:36:38   > git --version # 'git version 2.47.3'
+14:36:38  using GIT_ASKPASS to set credentials This supports repo access to BitBucket.
+14:36:38   > git fetch --tags --force --progress -- https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git +refs/heads/*:refs/remotes/origin/* # timeout=10
+14:36:55   > git config remote.origin.url https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git # timeout=10
+14:36:55   > git config --add remote.origin.fetch +refs/heads/*:refs/remotes/origin/* # timeout=10
+14:36:55  Avoid second fetch
+14:36:55   > git rev-parse origin/null^{commit} # timeout=10
+14:36:55   > git rev-parse null^{commit} # timeout=10
+14:36:55  ERROR: Couldn't find any revision to build. Verify the repository and branch configuration for this job.
+14:36:55  ERROR: Maximum checkout retry attempts reached, aborting
+14:36:55  [Pipeline] }
+14:36:55  [Pipeline] // script
+14:36:55  [Pipeline] }
+14:36:55  [Pipeline] // stage
+14:36:55  [Pipeline] stage
+14:36:55  [Pipeline] { (Validate Project Directory)
+14:36:55  Stage "Validate Project Directory" skipped due to earlier failure(s)
+14:36:55  [Pipeline] getContext
+14:36:55  [Pipeline] }
+14:36:55  [Pipeline] // stage
+14:36:55  [Pipeline] stage
+14:36:55  [Pipeline] { (Install)
+14:36:55  Stage "Install" skipped due to earlier failure(s)
+14:36:55  [Pipeline] getContext
+14:36:55  [Pipeline] }
+14:36:55  [Pipeline] // stage
+14:36:55  [Pipeline] stage
+14:36:55  [Pipeline] { (Setup AWS Credentials)
+14:36:55  Stage "Setup AWS Credentials" skipped due to earlier failure(s)
+14:36:55  [Pipeline] getContext
+14:36:55  [Pipeline] }
+14:36:55  [Pipeline] // stage
+14:36:55  [Pipeline] stage
+14:36:56  [Pipeline] { (Deploy)
+14:36:56  Stage "Deploy" skipped due to earlier failure(s)
+14:36:56  [Pipeline] getContext
+14:36:56  [Pipeline] }
+14:36:56  [Pipeline] // stage
+14:36:56  [Pipeline] }
+14:36:56  [Pipeline] // withEnv
+14:36:56  [Pipeline] }
+14:36:56  [Pipeline] // node
+14:36:56  [Pipeline] End of Pipeline
+14:36:56  ERROR: Couldn't find any revision to build. Verify the repository and branch configuration for this job.
+14:36:56  Finished: FAILURE

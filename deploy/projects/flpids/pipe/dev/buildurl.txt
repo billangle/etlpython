@@ -1,9 +1,6 @@
-
-
-
-
 https://jenkinsfsa-dev.dl.usda.gov/job/BuildProcess/job/DeployFlpids/build?token=72305AD4-A19D-462C-9CEB-275E01BDFAFD
 
+BRANCH-PARM: https://jenkinsfsa-dev.dl.usda.gov/job/BuildProcess/job/DeployFlpids/buildWithParameters?token=72305AD4-A19D-462C-9CEB-275E01BDFAFD&branchName=${repo.ref.branchName}
 
 
 
@@ -14,7 +11,3 @@ https://jenkinsfsa-dev.dl.usda.gov/job/BuildProcess/job/DeployFlpids/buildWithPa
 https://jenkinsfsa-dev.dl.usda.gov/job/BuildProcess/job/DeployFlpids/buildWithParameters?token=72305AD4-A19D-462C-9CEB-275E01BDFAFD&eventKey=repo:refs_changed&projectKey=${project.key}&repoSlug=${repo.slug}&branchName=${repo.ref.branchName}
 
 https://jenkinsfsa-dev.dl.usda.gov/job/BuildProcess/job/DeployFlpids/build?token=72305AD4-A19D-462C-9CEB-275E01BDFAFD
-
-
-
-

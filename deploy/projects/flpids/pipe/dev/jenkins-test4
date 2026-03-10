@@ -1,0 +1,22 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'branchName', defaultValue: '', description: 'Branch name from Bitbucket webhook URL variable')
+    }
+
+    stages {
+        stage('Validate Branch Parameter') {
+            steps {
+                script {
+                    def resolvedBranch = (params.branchName ?: '').toString().trim()
+                    echo "branchName: ${resolvedBranch ?: 'N/A'}"
+
+                    if (!resolvedBranch) {
+                        error('branchName is empty. Ensure Bitbucket webhook URL includes branchName=${repo.ref.branchName}.')
+                    }
+                }
+            }
+        }
+    }
+}

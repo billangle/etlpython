@@ -1,0 +1,101 @@
+14:20:56  Started by remote host 199.135.69.213
+14:20:57  [Pipeline] Start of Pipeline
+14:20:57  [Pipeline] node
+14:20:57  Running on Jenkins
+ in /var/lib/jenkins/workspace/BuildProcess/DeployFlpids
+14:20:57  [Pipeline] {
+14:20:57  [Pipeline] withEnv
+14:20:57  [Pipeline] {
+14:20:57  [Pipeline] stage
+14:20:57  [Pipeline] { (Clean Workspace)
+14:20:57  [Pipeline] cleanWs
+14:20:57  [WS-CLEANUP] Deleting project workspace...
+14:20:57  [WS-CLEANUP] Deferred wipeout is used...
+14:20:57  [WS-CLEANUP] done
+14:20:57  [Pipeline] }
+14:20:57  [Pipeline] // stage
+14:20:57  [Pipeline] stage
+14:20:57  [Pipeline] { (Resolve Project From Branch)
+14:20:57  [Pipeline] script
+14:20:57  [Pipeline] {
+14:20:58  [Pipeline] }
+14:20:58  [Pipeline] // script
+14:20:58  [Pipeline] }
+14:20:58  [Pipeline] // stage
+14:20:58  [Pipeline] stage
+14:20:58  [Pipeline] { (Checkout Code)
+14:20:58  Stage "Checkout Code" skipped due to earlier failure(s)
+14:20:58  [Pipeline] getContext
+14:20:58  [Pipeline] }
+14:20:58  [Pipeline] // stage
+14:20:58  [Pipeline] stage
+14:20:58  [Pipeline] { (Validate Project Directory)
+14:20:58  Stage "Validate Project Directory" skipped due to earlier failure(s)
+14:20:58  [Pipeline] getContext
+14:20:58  [Pipeline] }
+14:20:58  [Pipeline] // stage
+14:20:58  [Pipeline] stage
+14:20:58  [Pipeline] { (Install)
+14:20:58  Stage "Install" skipped due to earlier failure(s)
+14:20:58  [Pipeline] getContext
+14:20:58  [Pipeline] }
+14:20:58  [Pipeline] // stage
+14:20:58  [Pipeline] stage
+14:20:58  [Pipeline] { (Setup AWS Credentials)
+14:20:58  Stage "Setup AWS Credentials" skipped due to earlier failure(s)
+14:20:58  [Pipeline] getContext
+14:20:58  [Pipeline] }
+14:20:58  [Pipeline] // stage
+14:20:58  [Pipeline] stage
+14:20:58  [Pipeline] { (Deploy)
+14:20:58  Stage "Deploy" skipped due to earlier failure(s)
+14:20:59  [Pipeline] getContext
+14:20:59  [Pipeline] }
+14:20:59  [Pipeline] // stage
+14:20:59  [Pipeline] }
+14:20:59  [Pipeline] // withEnv
+14:20:59  [Pipeline] }
+14:20:59  [Pipeline] // node
+14:20:59  [Pipeline] End of Pipeline
+14:20:59  Also:   org.jenkinsci.plugins.workflow.actions.ErrorAction$ErrorId: 3fc2ef58-594d-41cc-b43b-aa2562eb1272
+14:20:59  java.lang.NullPointerException: Cannot invoke method tokenize() on null object
+14:20:59  	at org.codehaus.groovy.runtime.NullObject.invokeMethod(NullObject.java:91)
+14:20:59  	at org.codehaus.groovy.runtime.callsite.PogoMetaClassSite.call(PogoMetaClassSite.java:47)
+14:20:59  	at org.codehaus.groovy.runtime.callsite.CallSiteArray.defaultCall(CallSiteArray.java:47)
+14:20:59  	at org.codehaus.groovy.runtime.callsite.NullCallSite.call(NullCallSite.java:34)
+14:20:59  	at org.codehaus.groovy.runtime.callsite.CallSiteArray.defaultCall(CallSiteArray.java:47)
+14:20:59  	at org.codehaus.groovy.runtime.callsite.AbstractCallSite.call(AbstractCallSite.java:116)
+14:20:59  	at PluginClassLoader for workflow-cps//com.cloudbees.groovy.cps.sandbox.DefaultInvoker.methodCall(DefaultInvoker.java:20)
+14:20:59  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.LoggingInvoker.methodCall(LoggingInvoker.java:120)
+14:20:59  	at WorkflowScript.run(WorkflowScript:26)
+14:20:59  	at ___cps.transform___(Native Method)
+14:20:59  	at PluginClassLoader for workflow-cps//com.cloudbees.groovy.cps.impl.ContinuationGroup.methodCall(ContinuationGroup.java:107)
+14:20:59  	at PluginClassLoader for workflow-cps//com.cloudbees.groovy.cps.impl.FunctionCallBlock$ContinuationImpl.dispatchOrArg(FunctionCallBlock.java:118)
+14:20:59  	at PluginClassLoader for workflow-cps//com.cloudbees.groovy.cps.impl.FunctionCallBlock$ContinuationImpl.fixArg(FunctionCallBlock.java:87)
+14:20:59  	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+14:20:59  	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+14:20:59  	at PluginClassLoader for workflow-cps//com.cloudbees.groovy.cps.impl.ContinuationPtr$ContinuationImpl.receive(ContinuationPtr.java:71)
+14:20:59  	at PluginClassLoader for workflow-cps//com.cloudbees.groovy.cps.impl.ConstantBlock.eval(ConstantBlock.java:21)
+14:20:59  	at PluginClassLoader for workflow-cps//com.cloudbees.groovy.cps.Next.step(Next.java:84)
+14:20:59  	at PluginClassLoader for workflow-cps//com.cloudbees.groovy.cps.Continuable.run0(Continuable.java:142)
+14:20:59  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsThread.runNextChunk(CpsThread.java:188)
+14:20:59  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsThreadGroup.run(CpsThreadGroup.java:464)
+14:20:59  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsThreadGroup$2.call(CpsThreadGroup.java:372)
+14:20:59  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsThreadGroup$2.call(CpsThreadGroup.java:302)
+14:20:59  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsVmExecutorService.lambda$wrap$4(CpsVmExecutorService.java:143)
+14:20:59  	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+14:20:59  	at hudson.remoting.SingleLaneExecutorService$1.run(SingleLaneExecutorService.java:139)
+14:20:59  	at jenkins.util.ContextResettingExecutorService$1.run(ContextResettingExecutorService.java:28)
+14:20:59  	at jenkins.security.ImpersonatingExecutorService$1.run(ImpersonatingExecutorService.java:68)
+14:20:59  	at jenkins.util.ErrorLoggingExecutorService.lambda$wrap$0(ErrorLoggingExecutorService.java:51)
+14:20:59  	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+14:20:59  	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+14:20:59  	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+14:20:59  	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+14:20:59  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsVmExecutorService$1.call(CpsVmExecutorService.java:53)
+14:20:59  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsVmExecutorService$1.call(CpsVmExecutorService.java:50)
+14:20:59  	at org.codehaus.groovy.runtime.GroovyCategorySupport$ThreadCategoryInfo.use(GroovyCategorySupport.java:136)
+14:20:59  	at org.codehaus.groovy.runtime.GroovyCategorySupport.use(GroovyCategorySupport.java:275)
+14:20:59  	at PluginClassLoader for workflow-cps//org.jenkinsci.plugins.workflow.cps.CpsVmExecutorService.lambda$categoryThreadFactory$0(CpsVmExecutorService.java:50)
+14:20:59  	at java.base/java.lang.Thread.run(Thread.java:1583)
+14:20:59  Finished: FAILURE

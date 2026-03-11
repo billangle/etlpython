@@ -107,13 +107,22 @@ pipeline {
                 pip install -U pip
                 pip install -r requirements.txt
 
+                if [ -z "$CHECKOUT_BRANCH" ] || [ "$CHECKOUT_BRANCH" = "null" ]; then
+                        CHECKOUT_BRANCH="${branchName#\$}"
+                fi
+
+
+                if [ -z "$PROJECT" ] || [ "$PROJECT" = "null" ]; then
+                        PROJECT="${CHECKOUT_BRANCH%%-*}"
+                fi
+
+                PROJECT="$(echo "$PROJECT" | tr '[:upper:]' '[:lower:]')"
+
                 if [ -f "projects/$PROJECT/deploy_config.sh" ]; then
-                    cd "projects/$PROJECT"
-                    find . -maxdepth 1 -type f -name '*.sh' -exec chmod +x {} +
-                    if [ -d scripts ]; then
-                        cd scripts
-                        find . -maxdepth 1 -type f -name '*.sh' -exec chmod +x {} +
-                    fi
+                       cd projects/$PROJECT
+                       chmod +x *.sh
+                       cd scripts
+                       chmod +x *.sh
                 else
                     echo "projects/$PROJECT/deploy_config.sh not found. Skipping chmod block."
                 fi

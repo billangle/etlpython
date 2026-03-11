@@ -107,6 +107,11 @@ pipeline {
                 pip install -U pip
                 pip install -r requirements.txt
 
+                if [ -z "$CHECKOUT_BRANCH" ] || [ "$CHECKOUT_BRANCH" = "null" ]; then
+                        CHECKOUT_BRANCH="${branchName#\$}"
+                fi
+
+
                 if [ -z "$PROJECT" ] || [ "$PROJECT" = "null" ]; then
                         PROJECT="${CHECKOUT_BRANCH%%-*}"
                 fi

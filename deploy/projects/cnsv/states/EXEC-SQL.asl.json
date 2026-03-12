@@ -53,7 +53,7 @@
         "ProcessStageTables": {
             "Type": "Map",
             "ItemsPath": "$.plan.stgTables",
-            "MaxConcurrency": 20,
+            "MaxConcurrency": 3,
             "Parameters": {
                 "table_name.$": "$$.Map.Item.Value",
                 "data_src_nm": "__DATA_SRC_NM__",
@@ -161,7 +161,18 @@
                     "Next": "ProcessEDVGroups"
                 }
             ],
-            "Default": "FinalizePipeline"
+            "Default": "SetDefaultEDVCheck"
+        },
+        "SetDefaultEDVCheck": {
+            "Type": "Pass",
+            "Parameters": {
+                "successCount": 0,
+                "failedCount": 0,
+                "failedTables": [],
+                "canContinue": false
+            },
+            "ResultPath": "$.edvCheck",
+            "Next": "FinalizePipeline"
         },
         "ProcessEDVGroups": {
             "Type": "Map",
@@ -181,7 +192,7 @@
                     "ProcessEDVTablesInGroup": {
                         "Type": "Map",
                         "ItemsPath": "$.tables",
-                        "MaxConcurrency": 10,
+                        "MaxConcurrency": 3,
                         "Parameters": {
                             "table_name.$": "$$.Map.Item.Value",
                             "groupIndex.$": "$.groupIndex",

@@ -114,7 +114,7 @@
     {
       "EXEC-SQL": {
         "Connections": [{ "ConnectionName": "" }],
-        "MaxConcurrency": "1",
+        "MaxConcurrency": "3",
         "MaxRetries": "0",
         "TimeoutMinutes": "480",
         "WorkerType": "G.2X",

@@ -171,6 +171,45 @@ class TestExecSqlDeployRegression(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 deploy_exec_sql._detect_lambda_handler_symbol(p)
 
+    def test_exec_sql_glue_max_concurrency_aligned_across_env_configs(self):
+        """Regression guard for ConcurrentRunsExceededException class of failures."""
+        env_files = [
+            Path("deploy/config/cnsv/dev.json"),
+            Path("deploy/config/cnsv/steamdev.json"),
+            Path("deploy/config/cnsv/prod.json"),
+        ]
+
+        for cfg_path in env_files:
+            with self.subTest(config=str(cfg_path)):
+                cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+                glue_entries = cfg.get("GlueConfig", [])
+
+                exec_sql = None
+                for entry in glue_entries:
+                    if isinstance(entry, dict) and "EXEC-SQL" in entry:
+                        exec_sql = entry["EXEC-SQL"]
+                        break
+
+                self.assertIsNotNone(exec_sql, f"EXEC-SQL section missing in {cfg_path}")
+                self.assertEqual(
+                    str(exec_sql.get("MaxConcurrency")),
+                    "3",
+                    f"EXEC-SQL MaxConcurrency must be 3 in {cfg_path}",
+                )
+
+    def test_exec_sql_state_map_concurrency_expected_values(self):
+        """Regression guard for Step Functions fan-out limits."""
+        asl_path = Path("deploy/projects/cnsv/states/EXEC-SQL.asl.json")
+        asl = json.loads(asl_path.read_text(encoding="utf-8"))
+        states = asl["States"]
+
+        self.assertEqual(states["ProcessStageTables"]["MaxConcurrency"], 3)
+        self.assertEqual(states["ProcessEDVGroups"]["MaxConcurrency"], 1)
+        inner = (
+            states["ProcessEDVGroups"]["Iterator"]["States"]["ProcessEDVTablesInGroup"]
+        )
+        self.assertEqual(inner["MaxConcurrency"], 3)
+
 
 if __name__ == "__main__":
     unittest.main()

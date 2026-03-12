@@ -1,0 +1,81 @@
+{
+  "data_src_nm": "cnsv",
+  "run_type": "incremental",
+  "start_date": "2026-01-27",
+  "env": "PROD",
+  "layer": "STG",
+  "table_name": "cnsv_uom"
+}
+
+
+{
+  "data_src_nm": "cnsv",
+  "run_type": "incremental",
+  "start_date": "2026-01-27",
+  "env": "PROD",
+  "layer": "STG",
+  "table_name": "cnsv_uom",
+  "error": {
+    "Error": "Glue.ConcurrentRunsExceededException",
+    "Cause": "Concurrent runs exceeded. (Service: AWSGlue; Status Code: 400; Error Code: ConcurrentRunsExceededException; Request ID: 106543ff-37a1-4bd3-b7ca-7cfcbf424497; Proxy: null)"
+  }
+}
+
+
+{
+  "cause": {
+    "AllocatedCapacity": 4,
+    "Arguments": {
+      "--table_name": "ccms_cnsv_pgm",
+      "--layer": "STG",
+      "--start_date": "2026-01-27",
+      "--run_type": "incremental",
+      "--data_src_nm": "cnsv",
+      "--env": "PROD",
+      "--JOB_NAME": "FSA-PROD-CNSV-EXEC-SQL"
+    },
+    "Attempt": 0,
+    "CompletedOn": 1773322948241,
+    "ErrorMessage": "Error Category: RESOURCE_NOT_FOUND_ERROR; Failed Line Number: 908; Exception: SKIPPED_MISSING_CONFIG: STG config missing for table ccms_cnsv_pgm: Could not resolve S3 casing for 'CCMS_CNSV_PGM' under 'cnsv/_configs/STG/'",
+    "ExecutionTime": 39,
+    "GlueVersion": "4.0",
+    "Id": "jr_30bc4bd1c78f21ffaece3fdfcf1b189c24db4e40767726a8d980ff947c9ed088",
+    "JobMode": "SCRIPT",
+    "JobName": "FSA-PROD-CNSV-EXEC-SQL",
+    "JobRunState": "FAILED",
+    "LastModifiedOn": 1773322948241,
+    "LogGroupName": "/aws-glue/jobs",
+    "MaxCapacity": 4,
+    "NumberOfWorkers": 2,
+    "PredecessorRuns": [],
+    "StartedOn": 1773322891130,
+    "Timeout": 480,
+    "WorkerType": "G.2X"
+  },
+  "error": "States.TaskFailed",
+  "resource": "startJobRun.sync",
+  "resourceType": "glue"
+}
+
+{
+  "data_src_nm": "cnsv",
+  "run_type": "incremental",
+  "start_date": "2026-01-27",
+  "env": "PROD",
+  "layer": "STG",
+  "table_name": "cnsv_uom",
+  "error": {
+    "Error": "Glue.ConcurrentRunsExceededException",
+    "Cause": "Concurrent runs exceeded. (Service: AWSGlue; Status Code: 400; Error Code: ConcurrentRunsExceededException; Request ID: 106543ff-37a1-4bd3-b7ca-7cfcbf424497; Proxy: null)"
+  }
+}
+
+{
+  "status": "FAILED",
+  "layer": "STG",
+  "error": {
+    "Error": "Glue.ConcurrentRunsExceededException",
+    "Cause": "Concurrent runs exceeded. (Service: AWSGlue; Status Code: 400; Error Code: ConcurrentRunsExceededException; Request ID: 106543ff-37a1-4bd3-b7ca-7cfcbf424497; Proxy: null)"
+  },
+  "table_name": "cnsv_uom"
+}

@@ -1,0 +1,202 @@
+{
+  "Comment": "CARS Master Pipeline: EDV -> DM PG -> (DMS handles Redshift via CDC). Pass in shared params; each child's full input is constructed internally.",
+  "StartAt": "BuildEDVInput",
+  "States": {
+    "BuildEDVInput": {
+      "Type": "Pass",
+      "Comment": "Construct EDV pipeline input from shared parameters",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-CARS-EDV-Pipeline",
+        "Input": {
+          "data_src_nm.$": "$.data_src_nm",
+          "run_type.$": "$.run_type",
+          "start_date.$": "$.start_date",
+          "env.$": "$.env"
+        }
+      },
+      "ResultPath": "$.edvExecution",
+      "Next": "RunEDVPipeline"
+    },
+    "RunEDVPipeline": {
+      "Type": "Task",
+      "Comment": "Execute EDV pipeline and wait for completion",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn.$": "$.edvExecution.StateMachineArn",
+        "Input.$": "$.edvExecution.Input"
+      },
+      "ResultPath": "$.edvResult",
+      "Next": "BuildDMInput",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "PipelineFailed",
+          "ResultPath": "$.edvError"
+        }
+      ]
+    },
+    "BuildDMInput": {
+      "Type": "Pass",
+      "Comment": "Construct DM PG pipeline input: shared params + layer + schemas + table lists",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-CARS-DM-ETL-Pipeline",
+        "Input": {
+          "data_src_nm.$": "$.data_src_nm",
+          "env.$": "$.env",
+          "run_type.$": "$.run_type",
+          "start_date.$": "$.start_date",
+          "layer": "DM",
+          "source_schema": "car_dm_stg",
+          "target_schema": "car_dm",
+          "dim_tables": [
+            {
+              "table_name": "acrg_calc_prj_dim",
+              "date_column": "data_eff_end_dt"
+            },
+            {
+              "table_name": "acrg_ofcl_meas_dim",
+              "date_column": "data_eff_end_dt"
+            },
+            {
+              "table_name": "cncur_plnt_dim",
+              "date_column": "data_eff_end_dt"
+            },
+            {
+              "table_name": "crop_acrg_rpt_dim",
+              "date_column": "data_eff_end_dt"
+            },
+            {
+              "table_name": "crop_prac_dim",
+              "date_column": "data_eff_end_dt"
+            },
+            {
+              "table_name": "crop_rpt_unit_dim",
+              "date_column": "data_eff_end_dt"
+            },
+            {
+              "table_name": "irr_prac_dim",
+              "date_column": "data_eff_end_dt"
+            },
+            {
+              "table_name": "land_use_dim",
+              "date_column": "data_eff_end_dt"
+            },
+            {
+              "table_name": "ognc_prac_type_dim",
+              "date_column": "data_eff_end_dt"
+            },
+            {
+              "table_name": "plnt_dt_mod_rsn_dim",
+              "date_column": "data_eff_end_dt"
+            },
+            {
+              "table_name": "plnt_mult_crop_stat_dim",
+              "date_column": "data_eff_end_dt"
+            },
+            {
+              "table_name": "plnt_prd_dim",
+              "date_column": "data_eff_end_dt"
+            },
+            {
+              "table_name": "plnt_prim_stat_dim",
+              "date_column": "data_eff_end_dt"
+            },
+            {
+              "table_name": "plnt_ptrn_type_dim",
+              "date_column": "data_eff_end_dt"
+            },
+            {
+              "table_name": "plnt_scnd_stat_dim",
+              "date_column": "data_eff_end_dt"
+            },
+            {
+              "table_name": "rpt_acrg_mod_rsn_dim",
+              "date_column": "data_eff_end_dt"
+            }
+          ],
+          "dim_tables_level2": [],
+          "fact_tables": [
+            {
+              "table_name": "ag_prod_plan_bus_pty_fact",
+              "date_column": "last_chg_dt"
+            },
+            {
+              "table_name": "crop_acrg_rpt_bus_pty_fact",
+              "date_column": "last_chg_dt"
+            }
+          ],
+          "summary_tables": [
+            {
+              "table_name": "ag_prod_plan_prdr_shr_summ",
+              "date_column": "cert_dt"
+            },
+            {
+              "table_name": "agprod_plan_prdr_shr_fltr_summ",
+              "date_column": "cert_dt"
+            },
+            {
+              "table_name": "arc_plc_bm_prdr_summ",
+              "date_column": "cre_dt"
+            },
+            {
+              "table_name": "arc_plc_shr_qty_dbl_crp_summ",
+              "date_column": "cre_dt"
+            },
+            {
+              "table_name": "arc_plc_shr_qty_summ",
+              "date_column": "cre_dt"
+            },
+            {
+              "table_name": "cnty_crop_acrg_rpt_prmpt",
+              "date_column": "cre_dt"
+            },
+            {
+              "table_name": "crop_acrg_rpt_summ",
+              "date_column": "cre_dt"
+            },
+            {
+              "table_name": "cvr_cmdy_by_tr_rpt_prmpt",
+              "date_column": "cre_dt"
+            },
+            {
+              "table_name": "prdr_crop_hist_rpt_prmpt",
+              "date_column": "cre_dt"
+            }
+          ]
+        }
+      },
+      "ResultPath": "$.dmExecution",
+      "Next": "RunDMPipeline"
+    },
+    "RunDMPipeline": {
+      "Type": "Task",
+      "Comment": "Execute DM PG pipeline and wait for completion",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn.$": "$.dmExecution.StateMachineArn",
+        "Input.$": "$.dmExecution.Input"
+      },
+      "ResultPath": "$.dmResult",
+      "Next": "PipelineSuccess",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "PipelineFailed",
+          "ResultPath": "$.dmError"
+        }
+      ]
+    },
+    "PipelineSuccess": {
+      "Type": "Succeed"
+    },
+    "PipelineFailed": {
+      "Type": "Fail",
+      "Error": "MasterPipelineFailed",
+      "Cause": "CARS Master Pipeline failed - check edvError or dmError in execution output for details"
+    }
+  }
+}

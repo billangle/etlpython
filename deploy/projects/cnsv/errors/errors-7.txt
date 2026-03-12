@@ -1,0 +1,57 @@
+{
+  "data_src_nm": "cnsv",
+  "run_type": "incremental",
+  "start_date": "2026-01-27",
+  "env": "PROD",
+  "layer": "STG",
+  "table_name": "ccms_ctr_cnsv_prac"
+}
+
+{
+  "data_src_nm": "cnsv",
+  "run_type": "incremental",
+  "start_date": "2026-01-27",
+  "env": "PROD",
+  "layer": "STG",
+  "table_name": "ccms_ctr_cnsv_prac",
+  "error": {
+    "Error": "States.TaskFailed",
+    "Cause": "{\"AllocatedCapacity\":4,\"Arguments\":{\"--table_name\":\"ccms_ctr_cnsv_prac\",\"--layer\":\"STG\",\"--start_date\":\"2026-01-27\",\"--run_type\":\"incremental\",\"--data_src_nm\":\"cnsv\",\"--env\":\"PROD\",\"--JOB_NAME\":\"FSA-PROD-CNSV-EXEC-SQL\"},\"Attempt\":0,\"CompletedOn\":1773323973818,\"ErrorMessage\":\"AccountId:253490756794 and JobName:FSA-PROD-CNSV-EXEC-SQL and JobRunId:jr_83f427140d13d2c8a2226677e6806c80bde3f240927d6b625633799f93574942 failed to execute with exception Number of IP addresses on subnet is 0: subnet-0d4691e36b391b17f\\n (Service: GlueJesCellCoral; Status Code: 400; Error Code: ValidationException; Request ID: 41a7bfc9-42c7-4ab1-97dd-82499241b598; Proxy: null) (Service: AWSGlueJobExecutor; Status Code: 400; Error Code: InvalidInputException; Request ID: 6df7865a-2081-43a3-98d0-af9fa01e250c; Proxy: null)\",\"ExecutionTime\":0,\"GlueVersion\":\"4.0\",\"Id\":\"jr_83f427140d13d2c8a2226677e6806c80bde3f240927d6b625633799f93574942\",\"JobMode\":\"SCRIPT\",\"JobName\":\"FSA-PROD-CNSV-EXEC-SQL\",\"JobRunState\":\"FAILED\",\"LastModifiedOn\":1773323973818,\"LogGroupName\":\"/aws-glue/jobs\",\"MaxCapacity\":4.0,\"NumberOfWorkers\":2,\"PredecessorRuns\":[],\"StartedOn\":1773323970268,\"Timeout\":480,\"WorkerType\":\"G.2X\"}"
+  }
+}
+
+AccountId:253490756794 and JobName:FSA-PROD-CNSV-EXEC-SQL and JobRunId:jr_83f427140d13d2c8a2226677e6806c80bde3f240927d6b625633799f93574942 failed to execute with exception 
+Number of IP addresses on subnet is 0: subnet-0d4691e36b391b17f (Service: GlueJesCellCoral; Status Code: 400; Error Code: ValidationException; Request ID: 41a7bfc9-42c7-4ab1-97dd-82499241b598; Proxy: null) (Service: AWSGlueJobExecutor; Status Code: 400; Error Code: InvalidInputException; Request ID: 6df7865a-2081-43a3-98d0-af9fa01e250c; Proxy: null)
+
+--table_name
+ccms_ctr_cnsv_prac
+--enable-glue-datacatalog
+true
+--job-bookmark-option
+job-bookmark-disable
+--start_date
+2026-01-27
+--TempDir
+s3://fsa-prod-ops/temp/glue/
+--data_src_nm
+cnsv
+--end_date
+2026-02-11
+--enable-spark-ui
+true
+--enable-metrics
+true
+--spark-event-logs-path
+s3://fsa-prod-ops/glue-logs/spark-ui/cnsv/
+--layer
+STG
+--enable-observability-metrics
+true
+--enable-continuous-cloudwatch-log
+true
+--run_type
+incremental
+--env
+PROD
+--JOB_NAME
+FSA-PROD-CNSV-EXEC-SQL

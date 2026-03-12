@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+import ast
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -61,6 +62,33 @@ def _as_str_list(v: Any) -> List[str]:
     if not isinstance(v, list):
         return []
     return [item.strip() for item in v if isinstance(item, str) and item.strip()]
+
+
+def _detect_lambda_handler_symbol(handler_file: Path) -> str:
+    """Detect handler function name from lambda_function.py.
+
+    Preference order:
+    1) lambda_handler
+    2) handler
+    """
+    text = handler_file.read_text(encoding="utf-8")
+    module = ast.parse(text, filename=str(handler_file))
+
+    function_names = {
+        node.name
+        for node in module.body
+        if isinstance(node, ast.FunctionDef)
+    }
+
+    if "lambda_handler" in function_names:
+        return "lambda_handler"
+    if "handler" in function_names:
+        return "handler"
+
+    raise RuntimeError(
+        f"No valid lambda entrypoint found in {handler_file}. "
+        "Expected function 'lambda_handler' or 'handler'."
+    )
 
 
 # --------------------------------------------------------------------------------------
@@ -362,10 +390,11 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         handler_file = src_dir / "lambda_function.py"
         if not handler_file.exists():
             raise FileNotFoundError(f"Missing lambda_function.py in: {src_dir}")
+        entrypoint = _detect_lambda_handler_symbol(handler_file)
         spec = LambdaSpec(
             name=fn_name,
             role_arn=etl_role_arn,
-            handler="lambda_function.handler",
+            handler=f"lambda_function.{entrypoint}",
             runtime=shared_runtime,
             source_dir=str(src_dir),
             env=dict(shared_env),

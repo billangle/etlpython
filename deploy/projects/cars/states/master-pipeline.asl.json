@@ -6,12 +6,12 @@
       "Type": "Pass",
       "Comment": "Construct EDV pipeline input from shared parameters",
       "Parameters": {
-        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-CARS-EDV-Pipeline",
+        "StateMachineArn": "__EDV_PIPELINE_STATE_MACHINE_ARN__",
         "Input": {
-          "data_src_nm.$": "$.data_src_nm",
+          "data_src_nm": "__DATA_SRC_NM__",
           "run_type.$": "$.run_type",
           "start_date.$": "$.start_date",
-          "env.$": "$.env"
+          "env": "__ENV__"
         }
       },
       "ResultPath": "$.edvExecution",
@@ -41,10 +41,10 @@
       "Type": "Pass",
       "Comment": "Construct DM PG pipeline input: shared params + layer + schemas + table lists",
       "Parameters": {
-        "StateMachineArn": "arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-CARS-DM-ETL-Pipeline",
+        "StateMachineArn": "__DM_ETL_PIPELINE_STATE_MACHINE_ARN__",
         "Input": {
-          "data_src_nm.$": "$.data_src_nm",
-          "env.$": "$.env",
+          "data_src_nm": "__DATA_SRC_NM__",
+          "env": "__ENV__",
           "run_type.$": "$.run_type",
           "start_date.$": "$.start_date",
           "layer": "DM",

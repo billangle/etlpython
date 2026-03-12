@@ -9,8 +9,8 @@
       "Parameters": {
         "table_name.$": "$$.Map.Item.Value.table_name",
         "date_column.$": "$$.Map.Item.Value.date_column",
-        "data_src_nm.$": "$.data_src_nm",
-        "env.$": "$.env",
+        "data_src_nm": "__DATA_SRC_NM__",
+        "env": "__ENV__",
         "layer.$": "$.layer",
         "run_type.$": "$.run_type",
         "start_date.$": "$.start_date",
@@ -24,12 +24,12 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::glue:startJobRun.sync",
             "Parameters": {
-              "JobName": "FSA-PROD-DATAMART-EXEC-DB-SQL",
+              "JobName": "__EXEC_SQL_GLUE_JOB_NAME__",
               "Arguments": {
-                "--JOB_NAME": "FSA-PROD-DATAMART-EXEC-DB-SQL",
+                "--JOB_NAME": "__EXEC_SQL_GLUE_JOB_NAME__",
                 "--table_name.$": "$.table_name",
-                "--data_src_nm.$": "$.data_src_nm",
-                "--env.$": "$.env",
+                "--data_src_nm": "__DATA_SRC_NM__",
+                "--env": "__ENV__",
                 "--layer.$": "$.layer",
                 "--run_type.$": "$.run_type",
                 "--start_date.$": "$.start_date"
@@ -98,8 +98,8 @@
       "Parameters": {
         "table_name.$": "$$.Map.Item.Value.table_name",
         "date_column.$": "$$.Map.Item.Value.date_column",
-        "data_src_nm.$": "$.data_src_nm",
-        "env.$": "$.env",
+        "data_src_nm": "__DATA_SRC_NM__",
+        "env": "__ENV__",
         "layer.$": "$.layer",
         "run_type.$": "$.run_type",
         "start_date.$": "$.start_date",
@@ -113,12 +113,12 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::glue:startJobRun.sync",
             "Parameters": {
-              "JobName": "FSA-PROD-DATAMART-EXEC-DB-SQL",
+              "JobName": "__EXEC_SQL_GLUE_JOB_NAME__",
               "Arguments": {
-                "--JOB_NAME": "FSA-PROD-DATAMART-EXEC-DB-SQL",
+                "--JOB_NAME": "__EXEC_SQL_GLUE_JOB_NAME__",
                 "--table_name.$": "$.table_name",
-                "--data_src_nm.$": "$.data_src_nm",
-                "--env.$": "$.env",
+                "--data_src_nm": "__DATA_SRC_NM__",
+                "--env": "__ENV__",
                 "--layer.$": "$.layer",
                 "--run_type.$": "$.run_type",
                 "--start_date.$": "$.start_date"
@@ -187,8 +187,8 @@
       "Parameters": {
         "table_name.$": "$$.Map.Item.Value.table_name",
         "date_column.$": "$$.Map.Item.Value.date_column",
-        "data_src_nm.$": "$.data_src_nm",
-        "env.$": "$.env",
+        "data_src_nm": "__DATA_SRC_NM__",
+        "env": "__ENV__",
         "layer.$": "$.layer",
         "run_type.$": "$.run_type",
         "start_date.$": "$.start_date",
@@ -202,12 +202,12 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::glue:startJobRun.sync",
             "Parameters": {
-              "JobName": "FSA-PROD-DATAMART-EXEC-DB-SQL",
+              "JobName": "__EXEC_SQL_GLUE_JOB_NAME__",
               "Arguments": {
-                "--JOB_NAME": "FSA-PROD-DATAMART-EXEC-DB-SQL",
+                "--JOB_NAME": "__EXEC_SQL_GLUE_JOB_NAME__",
                 "--table_name.$": "$.table_name",
-                "--data_src_nm.$": "$.data_src_nm",
-                "--env.$": "$.env",
+                "--data_src_nm": "__DATA_SRC_NM__",
+                "--env": "__ENV__",
                 "--layer.$": "$.layer",
                 "--run_type.$": "$.run_type",
                 "--start_date.$": "$.start_date"
@@ -276,8 +276,8 @@
       "Parameters": {
         "table_name.$": "$$.Map.Item.Value.table_name",
         "date_column.$": "$$.Map.Item.Value.date_column",
-        "data_src_nm.$": "$.data_src_nm",
-        "env.$": "$.env",
+        "data_src_nm": "__DATA_SRC_NM__",
+        "env": "__ENV__",
         "layer.$": "$.layer",
         "run_type.$": "$.run_type",
         "start_date.$": "$.start_date",
@@ -291,12 +291,12 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::glue:startJobRun.sync",
             "Parameters": {
-              "JobName": "FSA-PROD-DATAMART-EXEC-DB-SQL",
+              "JobName": "__EXEC_SQL_GLUE_JOB_NAME__",
               "Arguments": {
-                "--JOB_NAME": "FSA-PROD-DATAMART-EXEC-DB-SQL",
+                "--JOB_NAME": "__EXEC_SQL_GLUE_JOB_NAME__",
                 "--table_name.$": "$.table_name",
-                "--data_src_nm.$": "$.data_src_nm",
-                "--env.$": "$.env",
+                "--data_src_nm": "__DATA_SRC_NM__",
+                "--env": "__ENV__",
                 "--layer.$": "$.layer",
                 "--run_type.$": "$.run_type",
                 "--start_date.$": "$.start_date"
@@ -355,8 +355,8 @@
         "table_name.$": "$$.Map.Item.Value.table_name",
         "date_column.$": "$$.Map.Item.Value.date_column",
         "table_run_type.$": "$$.Map.Item.Value.run_type",
-        "data_src_nm.$": "$.data_src_nm",
-        "env.$": "$.env",
+        "data_src_nm": "__DATA_SRC_NM__",
+        "env": "__ENV__",
         "run_type.$": "$.run_type",
         "start_date.$": "$.start_date",
         "source_schema.$": "$.source_schema",
@@ -380,16 +380,16 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::glue:startJobRun.sync",
             "Parameters": {
-              "JobName": "FSA-PROD-DART-PG-TO-REDSHIFT",
+              "JobName": "__PG_TO_REDSHIFT_GLUE_JOB_NAME__",
               "Arguments": {
-                "--JOB_NAME": "FSA-PROD-DART-PG-TO-REDSHIFT",
+                "--JOB_NAME": "__PG_TO_REDSHIFT_GLUE_JOB_NAME__",
                 "--table_name.$": "$.table_name",
                 "--source_schema.$": "$.source_schema",
                 "--target_schema.$": "$.target_schema",
-                "--env.$": "$.env",
+                "--env": "__ENV__",
                 "--run_type.$": "$.table_run_type",
                 "--start_date.$": "$.start_date",
-                "--data_src_nm.$": "$.data_src_nm",
+                "--data_src_nm": "__DATA_SRC_NM__",
                 "--date_column.$": "$.date_column"
               }
             },
@@ -409,16 +409,16 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::glue:startJobRun.sync",
             "Parameters": {
-              "JobName": "FSA-PROD-DART-PG-TO-REDSHIFT",
+              "JobName": "__PG_TO_REDSHIFT_GLUE_JOB_NAME__",
               "Arguments": {
-                "--JOB_NAME": "FSA-PROD-DART-PG-TO-REDSHIFT",
+                "--JOB_NAME": "__PG_TO_REDSHIFT_GLUE_JOB_NAME__",
                 "--table_name.$": "$.table_name",
                 "--source_schema.$": "$.source_schema",
                 "--target_schema.$": "$.target_schema",
-                "--env.$": "$.env",
+                "--env": "__ENV__",
                 "--run_type.$": "$.run_type",
                 "--start_date.$": "$.start_date",
-                "--data_src_nm.$": "$.data_src_nm",
+                "--data_src_nm": "__DATA_SRC_NM__",
                 "--date_column.$": "$.date_column"
               }
             },
@@ -486,8 +486,8 @@
         "table_name.$": "$$.Map.Item.Value.table_name",
         "date_column.$": "$$.Map.Item.Value.date_column",
         "table_run_type.$": "$$.Map.Item.Value.run_type",
-        "data_src_nm.$": "$.data_src_nm",
-        "env.$": "$.env",
+        "data_src_nm": "__DATA_SRC_NM__",
+        "env": "__ENV__",
         "run_type.$": "$.run_type",
         "start_date.$": "$.start_date",
         "source_schema.$": "$.source_schema",
@@ -511,16 +511,16 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::glue:startJobRun.sync",
             "Parameters": {
-              "JobName": "FSA-PROD-DART-PG-TO-REDSHIFT",
+              "JobName": "__PG_TO_REDSHIFT_GLUE_JOB_NAME__",
               "Arguments": {
-                "--JOB_NAME": "FSA-PROD-DART-PG-TO-REDSHIFT",
+                "--JOB_NAME": "__PG_TO_REDSHIFT_GLUE_JOB_NAME__",
                 "--table_name.$": "$.table_name",
                 "--source_schema.$": "$.source_schema",
                 "--target_schema.$": "$.target_schema",
-                "--env.$": "$.env",
+                "--env": "__ENV__",
                 "--run_type.$": "$.table_run_type",
                 "--start_date.$": "$.start_date",
-                "--data_src_nm.$": "$.data_src_nm",
+                "--data_src_nm": "__DATA_SRC_NM__",
                 "--date_column.$": "$.date_column"
               }
             },
@@ -540,16 +540,16 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::glue:startJobRun.sync",
             "Parameters": {
-              "JobName": "FSA-PROD-DART-PG-TO-REDSHIFT",
+              "JobName": "__PG_TO_REDSHIFT_GLUE_JOB_NAME__",
               "Arguments": {
-                "--JOB_NAME": "FSA-PROD-DART-PG-TO-REDSHIFT",
+                "--JOB_NAME": "__PG_TO_REDSHIFT_GLUE_JOB_NAME__",
                 "--table_name.$": "$.table_name",
                 "--source_schema.$": "$.source_schema",
                 "--target_schema.$": "$.target_schema",
-                "--env.$": "$.env",
+                "--env": "__ENV__",
                 "--run_type.$": "$.run_type",
                 "--start_date.$": "$.start_date",
-                "--data_src_nm.$": "$.data_src_nm",
+                "--data_src_nm": "__DATA_SRC_NM__",
                 "--date_column.$": "$.date_column"
               }
             },
@@ -617,8 +617,8 @@
         "table_name.$": "$$.Map.Item.Value.table_name",
         "date_column.$": "$$.Map.Item.Value.date_column",
         "table_run_type.$": "$$.Map.Item.Value.run_type",
-        "data_src_nm.$": "$.data_src_nm",
-        "env.$": "$.env",
+        "data_src_nm": "__DATA_SRC_NM__",
+        "env": "__ENV__",
         "run_type.$": "$.run_type",
         "start_date.$": "$.start_date",
         "source_schema.$": "$.source_schema",
@@ -642,16 +642,16 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::glue:startJobRun.sync",
             "Parameters": {
-              "JobName": "FSA-PROD-DART-PG-TO-REDSHIFT",
+              "JobName": "__PG_TO_REDSHIFT_GLUE_JOB_NAME__",
               "Arguments": {
-                "--JOB_NAME": "FSA-PROD-DART-PG-TO-REDSHIFT",
+                "--JOB_NAME": "__PG_TO_REDSHIFT_GLUE_JOB_NAME__",
                 "--table_name.$": "$.table_name",
                 "--source_schema.$": "$.source_schema",
                 "--target_schema.$": "$.target_schema",
-                "--env.$": "$.env",
+                "--env": "__ENV__",
                 "--run_type.$": "$.table_run_type",
                 "--start_date.$": "$.start_date",
-                "--data_src_nm.$": "$.data_src_nm",
+                "--data_src_nm": "__DATA_SRC_NM__",
                 "--date_column.$": "$.date_column"
               }
             },
@@ -671,16 +671,16 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::glue:startJobRun.sync",
             "Parameters": {
-              "JobName": "FSA-PROD-DART-PG-TO-REDSHIFT",
+              "JobName": "__PG_TO_REDSHIFT_GLUE_JOB_NAME__",
               "Arguments": {
-                "--JOB_NAME": "FSA-PROD-DART-PG-TO-REDSHIFT",
+                "--JOB_NAME": "__PG_TO_REDSHIFT_GLUE_JOB_NAME__",
                 "--table_name.$": "$.table_name",
                 "--source_schema.$": "$.source_schema",
                 "--target_schema.$": "$.target_schema",
-                "--env.$": "$.env",
+                "--env": "__ENV__",
                 "--run_type.$": "$.run_type",
                 "--start_date.$": "$.start_date",
-                "--data_src_nm.$": "$.data_src_nm",
+                "--data_src_nm": "__DATA_SRC_NM__",
                 "--date_column.$": "$.date_column"
               }
             },
@@ -748,8 +748,8 @@
         "table_name.$": "$$.Map.Item.Value.table_name",
         "date_column.$": "$$.Map.Item.Value.date_column",
         "table_run_type.$": "$$.Map.Item.Value.run_type",
-        "data_src_nm.$": "$.data_src_nm",
-        "env.$": "$.env",
+        "data_src_nm": "__DATA_SRC_NM__",
+        "env": "__ENV__",
         "run_type.$": "$.run_type",
         "start_date.$": "$.start_date",
         "source_schema.$": "$.source_schema",
@@ -773,16 +773,16 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::glue:startJobRun.sync",
             "Parameters": {
-              "JobName": "FSA-PROD-DART-PG-TO-REDSHIFT",
+              "JobName": "__PG_TO_REDSHIFT_GLUE_JOB_NAME__",
               "Arguments": {
-                "--JOB_NAME": "FSA-PROD-DART-PG-TO-REDSHIFT",
+                "--JOB_NAME": "__PG_TO_REDSHIFT_GLUE_JOB_NAME__",
                 "--table_name.$": "$.table_name",
                 "--source_schema.$": "$.source_schema",
                 "--target_schema.$": "$.target_schema",
-                "--env.$": "$.env",
+                "--env": "__ENV__",
                 "--run_type.$": "$.table_run_type",
                 "--start_date.$": "$.start_date",
-                "--data_src_nm.$": "$.data_src_nm",
+                "--data_src_nm": "__DATA_SRC_NM__",
                 "--date_column.$": "$.date_column"
               }
             },
@@ -802,16 +802,16 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::glue:startJobRun.sync",
             "Parameters": {
-              "JobName": "FSA-PROD-DART-PG-TO-REDSHIFT",
+              "JobName": "__PG_TO_REDSHIFT_GLUE_JOB_NAME__",
               "Arguments": {
-                "--JOB_NAME": "FSA-PROD-DART-PG-TO-REDSHIFT",
+                "--JOB_NAME": "__PG_TO_REDSHIFT_GLUE_JOB_NAME__",
                 "--table_name.$": "$.table_name",
                 "--source_schema.$": "$.source_schema",
                 "--target_schema.$": "$.target_schema",
-                "--env.$": "$.env",
+                "--env": "__ENV__",
                 "--run_type.$": "$.run_type",
                 "--start_date.$": "$.start_date",
-                "--data_src_nm.$": "$.data_src_nm",
+                "--data_src_nm": "__DATA_SRC_NM__",
                 "--date_column.$": "$.date_column"
               }
             },

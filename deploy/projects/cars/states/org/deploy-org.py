@@ -1,10 +1,11 @@
 # deploy/projects/cars/deploy.py
 from __future__ import annotations
 
-import json
+import importlib.util
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import sys
 
 import boto3
 
@@ -17,6 +18,28 @@ from common.aws_common import (
     GlueJobSpec,
     StateMachineSpec,
 )
+
+
+def _load_module_by_path(project_dir: Path, rel_path: str, module_name: str):
+    """
+    Load a python module by file path.
+    IMPORTANT: register in sys.modules BEFORE exec_module so @dataclass works on Python 3.14.
+    """
+    mod_file = project_dir / rel_path
+    if not mod_file.exists():
+        raise FileNotFoundError(f"Missing module file: {mod_file}")
+
+    spec = importlib.util.spec_from_file_location(module_name, str(mod_file))
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not create module spec for: {mod_file}")
+
+    mod = importlib.util.module_from_spec(spec)
+
+    # ✅ Critical for Python 3.14 dataclasses: module must exist in sys.modules during execution
+    sys.modules[module_name] = mod
+
+    spec.loader.exec_module(mod)
+    return mod
 
 
 @dataclass(frozen=True)
@@ -34,7 +57,6 @@ class CarsNames:
     # Step Functions
     edv_state_machine: str
     cars_dm_etl_state_machine: str
-    cars_master_state_machine: str
 
     # Misc lambdas
     download_zip_fn: str
@@ -62,7 +84,6 @@ def build_names(deploy_env: str) -> CarsNames:
         # State machines
         edv_state_machine=f"{prefix}-CARS-EDV-Pipeline",
         cars_dm_etl_state_machine=f"{prefix}-CARS-DM-ETL-Pipeline",
-        cars_master_state_machine=f"{prefix}-CARS-Master-Pipeline",
         # Utility lambdas
         download_zip_fn=f"{prefix}-DownloadZip",
         upload_config_fn=f"{prefix}-UploadConfig",
@@ -80,16 +101,6 @@ def _layers(cfg: Dict[str, Any]) -> List[str]:
         if v:
             layers.append(v)
     return layers
-
-
-def _load_asl_definition(states_dir: Path, file_name: str) -> Dict[str, Any]:
-    path = states_dir / file_name
-    if not path.exists():
-        raise FileNotFoundError(f"Missing ASL file: {path}")
-    definition = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(definition, dict):
-        raise RuntimeError(f"ASL file must be a JSON object: {path}")
-    return definition
 
 
 # ---------------- GlueJobParameters helpers ----------------
@@ -265,10 +276,11 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     Deploys:
       - Lambdas (EDV)
       - Glue jobs: DATAMART-EXEC-DB-SQL + DART-PG-TO-REDSHIFT
-            - Step Functions: EDV pipeline + Cars DM ETL pipeline + Cars Master pipeline
+      - Step Functions: EDV pipeline + Cars DM ETL pipeline
 
-        Step Function definitions are loaded from JSON templates in states/*.asl.json
-        and placeholders are replaced at deploy time using created ARNs and config values.
+    FIX:
+      - Passes the actual Glue Job names into DatamartEtlStateMachineInputs so the
+        DM ETL builder uses them (JobName / --JOB_NAME) as literals.
     """
     deploy_env = cfg["deployEnv"]
     names = build_names(deploy_env)
@@ -287,7 +299,6 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     project_dir = Path(__file__).resolve().parent  # .../deploy/projects/cars
     lambda_root = project_dir / "lambda"
     glue_root = project_dir / "glue"
-    states_root = project_dir / "states"
 
     build_plan_dir = lambda_root / "edv-build-processing-plan"
     check_results_dir = lambda_root / "edv-check-results"
@@ -397,10 +408,6 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
 
     # --- Glue jobs ---
     glue_job_params_exec_sql = cfg.get("GlueJobParameters") or {}
-    exec_sql_job_params = glue_job_params_exec_sql.get("JobParameters") or {}
-
-    data_src_nm = str(exec_sql_job_params.get("--data_src_nm") or cfg.get("project") or "cars")
-    env_value = str(exec_sql_job_params.get("--env") or deploy_env)
 
     _deploy_glue_job(
         glue_client=glue,
@@ -430,66 +437,56 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         glue_job_params=glue_job_params_pg_to_rs or {},
     )
 
-    # --- Step Function #1: EDV pipeline (states/edv-pipeline.asl.json) ---
-    edv_definition_text = json.dumps(_load_asl_definition(states_root, "edv-pipeline.asl.json"))
-    edv_substitutions = {
-        "__BUILD_PROCESSING_PLAN_FN_ARN__": build_plan_arn,
-        "__CHECK_RESULTS_FN_ARN__": check_results_arn,
-        "__FINALIZE_PIPELINE_FN_ARN__": finalize_arn,
-        "__HANDLE_FAILURE_FN_ARN__": handle_failure_arn,
-        "__EXEC_SQL_GLUE_JOB_NAME__": names.exec_sql_glue_job,
-        "__DATA_SRC_NM__": data_src_nm,
-        "__ENV__": env_value,
-    }
-    for placeholder, value in edv_substitutions.items():
-        edv_definition_text = edv_definition_text.replace(placeholder, value)
+    # --- Step Function #1: EDV pipeline (states/cars_stepfunction.py) ---
+    edv_mod = _load_module_by_path(
+        project_dir=project_dir,
+        rel_path="states/cars_stepfunction.py",
+        module_name="projects.cars.states.cars_stepfunction",
+    )
+    EdvPipelineStateMachineInputs = edv_mod.EdvPipelineStateMachineInputs
+    EdvPipelineStateMachineBuilder = edv_mod.EdvPipelineStateMachineBuilder
+
+    edv_inputs = EdvPipelineStateMachineInputs(
+        build_processing_plan_fn=build_plan_arn,
+        check_results_fn=check_results_arn,
+        finalize_pipeline_fn=finalize_arn,
+        handle_failure_fn=handle_failure_arn,
+        exec_sql_glue_job_name=names.exec_sql_glue_job,
+    )
+    edv_definition = EdvPipelineStateMachineBuilder.edv_pipeline_asl(edv_inputs)
 
     edv_sfn_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(
             name=names.edv_state_machine,
             role_arn=sfn_role_arn,
-            definition=json.loads(edv_definition_text),
+            definition=edv_definition,
         ),
     )
 
-    # --- Step Function #2: Cars DM ETL pipeline (states/dm-etl-pipeline.asl.json) ---
-    dm_definition_text = json.dumps(_load_asl_definition(states_root, "dm-etl-pipeline.asl.json"))
-    dm_substitutions = {
-        "__EXEC_SQL_GLUE_JOB_NAME__": names.exec_sql_glue_job,
-        "__PG_TO_REDSHIFT_GLUE_JOB_NAME__": names.pg_to_redshift_glue_job,
-        "__DATA_SRC_NM__": data_src_nm,
-        "__ENV__": env_value,
-    }
-    for placeholder, value in dm_substitutions.items():
-        dm_definition_text = dm_definition_text.replace(placeholder, value)
+    # --- Step Function #2: Cars DM ETL pipeline (states/cars_dm_etl_stepfunction.py) ---
+    dm_mod = _load_module_by_path(
+        project_dir=project_dir,
+        rel_path="states/cars_dm_etl_stepfunction.py",
+        module_name="projects.cars.states.cars_dm_etl_stepfunction",
+    )
+    DatamartEtlStateMachineInputs = dm_mod.DatamartEtlStateMachineInputs
+    DatamartEtlStateMachineBuilder = dm_mod.DatamartEtlStateMachineBuilder
+
+    # ✅ THIS is the “variables are passed” fix:
+    # Pass the *actual deployed* Glue job names into the DM ETL builder inputs.
+    dm_inputs = DatamartEtlStateMachineInputs(
+        exec_db_sql_glue_job_name=names.exec_sql_glue_job,
+        pg_to_redshift_glue_job_name=names.pg_to_redshift_glue_job,
+    )
+    dm_definition = DatamartEtlStateMachineBuilder.datamart_etl_asl(dm_inputs)
 
     dm_sfn_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(
             name=names.cars_dm_etl_state_machine,
             role_arn=sfn_role_arn,
-            definition=json.loads(dm_definition_text),
-        ),
-    )
-
-    # --- Step Function #3: Cars Master pipeline (states/master-pipeline.asl.json) ---
-    master_definition_text = json.dumps(_load_asl_definition(states_root, "master-pipeline.asl.json"))
-    master_substitutions = {
-        "__EDV_PIPELINE_STATE_MACHINE_ARN__": edv_sfn_arn,
-        "__DM_ETL_PIPELINE_STATE_MACHINE_ARN__": dm_sfn_arn,
-        "__DATA_SRC_NM__": data_src_nm,
-        "__ENV__": env_value,
-    }
-    for placeholder, value in master_substitutions.items():
-        master_definition_text = master_definition_text.replace(placeholder, value)
-
-    master_sfn_arn = ensure_state_machine(
-        sfn,
-        StateMachineSpec(
-            name=names.cars_master_state_machine,
-            role_arn=sfn_role_arn,
-            definition=json.loads(master_definition_text),
+            definition=dm_definition,
         ),
     )
 
@@ -504,5 +501,4 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         "glue_pg_to_redshift_job_name": names.pg_to_redshift_glue_job,
         "state_machine_edv_arn": edv_sfn_arn,
         "state_machine_cars_dm_etl_arn": dm_sfn_arn,
-        "state_machine_cars_master_arn": master_sfn_arn,
     }

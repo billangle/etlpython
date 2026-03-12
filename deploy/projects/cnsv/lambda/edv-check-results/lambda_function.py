@@ -38,12 +38,20 @@ import os
 import json
 import boto3
 import logging
+import re
 from datetime import datetime
 
 import psycopg2
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+MISSING_CONFIG_PATTERNS = [
+    r"SKIPPED_MISSING_CONFIG",
+    r"Could not resolve S3 casing",
+    r"Stage SQL not found",
+    r"SQLs not found",
+]
 
 # Environment variables
 REGION = os.environ.get("REGION", "us-east-1")
@@ -63,6 +71,8 @@ def lambda_handler(event, context):
     success_count = 0
     failed_count = 0
     failed_tables = []
+    skipped_count = 0
+    skipped_tables = []
 
     for result in flat_results:
         table_name = result.get("table_name", "unknown")
@@ -71,12 +81,15 @@ def lambda_handler(event, context):
         if status == "SUCCESS":
             success_count += 1
         else:
-            failed_count += 1
-            failed_tables.append(table_name)
-
-            # Log failure details
             error = result.get("error", {})
-            logger.error(f"Table {table_name} failed: {error}")
+            if is_missing_config_error(error):
+                skipped_count += 1
+                skipped_tables.append(table_name)
+                logger.warning(f"Table {table_name} skipped (missing config): {error}")
+            else:
+                failed_count += 1
+                failed_tables.append(table_name)
+                logger.error(f"Table {table_name} failed: {error}")
 
     # Determine if pipeline can continue
     # Continue if at least some tables succeeded
@@ -93,6 +106,8 @@ def lambda_handler(event, context):
         "successCount": success_count,
         "failedCount": failed_count,
         "failedTables": failed_tables,
+        "skippedCount": skipped_count,
+        "skippedTables": skipped_tables,
         "canContinue": can_continue
     }
 
@@ -122,6 +137,18 @@ def flatten_results(results):
             flat.extend(flatten_results(item))
 
     return flat
+
+
+def is_missing_config_error(error):
+    """Return True when an error represents missing SQL/config artifacts."""
+    if not isinstance(error, dict):
+        return False
+
+    error_text = f"{error.get('Error', '')} {error.get('Cause', '')}"
+    for pattern in MISSING_CONFIG_PATTERNS:
+        if re.search(pattern, error_text, flags=re.IGNORECASE):
+            return True
+    return False
 
 
 def get_database_connection():

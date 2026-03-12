@@ -139,6 +139,8 @@
                 "successCount.$": "$.Payload.successCount",
                 "failedCount.$": "$.Payload.failedCount",
                 "failedTables.$": "$.Payload.failedTables",
+                "skippedCount.$": "$.Payload.skippedCount",
+                "skippedTables.$": "$.Payload.skippedTables",
                 "canContinue.$": "$.Payload.canContinue"
             },
             "ResultPath": "$.stageCheck",
@@ -169,6 +171,8 @@
                 "successCount": 0,
                 "failedCount": 0,
                 "failedTables": [],
+                "skippedCount": 0,
+                "skippedTables": [],
                 "canContinue": false
             },
             "ResultPath": "$.edvCheck",
@@ -286,6 +290,8 @@
                 "successCount.$": "$.Payload.successCount",
                 "failedCount.$": "$.Payload.failedCount",
                 "failedTables.$": "$.Payload.failedTables",
+                "skippedCount.$": "$.Payload.skippedCount",
+                "skippedTables.$": "$.Payload.skippedTables",
                 "canContinue.$": "$.Payload.canContinue"
             },
             "ResultPath": "$.edvCheck",

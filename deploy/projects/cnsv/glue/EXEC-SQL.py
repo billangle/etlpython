@@ -602,16 +602,22 @@ def process_stage_table(spark, glue_context, db, sqlfs, table_name, data_src_nm,
     print(f"\n--- Processing Stage Table: {table_name} ({run_type}) ---")
 
     # Get SQL from S3
-    sql = sqlfs.get_stage_sql(
-        table_name=table_name.upper(),
-        run_type=run_type,
-        start_date=start_date,
-        end_date=end_date
-    )
+    try:
+        sql = sqlfs.get_stage_sql(
+            table_name=table_name.upper(),
+            run_type=run_type,
+            start_date=start_date,
+            end_date=end_date
+        )
+    except FileNotFoundError as e:
+        raise Exception(
+            f"SKIPPED_MISSING_CONFIG: STG config missing for table {table_name}: {e}"
+        )
     print(f"\nsql: {sql}")
     if not sql:
         raise Exception(
-            f"Stage SQL not found: s3://{sqlfs.bucket}/{sqlfs.base_prefix}/STG/{table_name.upper()}/{run_type}/{table_name.upper()}.sql"
+            "SKIPPED_MISSING_CONFIG: Stage SQL not found for table "
+            f"{table_name}: s3://{sqlfs.bucket}/{sqlfs.base_prefix}/STG/{table_name.upper()}/{run_type}/{table_name.upper()}.sql"
         )
 
     print(f"SQL loaded from S3 ({len(sql)} chars)")
@@ -788,17 +794,24 @@ def process_postgres_layer(db, run_type, sqlfs, table_name, layer, start_date, e
     print(f"Load Type: {run_type}")
 
     # Get ordered SQLs from S3
-    sqls = sqlfs.get_layer_sqls(
-        layer=layer,
-        table_name=table_name,
-        start_date=start_date,
-        end_date=end_date
-    )
+    try:
+        sqls = sqlfs.get_layer_sqls(
+            layer=layer,
+            table_name=table_name,
+            start_date=start_date,
+            end_date=end_date
+        )
+    except FileNotFoundError as e:
+        raise Exception(
+            f"SKIPPED_MISSING_CONFIG: {layer} config missing for table {table_name}: {e}"
+        )
 
     if not sqls:
         layer_folder = sqlfs.layer_folders.get(layer.upper(), layer)
         raise Exception(
-            f"{layer} SQLs not found: s3://{sqlfs.bucket}/{sqlfs.base_prefix}/{layer}/{table_name}/"
+            "SKIPPED_MISSING_CONFIG: "
+            f"{layer} SQLs not found for table {table_name}: "
+            f"s3://{sqlfs.bucket}/{sqlfs.base_prefix}/{layer_folder}/{table_name}/"
         )
 
     print(f"Found {len(sqls)} SQL files")

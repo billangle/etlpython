@@ -53,8 +53,10 @@ def lambda_handler(event, context):
     # Calculate totals
     stg_success = stage_check.get("successCount", 0)
     stg_failed = stage_check.get("failedCount", 0)
+    stg_skipped = stage_check.get("skippedCount", 0)
     edv_success = edv_check.get("successCount", 0)
     edv_failed = edv_check.get("failedCount", 0)
+    edv_skipped = edv_check.get("skippedCount", 0)
 
     total_success = stg_success + edv_success
     total_failed = stg_failed + edv_failed
@@ -78,6 +80,8 @@ def lambda_handler(event, context):
             "total": counts.get("stg", 0),
             "success": stg_success,
             "failed": stg_failed,
+            "skipped": stg_skipped,
+            "skippedTables": stage_check.get("skippedTables", []),
             "failedTables": stage_check.get("failedTables", [])
         },
         "edv": {
@@ -85,6 +89,8 @@ def lambda_handler(event, context):
             "groups": counts.get("dvGroups", 0),
             "success": edv_success,
             "failed": edv_failed,
+            "skipped": edv_skipped,
+            "skippedTables": edv_check.get("skippedTables", []),
             "failedTables": edv_check.get("failedTables", [])
         },
         "totals": {

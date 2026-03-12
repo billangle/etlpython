@@ -116,7 +116,7 @@ Start Execution (FSA-{ENV}-CNSV-EXEC-SQL)
 	|
 	v
 [CheckStageResults Lambda]
-	Output: stageCheck{successCount, failedCount, failedTables, canContinue}
+	Output: stageCheck{successCount, failedCount, failedTables, skippedCount, skippedTables, canContinue}
 	|
 	v
 [ShouldProcessEDV]
@@ -128,9 +128,9 @@ Start Execution (FSA-{ENV}-CNSV-EXEC-SQL)
 	|                Reads SQL/config from expanded S3 _configs/EDV/<TABLE>/...
 	|             -> [EDVTableSuccess or EDVTableFailed]
 	|      Output: edvResults[]
-	|      -> [CheckEDVResults Lambda] -> edvCheck
+	|      -> [CheckEDVResults Lambda] -> edvCheck{successCount, failedCount, failedTables, skippedCount, skippedTables, canContinue}
 	|
-	|-- else --> [SetDefaultEDVCheck Pass] -> edvCheck={0/0/[]/false}
+	|-- else --> [SetDefaultEDVCheck Pass] -> edvCheck={0/0/[]/0/[]/false}
 	|
 	v
 [FinalizePipeline Lambda]
@@ -194,6 +194,7 @@ Example run shown with one real STG table: `ccms_ctr_stat`.
 Notes
 - These file paths are shown from the repository (`configs/_configs/...`).
 - At runtime, `deploy_config.sh` uploads and expands this same config structure to S3, and Glue reads from the S3-expanded `_configs` path.
+- Missing per-table SQL/config artifacts are treated as skipped (not hard failures), and are surfaced in final summary fields `skipped` and `skippedTables`.
 
 ### How To Run In PROD (EXEC-SQL)
 Start this state machine: `FSA-PROD-CNSV-EXEC-SQL`.
@@ -220,8 +221,8 @@ Expected successful terminal output shape (from Finalize step):
 		"data_src_nm": "cnsv",
 		"run_type": "incremental",
 		"start_date": "2026-01-27",
-		"stage": {"total": 0, "success": 0, "failed": 0, "failedTables": []},
-		"edv": {"total": 0, "groups": 0, "success": 0, "failed": 0, "failedTables": []},
+		"stage": {"total": 0, "success": 0, "failed": 0, "skipped": 0, "failedTables": [], "skippedTables": []},
+		"edv": {"total": 0, "groups": 0, "success": 0, "failed": 0, "skipped": 0, "failedTables": [], "skippedTables": []},
 		"totals": {"tables": 0, "success": 0, "failed": 0, "successRate": "0.0%"}
 	}
 }

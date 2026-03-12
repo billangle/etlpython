@@ -210,6 +210,46 @@ class TestExecSqlDeployRegression(unittest.TestCase):
         )
         self.assertEqual(inner["MaxConcurrency"], 3)
 
+    def test_exec_sql_glue_tasks_retry_concurrent_runs_exceeded(self):
+        """Regression guard for transient Glue concurrency throttling."""
+        asl_path = Path("deploy/projects/cnsv/states/EXEC-SQL.asl.json")
+        asl = json.loads(asl_path.read_text(encoding="utf-8"))
+        states = asl["States"]
+
+        stage_task = states["ProcessStageTables"]["Iterator"]["States"]["ExecuteStageSQL"]
+        edv_task = (
+            states["ProcessEDVGroups"]["Iterator"]["States"]["ProcessEDVTablesInGroup"]
+            ["Iterator"]["States"]["ExecuteEDVSQL"]
+        )
+
+        for task in (stage_task, edv_task):
+            retries = task.get("Retry", [])
+            self.assertTrue(retries, "Expected Retry policy on Glue task")
+            first = retries[0]
+            self.assertIn("Glue.ConcurrentRunsExceededException", first.get("ErrorEquals", []))
+            self.assertEqual(first.get("IntervalSeconds"), 20)
+            self.assertEqual(first.get("BackoffRate"), 2)
+            self.assertEqual(first.get("MaxAttempts"), 6)
+
+    def test_all_cnsv_glue_state_files_have_concurrency_retry_marker(self):
+        """CNSV guardrail: every Glue startJobRun.sync flow handles concurrency throttling."""
+        state_files = sorted(Path("deploy/projects/cnsv/states").glob("*.asl.json"))
+
+        checked = 0
+        for state_file in state_files:
+            text = state_file.read_text(encoding="utf-8")
+            if "startJobRun.sync" not in text:
+                continue
+
+            checked += 1
+            self.assertIn(
+                "Glue.ConcurrentRunsExceededException",
+                text,
+                f"Missing Glue concurrent-runs retry marker in {state_file}",
+            )
+
+        self.assertGreater(checked, 0, "Expected at least one Glue state file to be checked")
+
 
 if __name__ == "__main__":
     unittest.main()

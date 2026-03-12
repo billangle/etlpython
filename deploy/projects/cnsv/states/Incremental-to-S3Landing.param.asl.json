@@ -23,6 +23,14 @@
       "Retry": [
         {
           "ErrorEquals": [
+            "Glue.ConcurrentRunsExceededException"
+          ],
+          "IntervalSeconds": 20,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        },
+        {
+          "ErrorEquals": [
             "Glue.ServiceException",
             "Glue.AWSGlueException",
             "Glue.SdkClientException",

@@ -63,6 +63,16 @@
                 "--target_prefix.$": "$.Target"
               }
             },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Glue.ConcurrentRunsExceededException"
+                ],
+                "IntervalSeconds": 20,
+                "MaxAttempts": 6,
+                "BackoffRate": 2
+              }
+            ],
             "End": true,
             "Catch": [
               {

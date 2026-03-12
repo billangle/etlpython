@@ -159,18 +159,20 @@ Design principles:
 ## Step Functions
 
 ### `states/`
-Contains Step Function definitions and builders.
+Contains Step Function ASL JSON templates that are deployed after placeholder substitution in `deploy.py`.
 
 ```
 states/
-├── cars_stepfunction.py - this is what gets deployed
-├── FSA-CERT-CARS-s3parquet-to-postgres-edv-load.asl.json
-└── FSA-PROD-Cars-S3Landing-to-S3Final-Raw-DM.asl.json
+├── edv-pipeline.asl.json
+├── dm-etl-pipeline.asl.json
+├── master-pipeline.asl.json
+└── org/
 ```
 
 **Includes:**
-- Raw ASL (Amazon States Language) JSON definitions - JUST FOR REFERENCE
-- The cars_stepfunction.py - this is what gets deployed and were changes should be made
+- Parameterized ASL (Amazon States Language) JSON templates
+- Placeholders (for ARNs/job names/env/data source) resolved in `deploy.py` at deploy time
+- `org/` folder with legacy/reference Python builder files that are not deployed
 
 
 These state machines orchestrate:

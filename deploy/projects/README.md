@@ -56,8 +56,8 @@ projects/<project>/
 ├── lambda/                 # Lambda function source directories
 │   └── <function-name>/
 │       └── lambda_function.py
-├── states/                 # Step Functions ASL JSON files
-│   └── *.asl.json | *.param.asl.json
+├── states/                 # Step Functions definitions (ASL JSON and/or Python builders)
+│   └── *.asl.json | *.param.asl.json | *_stepfunction.py
 ├── configs/                # Local config data to upload to S3 (select projects only)
 │   └── _configs/
 │       ├── STG/
@@ -209,7 +209,7 @@ raw/DM zone movement and PostgreSQL EDV load.
 | Resource | Count | Notes |
 |---|:---:|---|
 | Glue jobs | 5 | S3 landing-to-final, parquet-to-postgres, validation |
-| Step Functions | 3 | Landing-to-Final-Raw-DM, CERT datamart ETL, S3-to-postgres EDV load |
+| Step Functions | 3 | Deployed from ASL templates via placeholder substitution in `deploy.py` |
 | Config environments | 4 | dev, prod, steamdev, carssteam |
 
 ---
@@ -222,7 +222,7 @@ data into the final-zone DM.
 | Resource | Count | Notes |
 |---|:---:|---|
 | Glue jobs | 2 | S3-to-DM transformation |
-| Step Functions | 2 | PROD and CERT variants |
+| Step Functions | 2 | Deployed from Python builder (`states/carsdm_stepfunction.py`) |
 | Config environments | 3 | dev, prod, carssteam |
 
 ---

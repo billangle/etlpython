@@ -127,34 +127,39 @@ config/       → Environment-specific configuration
 
 - Data pipeline logic is coordinated via **AWS Step Functions**
 
-#### Current Design — Parameterised ASL JSON
+#### Current Design — Parameterised ASL JSON Templates
 
-Workflow definitions are stored as `*.param.asl.json` files alongside each project's deployer. At deploy time the deployer reads the file, substitutes environment-specific parameters (ARNs, bucket names, resource tags, etc.) from the project's JSON config, and creates or updates the state machine via the AWS API.
+Workflow definitions are stored as ASL JSON templates (`*.asl.json` and/or `*.param.asl.json`) alongside each project's deployer. At deploy time, the deployer reads the template, substitutes environment-specific parameters (ARNs, bucket names, resource tags, etc.) from the project's JSON config, and creates or updates the state machine via the AWS API.
 
 ```
 projects/
 ├── athenafarm/states/
 │   ├── Main.param.asl.json          # Pipeline — ingest → transform → sync
 │   └── Maintenance.param.asl.json
+├── cars/states/
+│   ├── edv-pipeline.asl.json
+│   ├── dm-etl-pipeline.asl.json
+│   └── master-pipeline.asl.json
 └── cnsv/states/
     ├── Main.param.asl.json
     ├── Incremental-to-S3Landing.param.asl.json
     └── ...                          # One .param.asl.json per state machine
 ```
 
-Projects using this approach: **athenafarm**, **cnsv**
+Projects using this approach include: **athenafarm**, **cars**, **cnsv**, **nps**
 
 #### Legacy Design — Python-Based ASL Builder
 
 Earlier projects constructed ASL definitions programmatically using Python builder classes. These files remain in place and are still deployed but are not the target pattern for new pipelines.
 
-Projects still using Python builders: **cars**, **carsdm**, **farm_records**, **flpids**, **fpac_pipeline**, **sbsd**
+Projects still using Python builders: **carsdm**, **farm_records**, **flpids**, **fpac_pipeline**, **sbsd**
 
 ```
 projects/
 ├── cars/states/
-│   ├── cars_stepfunction.py
-│   └── cars_dm_etl_stepfunction.py
+│   └── org/
+│       ├── cars_stepfunction.py
+│       └── cars_dm_etl_stepfunction.py
 ├── carsdm/states/carsdm_stepfunction.py
 ├── farm_records/farm_rec_stepfunctions.py
 ├── flpids/stepfunctions/fpac_stepfunctions.py

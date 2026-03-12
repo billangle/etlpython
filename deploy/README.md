@@ -27,8 +27,8 @@ See each project README for the exact command and available environments.
 | Project | Type | Description |
 |---|---|---|
 | [athenafarm](projects/athenafarm/README.md) | Glue + SFN | Builds `tract_producer_year` / `farm_producer_year` Apache Iceberg reporting tables from SSS/PG sources |
-| [cars](projects/cars/README.md) | Glue + Lambda + SFN | DMS S3 → Final Zone → PostgreSQL EDV (Data Vault) → DM → Redshift |
-| [carsdm](projects/carsdm/README.md) | Glue + Lambda + SFN | DMS parquet → Consolidated Datasets → Final Zone + CDC Zone for CARS tables |
+| [cars](projects/cars/README.md) | Glue + Lambda + SFN | DMS S3 → Final Zone → PostgreSQL EDV (Data Vault) → DM → Redshift (SFN from ASL template substitution) |
+| [carsdm](projects/carsdm/README.md) | Glue + Lambda + SFN | DMS parquet → Consolidated Datasets → Final Zone + CDC Zone for CARS tables (SFN from Python builder) |
 | [cnsv](projects/cnsv/README.md) | Glue + Lambda + SFN | 4 sub-pipelines for Conservation program data (Base, Contract Maintenance, Payments, EDW SQL) |
 | [farm_records](projects/farm_records/README.md) | Glue + Lambda + SFN | 3-track pipeline: SAP Load, Postgres EDV Load, and Data Mart for Farm Records |
 | [farmdm](projects/farmdm/README.md) | Config upload only | Uploads Farm DM SQL scripts to S3 via `deploy_config.sh`; no Glue/Lambda/SFN |

@@ -1,0 +1,160 @@
+{
+  "data_src_nm": "cnsv",
+  "run_type": "incremental",
+  "start_date": "2026-01-27",
+  "env": "PROD",
+  "layer": "STG",
+  "table_name": "ccms_cnsv_prac_stat"
+}
+
+
+{
+  "data_src_nm": "cnsv",
+  "run_type": "incremental",
+  "start_date": "2026-01-27",
+  "env": "PROD",
+  "layer": "STG",
+  "table_name": "ccms_cnsv_prac_stat",
+  "error": {
+    "Error": "States.TaskFailed",
+    "Cause": "{\"AllocatedCapacity\":4,\"Arguments\":{\"--table_name\":\"ccms_cnsv_prac_stat\",\"--layer\":\"STG\",\"--start_date\":\"2026-01-27\",\"--run_type\":\"incremental\",\"--data_src_nm\":\"cnsv\",\"--env\":\"PROD\",\"--JOB_NAME\":\"FSA-PROD-CNSV-EXEC-SQL\"},\"Attempt\":0,\"CompletedOn\":1773321553439,\"ErrorMessage\":\"Error Category: RESOURCE_NOT_FOUND_ERROR; Failed Line Number: 895; FileNotFoundError: Could not resolve S3 casing for 'CCMS_CNSV_PRAC_STAT' under 'cnsv/_configs/STG/'\",\"ExecutionTime\":52,\"GlueVersion\":\"4.0\",\"Id\":\"jr_09cd823a57f6f28ad0f4639e07b6feb8ddf667e6ab468093ac4a9d55f35c4910\",\"JobMode\":\"SCRIPT\",\"JobName\":\"FSA-PROD-CNSV-EXEC-SQL\",\"JobRunState\":\"FAILED\",\"LastModifiedOn\":1773321553439,\"LogGroupName\":\"/aws-glue/jobs\",\"MaxCapacity\":4.0,\"NumberOfWorkers\":2,\"PredecessorRuns\":[],\"StartedOn\":1773321487411,\"Timeout\":480,\"WorkerType\":\"G.2X\"}"
+  }
+}
+
+Error Category: RESOURCE_NOT_FOUND_ERROR; Failed Line Number: 895; FileNotFoundError: Could not resolve S3 casing for 'CCMS_CNSV_PRAC_STAT' under 'cnsv/_configs/STG/'
+
+26/03/12 13:18:58 WARN OOMExceptionHandler: Failed to extract executor id from error message.
+26/03/12 13:18:58 INFO ResourceManagerSocketWriter: Socket client for com.amazonaws.services.glue.ResourceManagerSocketWriter started correctly
+26/03/12 13:18:58 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] Last Executed Line number from script FSA-PROD-CNSV-EXEC-SQL.py: 895
+26/03/12 13:18:58 ERROR GlueExceptionAnalysisListener: [Glue Exception Analysis] {"Event":"GlueETLJobExceptionEvent","Timestamp":1773321538241,"Failure Reason":"Traceback (most recent call last):\n  File \"/tmp/FSA-PROD-CNSV-EXEC-SQL.py\", line 895, in <module>\n    main()\n  File \"/tmp/FSA-PROD-CNSV-EXEC-SQL.py\", line 583, in main\n    raise e\n  File \"/tmp/FSA-PROD-CNSV-EXEC-SQL.py\", line 512, in main\n    total_rows = process_stage_table(\n  File \"/tmp/FSA-PROD-CNSV-EXEC-SQL.py\", line 605, in process_stage_table\n    sql = sqlfs.get_stage_sql(\n  File \"/tmp/FSA-PROD-CNSV-EXEC-SQL.py\", line 120, in get_stage_sql\n    table_folder = self._resolve_s3_path_case(stg_prefix, table_name)\n  File \"/tmp/FSA-PROD-CNSV-EXEC-SQL.py\", line 228, in _resolve_s3_path_case\n    raise FileNotFoundError(\nFileNotFoundError: Could not resolve S3 casing for 'CCMS_CNSV_PRAC_STAT' under 'cnsv/_configs/STG/'","Stack Trace":[{"Declaring Class":"_resolve_s3_path_case","Method Name":"raise FileNotFoundError(","File Name":"/tmp/FSA-PROD-CNSV-EXEC-SQL.py","Line Number":228},{"Declaring Class":"get_stage_sql","Method Name":"table_folder = self._resolve_s3_path_case(stg_prefix, table_name)","File Name":"/tmp/FSA-PROD-CNSV-EXEC-SQL.py","Line Number":120},{"Declaring Class":"process_stage_table","Method Name":"sql = sqlfs.get_stage_sql(","File Name":"/tmp/FSA-PROD-CNSV-EXEC-SQL.py","Line Number":605},{"Declaring Class":"main","Method Name":"total_rows = process_stage_table(","File Name":"/tmp/FSA-PROD-CNSV-EXEC-SQL.py","Line Number":512},{"Declaring Class":"main","Method Name":"raise e","File Name":"/tmp/FSA-PROD-CNSV-EXEC-SQL.py","Line Number":583},{"Declaring Class":"<module>","Method Name":"main()","File Name":"/tmp/FSA-PROD-CNSV-EXEC-SQL.py","Line Number":895}],"Last Executed Line number":895,"script":"FSA-PROD-CNSV-EXEC-SQL.py"}
+26/03/12 13:18:58 ERROR ProcessLauncher: Error from Python:Traceback (most recent call last):
+  File "/tmp/FSA-PROD-CNSV-EXEC-SQL.py", line 895, in <module>
+    main()
+  File "/tmp/FSA-PROD-CNSV-EXEC-SQL.py", line 583, in main
+    raise e
+  File "/tmp/FSA-PROD-CNSV-EXEC-SQL.py", line 512, in main
+    total_rows = process_stage_table(
+  File "/tmp/FSA-PROD-CNSV-EXEC-SQL.py", line 605, in process_stage_table
+    sql = sqlfs.get_stage_sql(
+  File "/tmp/FSA-PROD-CNSV-EXEC-SQL.py", line 120, in get_stage_sql
+    table_folder = self._resolve_s3_path_case(stg_prefix, table_name)
+  File "/tmp/FSA-PROD-CNSV-EXEC-SQL.py", line 228, in _resolve_s3_path_case
+    raise FileNotFoundError(
+FileNotFoundError: Could not resolve S3 casing for 'CCMS_CNSV_PRAC_STAT' under 'cnsv/_configs/STG/'
+26/03/12 13:18:57 INFO AnalyzerLogHelper$: 13:18:57.350 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.GlueJobEventReplayListener - Initialized rule engine session
+26/03/12 13:18:57 INFO AnalyzerLogHelper$: 13:18:57.350 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.app.GlueJobEventsInputHandler - GlueJobEventReplayListener initialized
+26/03/12 13:18:56 INFO DataCatalogWrapper: Encrypted Catalog password  empty, using value of unencrypted Catalog password
+26/03/12 13:18:56 INFO AmazonHttpClient: Configuring Proxy. Proxy Host: 169.254.76.0 Proxy Port: 8888
+26/03/12 13:18:55 INFO BlockManagerInfo: Removed broadcast_1_piece0 on 10.219.34.9:43987 in memory (size: 33.9 KiB, free: 11.8 GiB)
+26/03/12 13:18:55 INFO BlockManagerInfo: Removed broadcast_0_piece0 on 10.219.34.9:43987 in memory (size: 33.9 KiB, free: 11.8 GiB)
+26/03/12 13:18:55 INFO AWSConnectionUtils$: AWSConnectionUtils: use proxy in glue client configuration. Host: 169.254.76.0, Port: 8888
+26/03/12 13:18:55 INFO JobBookmark$: jobbookmark is not enabled, do not init AWSGlueJobBookMarkService
+26/03/12 13:18:55 INFO SparkContext: Created broadcast 1 from broadcast at DynamoConnection.scala:52
+26/03/12 13:18:55 INFO BlockManagerInfo: Added broadcast_1_piece0 in memory on 10.219.34.9:43987 (size: 33.9 KiB, free: 11.8 GiB)
+26/03/12 13:18:55 INFO MemoryStore: Block broadcast_1_piece0 stored as bytes in memory (estimated size 33.9 KiB, free 11.8 GiB)
+26/03/12 13:18:55 INFO MemoryStore: Block broadcast_1 stored as values in memory (estimated size 362.3 KiB, free 11.8 GiB)
+26/03/12 13:18:55 INFO SparkContext: Created broadcast 0 from broadcast at DynamoConnection.scala:52
+26/03/12 13:18:55 INFO BlockManagerInfo: Added broadcast_0_piece0 in memory on 10.219.34.9:43987 (size: 33.9 KiB, free: 11.8 GiB)
+26/03/12 13:18:55 INFO MemoryStore: Block broadcast_0_piece0 stored as bytes in memory (estimated size 33.9 KiB, free 11.8 GiB)
+26/03/12 13:18:55 INFO MemoryStore: Block broadcast_0 stored as values in memory (estimated size 362.3 KiB, free 11.8 GiB)
+26/03/12 13:18:55 INFO AvroReaderUtil$: Creating default Avro field parser for version 1.7.
+26/03/12 13:18:55 INFO FileListPersistence: create FileListPersistence with conf: fs.s3.serverSideEncryption.kms.keyId: None
+26/03/12 13:18:55 INFO Job$: runId Method is Invoked 
+26/03/12 13:18:55 INFO Job$: Job run ID under runId method is jr_09cd823a57f6f28ad0f4639e07b6feb8ddf667e6ab468093ac4a9d55f35c4910 
+26/03/12 13:18:55 INFO LzoCodec: Successfully loaded & initialized native-lzo library [hadoop-lzo rev 049362b7cf53ff5f739d6b1532457f2c6cd495e8]
+26/03/12 13:18:55 INFO GPLNativeCodeLoader: Loaded native gpl library
+26/03/12 13:18:55 INFO ObservabilityTaskInfoRecorderListener: PerformanceMetricsSource is initiated
+26/03/12 13:18:55 INFO GlueContext: ObservabilityMetrics configured and enabled
+26/03/12 13:18:55 INFO StageSkewness: [Observability] Skewness metric using Skewness Factor = 5
+26/03/12 13:18:55 INFO ObservabilityTaskInfoRecorderListener: ResourceUtilizationMetricsSource is initiated
+26/03/12 13:18:55 INFO ObservabilityTaskInfoRecorderListener: ThroughputMetricsSource is initiated
+26/03/12 13:18:55 INFO GlueContext: GlueMetrics configured and enabled
+26/03/12 13:18:54 INFO JESSchedulerBackend: SchedulerBackend is ready for scheduling beginning after reached minRegisteredResourcesRatio: 0.0
+26/03/12 13:18:54 INFO log: Logging initialized @12181ms to org.sparkproject.jetty.util.log.Slf4jLog
+26/03/12 13:18:54 INFO JESSchedulerBackend: getDriverLogUrls Map()
+26/03/12 13:18:54 INFO SparkContext: Registered listener glue.ch.cern.sparkmeasure.FlightRecorderTaskMetrics
+26/03/12 13:18:54 INFO SparkContext: Registered listener com.amazonaws.services.glueexceptionanalysis.GlueExceptionAnalysisListener
+26/03/12 13:18:54 INFO SparkContext: Registered listener com.amazonaws.services.gluedi.sensei.autodebugging.AutoDebuggingListener
+26/03/12 13:18:54 INFO SparkContext: Registered listener glue.ch.cern.sparkmeasure.FlightRecorderStageMetrics
+26/03/12 13:18:54 INFO FlightRecorderTaskMetrics: Using json as serialization format.
+26/03/12 13:18:54 INFO FlightRecorderTaskMetrics: Writing output to /tmp/taskMetrics_flightRecorder
+26/03/12 13:18:54 INFO FlightRecorderStageMetrics: Writing output to /tmp/stageMetrics_flightRecorder
+26/03/12 13:18:54 INFO FlightRecorderStageMetrics: Using json as serialization format.
+26/03/12 13:18:54 INFO AutoDebuggingEventLogFileWriter: Started file writer.
+26/03/12 13:18:54 INFO EventLogSocketWriter: Socket client for com.amazonaws.services.glueexceptionanalysis.EventLogSocketWriter started correctly
+26/03/12 13:18:54 INFO EventLogFileWriter: Started file writer for com.amazonaws.services.glueexceptionanalysis.EventLogFileWriter
+26/03/12 13:18:54 INFO ExecutorTaskManagement: executor task g-bfcc0ee025ac9e92fef6aa3fdbafbb211caba919_cell4 created for executor 1
+26/03/12 13:18:54 INFO TaskGroupInterface: createChildTask API response code 200
+26/03/12 13:18:54 INFO SingleEventLogFileWriter: Logging events to file:/tmp/spark-event-logs/spark-application-1773321533357.inprogress
+26/03/12 13:18:54 INFO GlueCloudwatchSink: CloudwatchSink: jobName: FSA-PROD-CNSV-EXEC-SQL jobRunId: jr_09cd823a57f6f28ad0f4639e07b6feb8ddf667e6ab468093ac4a9d55f35c4910
+26/03/12 13:18:54 INFO AmazonHttpClient: Configuring Proxy. Proxy Host: 169.254.76.0 Proxy Port: 8888
+26/03/12 13:18:54 INFO GlueCloudwatchSink: CloudwatchSink: Obtained credentials from the Instance Profile
+26/03/12 13:18:54 INFO GlueCloudwatchSink: GlueCloudwatchSink: get cloudwatch client using proxy: host 169.254.76.0, port 8888
+26/03/12 13:18:54 INFO BlockManager: Initialized BlockManager: BlockManagerId(driver, 10.219.34.9, 43987, None)
+26/03/12 13:18:54 INFO BlockManagerMaster: Registered BlockManager BlockManagerId(driver, 10.219.34.9, 43987, None)
+26/03/12 13:18:54 INFO BlockManagerMasterEndpoint: Registering block manager 10.219.34.9:43987 with 11.8 GiB RAM, BlockManagerId(driver, 10.219.34.9, 43987, None)
+26/03/12 13:18:54 INFO BlockManagerMaster: Registering BlockManager BlockManagerId(driver, 10.219.34.9, 43987, None)
+26/03/12 13:18:54 INFO BlockManager: Using org.apache.spark.storage.RandomBlockReplicationPolicy for block replication policy
+26/03/12 13:18:54 INFO Utils: Successfully started service 'org.apache.spark.network.netty.NettyBlockTransferService' on port 43987.
+26/03/12 13:18:54 INFO NettyBlockTransferService: Server created on 10.219.34.9:43987
+26/03/12 13:18:54 INFO TaskGroupInterface: creating executor task for executor 1; clientToken gr_tg-894fe090297e74348e9a49b73af717c80a6fdd08_cell4_e_1_a_spark-application-1773321533357
+26/03/12 13:18:53 INFO JESSchedulerBackend: JESClusterManager: Initializing JES client with proxy: host: 169.254.76.0, port: 8888
+26/03/12 13:18:53 INFO JESSchedulerBackend: JESSchedulerBackend
+26/03/12 13:18:53 INFO JESSchedulerBackend$JESAsSchedulerBackendEndpoint: JESAsSchedulerBackendEndpoint
+26/03/12 13:18:53 INFO SubResultCacheManager: Sub-result caches are disabled.
+26/03/12 13:18:53 INFO SparkEnv: Registering OutputCommitCoordinator
+26/03/12 13:18:53 INFO MemoryStore: MemoryStore started with capacity 11.8 GiB
+26/03/12 13:18:53 INFO DiskBlockManager: Created local directory at /tmp/blockmgr-9b8e093f-9e4f-4001-8790-f8974b562bc1
+26/03/12 13:18:53 INFO SparkEnv: Registering BlockManagerMasterHeartbeat
+26/03/12 13:18:53 INFO BlockManagerMasterEndpoint: BlockManagerMasterEndpoint up
+26/03/12 13:18:53 INFO BlockManagerMasterEndpoint: Using org.apache.spark.storage.DefaultTopologyMapper for getting topology information
+26/03/12 13:18:53 INFO SparkEnv: Registering BlockManagerMaster
+26/03/12 13:18:53 INFO SparkEnv: Registering MapOutputTracker
+26/03/12 13:18:53 INFO Utils: Successfully started service 'sparkDriver' on port 44383.
+26/03/12 13:18:52 INFO SecurityManager: Changing modify acls groups to: 
+26/03/12 13:18:52 INFO SecurityManager: SecurityManager: authentication enabled; ui acls disabled; users  with view permissions: Set(spark); groups with view permissions: Set(); users  with modify permissions: Set(spark); groups with modify permissions: Set()
+26/03/12 13:18:52 INFO SecurityManager: Changing view acls groups to: 
+26/03/12 13:18:52 INFO SecurityManager: Changing modify acls to: spark
+26/03/12 13:18:52 INFO SecurityManager: Changing view acls to: spark
+26/03/12 13:18:52 INFO ResourceProfileManager: Added ResourceProfile id: 0
+26/03/12 13:18:52 INFO ResourceProfile: Limiting resource is cpus at 8 tasks per executor
+26/03/12 13:18:52 INFO ResourceProfile: Default ResourceProfile created, executor resources: Map(cores -> name: cores, amount: 8, script: , vendor: , memory -> name: memory, amount: 20480, script: , vendor: , offHeap -> name: offHeap, amount: 0, script: , vendor: ), task resources: Map(cpus -> name: cpus, amount: 1.0)
+26/03/12 13:18:52 INFO SparkContext: Submitted application: nativespark-FSA-PROD-CNSV-EXEC-SQL-jr_09cd823a57f6f28ad0f4639e07b6feb8ddf667e6ab468093ac4a9d55f35c4910
+26/03/12 13:18:52 INFO ResourceUtils: ==============================================================
+26/03/12 13:18:52 INFO ResourceUtils: No custom resources configured for spark.driver.
+26/03/12 13:18:52 INFO SparkContext: Running Spark version 3.3.0-amzn-1
+26/03/12 13:18:51 INFO AnalyzerLogHelper$: 13:18:51.453 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Missing_required_glue_argument.drl
+26/03/12 13:18:51 INFO AnalyzerLogHelper$: 13:18:51.453 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Missing_optional_dependency_XLRD.drl
+26/03/12 13:18:51 INFO AnalyzerLogHelper$: 13:18:51.453 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Type_error_on_endpoint_config.drl
+26/03/12 13:18:51 INFO AnalyzerLogHelper$: 13:18:51.453 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Name_error_in_glue_app.drl
+26/03/12 13:18:51 INFO AnalyzerLogHelper$: 13:18:51.452 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/JDBC_connection_failed.drl
+26/03/12 13:18:51 INFO AnalyzerLogHelper$: 13:18:51.452 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Data_with_invalid_value.drl
+26/03/12 13:18:51 INFO AnalyzerLogHelper$: 13:18:51.452 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/OOM_on_driver_no_heap_space_with_G2X.drl
+26/03/12 13:18:51 INFO AnalyzerLogHelper$: 13:18:51.452 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/OOM_on_driver_no_heap_space_non_G2X.drl
+26/03/12 13:18:51 INFO AnalyzerLogHelper$: 13:18:51.452 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Arithmetic_Exception_in_Glue_job.drl
+26/03/12 13:18:51 INFO AnalyzerLogHelper$: 13:18:51.452 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Analysis_Exception_Cannot_Resolve.drl
+26/03/12 13:18:51 INFO AnalyzerLogHelper$: 13:18:51.438 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.DroolsRulesEngine - Loading drools rule file: /tmp/rules_generated_from_csv/Module_Not_Found_Error.drl
+26/03/12 13:18:50 INFO AnalyzerLogHelper$: 13:18:50.937 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.drools.RulesEngineConfig - Loaded Drools Files : [com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@8869209, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@180a14da, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@74ac05a6, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@239990f2, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@1f334852, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@575723aa, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@43c28dd3, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@2cb38b59, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@29473745, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@47630bb4, com.amazonaws.gluejob.drools.RulesEngineFactory$FilesystemBasedRulesFile@1018ba9e]
+26/03/12 13:18:50 INFO SafeLogging: Initializing logging subsystem
+26/03/12 13:18:50 INFO AnalyzerLogHelper$: 	at java.lang.Thread.run(Thread.java:750) ~[?:1.8.0_472]
+26/03/12 13:18:50 INFO AnalyzerLogHelper$: 13:18:50.827 [pool-3-thread-1] INFO  [] com.amazonaws.gluejob.utils.FileUtils - Reading file using thread context class loader FailureAnalysisRules.csv
+26/03/12 13:18:50 INFO AnalyzerLogHelper$: 	at java.io.InputStreamReader.<init>(InputStreamReader.java:97) ~[?:1.8.0_472]
+26/03/12 13:18:50 INFO AnalyzerLogHelper$: 	at com.amazonaws.gluejob.utils.FileUtils.readCsvFile(FileUtils.java:25) ~[AWSGlueJobLogsAnalysisLib.jar:?]
+26/03/12 13:18:50 INFO AnalyzerLogHelper$: 	at com.amazonaws.gluejob.utils.rules_generator.DroolsRuleGenerator.readCsvToGenerateDrools(DroolsRuleGenerator.java:34) ~[AWSGlueJobLogsAnalysisLib.jar:?]
+26/03/12 13:18:50 INFO AnalyzerLogHelper$: 	at com.amazonaws.gluejob.app.GlueJobEventsInputHandler.run(GlueJobEventsInputHandler.scala:36) ~[AWSGlueJobLogsAnalysisLib.jar:?]
+26/03/12 13:18:50 INFO AnalyzerLogHelper$: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149) ~[?:1.8.0_472]
+26/03/12 13:18:50 INFO AnalyzerLogHelper$: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624) ~[?:1.8.0_472]
+26/03/12 13:18:50 INFO AnalyzerLogHelper$: 13:18:50.822 [pool-3-thread-1] ERROR [] com.amazonaws.gluejob.utils.FileUtils - Error getting file with getResourceAsStream 
+26/03/12 13:18:50 INFO AnalyzerLogHelper$: java.lang.NullPointerException: null
+26/03/12 13:18:50 INFO AnalyzerLogHelper$: 	at java.io.Reader.<init>(Reader.java:78) ~[?:1.8.0_472]
+26/03/12 13:18:50 INFO AnalyzerLogHelper$: input rulesFilePath=/tmp/glue_app_analyzer_rules
+26/03/12 13:18:50 INFO AnalyzerLogHelper$: 13:18:50.814 [main] INFO  [] com.amazonaws.gluejob.app.GlueJobEventsInputHandler - Initialized events handler
+26/03/12 13:18:50 INFO AnalyzerLogHelper$: ==== Netty Server Started ====
+26/03/12 13:18:50 INFO AnalyzerLogHelper$: 13:18:50.349 [main] INFO  [] com.amazonaws.gluejob.app.LogFileWriter - Started file writer for com.amazonaws.gluejob.app.LogFileWriter
+26/03/12 13:18:49 INFO AnalyzerLogHelper$: SLF4J: Actual binding is of type [org.apache.logging.slf4j.Log4jLoggerFactory]
+26/03/12 13:18:49 INFO AnalyzerLogHelper$: SLF4J: See http://www.slf4j.org/codes.html#multiple_bindings for an explanation.
+26/03/12 13:18:49 INFO AnalyzerLogHelper$: SLF4J: Found binding in [jar:file:/opt/amazon/spark/jars/log4j-slf4j-impl-2.17.2.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+26/03/12 13:18:49 INFO AnalyzerLogHelper$: SLF4J: Found binding in [jar:file:/opt/amazon/spark/jars/slf4j-reload4j-1.7.36.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+26/03/12 13:18:49 INFO AnalyzerLogHelper$: SLF4J: Found binding in [jar:file:/opt/amazon/lib/Log4j-slf4j-2.x.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+26/03/12 13:18:49 INFO AnalyzerLogHelper$: SLF4J: Found binding in [jar:file:/opt/amazon/lib/slf4j-log4j12-1.7.10.jar!/org/slf4j/impl/StaticLoggerBinder.class]
+26/03/12 13:18:49 INFO AnalyzerLogHelper$: SLF4J: Class path contains multiple SLF4J bindings.

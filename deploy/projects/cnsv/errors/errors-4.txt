@@ -1,0 +1,49 @@
+{
+  "data_src_nm": "cnsv",
+  "run_type": "incremental",
+  "start_date": "2026-01-27",
+  "env": "PROD",
+  "layer": "STG",
+  "table_name": "cnsv_ewt84sprac"
+}
+
+{
+  "data_src_nm": "cnsv",
+  "run_type": "incremental",
+  "start_date": "2026-01-27",
+  "env": "PROD",
+  "layer": "STG",
+  "table_name": "cnsv_ewt84sprac",
+  "error": {
+    "Error": "Glue.ConcurrentRunsExceededException",
+    "Cause": "Concurrent runs exceeded. (Service: AWSGlue; Status Code: 400; Error Code: ConcurrentRunsExceededException; Request ID: d0bb1d03-b6c9-474d-83bc-2b86646ff8c6; Proxy: null)"
+  }
+}
+
+{
+  "Type": "Task",
+  "Resource": "arn:aws:states:::glue:startJobRun.sync",
+  "Parameters": {
+    "JobName": "FSA-PROD-CNSV-EXEC-SQL",
+    "Arguments": {
+      "--JOB_NAME": "FSA-PROD-CNSV-EXEC-SQL",
+      "--table_name.$": "$.table_name",
+      "--data_src_nm": "cnsv",
+      "--run_type": "incremental",
+      "--start_date": "2026-01-27",
+      "--env": "PROD",
+      "--layer.$": "$.layer"
+    }
+  },
+  "ResultPath": "$.glueResult",
+  "Next": "StageTableSuccess",
+  "Catch": [
+    {
+      "ErrorEquals": [
+        "States.ALL"
+      ],
+      "Next": "StageTableFailed",
+      "ResultPath": "$.error"
+    }
+  ]
+}

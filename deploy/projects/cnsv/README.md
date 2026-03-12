@@ -88,6 +88,148 @@ Deploys the EXEC-SQL pipeline which executes Athena SQL to move data from S3 Par
 
 **ASL:** `states/EXEC-SQL.asl.json`
 
+### One-Paragraph Overview (EXEC-SQL)
+The EXEC-SQL Step Function orchestrates a metadata-driven STG -> EDV load where `edv-build-processing-plan` reads table lists and dependencies from `configs/_configs/metadata/*.csv`, then fans out STG table processing through the `FSA-{ENV}-CNSV-EXEC-SQL` Glue job (which loads SQL/templates from `configs/_configs/STG`), evaluates results with `edv-check-results`, optionally processes EDV groups in dependency order using SQL/config in `configs/_configs/EDV`, and finally calls `edv-finalize-pipeline` (or `edv-handle-failure`) to record and publish the overall run outcome.
+
+### Text Flow Diagram (EXEC-SQL)
+```text
+Start Execution (FSA-{ENV}-CNSV-EXEC-SQL)
+	|
+	v
+[BuildProcessingPlan Lambda]
+	Reads: configs/_configs/metadata/stg_tables.csv
+				 configs/_configs/metadata/dv_tables.csv
+				 configs/_configs/metadata/dv_tbl_dpnds.csv
+	Output: plan.stgTables, plan.dvGroups, plan.counts
+	|
+	v
+[CheckTablesExist]
+	|-- if plan.counts.stg == 0 --> [NoTablesToProcess] --> END
+	|
+	v
+[ProcessStageTables Map (parallel)]
+	For each STG table:
+		-> [ExecuteStageSQL Glue: FSA-{ENV}-CNSV-EXEC-SQL, layer=STG]
+			 Reads SQL/config from expanded S3 _configs/STG/<TABLE>/...
+		-> [StageTableSuccess or StageTableFailed]
+	Output: stageResults[]
+	|
+	v
+[CheckStageResults Lambda]
+	Output: stageCheck{successCount, failedCount, failedTables, canContinue}
+	|
+	v
+[ShouldProcessEDV]
+	|-- if plan.counts.dv > 0 AND stageCheck.canContinue == true -->
+	|      [ProcessEDVGroups Map (group order)]
+	|         For each group:
+	|           [ProcessEDVTablesInGroup Map (parallel)]
+	|             -> [ExecuteEDVSQL Glue: FSA-{ENV}-CNSV-EXEC-SQL, layer=EDV]
+	|                Reads SQL/config from expanded S3 _configs/EDV/<TABLE>/...
+	|             -> [EDVTableSuccess or EDVTableFailed]
+	|      Output: edvResults[]
+	|      -> [CheckEDVResults Lambda] -> edvCheck
+	|
+	|-- else --> [SetDefaultEDVCheck Pass] -> edvCheck={0/0/[]/false}
+	|
+	v
+[FinalizePipeline Lambda]
+	Input: stageCheck, edvCheck, counts
+	Output: finalResult (SUCCESS | PARTIAL_SUCCESS | FAILED)
+	|
+	v
+[PipelineSuccess] END
+
+Any unhandled error in main path:
+	-> [HandlePipelineFailure Lambda]
+	-> [PipelineFailed] END
+```
+
+### Concrete Full Run Example (Using Real CNSV Files)
+Example run shown with one real STG table: `ccms_ctr_stat`.
+
+1. Build processing plan
+	- Step Function starts at `BuildProcessingPlan` in `states/EXEC-SQL.asl.json`.
+	- Lambda reads metadata from:
+	  - `configs/_configs/metadata/stg_tables.csv`
+	  - `configs/_configs/metadata/dv_tables.csv`
+	  - `configs/_configs/metadata/dv_tbl_dpnds.csv`
+	- `ccms_ctr_stat` is present in `stg_tables.csv`, so it is queued for STG processing.
+
+2. Run STG Glue task for one table
+	- `ProcessStageTables` Map dispatches `ExecuteStageSQL` with arguments like:
+	  - `--table_name=ccms_ctr_stat`
+	  - `--layer=STG`
+	  - `--run_type=incremental`
+	  - `--start_date=<run start date>`
+	- Glue job `FSA-{ENV}-CNSV-EXEC-SQL` is invoked.
+
+3. Glue reads and executes SQL from config
+	- Glue script: `glue/EXEC-SQL.py`.
+	- For this table it resolves SQL from:
+	  - `configs/_configs/STG/CCMS_CTR_STAT/CCMS_CTR_STAT.sql`
+	- SQL placeholders (for example `{env}`, `{etl_start_date}`, `{etl_end_date}`) are substituted at runtime before execution.
+
+4. Result aggregation and branch decision
+	- Table result is returned as SUCCESS or FAILED to the Map result set.
+	- `CheckStageResults` computes `successCount`, `failedCount`, and `canContinue`.
+	- If `canContinue=true`, workflow continues to EDV groups from metadata (`dv_tables.csv` + `dv_tbl_dpnds.csv`); if false, EDV is skipped.
+
+5. Finalization
+	- `FinalizePipeline` stores summary counts and final status.
+	- If any state fails hard, `HandlePipelineFailure` executes and the workflow ends as failed.
+
+6. Concrete EDV branch example (real CNSV files)
+	- After STG passes checks, `ProcessEDVGroups` uses EDV metadata from:
+	  - `configs/_configs/metadata/dv_tables.csv`
+	  - `configs/_configs/metadata/dv_tbl_dpnds.csv`
+	- One real EDV table listed in `dv_tables.csv` is `ccms_ctr_stat_hs`.
+	- The EDV stage is executed by the same Glue job (`FSA-{ENV}-CNSV-EXEC-SQL`) with arguments like:
+	  - `--table_name=ccms_ctr_stat_hs`
+	  - `--layer=EDV`
+	- A real EDV config artifact currently in this repo is:
+	  - `configs/_configs/EDV/cs_tbl_cmmt_item_source.json`
+	- EDV SQL scripts are resolved by `glue/EXEC-SQL.py` from the expanded S3 `_configs/EDV/<TABLE>/` path at runtime (uploaded by `deploy_config.sh`).
+
+Notes
+- These file paths are shown from the repository (`configs/_configs/...`).
+- At runtime, `deploy_config.sh` uploads and expands this same config structure to S3, and Glue reads from the S3-expanded `_configs` path.
+
+### How To Run In PROD (EXEC-SQL)
+Start this state machine: `FSA-PROD-CNSV-EXEC-SQL`.
+
+Execution input JSON:
+```json
+{}
+```
+
+Why `{}` is valid in this pipeline:
+- `data_src_nm`, `run_type`, `start_date`, and `env` are injected into the ASL at deploy time from `config/cnsv/prod.json` by `deploy.py` placeholder substitution.
+
+Current effective PROD values (from deploy config):
+- `data_src_nm`: `cnsv`
+- `run_type`: `incremental`
+- `start_date`: `2026-01-27`
+- `env`: `PROD`
+
+Expected successful terminal output shape (from Finalize step):
+```json
+{
+	"status": "SUCCESS | PARTIAL_SUCCESS | FAILED",
+	"summary": {
+		"data_src_nm": "cnsv",
+		"run_type": "incremental",
+		"start_date": "2026-01-27",
+		"stage": {"total": 0, "success": 0, "failed": 0, "failedTables": []},
+		"edv": {"total": 0, "groups": 0, "success": 0, "failed": 0, "failedTables": []},
+		"totals": {"tables": 0, "success": 0, "failed": 0, "successRate": "0.0%"}
+	}
+}
+```
+
+Expected failure path:
+- Any unhandled error routes to `HandlePipelineFailure`, then terminal state `PipelineFailed`.
+
 ---
 
 ## Pipeline 3 — CNSV Base (`deploy_base.py`)

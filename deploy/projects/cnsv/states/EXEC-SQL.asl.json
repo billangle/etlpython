@@ -88,6 +88,14 @@
                                 "IntervalSeconds": 20,
                                 "BackoffRate": 2,
                                 "MaxAttempts": 6
+                            },
+                            {
+                                "ErrorEquals": [
+                                    "States.TaskFailed"
+                                ],
+                                "IntervalSeconds": 90,
+                                "BackoffRate": 2,
+                                "MaxAttempts": 3
                             }
                         ],
                         "ResultPath": "$.glueResult",
@@ -242,6 +250,14 @@
                                             "IntervalSeconds": 20,
                                             "BackoffRate": 2,
                                             "MaxAttempts": 6
+                                        },
+                                        {
+                                            "ErrorEquals": [
+                                                "States.TaskFailed"
+                                            ],
+                                            "IntervalSeconds": 90,
+                                            "BackoffRate": 2,
+                                            "MaxAttempts": 3
                                         }
                                     ],
                                     "ResultPath": "$.glueResult",

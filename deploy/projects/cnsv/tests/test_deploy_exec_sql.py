@@ -231,6 +231,29 @@ class TestExecSqlDeployRegression(unittest.TestCase):
             self.assertEqual(first.get("BackoffRate"), 2)
             self.assertEqual(first.get("MaxAttempts"), 6)
 
+    def test_exec_sql_glue_tasks_retry_states_task_failed_for_transient_startup(self):
+        """Guardrail for transient Glue startup failures surfaced as States.TaskFailed."""
+        asl_path = Path("deploy/projects/cnsv/states/EXEC-SQL.asl.json")
+        asl = json.loads(asl_path.read_text(encoding="utf-8"))
+        states = asl["States"]
+
+        stage_task = states["ProcessStageTables"]["Iterator"]["States"]["ExecuteStageSQL"]
+        edv_task = (
+            states["ProcessEDVGroups"]["Iterator"]["States"]["ProcessEDVTablesInGroup"]
+            ["Iterator"]["States"]["ExecuteEDVSQL"]
+        )
+
+        for task in (stage_task, edv_task):
+            retries = task.get("Retry", [])
+            tf_retry = next(
+                (r for r in retries if "States.TaskFailed" in r.get("ErrorEquals", [])),
+                None,
+            )
+            self.assertIsNotNone(tf_retry, "Expected States.TaskFailed retry policy")
+            self.assertEqual(tf_retry.get("IntervalSeconds"), 90)
+            self.assertEqual(tf_retry.get("BackoffRate"), 2)
+            self.assertEqual(tf_retry.get("MaxAttempts"), 3)
+
     def test_all_cnsv_glue_state_files_have_concurrency_retry_marker(self):
         """CNSV guardrail: every Glue startJobRun.sync flow handles concurrency throttling."""
         state_files = sorted(Path("deploy/projects/cnsv/states").glob("*.asl.json"))

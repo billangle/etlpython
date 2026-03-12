@@ -118,7 +118,7 @@
     },
      {
       "EXEC-SQL": {
-        "Connections": [{ "ConnectionName": "FSA-PROD-PG-DART114" }],
+          "Connections": [{ "ConnectionName": "FSA-PROD-PG-DART115" }],
         "MaxConcurrency": "3",
         "MaxRetries": "0",
         "TimeoutMinutes": "480",

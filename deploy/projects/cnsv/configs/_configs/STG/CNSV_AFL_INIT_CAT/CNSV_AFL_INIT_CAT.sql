@@ -3,86 +3,71 @@
 -- Location: s3://c108-dev-fpacfsa-final-zone/cnsv/_configs/stg/CNSV_AFL_INIT_CAT/incremental/CNSV_AFL_INIT_CAT.sql
 -- =============================================================================
 
-select * from
+SELECT * FROM
 (
-select distinct afl_init_nm,
-afl_init_cat_nm,
-afl_init_id,
-afl_init_cat_id,
-data_stat_cd,
-cre_dt,
-last_chg_dt,
-cre_user_nm,
-last_chg_user_nm,
-cdc_oper_cd,
-load_dt,
-data_src_nm,
-cdc_dt,
-row_number() over ( partition by 
-afl_init_cat_id
-order by tbl_priority asc, last_chg_dt desc ) as row_num_part
-from
+SELECT DISTINCT AFL_INIT_NM,
+AFL_INIT_CAT_NM,
+AFL_INIT_ID,
+AFL_INIT_CAT_ID,
+DATA_STAT_CD,
+CRE_DT,
+LAST_CHG_DT,
+CRE_USER_NM,
+LAST_CHG_USER_NM,
+CDC_OPER_CD,
+ROW_NUMBER() over ( partition by 
+AFL_INIT_CAT_ID
+order by TBL_PRIORITY ASC, LAST_CHG_DT DESC ) AS row_num_part
+FROM
 (
-select 
-affiliated_initiative.afl_init_nm afl_init_nm,
-affiliated_initiative_category.afl_init_ctg_nm afl_init_cat_nm,
-affiliated_initiative_category.afl_init_id afl_init_id,
-affiliated_initiative_category.afl_init_ctg_id afl_init_cat_id,
-affiliated_initiative_category.data_stat_cd data_stat_cd,
-affiliated_initiative_category.cre_dt cre_dt,
-affiliated_initiative_category.last_chg_dt last_chg_dt,
-affiliated_initiative_category.cre_user_nm cre_user_nm,
-affiliated_initiative_category.last_chg_user_nm last_chg_user_nm,
-affiliated_initiative_category.op as cdc_oper_cd,
-current_timestamp() as load_dt,
-'cnsv_afl_init_cat' as data_src_nm,
-'{etl_start_date}' as cdc_dt,
-1 as tbl_priority
-from  `fsa-{env}-cnsv-cdc`.`affiliated_initiative_category`
-left join `fsa-{env}-cnsv`.`affiliated_initiative` 
-on ( affiliated_initiative_category.afl_init_id = affiliated_initiative.afl_init_id)
-where affiliated_initiative_category.op <> 'D'
-and affiliated_initiative_category.dart_filedate between '{etl_start_date}' and '{etl_end_date}'
+SELECT 
+affiliated_initiative.afl_init_nm AFL_INIT_NM,
+affiliated_initiative_category.afl_init_ctg_nm AFL_INIT_CAT_NM,
+affiliated_initiative_category.afl_init_id AFL_INIT_ID,
+affiliated_initiative_category.afl_init_ctg_id AFL_INIT_CAT_ID,
+affiliated_initiative_category.data_stat_cd DATA_STAT_CD,
+affiliated_initiative_category.cre_dt CRE_DT,
+affiliated_initiative_category.last_chg_dt LAST_CHG_DT,
+affiliated_initiative_category.cre_user_nm CRE_USER_NM,
+affiliated_initiative_category.last_chg_user_nm LAST_CHG_USER_NM,
+AFFILIATED_INITIATIVE_CATEGORY.op,
+1 AS TBL_PRIORITY
+FROM  "fsa-{env}-cnsv-cdc".AFFILIATED_INITIATIVE_CATEGORY LEFT JOIN "fsa-{env}-cnsv-cdc".AFFILIATED_INITIATIVE ON ( AFFILIATED_INITIATIVE_CATEGORY.AFL_INIT_ID = AFFILIATED_INITIATIVE.AFL_INIT_ID)
+WHERE AFFILIATED_INITIATIVE_CATEGORY.op <> 'D'
 
-union
-select 
-affiliated_initiative.afl_init_nm afl_init_nm,
-affiliated_initiative_category.afl_init_ctg_nm afl_init_cat_nm,
-affiliated_initiative_category.afl_init_id afl_init_id,
-affiliated_initiative_category.afl_init_ctg_id afl_init_cat_id,
-affiliated_initiative_category.data_stat_cd data_stat_cd,
-affiliated_initiative_category.cre_dt cre_dt,
-affiliated_initiative_category.last_chg_dt last_chg_dt,
-affiliated_initiative_category.cre_user_nm cre_user_nm,
-affiliated_initiative_category.last_chg_user_nm last_chg_user_nm,
-affiliated_initiative_category.op as cdc_oper_cd,
-current_timestamp() as load_dt,
-'cnsv_afl_init_cat' as data_src_nm,
-'{etl_start_date}' as cdc_dt,
-2 as tbl_priority
-from  `fsa-{env}-cnsv`.`affiliated_initiative` 
- join `fsa-{env}-cnsv-cdc`.`affiliated_initiative_category`
-on ( affiliated_initiative_category.afl_init_id = affiliated_initiative.afl_init_id)
-where affiliated_initiative_category.op <> 'D'
-) stg_all
-) stg_unq
-where row_num_part = 1
+UNION
+SELECT 
+affiliated_initiative.afl_init_nm AFL_INIT_NM,
+affiliated_initiative_category.afl_init_ctg_nm AFL_INIT_CAT_NM,
+affiliated_initiative_category.afl_init_id AFL_INIT_ID,
+affiliated_initiative_category.afl_init_ctg_id AFL_INIT_CAT_ID,
+affiliated_initiative_category.data_stat_cd DATA_STAT_CD,
+affiliated_initiative_category.cre_dt CRE_DT,
+affiliated_initiative_category.last_chg_dt LAST_CHG_DT,
+affiliated_initiative_category.cre_user_nm CRE_USER_NM,
+affiliated_initiative_category.last_chg_user_nm LAST_CHG_USER_NM,
+AFFILIATED_INITIATIVE.op,
+2 AS TBL_PRIORITY
+FROM  "fsa-{env}-cnsv-cdc".AFFILIATED_INITIATIVE  JOIN "fsa-{env}-cnsv-cdc".AFFILIATED_INITIATIVE_CATEGORYON ( AFFILIATED_INITIATIVE_CATEGORY.AFL_INIT_ID = AFFILIATED_INITIATIVE.AFL_INIT_ID)
+WHERE AFFILIATED_INITIATIVE.op <> 'D'
 
-union
-select distinct
-null afl_init_nm,
-affiliated_initiative_category.afl_init_ctg_nm afl_init_cat_nm,
-affiliated_initiative_category.afl_init_id afl_init_id,
-affiliated_initiative_category.afl_init_ctg_id afl_init_cat_id,
-affiliated_initiative_category.data_stat_cd data_stat_cd,
-affiliated_initiative_category.cre_dt cre_dt,
-affiliated_initiative_category.last_chg_dt last_chg_dt,
-affiliated_initiative_category.cre_user_nm cre_user_nm,
-affiliated_initiative_category.last_chg_user_nm last_chg_user_nm,
-'D' cdc_oper_cd,
-current_timestamp() as load_dt,
-'cnsv_afl_init_cat' as data_src_nm,
-'{etl_start_date}' as cdc_dt,
-1 as row_num_part
-from `fsa-{env}-cnsv-cdc`.`affiliated_initiative_category`
-where affiliated_initiative_category.op = 'D'
+) STG_ALL
+) STG_UNQ
+WHERE row_num_part = 1
+AND affiliated_initiative_category.dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}'
+
+UNION
+SELECT DISTINCT
+NULL AFL_INIT_NM,
+affiliated_initiative_category.afl_init_ctg_nm AFL_INIT_CAT_NM,
+affiliated_initiative_category.afl_init_id AFL_INIT_ID,
+affiliated_initiative_category.afl_init_ctg_id AFL_INIT_CAT_ID,
+affiliated_initiative_category.data_stat_cd DATA_STAT_CD,
+affiliated_initiative_category.cre_dt CRE_DT,
+affiliated_initiative_category.last_chg_dt LAST_CHG_DT,
+affiliated_initiative_category.cre_user_nm CRE_USER_NM,
+affiliated_initiative_category.last_chg_user_nm LAST_CHG_USER_NM,
+'D' CDC_OPER_CD,
+1 AS row_num_part
+FROM "fsa-{env}-cnsv-cdc".affiliated_initiative_category
+WHERE affiliated_initiative_category.op = 'D'

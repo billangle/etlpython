@@ -3,333 +3,308 @@
 -- Location: s3://c108-dev-fpacfsa-final-zone/cnsv/_configs/stg/CCMS_CTR_PRDR/incremental/CCMS_CTR_PRDR.sql
 -- =============================================================================
 
-select * from
+SELECT * FROM
 (
-select distinct ctr_prdr_id,
-adm_st_fsa_cd,
-adm_cnty_fsa_cd,
-sgnp_type_nm,
-sgnp_sub_cat_nm,
-sgnp_nbr,
-sgnp_stype_agr_nm,
-ctr_nbr,
-ctr_sfx_nbr,
-core_cust_id,
-ctr_det_id,
-prdr_shr_pct,
-prim_prdr_ind,
---prdr_invl_cd,
-data_stat_cd,
-cre_dt,
-cre_user_nm,
-last_chg_dt,
-last_chg_user_nm,
-tip_elg_ptcp_ind,
-ltd_rsrc_prdr_ind,
-socl_dadvg_ind,
-beg_farm_ind,
-vet_ind,
-cdc_oper_cd,
-load_dt,
-data_src_nm,
-cdc_dt,
-row_number() over ( partition by 
-ctr_prdr_id
-order by tbl_priority asc, last_chg_dt desc ) as row_num_part
-from
+SELECT DISTINCT CTR_PRDR_ID,
+ADM_ST_FSA_CD,
+ADM_CNTY_FSA_CD,
+SGNP_TYPE_NM,
+SGNP_SUB_CAT_NM,
+SGNP_NBR,
+SGNP_STYPE_AGR_NM,
+CTR_NBR,
+CTR_SFX_NBR,
+CORE_CUST_ID,
+CTR_DET_ID,
+PRDR_SHR_PCT,
+PRIM_PRDR_IND,
+--PRDR_INVL_CD,
+DATA_STAT_CD,
+CRE_DT,
+CRE_USER_NM,
+LAST_CHG_DT,
+LAST_CHG_USER_NM,
+TIP_ELG_PTCP_IND,
+LTD_RSRC_PRDR_IND,
+SOCL_DADVG_IND,
+BEG_FARM_IND,
+VET_IND,
+CDC_OPER_CD,
+ROW_NUMBER() over ( partition by 
+CTR_PRDR_ID
+order by TBL_PRIORITY ASC, LAST_CHG_DT DESC ) AS row_num_part
+FROM
 (
-select 
-contract_producer.contract_producer_identifier ctr_prdr_id,
-master_contract.administrative_state_fsa_code adm_st_fsa_cd,
-master_contract.administrative_county_fsa_code adm_cnty_fsa_cd,
-signup_type.signup_type_name sgnp_type_nm,
-signup_sub_category.signup_sub_category_name sgnp_sub_cat_nm,
-signup.signup_number sgnp_nbr,
-signup.signup_subtype_agreement_name sgnp_stype_agr_nm,
-master_contract.contract_number ctr_nbr,
-contract_detail.contract_suffix_number ctr_sfx_nbr,
-contract_producer.core_customer_identifier core_cust_id,
-contract_producer.contract_detail_identifier ctr_det_id,
-contract_producer.producer_share_percentage prdr_shr_pct,
-contract_producer.primary_producer_indicator prim_prdr_ind,
---contract_producer.producer_involvement_code prdr_invl_cd,
-contract_producer.data_status_code data_stat_cd,
-contract_producer.creation_date cre_dt,
-contract_producer.creation_user_name cre_user_nm,
-contract_producer.last_change_date last_chg_dt,
-contract_producer.last_change_user_name last_chg_user_nm,
-contract_producer.tip_eligible_participant_indicator  tip_elg_ptcp_ind,
-contract_producer.limited_resource_producer_indicator ltd_rsrc_prdr_ind,
-contract_producer.socially_disadvantaged_indicator socl_dadvg_ind,
-contract_producer.beginning_farmer_indicator beg_farm_ind,
-contract_producer.veteran_indicator vet_ind,
-contract_producer.op as cdc_oper_cd,
-current_timestamp() as load_dt,
-'ccms_ctr_prdr' as data_src_nm,
-'{etl_start_date}' as cdc_dt,
-1 as tbl_priority
-from `fsa-{env}-ccms-cdc`.`contract_producer`
-left join `fsa-{env}-ccms`.`contract_detail` 
-on contract_producer.contract_detail_identifier = contract_detail.contract_detail_identifier
-left join `fsa-{env}-ccms`.`master_contract` 
-on master_contract.contract_identifier = contract_detail.contract_identifier
-left join `fsa-{env}-ccms`.`signup`
-on signup.signup_identifier = master_contract.signup_identifier
-left join `fsa-{env}-ccms`.`signup_type`
-on signup_type.signup_type_code = signup.signup_type_code
-left join `fsa-{env}-ccms`.`signup_sub_category`
-on signup_sub_category.signup_sub_category_code = signup.signup_sub_category_code
-where contract_producer.op <> 'D'
-and contract_producer.dart_filedate between '{etl_start_date}' and '{etl_end_date}'
+SELECT 
+CONTRACT_PRODUCER.CONTRACT_PRODUCER_IDENTIFIER CTR_PRDR_ID,
+MASTER_CONTRACT.ADMINISTRATIVE_STATE_FSA_CODE ADM_ST_FSA_CD,
+MASTER_CONTRACT.ADMINISTRATIVE_COUNTY_FSA_CODE ADM_CNTY_FSA_CD,
+SIGNUP_TYPE.SIGNUP_TYPE_NAME SGNP_TYPE_NM,
+SIGNUP_SUB_CATEGORY.SIGNUP_SUB_CATEGORY_NAME SGNP_SUB_CAT_NM,
+SIGNUP.signup_number SGNP_NBR,
+SIGNUP.SIGNUP_SUBTYPE_AGREEMENT_NAME SGNP_STYPE_AGR_NM,
+MASTER_CONTRACT.CONTRACT_NUMBER CTR_NBR,
+CONTRACT_DETAIL.CONTRACT_SUFFIX_NUMBER CTR_SFX_NBR,
+CONTRACT_PRODUCER.CORE_CUSTOMER_IDENTIFIER CORE_CUST_ID,
+CONTRACT_PRODUCER.CONTRACT_DETAIL_IDENTIFIER CTR_DET_ID,
+CONTRACT_PRODUCER.PRODUCER_SHARE_PERCENTAGE PRDR_SHR_PCT,
+CONTRACT_PRODUCER.PRIMARY_PRODUCER_INDICATOR PRIM_PRDR_IND,
+--CONTRACT_PRODUCER.PRODUCER_INVOLVEMENT_CODE PRDR_INVL_CD,
+CONTRACT_PRODUCER.DATA_STATUS_CODE DATA_STAT_CD,
+CONTRACT_PRODUCER.CREATION_DATE CRE_DT,
+CONTRACT_PRODUCER.CREATION_USER_NAME CRE_USER_NM,
+CONTRACT_PRODUCER.LAST_CHANGE_DATE LAST_CHG_DT,
+CONTRACT_PRODUCER.LAST_CHANGE_USER_NAME LAST_CHG_USER_NM,
+CONTRACT_PRODUCER.tip_eligible_participant_indicator  TIP_ELG_PTCP_IND,
+CONTRACT_PRODUCER.limited_resource_producer_indicator LTD_RSRC_PRDR_IND,
+CONTRACT_PRODUCER.socially_disadvantaged_indicator SOCL_DADVG_IND,
+CONTRACT_PRODUCER.beginning_farmer_indicator BEG_FARM_IND,
+CONTRACT_PRODUCER.veteran_indicator VET_IND,
+CONTRACT_PRODUCER.op,
+1 AS TBL_PRIORITY
+From "fsa-{env}-ccms-cdc".CONTRACT_PRODUCER
+Left Join "fsa-{env}-ccms-cdc".CONTRACT_DETAIL 
+on CONTRACT_PRODUCER.CONTRACT_DETAIL_IDENTIFIER = CONTRACT_DETAIL.CONTRACT_DETAIL_IDENTIFIER
+Left join "fsa-{env}-ccms-cdc".MASTER_CONTRACT 
+On MASTER_CONTRACT.CONTRACT_IDENTIFIER = CONTRACT_DETAIL.CONTRACT_IDENTIFIER
+Left Join "fsa-{env}-ccms-cdc".SIGNUP
+On SIGNUP.SIGNUP_IDENTIFIER = MASTER_CONTRACT.SIGNUP_IDENTIFIER
+Left Join "fsa-{env}-ccms-cdc".SIGNUP_TYPE
+On SIGNUP_TYPE.SIGNUP_TYPE_CODE = SIGNUP.SIGNUP_TYPE_CODE
+Left join "fsa-{env}-ccms-cdc".SIGNUP_SUB_CATEGORY
+On SIGNUP_SUB_CATEGORY.SIGNUP_SUB_CATEGORY_CODE = SIGNUP.SIGNUP_SUB_CATEGORY_CODE
+WHERE CONTRACT_PRODUCER.op <> 'D'
 
-union
-select 
-contract_producer.contract_producer_identifier ctr_prdr_id,
-master_contract.administrative_state_fsa_code adm_st_fsa_cd,
-master_contract.administrative_county_fsa_code adm_cnty_fsa_cd,
-signup_type.signup_type_name sgnp_type_nm,
-signup_sub_category.signup_sub_category_name sgnp_sub_cat_nm,
-signup.signup_number sgnp_nbr,
-signup.signup_subtype_agreement_name sgnp_stype_agr_nm,
-master_contract.contract_number ctr_nbr,
-contract_detail.contract_suffix_number ctr_sfx_nbr,
-contract_producer.core_customer_identifier core_cust_id,
-contract_producer.contract_detail_identifier ctr_det_id,
-contract_producer.producer_share_percentage prdr_shr_pct,
-contract_producer.primary_producer_indicator prim_prdr_ind,
-contract_producer.data_status_code data_stat_cd,
-contract_producer.creation_date cre_dt,
-contract_producer.creation_user_name cre_user_nm,
-contract_producer.last_change_date last_chg_dt,
-contract_producer.last_change_user_name last_chg_user_nm,
-contract_producer.tip_eligible_participant_indicator  tip_elg_ptcp_ind,
-contract_producer.limited_resource_producer_indicator ltd_rsrc_prdr_ind,
-contract_producer.socially_disadvantaged_indicator socl_dadvg_ind,
-contract_producer.beginning_farmer_indicator beg_farm_ind,
-contract_producer.veteran_indicator vet_ind,
-contract_producer.op as cdc_oper_cd,
-current_timestamp() as load_dt,
-'ccms_ctr_prdr' as data_src_nm,
-'{etl_start_date}' as cdc_dt,
-2 as tbl_priority
-from  `fsa-{env}-ccms`.`contract_detail`
-join `fsa-{env}-ccms-cdc`.`contract_producer`
-on contract_producer.contract_detail_identifier = contract_detail.contract_detail_identifier
-left join `fsa-{env}-ccms`.`master_contract` 
-on master_contract.contract_identifier = contract_detail.contract_identifier
-left join `fsa-{env}-ccms`.`signup`
-on signup.signup_identifier = master_contract.signup_identifier
-left join `fsa-{env}-ccms`.`signup_type`
-on signup_type.signup_type_code = signup.signup_type_code
-left join `fsa-{env}-ccms`.`signup_sub_category`
-on signup_sub_category.signup_sub_category_code = signup.signup_sub_category_code
-where contract_producer.op <> 'D'
+UNION
+SELECT 
+CONTRACT_PRODUCER.CONTRACT_PRODUCER_IDENTIFIER CTR_PRDR_ID,
+MASTER_CONTRACT.ADMINISTRATIVE_STATE_FSA_CODE ADM_ST_FSA_CD,
+MASTER_CONTRACT.ADMINISTRATIVE_COUNTY_FSA_CODE ADM_CNTY_FSA_CD,
+SIGNUP_TYPE.SIGNUP_TYPE_NAME SGNP_TYPE_NM,
+SIGNUP_SUB_CATEGORY.SIGNUP_SUB_CATEGORY_NAME SGNP_SUB_CAT_NM,
+SIGNUP.signup_number SGNP_NBR,
+SIGNUP.SIGNUP_SUBTYPE_AGREEMENT_NAME SGNP_STYPE_AGR_NM,
+MASTER_CONTRACT.CONTRACT_NUMBER CTR_NBR,
+CONTRACT_DETAIL.CONTRACT_SUFFIX_NUMBER CTR_SFX_NBR,
+CONTRACT_PRODUCER.CORE_CUSTOMER_IDENTIFIER CORE_CUST_ID,
+CONTRACT_PRODUCER.CONTRACT_DETAIL_IDENTIFIER CTR_DET_ID,
+CONTRACT_PRODUCER.PRODUCER_SHARE_PERCENTAGE PRDR_SHR_PCT,
+CONTRACT_PRODUCER.PRIMARY_PRODUCER_INDICATOR PRIM_PRDR_IND,
+CONTRACT_PRODUCER.DATA_STATUS_CODE DATA_STAT_CD,
+CONTRACT_PRODUCER.CREATION_DATE CRE_DT,
+CONTRACT_PRODUCER.CREATION_USER_NAME CRE_USER_NM,
+CONTRACT_PRODUCER.LAST_CHANGE_DATE LAST_CHG_DT,
+CONTRACT_PRODUCER.LAST_CHANGE_USER_NAME LAST_CHG_USER_NM,
+CONTRACT_PRODUCER.tip_eligible_participant_indicator  TIP_ELG_PTCP_IND,
+CONTRACT_PRODUCER.limited_resource_producer_indicator LTD_RSRC_PRDR_IND,
+CONTRACT_PRODUCER.socially_disadvantaged_indicator SOCL_DADVG_IND,
+CONTRACT_PRODUCER.beginning_farmer_indicator BEG_FARM_IND,
+CONTRACT_PRODUCER.veteran_indicator VET_IND,
+CONTRACT_DETAIL.op,
+2 AS TBL_PRIORITY
+From  "fsa-{env}-ccms-cdc".CONTRACT_DETAIL
+Join "fsa-{env}-ccms-cdc".CONTRACT_PRODUCER
+on CONTRACT_PRODUCER.CONTRACT_DETAIL_IDENTIFIER = CONTRACT_DETAIL.CONTRACT_DETAIL_IDENTIFIER
+Left join "fsa-{env}-ccms-cdc".MASTER_CONTRACT 
+On MASTER_CONTRACT.CONTRACT_IDENTIFIER = CONTRACT_DETAIL.CONTRACT_IDENTIFIER
+Left Join "fsa-{env}-ccms-cdc".SIGNUP
+On SIGNUP.SIGNUP_IDENTIFIER = MASTER_CONTRACT.SIGNUP_IDENTIFIER
+Left Join "fsa-{env}-ccms-cdc".SIGNUP_TYPE
+On SIGNUP_TYPE.SIGNUP_TYPE_CODE = SIGNUP.SIGNUP_TYPE_CODE
+Left join "fsa-{env}-ccms-cdc".SIGNUP_SUB_CATEGORY
+On SIGNUP_SUB_CATEGORY.SIGNUP_SUB_CATEGORY_CODE = SIGNUP.SIGNUP_SUB_CATEGORY_CODE
+WHERE CONTRACT_DETAIL.op <> 'D'
 
-union
-select 
-contract_producer.contract_producer_identifier ctr_prdr_id,
-master_contract.administrative_state_fsa_code adm_st_fsa_cd,
-master_contract.administrative_county_fsa_code adm_cnty_fsa_cd,
-signup_type.signup_type_name sgnp_type_nm,
-signup_sub_category.signup_sub_category_name sgnp_sub_cat_nm,
-signup.signup_number sgnp_nbr,
-signup.signup_subtype_agreement_name sgnp_stype_agr_nm,
-master_contract.contract_number ctr_nbr,
-contract_detail.contract_suffix_number ctr_sfx_nbr,
-contract_producer.core_customer_identifier core_cust_id,
-contract_producer.contract_detail_identifier ctr_det_id,
-contract_producer.producer_share_percentage prdr_shr_pct,
-contract_producer.primary_producer_indicator prim_prdr_ind,
-contract_producer.data_status_code data_stat_cd,
-contract_producer.creation_date cre_dt,
-contract_producer.creation_user_name cre_user_nm,
-contract_producer.last_change_date last_chg_dt,
-contract_producer.last_change_user_name last_chg_user_nm,
-contract_producer.tip_eligible_participant_indicator  tip_elg_ptcp_ind,
-contract_producer.limited_resource_producer_indicator ltd_rsrc_prdr_ind,
-contract_producer.socially_disadvantaged_indicator socl_dadvg_ind,
-contract_producer.beginning_farmer_indicator beg_farm_ind,
-contract_producer.veteran_indicator vet_ind,
-contract_producer.op as cdc_oper_cd,
-current_timestamp() as load_dt,
-'ccms_ctr_prdr' as data_src_nm,
-'{etl_start_date}' as cdc_dt,
-4 as tbl_priority
-from `fsa-{env}-ccms`.`master_contract`
-left join  `fsa-{env}-ccms`.`contract_detail` 
-on master_contract.contract_identifier = contract_detail.contract_identifier
-join `fsa-{env}-ccms-cdc`.`contract_producer`
-on contract_producer.contract_detail_identifier = contract_detail.contract_detail_identifier
-left join `fsa-{env}-ccms`.`signup`
-on signup.signup_identifier = master_contract.signup_identifier
-left join `fsa-{env}-ccms`.`signup_type`
-on signup_type.signup_type_code = signup.signup_type_code
-left join `fsa-{env}-ccms`.`signup_sub_category`
-on signup_sub_category.signup_sub_category_code = signup.signup_sub_category_code
-where contract_producer.op <> 'D'
+UNION
+SELECT 
+CONTRACT_PRODUCER.CONTRACT_PRODUCER_IDENTIFIER CTR_PRDR_ID,
+MASTER_CONTRACT.ADMINISTRATIVE_STATE_FSA_CODE ADM_ST_FSA_CD,
+MASTER_CONTRACT.ADMINISTRATIVE_COUNTY_FSA_CODE ADM_CNTY_FSA_CD,
+SIGNUP_TYPE.SIGNUP_TYPE_NAME SGNP_TYPE_NM,
+SIGNUP_SUB_CATEGORY.SIGNUP_SUB_CATEGORY_NAME SGNP_SUB_CAT_NM,
+SIGNUP.signup_number SGNP_NBR,
+SIGNUP.SIGNUP_SUBTYPE_AGREEMENT_NAME SGNP_STYPE_AGR_NM,
+MASTER_CONTRACT.CONTRACT_NUMBER CTR_NBR,
+CONTRACT_DETAIL.CONTRACT_SUFFIX_NUMBER CTR_SFX_NBR,
+CONTRACT_PRODUCER.CORE_CUSTOMER_IDENTIFIER CORE_CUST_ID,
+CONTRACT_PRODUCER.CONTRACT_DETAIL_IDENTIFIER CTR_DET_ID,
+CONTRACT_PRODUCER.PRODUCER_SHARE_PERCENTAGE PRDR_SHR_PCT,
+CONTRACT_PRODUCER.PRIMARY_PRODUCER_INDICATOR PRIM_PRDR_IND,
+CONTRACT_PRODUCER.DATA_STATUS_CODE DATA_STAT_CD,
+CONTRACT_PRODUCER.CREATION_DATE CRE_DT,
+CONTRACT_PRODUCER.CREATION_USER_NAME CRE_USER_NM,
+CONTRACT_PRODUCER.LAST_CHANGE_DATE LAST_CHG_DT,
+CONTRACT_PRODUCER.LAST_CHANGE_USER_NAME LAST_CHG_USER_NM,
+CONTRACT_PRODUCER.tip_eligible_participant_indicator  TIP_ELG_PTCP_IND,
+CONTRACT_PRODUCER.limited_resource_producer_indicator LTD_RSRC_PRDR_IND,
+CONTRACT_PRODUCER.socially_disadvantaged_indicator SOCL_DADVG_IND,
+CONTRACT_PRODUCER.beginning_farmer_indicator BEG_FARM_IND,
+CONTRACT_PRODUCER.veteran_indicator VET_IND,
+MASTER_CONTRACT.op,
+4 AS TBL_PRIORITY
+From "fsa-{env}-ccms-cdc".MASTER_CONTRACT
+Left Join  "fsa-{env}-ccms-cdc".CONTRACT_DETAIL 
+On MASTER_CONTRACT.CONTRACT_IDENTIFIER = CONTRACT_DETAIL.CONTRACT_IDENTIFIER
+Join "fsa-{env}-ccms-cdc".CONTRACT_PRODUCER
+on CONTRACT_PRODUCER.CONTRACT_DETAIL_IDENTIFIER = CONTRACT_DETAIL.CONTRACT_DETAIL_IDENTIFIER
+Left Join "fsa-{env}-ccms-cdc".SIGNUP
+On SIGNUP.SIGNUP_IDENTIFIER = MASTER_CONTRACT.SIGNUP_IDENTIFIER
+Left Join "fsa-{env}-ccms-cdc".SIGNUP_TYPE
+On SIGNUP_TYPE.SIGNUP_TYPE_CODE = SIGNUP.SIGNUP_TYPE_CODE
+Left join "fsa-{env}-ccms-cdc".SIGNUP_SUB_CATEGORY
+On SIGNUP_SUB_CATEGORY.SIGNUP_SUB_CATEGORY_CODE = SIGNUP.SIGNUP_SUB_CATEGORY_CODE
+WHERE MASTER_CONTRACT.op <> 'D'
 
-union
-select 
-contract_producer.contract_producer_identifier ctr_prdr_id,
-master_contract.administrative_state_fsa_code adm_st_fsa_cd,
-master_contract.administrative_county_fsa_code adm_cnty_fsa_cd,
-signup_type.signup_type_name sgnp_type_nm,
-signup_sub_category.signup_sub_category_name sgnp_sub_cat_nm,
-signup.signup_number sgnp_nbr,
-signup.signup_subtype_agreement_name sgnp_stype_agr_nm,
-master_contract.contract_number ctr_nbr,
-contract_detail.contract_suffix_number ctr_sfx_nbr,
-contract_producer.core_customer_identifier core_cust_id,
-contract_producer.contract_detail_identifier ctr_det_id,
-contract_producer.producer_share_percentage prdr_shr_pct,
-contract_producer.primary_producer_indicator prim_prdr_ind,
-contract_producer.data_status_code data_stat_cd,
-contract_producer.creation_date cre_dt,
-contract_producer.creation_user_name cre_user_nm,
-contract_producer.last_change_date last_chg_dt,
-contract_producer.last_change_user_name last_chg_user_nm,
-contract_producer.tip_eligible_participant_indicator  tip_elg_ptcp_ind,
-contract_producer.limited_resource_producer_indicator ltd_rsrc_prdr_ind,
-contract_producer.socially_disadvantaged_indicator socl_dadvg_ind,
-contract_producer.beginning_farmer_indicator beg_farm_ind,
-contract_producer.veteran_indicator vet_ind,
-contract_producer.op as cdc_oper_cd,
-current_timestamp() as load_dt,
-'ccms_ctr_prdr' as data_src_nm,
-'{etl_start_date}' as cdc_dt,
-5 as tbl_priority
-from `fsa-{env}-ccms`.`signup`
-left join `fsa-{env}-ccms`.`master_contract` 
-on signup.signup_identifier = master_contract.signup_identifier
-left join  `fsa-{env}-ccms`.`contract_detail` 
-on master_contract.contract_identifier = contract_detail.contract_identifier
-join `fsa-{env}-ccms-cdc`.`contract_producer`
-on contract_producer.contract_detail_identifier = contract_detail.contract_detail_identifier
-left join `fsa-{env}-ccms`.`signup_type`
-on signup_type.signup_type_code = signup.signup_type_code
-left join `fsa-{env}-ccms`.`signup_sub_category`
-on signup_sub_category.signup_sub_category_code = signup.signup_sub_category_code
-where contract_producer.op <> 'D'
+UNION
+SELECT 
+CONTRACT_PRODUCER.CONTRACT_PRODUCER_IDENTIFIER CTR_PRDR_ID,
+MASTER_CONTRACT.ADMINISTRATIVE_STATE_FSA_CODE ADM_ST_FSA_CD,
+MASTER_CONTRACT.ADMINISTRATIVE_COUNTY_FSA_CODE ADM_CNTY_FSA_CD,
+SIGNUP_TYPE.SIGNUP_TYPE_NAME SGNP_TYPE_NM,
+SIGNUP_SUB_CATEGORY.SIGNUP_SUB_CATEGORY_NAME SGNP_SUB_CAT_NM,
+SIGNUP.signup_number SGNP_NBR,
+SIGNUP.SIGNUP_SUBTYPE_AGREEMENT_NAME SGNP_STYPE_AGR_NM,
+MASTER_CONTRACT.CONTRACT_NUMBER CTR_NBR,
+CONTRACT_DETAIL.CONTRACT_SUFFIX_NUMBER CTR_SFX_NBR,
+CONTRACT_PRODUCER.CORE_CUSTOMER_IDENTIFIER CORE_CUST_ID,
+CONTRACT_PRODUCER.CONTRACT_DETAIL_IDENTIFIER CTR_DET_ID,
+CONTRACT_PRODUCER.PRODUCER_SHARE_PERCENTAGE PRDR_SHR_PCT,
+CONTRACT_PRODUCER.PRIMARY_PRODUCER_INDICATOR PRIM_PRDR_IND,
+CONTRACT_PRODUCER.DATA_STATUS_CODE DATA_STAT_CD,
+CONTRACT_PRODUCER.CREATION_DATE CRE_DT,
+CONTRACT_PRODUCER.CREATION_USER_NAME CRE_USER_NM,
+CONTRACT_PRODUCER.LAST_CHANGE_DATE LAST_CHG_DT,
+CONTRACT_PRODUCER.LAST_CHANGE_USER_NAME LAST_CHG_USER_NM,
+CONTRACT_PRODUCER.tip_eligible_participant_indicator  TIP_ELG_PTCP_IND,
+CONTRACT_PRODUCER.limited_resource_producer_indicator LTD_RSRC_PRDR_IND,
+CONTRACT_PRODUCER.socially_disadvantaged_indicator SOCL_DADVG_IND,
+CONTRACT_PRODUCER.beginning_farmer_indicator BEG_FARM_IND,
+CONTRACT_PRODUCER.veteran_indicator VET_IND,
+SIGNUP.op,
+5 AS TBL_PRIORITY
+From "fsa-{env}-ccms-cdc".SIGNUP
+Left Join "fsa-{env}-ccms-cdc".MASTER_CONTRACT 
+On SIGNUP.SIGNUP_IDENTIFIER = MASTER_CONTRACT.SIGNUP_IDENTIFIER
+Left Join  "fsa-{env}-ccms-cdc".CONTRACT_DETAIL 
+On MASTER_CONTRACT.CONTRACT_IDENTIFIER = CONTRACT_DETAIL.CONTRACT_IDENTIFIER
+Join "fsa-{env}-ccms-cdc".CONTRACT_PRODUCER
+on CONTRACT_PRODUCER.CONTRACT_DETAIL_IDENTIFIER = CONTRACT_DETAIL.CONTRACT_DETAIL_IDENTIFIER
+Left Join "fsa-{env}-ccms-cdc".SIGNUP_TYPE
+On SIGNUP_TYPE.SIGNUP_TYPE_CODE = SIGNUP.SIGNUP_TYPE_CODE
+Left join "fsa-{env}-ccms-cdc".SIGNUP_SUB_CATEGORY
+On SIGNUP_SUB_CATEGORY.SIGNUP_SUB_CATEGORY_CODE = SIGNUP.SIGNUP_SUB_CATEGORY_CODE
+WHERE SIGNUP.op <> 'D'
 
-union
-select 
-contract_producer.contract_producer_identifier ctr_prdr_id,
-master_contract.administrative_state_fsa_code adm_st_fsa_cd,
-master_contract.administrative_county_fsa_code adm_cnty_fsa_cd,
-signup_type.signup_type_name sgnp_type_nm,
-signup_sub_category.signup_sub_category_name sgnp_sub_cat_nm,
-signup.signup_number sgnp_nbr,
-signup.signup_subtype_agreement_name sgnp_stype_agr_nm,
-master_contract.contract_number ctr_nbr,
-contract_detail.contract_suffix_number ctr_sfx_nbr,
-contract_producer.core_customer_identifier core_cust_id,
-contract_producer.contract_detail_identifier ctr_det_id,
-contract_producer.producer_share_percentage prdr_shr_pct,
-contract_producer.primary_producer_indicator prim_prdr_ind,
-contract_producer.data_status_code data_stat_cd,
-contract_producer.creation_date cre_dt,
-contract_producer.creation_user_name cre_user_nm,
-contract_producer.last_change_date last_chg_dt,
-contract_producer.last_change_user_name last_chg_user_nm,
-contract_producer.tip_eligible_participant_indicator  tip_elg_ptcp_ind,
-contract_producer.limited_resource_producer_indicator ltd_rsrc_prdr_ind,
-contract_producer.socially_disadvantaged_indicator socl_dadvg_ind,
-contract_producer.beginning_farmer_indicator beg_farm_ind,
-contract_producer.veteran_indicator vet_ind,
-contract_producer.op as cdc_oper_cd,
-current_timestamp() as load_dt,
-'ccms_ctr_prdr' as data_src_nm,
-'{etl_start_date}' as cdc_dt,
-6 as tbl_priority
-from `fsa-{env}-ccms`.`signup_type`
-left join `fsa-{env}-ccms`.`signup`
-on signup_type.signup_type_code = signup.signup_type_code
-left join `fsa-{env}-ccms`.`master_contract` 
-on signup.signup_identifier = master_contract.signup_identifier
-left join  `fsa-{env}-ccms`.`contract_detail` 
-on master_contract.contract_identifier = contract_detail.contract_identifier
-join `fsa-{env}-ccms-cdc`.`contract_producer`
-on contract_producer.contract_detail_identifier = contract_detail.contract_detail_identifier
-left join `fsa-{env}-ccms`.`signup_sub_category`
-on signup_sub_category.signup_sub_category_code = signup.signup_sub_category_code
-where contract_producer.op <> 'D'
+UNION
+SELECT 
+CONTRACT_PRODUCER.CONTRACT_PRODUCER_IDENTIFIER CTR_PRDR_ID,
+MASTER_CONTRACT.ADMINISTRATIVE_STATE_FSA_CODE ADM_ST_FSA_CD,
+MASTER_CONTRACT.ADMINISTRATIVE_COUNTY_FSA_CODE ADM_CNTY_FSA_CD,
+SIGNUP_TYPE.SIGNUP_TYPE_NAME SGNP_TYPE_NM,
+SIGNUP_SUB_CATEGORY.SIGNUP_SUB_CATEGORY_NAME SGNP_SUB_CAT_NM,
+SIGNUP.signup_number SGNP_NBR,
+SIGNUP.SIGNUP_SUBTYPE_AGREEMENT_NAME SGNP_STYPE_AGR_NM,
+MASTER_CONTRACT.CONTRACT_NUMBER CTR_NBR,
+CONTRACT_DETAIL.CONTRACT_SUFFIX_NUMBER CTR_SFX_NBR,
+CONTRACT_PRODUCER.CORE_CUSTOMER_IDENTIFIER CORE_CUST_ID,
+CONTRACT_PRODUCER.CONTRACT_DETAIL_IDENTIFIER CTR_DET_ID,
+CONTRACT_PRODUCER.PRODUCER_SHARE_PERCENTAGE PRDR_SHR_PCT,
+CONTRACT_PRODUCER.PRIMARY_PRODUCER_INDICATOR PRIM_PRDR_IND,
+CONTRACT_PRODUCER.DATA_STATUS_CODE DATA_STAT_CD,
+CONTRACT_PRODUCER.CREATION_DATE CRE_DT,
+CONTRACT_PRODUCER.CREATION_USER_NAME CRE_USER_NM,
+CONTRACT_PRODUCER.LAST_CHANGE_DATE LAST_CHG_DT,
+CONTRACT_PRODUCER.LAST_CHANGE_USER_NAME LAST_CHG_USER_NM,
+CONTRACT_PRODUCER.tip_eligible_participant_indicator  TIP_ELG_PTCP_IND,
+CONTRACT_PRODUCER.limited_resource_producer_indicator LTD_RSRC_PRDR_IND,
+CONTRACT_PRODUCER.socially_disadvantaged_indicator SOCL_DADVG_IND,
+CONTRACT_PRODUCER.beginning_farmer_indicator BEG_FARM_IND,
+CONTRACT_PRODUCER.veteran_indicator VET_IND,
+SIGNUP_TYPE.op,
+6 AS TBL_PRIORITY
+From "fsa-{env}-ccms-cdc".SIGNUP_TYPE
+Left Join "fsa-{env}-ccms-cdc".SIGNUP
+On SIGNUP_TYPE.SIGNUP_TYPE_CODE = SIGNUP.SIGNUP_TYPE_CODE
+Left Join "fsa-{env}-ccms-cdc".MASTER_CONTRACT 
+On SIGNUP.SIGNUP_IDENTIFIER = MASTER_CONTRACT.SIGNUP_IDENTIFIER
+Left Join  "fsa-{env}-ccms-cdc".CONTRACT_DETAIL 
+On MASTER_CONTRACT.CONTRACT_IDENTIFIER = CONTRACT_DETAIL.CONTRACT_IDENTIFIER
+Join "fsa-{env}-ccms-cdc".CONTRACT_PRODUCER
+on CONTRACT_PRODUCER.CONTRACT_DETAIL_IDENTIFIER = CONTRACT_DETAIL.CONTRACT_DETAIL_IDENTIFIER
+Left join "fsa-{env}-ccms-cdc".SIGNUP_SUB_CATEGORY
+On SIGNUP_SUB_CATEGORY.SIGNUP_SUB_CATEGORY_CODE = SIGNUP.SIGNUP_SUB_CATEGORY_CODE
+WHERE SIGNUP_TYPE.op <> 'D'
 
-union
-select 
-contract_producer.contract_producer_identifier ctr_prdr_id,
-master_contract.administrative_state_fsa_code adm_st_fsa_cd,
-master_contract.administrative_county_fsa_code adm_cnty_fsa_cd,
-signup_type.signup_type_name sgnp_type_nm,
-signup_sub_category.signup_sub_category_name sgnp_sub_cat_nm,
-signup.signup_number sgnp_nbr,
-signup.signup_subtype_agreement_name sgnp_stype_agr_nm,
-master_contract.contract_number ctr_nbr,
-contract_detail.contract_suffix_number ctr_sfx_nbr,
-contract_producer.core_customer_identifier core_cust_id,
-contract_producer.contract_detail_identifier ctr_det_id,
-contract_producer.producer_share_percentage prdr_shr_pct,
-contract_producer.primary_producer_indicator prim_prdr_ind,
-contract_producer.data_status_code data_stat_cd,
-contract_producer.creation_date cre_dt,
-contract_producer.creation_user_name cre_user_nm,
-contract_producer.last_change_date last_chg_dt,
-contract_producer.last_change_user_name last_chg_user_nm,
-contract_producer.tip_eligible_participant_indicator  tip_elg_ptcp_ind,
-contract_producer.limited_resource_producer_indicator ltd_rsrc_prdr_ind,
-contract_producer.socially_disadvantaged_indicator socl_dadvg_ind,
-contract_producer.beginning_farmer_indicator beg_farm_ind,
-contract_producer.veteran_indicator vet_ind,
-contract_producer.op as cdc_oper_cd,
-current_timestamp() as load_dt,
-'ccms_ctr_prdr' as data_src_nm,
-'{etl_start_date}' as cdc_dt,
-7 as tbl_priority
-from `fsa-{env}-ccms`.`signup_sub_category`
-left join `fsa-{env}-ccms`.`signup`
-on signup_sub_category.signup_sub_category_code = signup.signup_sub_category_code
- left join `fsa-{env}-ccms`.`signup_type`
- on signup_type.signup_type_code = signup.signup_type_code
-left join `fsa-{env}-ccms`.`master_contract` 
-on signup.signup_identifier = master_contract.signup_identifier
-left join  `fsa-{env}-ccms`.`contract_detail` 
-on master_contract.contract_identifier = contract_detail.contract_identifier
-join `fsa-{env}-ccms-cdc`.`contract_producer`
-on contract_producer.contract_detail_identifier = contract_detail.contract_detail_identifier
-where contract_producer.op <> 'D'
-) stg_all
-) stg_unq
-where row_num_part = 1
+UNION
+SELECT 
+CONTRACT_PRODUCER.CONTRACT_PRODUCER_IDENTIFIER CTR_PRDR_ID,
+MASTER_CONTRACT.ADMINISTRATIVE_STATE_FSA_CODE ADM_ST_FSA_CD,
+MASTER_CONTRACT.ADMINISTRATIVE_COUNTY_FSA_CODE ADM_CNTY_FSA_CD,
+SIGNUP_TYPE.SIGNUP_TYPE_NAME SGNP_TYPE_NM,
+SIGNUP_SUB_CATEGORY.SIGNUP_SUB_CATEGORY_NAME SGNP_SUB_CAT_NM,
+SIGNUP.signup_number SGNP_NBR,
+SIGNUP.SIGNUP_SUBTYPE_AGREEMENT_NAME SGNP_STYPE_AGR_NM,
+MASTER_CONTRACT.CONTRACT_NUMBER CTR_NBR,
+CONTRACT_DETAIL.CONTRACT_SUFFIX_NUMBER CTR_SFX_NBR,
+CONTRACT_PRODUCER.CORE_CUSTOMER_IDENTIFIER CORE_CUST_ID,
+CONTRACT_PRODUCER.CONTRACT_DETAIL_IDENTIFIER CTR_DET_ID,
+CONTRACT_PRODUCER.PRODUCER_SHARE_PERCENTAGE PRDR_SHR_PCT,
+CONTRACT_PRODUCER.PRIMARY_PRODUCER_INDICATOR PRIM_PRDR_IND,
+CONTRACT_PRODUCER.DATA_STATUS_CODE DATA_STAT_CD,
+CONTRACT_PRODUCER.CREATION_DATE CRE_DT,
+CONTRACT_PRODUCER.CREATION_USER_NAME CRE_USER_NM,
+CONTRACT_PRODUCER.LAST_CHANGE_DATE LAST_CHG_DT,
+CONTRACT_PRODUCER.LAST_CHANGE_USER_NAME LAST_CHG_USER_NM,
+CONTRACT_PRODUCER.tip_eligible_participant_indicator  TIP_ELG_PTCP_IND,
+CONTRACT_PRODUCER.limited_resource_producer_indicator LTD_RSRC_PRDR_IND,
+CONTRACT_PRODUCER.socially_disadvantaged_indicator SOCL_DADVG_IND,
+CONTRACT_PRODUCER.beginning_farmer_indicator BEG_FARM_IND,
+CONTRACT_PRODUCER.veteran_indicator VET_IND,
+SIGNUP_SUB_CATEGORY.op,
+7 AS TBL_PRIORITY
+From "fsa-{env}-ccms-cdc".SIGNUP_SUB_CATEGORY
+Left Join "fsa-{env}-ccms-cdc".SIGNUP
+On SIGNUP_SUB_CATEGORY.SIGNUP_SUB_CATEGORY_CODE = SIGNUP.SIGNUP_SUB_CATEGORY_CODE
+ Left Join "fsa-{env}-ccms-cdc".SIGNUP_TYPE
+ On SIGNUP_TYPE.SIGNUP_TYPE_CODE = SIGNUP.SIGNUP_TYPE_CODE
+Left Join "fsa-{env}-ccms-cdc".MASTER_CONTRACT 
+On SIGNUP.SIGNUP_IDENTIFIER = MASTER_CONTRACT.SIGNUP_IDENTIFIER
+Left Join  "fsa-{env}-ccms-cdc".CONTRACT_DETAIL 
+On MASTER_CONTRACT.CONTRACT_IDENTIFIER = CONTRACT_DETAIL.CONTRACT_IDENTIFIER
+Join "fsa-{env}-ccms-cdc".CONTRACT_PRODUCER
+on CONTRACT_PRODUCER.CONTRACT_DETAIL_IDENTIFIER = CONTRACT_DETAIL.CONTRACT_DETAIL_IDENTIFIER
+WHERE SIGNUP_SUB_CATEGORY.op <> 'D'
+) STG_ALL
+) STG_UNQ
+WHERE row_num_part = 1
+AND CONTRACT_PRODUCER.dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}'
 
-
-union
-select distinct
-contract_producer.contract_producer_identifier ctr_prdr_id,
-null adm_st_fsa_cd,
-null adm_cnty_fsa_cd,
-null sgnp_type_nm,
-null sgnp_sub_cat_nm,
-null sgnp_nbr,
-null sgnp_stype_agr_nm,
-null ctr_nbr,
-null ctr_sfx_nbr,
-contract_producer.core_customer_identifier core_cust_id,
-contract_producer.contract_detail_identifier ctr_det_id,
-contract_producer.producer_share_percentage prdr_shr_pct,
-contract_producer.primary_producer_indicator prim_prdr_ind,
-contract_producer.data_status_code data_stat_cd,
-contract_producer.creation_date cre_dt,
-contract_producer.creation_user_name cre_user_nm,
-contract_producer.last_change_date last_chg_dt,
-contract_producer.last_change_user_name last_chg_user_nm,
-contract_producer.tip_eligible_participant_indicator  tip_elg_ptcp_ind,
-contract_producer.limited_resource_producer_indicator ltd_rsrc_prdr_ind,
-contract_producer.socially_disadvantaged_indicator socl_dadvg_ind,
-contract_producer.beginning_farmer_indicator beg_farm_ind,
-contract_producer.veteran_indicator vet_ind,
-'D' cdc_oper_cd,
-current_timestamp() as load_dt,
-'ccms_ctr_prdr' as data_src_nm,
-'{etl_start_date}' as cdc_dt,
-1 as row_num_part
-from `fsa-{env}-ccms-cdc`.`contract_producer`
-where contract_producer.op = 'D'
+UNION
+SELECT DISTINCT
+CONTRACT_PRODUCER.CONTRACT_PRODUCER_IDENTIFIER CTR_PRDR_ID,
+NULL ADM_ST_FSA_CD,
+NULL ADM_CNTY_FSA_CD,
+NULL SGNP_TYPE_NM,
+NULL SGNP_SUB_CAT_NM,
+NULL SGNP_NBR,
+NULL SGNP_STYPE_AGR_NM,
+NULL CTR_NBR,
+NULL CTR_SFX_NBR,
+CONTRACT_PRODUCER.CORE_CUSTOMER_IDENTIFIER CORE_CUST_ID,
+CONTRACT_PRODUCER.CONTRACT_DETAIL_IDENTIFIER CTR_DET_ID,
+CONTRACT_PRODUCER.PRODUCER_SHARE_PERCENTAGE PRDR_SHR_PCT,
+CONTRACT_PRODUCER.PRIMARY_PRODUCER_INDICATOR PRIM_PRDR_IND,
+CONTRACT_PRODUCER.DATA_STATUS_CODE DATA_STAT_CD,
+CONTRACT_PRODUCER.CREATION_DATE CRE_DT,
+CONTRACT_PRODUCER.CREATION_USER_NAME CRE_USER_NM,
+CONTRACT_PRODUCER.LAST_CHANGE_DATE LAST_CHG_DT,
+CONTRACT_PRODUCER.LAST_CHANGE_USER_NAME LAST_CHG_USER_NM,
+CONTRACT_PRODUCER.tip_eligible_participant_indicator  TIP_ELG_PTCP_IND,
+CONTRACT_PRODUCER.limited_resource_producer_indicator LTD_RSRC_PRDR_IND,
+CONTRACT_PRODUCER.socially_disadvantaged_indicator SOCL_DADVG_IND,
+CONTRACT_PRODUCER.beginning_farmer_indicator BEG_FARM_IND,
+CONTRACT_PRODUCER.veteran_indicator VET_IND,
+'D' CDC_OPER_CD,
+1 AS row_num_part
+FROM "fsa-{env}-ccms-cdc".CONTRACT_PRODUCER
+WHERE CONTRACT_PRODUCER.op = 'D'

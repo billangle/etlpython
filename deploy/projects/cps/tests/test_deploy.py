@@ -163,9 +163,10 @@ class TestCpsDeployRegression(unittest.TestCase):
             "s3://bucket/ref-files/config.json",
         )
         self.assertEqual(
-            landing_args.get("--extra-py-files"),
+            landing_args.get("--additional-python-modules"),
             "s3://bucket/wheels/psycopg2.whl",
         )
+        self.assertNotIn("--extra-py-files", landing_args)
 
     def test_lambda_handlers_and_count(self):
         _, captured = self._run_deploy()

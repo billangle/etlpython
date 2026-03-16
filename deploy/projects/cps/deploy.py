@@ -130,10 +130,10 @@ def _merge_glue_default_args(base_args: Dict[str, Any], glue_job_params: Dict[st
 
     extra_py = glue_job_params.get("AdditionalPythonModulesPath")
     if extra_py and str(extra_py).strip():
-        out["--extra-py-files"] = str(extra_py).strip()
+        out["--additional-python-modules"] = str(extra_py).strip()
 
     python_lib_path = _as_str(glue_job_params.get("PythonLibraryPath"), default="")
-    if python_lib_path and "--extra-py-files" not in out:
+    if python_lib_path:
         out["--extra-py-files"] = python_lib_path
 
     job_params = _as_dict(glue_job_params.get("JobParameters"))

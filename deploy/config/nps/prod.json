@@ -74,7 +74,7 @@
           "--area": "nps",
           "--environ": "prod",
           "--schema_name": "fwadm_dw",
-          "--force_full_rebuild": "False"
+          "--force_full_rebuild": "True"
         }
       }
     },

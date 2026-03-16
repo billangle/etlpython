@@ -124,9 +124,17 @@ def _merge_glue_default_args(base_args: Dict[str, Any], glue_job_params: Dict[st
     if _as_bool(glue_job_params.get("UseGlueDataCatalogAsTheHiveMetastore"), default=False) is True:
         out["--enable-glue-datacatalog"] = "true"
 
+    ref_files = glue_job_params.get("ReferencePath")
+    if ref_files and str(ref_files).strip():
+        out["--extra-files"] = str(ref_files).strip()
+
     extra_py = glue_job_params.get("AdditionalPythonModulesPath")
     if extra_py and str(extra_py).strip():
         out["--extra-py-files"] = str(extra_py).strip()
+
+    python_lib_path = _as_str(glue_job_params.get("PythonLibraryPath"), default="")
+    if python_lib_path and "--extra-py-files" not in out:
+        out["--extra-py-files"] = python_lib_path
 
     job_params = _as_dict(glue_job_params.get("JobParameters"))
     for k, v in job_params.items():

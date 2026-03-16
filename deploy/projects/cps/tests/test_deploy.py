@@ -60,6 +60,8 @@ def _base_cfg() -> dict:
                     "WorkerType": "G.2X",
                     "NumberOfWorkers": "8",
                     "GlueVersion": "4.0",
+                    "ReferencePath": "s3://bucket/ref-files/config.json",
+                    "AdditionalPythonModulesPath": "s3://bucket/wheels/psycopg2.whl",
                     "JobParameters": {
                         "--DestinationBucket": "c108-tst-fpacfsa-landing-zone",
                         "--DestinationPrefix": "cps/etl-jobs",
@@ -150,6 +152,20 @@ class TestCpsDeployRegression(unittest.TestCase):
 
         self.assertEqual(by_name["FSA-TST-CPS-LandingFiles"].max_concurrency, 1)
         self.assertEqual(by_name["FSA-TST-CPS-Raw-DM"].max_concurrency, 20)
+
+    def test_glue_reference_and_python_module_paths_map_to_distinct_args(self):
+        _, captured = self._run_deploy()
+        by_name = {s.name: s for s in captured["glue_specs"]}
+        landing_args = by_name["FSA-TST-CPS-LandingFiles"].default_args
+
+        self.assertEqual(
+            landing_args.get("--extra-files"),
+            "s3://bucket/ref-files/config.json",
+        )
+        self.assertEqual(
+            landing_args.get("--extra-py-files"),
+            "s3://bucket/wheels/psycopg2.whl",
+        )
 
     def test_lambda_handlers_and_count(self):
         _, captured = self._run_deploy()

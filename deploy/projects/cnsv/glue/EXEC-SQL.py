@@ -88,6 +88,7 @@ class SQLFS:
 
     S3 Structure:
         s3://c108-{env}-fpacfsa-final-zone/{app}/_configs/STG/{table.upper()}/initial/{table}.sql
+        s3://c108-{env}-fpacfsa-final-zone/{app}/_configs/STG/{table.upper()}/incremental/{table.upper()}.sql
         s3://c108-{env}-fpacfsa-final-zone/{app}/_configs/STG/{table.upper()}/incremental/{table}.sql
         s3://c108-{env}-fpacfsa-final-zone/{app}/_configs/EDV/{table.upper()}/*.sql
         s3://c108-{env}-fpacfsa-final-zone/{app}/_configs/{APP}_DM/{table.upper()}/*.sql
@@ -117,16 +118,14 @@ class SQLFS:
 
         stg_prefix = f"{self.base_prefix}/STG/"
 
-        table_folder = self._resolve_s3_path_case(stg_prefix, table_name)
+        table_folder = self._resolve_s3_path_case(stg_prefix, table_name.upper())
         table_prefix = f"{stg_prefix}{table_folder}/"
 
         run_type_folder = self._resolve_s3_path_case(table_prefix, run_type)
         run_prefix = f"{table_prefix}{run_type_folder}/"
 
-        file_name = self._resolve_s3_path_case(run_prefix, f"{table_name}.sql")
-
+        file_name = self._resolve_s3_path_case(run_prefix, f"{table_name.upper()}.sql")
         key = f"{run_prefix}{file_name}"
-
         return self._read_sql_file(key, start_date, end_date)
 
     def get_layer_sqls(self, layer: str, table_name: str,

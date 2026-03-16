@@ -1,0 +1,111 @@
+SELECT HRCH_LVL_NM,
+PGM_ELG_QSTN_ID,
+CNSV_PGM_ID,
+PGM_QSTN_TXT,
+CNSV_PGM_DESC,
+DATA_STAT_CD,
+CRE_DT,
+LAST_CHG_DT,
+LAST_CHG_USER_NM,
+CDC_OPER_CD,
+''  HASH_DIF,
+current_timestamp LOAD_DT,
+'CNSV'  DATA_SRC_NM,
+'{ETL_START_DATE}' AS CDC_DT FROM ( SELECT * FROM 
+(
+SELECT DISTINCT HRCH_LVL_NM,
+PGM_ELG_QSTN_ID,
+CNSV_PGM_ID,
+PGM_QSTN_TXT,
+CNSV_PGM_DESC,
+DATA_STAT_CD,
+CRE_DT,
+LAST_CHG_DT,
+LAST_CHG_USER_NM,
+OP CDC_OPER_CD,
+ROW_NUMBER() over ( partition by 
+PGM_ELG_QSTN_ID
+order by TBL_PRIORITY ASC, LAST_CHG_DT DESC ) AS row_num_part
+FROM
+(
+SELECT 
+PROGRAM_HIERARCHY_LEVEL.HRCH_LVL_NM HRCH_LVL_NM,
+provisioning_program_eligibility_question.PGM_ELG_QSTN_ID PGM_ELG_QSTN_ID,
+provisioning_program_eligibility_question.CNSV_PGM_ID CNSV_PGM_ID,
+provisioning_program_eligibility_question.PGM_QSTN_TXT PGM_QSTN_TXT,
+conservation_program.CNSV_PGM_DESC CNSV_PGM_DESC,
+provisioning_program_eligibility_question.DATA_STAT_CD DATA_STAT_CD,
+provisioning_program_eligibility_question.CRE_DT CRE_DT,
+provisioning_program_eligibility_question.LAST_CHG_DT LAST_CHG_DT,
+provisioning_program_eligibility_question.LAST_CHG_USER_NM LAST_CHG_USER_NM,
+PROVISIONING_PROGRAM_ELIGIBILITY_QUESTION.OP,
+1 AS TBL_PRIORITY
+FROM "fsa-{env}-cnsv-cdc"."PROVISIONING_PROGRAM_ELIGIBILITY_QUESTION" PROVISIONING_PROGRAM_ELIGIBILITY_QUESTION 
+LEFT JOIN "fsa-{env}-cnsv".CONSERVATION_PROGRAM ON (PROVISIONING_PROGRAM_ELIGIBILITY_QUESTION.CNSV_PGM_ID = CONSERVATION_PROGRAM.CNSV_PGM_ID) 
+LEFT JOIN "fsa-{env}-cnsv".PROGRAM_HIERARCHY_LEVEL ON (CONSERVATION_PROGRAM.PGM_HRCH_LVL_ID = PROGRAM_HIERARCHY_LEVEL.PGM_HRCH_LVL_ID)
+WHERE PROVISIONING_PROGRAM_ELIGIBILITY_QUESTION.OP <> 'D' AND
+PROVISIONING_PROGRAM_ELIGIBILITY_QUESTION.dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}'
+
+UNION
+SELECT 
+PROGRAM_HIERARCHY_LEVEL.HRCH_LVL_NM HRCH_LVL_NM,
+provisioning_program_eligibility_question.PGM_ELG_QSTN_ID PGM_ELG_QSTN_ID,
+provisioning_program_eligibility_question.CNSV_PGM_ID CNSV_PGM_ID,
+provisioning_program_eligibility_question.PGM_QSTN_TXT PGM_QSTN_TXT,
+conservation_program.CNSV_PGM_DESC CNSV_PGM_DESC,
+provisioning_program_eligibility_question.DATA_STAT_CD DATA_STAT_CD,
+provisioning_program_eligibility_question.CRE_DT CRE_DT,
+provisioning_program_eligibility_question.LAST_CHG_DT LAST_CHG_DT,
+provisioning_program_eligibility_question.LAST_CHG_USER_NM LAST_CHG_USER_NM,
+CONSERVATION_PROGRAM.OP,
+2 AS TBL_PRIORITY
+FROM "fsa-{env}-cnsv-cdc"."CONSERVATION_PROGRAM" CONSERVATION_PROGRAM 
+JOIN "fsa-{env}-cnsv".PROVISIONING_PROGRAM_ELIGIBILITY_QUESTION ON (CONSERVATION_PROGRAM.CNSV_PGM_ID = PROVISIONING_PROGRAM_ELIGIBILITY_QUESTION.CNSV_PGM_ID) 
+LEFT JOIN "fsa-{env}-cnsv".PROGRAM_HIERARCHY_LEVEL ON (CONSERVATION_PROGRAM.PGM_HRCH_LVL_ID = PROGRAM_HIERARCHY_LEVEL.PGM_HRCH_LVL_ID)
+WHERE CONSERVATION_PROGRAM.OP <> 'D' AND
+CONSERVATION_PROGRAM.dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}'
+
+UNION
+SELECT 
+PROGRAM_HIERARCHY_LEVEL.HRCH_LVL_NM HRCH_LVL_NM,
+provisioning_program_eligibility_question.PGM_ELG_QSTN_ID PGM_ELG_QSTN_ID,
+provisioning_program_eligibility_question.CNSV_PGM_ID CNSV_PGM_ID,
+provisioning_program_eligibility_question.PGM_QSTN_TXT PGM_QSTN_TXT,
+conservation_program.CNSV_PGM_DESC CNSV_PGM_DESC,
+provisioning_program_eligibility_question.DATA_STAT_CD DATA_STAT_CD,
+provisioning_program_eligibility_question.CRE_DT CRE_DT,
+provisioning_program_eligibility_question.LAST_CHG_DT LAST_CHG_DT,
+provisioning_program_eligibility_question.LAST_CHG_USER_NM LAST_CHG_USER_NM,
+PROGRAM_HIERARCHY_LEVEL.OP,
+3 AS TBL_PRIORITY
+FROM "fsa-{env}-cnsv-cdc"."PROGRAM_HIERARCHY_LEVEL" PROGRAM_HIERARCHY_LEVEL 
+LEFT JOIN "fsa-{env}-cnsv".CONSERVATION_PROGRAM ON (PROGRAM_HIERARCHY_LEVEL.PGM_HRCH_LVL_ID = CONSERVATION_PROGRAM.PGM_HRCH_LVL_ID) 
+JOIN "fsa-{env}-cnsv".PROVISIONING_PROGRAM_ELIGIBILITY_QUESTION ON (CONSERVATION_PROGRAM.CNSV_PGM_ID = PROVISIONING_PROGRAM_ELIGIBILITY_QUESTION.CNSV_PGM_ID)
+WHERE PROGRAM_HIERARCHY_LEVEL.OP <> 'D' AND
+PROGRAM_HIERARCHY_LEVEL.dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}'
+
+) STG_ALL
+) STG_UNQ
+WHERE row_num_part = 1
+AND (
+ (COALESCE(CAST(CRE_DT AS DATE), DATE '1900-01-01') <= CAST('{ETL_START_DATE}'  AS DATE))
+    AND
+    (COALESCE(CAST(LAST_CHG_DT AS DATE), DATE '1900-01-01') <= CAST('{ETL_START_DATE}'  AS DATE))
+)
+UNION
+SELECT DISTINCT
+NULL HRCH_LVL_NM,
+provisioning_program_eligibility_question.PGM_ELG_QSTN_ID PGM_ELG_QSTN_ID,
+provisioning_program_eligibility_question.CNSV_PGM_ID CNSV_PGM_ID,
+provisioning_program_eligibility_question.PGM_QSTN_TXT PGM_QSTN_TXT,
+NULL CNSV_PGM_DESC,
+provisioning_program_eligibility_question.DATA_STAT_CD DATA_STAT_CD,
+provisioning_program_eligibility_question.CRE_DT CRE_DT,
+provisioning_program_eligibility_question.LAST_CHG_DT LAST_CHG_DT,
+provisioning_program_eligibility_question.LAST_CHG_USER_NM LAST_CHG_USER_NM,
+'D' OP,
+1 AS row_num_part
+FROM "fsa-{env}-cnsv-cdc".provisioning_program_eligibility_question provisioning_program_eligibility_question
+WHERE OP = 'D'
+AND dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}' 
+)

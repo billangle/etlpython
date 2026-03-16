@@ -1,0 +1,75 @@
+{
+  "StartAt": "FSA-DEV-CPS-Incremental-to-S3Landing",
+  "States": {
+    "FSA-DEV-CPS-Incremental-to-S3Landing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:241533156429:stateMachine:FSA-DEV-CPS-Incremental-to-S3Landing",
+        "Input": {
+          "Bucket": "c108-prod-fpacfsa-landing-zone",
+          "Key": "cps/etl-jobs/job_id.json"
+        }
+      },
+      "ResultSelector": {
+        "JobId.$": "$.Output.JobId.JobId",
+        "noFiles.$": "$.Output.JobId.noFiles",
+        "FileList.$": "$.Output.JobId.FileList"
+      },
+      "ResultPath": "$",
+      "Next": "BranchOnNoFiles"
+    },
+    "BranchOnNoFiles": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.noFiles",
+          "BooleanEquals": true,
+          "Next": "Notify"
+        }
+      ],
+      "Default": "Update CPS RAW-DM"
+    },
+    "Update CPS RAW-DM": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:241533156429:stateMachine:FSA-DEV-CPS-S3Landing-to-S3Final-Raw-DM",
+        "Input": {
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+          "JobId.$": "$.JobId",
+          "step_seq_nbr": "2",
+          "SfName": "FSA-DEV-CPS-S3Landing-to-S3Final-Raw-DM"
+        }
+      },
+      "ResultPath": "$.ProcessControlResult",
+      "Next": "Update Process Control"
+    },
+    "Update Process Control": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:us-east-1:241533156429:stateMachine:FSA-DEV-CPS-Process-Control-Update",
+        "Input": {
+          "JobId.$": "$.JobId",
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id"
+        }
+      },
+      "ResultPath": "$.ProcessControlResult",
+      "Next": "Notify"
+    },
+    "Notify": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:241533156429:function:FSA-DEV-CPS-sns-publish-validations-report",
+        "Payload": {
+          "JobId.$": "$.JobId",
+          "noFiles.$": "$.noFiles",
+          "files.$": "$.FileList"
+        }
+      },
+      "End": true
+    }
+  }
+}

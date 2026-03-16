@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -155,6 +156,47 @@ class TestCpsDeployRegression(unittest.TestCase):
         self.assertEqual(len(captured["lambda_specs"]), 6)
         for spec in captured["lambda_specs"]:
             self.assertEqual(spec.handler, "lambda_function.lambda_handler")
+
+    def test_prepare_lambda_source_normalizes_hyphen_filename(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "fn"
+            src.mkdir(parents=True, exist_ok=True)
+            (src / "lambda-function.py").write_text(
+                "def lambda_handler(event, context):\n    return {'ok': True}\n",
+                encoding="utf-8",
+            )
+
+            staged_path, tmp_ctx = cps_deploy._prepare_lambda_source(src)
+            try:
+                staged = Path(staged_path)
+                self.assertTrue((staged / "lambda_function.py").exists())
+                sym = cps_deploy._detect_handler_symbol(staged / "lambda_function.py")
+                self.assertEqual(sym, "lambda_handler")
+            finally:
+                if tmp_ctx is not None:
+                    tmp_ctx.cleanup()
+
+    def test_detect_handler_symbol_raises_when_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "lambda_function.py"
+            p.write_text("def not_a_handler():\n    return 1\n", encoding="utf-8")
+            with self.assertRaises(RuntimeError):
+                cps_deploy._detect_handler_symbol(p)
+
+    def test_all_cps_lambdas_resolve_to_lambda_handler(self):
+        lambda_root = _DEPLOY_ROOT / "projects" / "cps" / "lambda"
+        dirs = sorted([p for p in lambda_root.iterdir() if p.is_dir()])
+        self.assertGreater(len(dirs), 0)
+
+        for d in dirs:
+            with self.subTest(lambda_dir=d.name):
+                staged_path, tmp_ctx = cps_deploy._prepare_lambda_source(d)
+                try:
+                    sym = cps_deploy._detect_handler_symbol(Path(staged_path) / "lambda_function.py")
+                    self.assertEqual(sym, "lambda_handler")
+                finally:
+                    if tmp_ctx is not None:
+                        tmp_ctx.cleanup()
 
     def test_lambda_env_injections(self):
         _, captured = self._run_deploy()

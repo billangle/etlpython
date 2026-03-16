@@ -225,7 +225,7 @@ class SQLFS:
                     return part
 
         raise FileNotFoundError(
-            f"Could not resolve S3 casing for '{target}' under '{prefix}'"
+            f"Could not resolve S3 bucket: '{self.bucket}' casing for '{target}' under '{prefix}'"
         )
 
     def _substitute_parameters(self, sql_content: str, start_date: str, end_date: str = None) -> str:

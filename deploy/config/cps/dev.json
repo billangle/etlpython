@@ -40,7 +40,7 @@
     "inputPrefix": "input/zips",
     "outputBucket": "c108-dev-fpacfsa-final-zone",
     "outputPrefix": "cps",
-    "minExpectedObjects": 2,
+    "minExpectedObjects": 1,
     "debug": true
   },
   "GlueConfig": [ 
@@ -73,7 +73,7 @@
             "--PipelineName": "cps",
             "--SecretId": "FSA-DEV-secrets",
             "--SourcePrefix": "cps/dbo",
-            "--Config_key": "cps/etl-jobs/cps_target_schema.json"
+            "--Config_key": "cps/_configs/cps_target_schema.json"
           }
       }
     },

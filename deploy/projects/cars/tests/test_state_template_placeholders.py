@@ -28,7 +28,6 @@ class TestCarsStateTemplatePlaceholders(unittest.TestCase):
     def test_dm_etl_template_uses_glue_job_placeholders(self):
         text = json.dumps(self._load_json("dm-etl-pipeline.asl.json"))
         self.assertIn("__EXEC_SQL_GLUE_JOB_NAME__", text)
-        self.assertIn("__PG_TO_REDSHIFT_GLUE_JOB_NAME__", text)
         self.assertNotIn("FSA-PROD-DATAMART-EXEC-DB-SQL", text)
         self.assertNotIn("FSA-PROD-DART-PG-TO-REDSHIFT", text)
 

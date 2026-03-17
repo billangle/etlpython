@@ -2,12 +2,17 @@ import os
 import json
 import shutil
 import zipfile
+import logging
 from fnmatch import fnmatch
 from typing import List, Dict, Any
 
 import boto3
 
 s3 = boto3.client("s3")
+logger = logging.getLogger(__name__)
+if not logger.handlers:
+    logger.addHandler(logging.StreamHandler())
+logger.setLevel(logging.INFO)
 
 
 def _normalize_prefix(prefix: str) -> str:
@@ -72,6 +77,13 @@ def lambda_handler(event: Dict[str, Any], context):
     source_folder = event.get("source_folder")
     destination_bucket = event.get("destination_bucket")
 
+    logger.info(
+        "DownloadZip start source_bucket=%s source_folder=%s destination_bucket=%s",
+        source_bucket,
+        source_folder,
+        destination_bucket,
+    )
+
     if not source_bucket:
         raise ValueError("event.source_bucket is required")
     if source_folder is None:
@@ -92,6 +104,13 @@ def lambda_handler(event: Dict[str, Any], context):
     if not destination_key:
         safe_prefix = prefix.rstrip("/").replace("/", "_") or "root"
         destination_key = f"exports/{source_bucket}-{safe_prefix}.zip"
+
+    logger.info(
+        "DownloadZip settings destination_key=%s include_source_folder_in_zip=%s ignore_patterns=%s",
+        destination_key,
+        include_source_folder_in_zip,
+        ignore_patterns,
+    )
 
     # Workspace in /tmp
     work_dir = "/tmp/s3zip_work"
@@ -118,6 +137,7 @@ def lambda_handler(event: Dict[str, Any], context):
                 continue
 
             if _should_ignore(key, ignore_patterns):
+                logger.info("Skipping object key=%s (matched ignore pattern)", key)
                 skipped += 1
                 continue
 
@@ -134,6 +154,7 @@ def lambda_handler(event: Dict[str, Any], context):
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
 
             s3.download_file(source_bucket, key, local_path)
+            logger.info("Using object key=%s -> local_path=%s", key, local_path)
             downloaded += 1
 
     # Create zip
@@ -146,6 +167,14 @@ def lambda_handler(event: Dict[str, Any], context):
 
     # Upload zip
     s3.upload_file(zip_path, destination_bucket, destination_key)
+    logger.info(
+        "DownloadZip complete destination=s3://%s/%s zipped_files=%s skipped_files=%s zip_size_bytes=%s",
+        destination_bucket,
+        destination_key,
+        downloaded,
+        skipped,
+        os.path.getsize(zip_path),
+    )
 
     return {
         "ok": True,

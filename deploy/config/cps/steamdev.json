@@ -288,84 +288,33 @@
   ],
   "crawlers": [
     {
-       "FSA-STDEV-cps":{
-        "name": "FSA-STDEV-cps",
-        "description": "cps BASE crawler",
-        "databaseName": "FSA-STDEV-cps",
-        "s3TargetsByBucket": [
-          {
-            "bucket": "punkdev-fpacfsa-final-zone",
-            "prefixes": [
-              "cps/"
-            ]
-          }
-        ]
-       },
-       "FSA-STDEV-cps-cdc": {
-        "name": "FSA-STDEV-cps-cdc",
-        "description": "cps BASE crawler ",
-        "databaseName": "FSA-STDEV-cps-cdc",
-        "s3TargetsByBucket": [
-          {
-            "bucket": "punkdev-fpacfsa-final-zone",
-            "prefixes": [
-              "cps/_cdc/"
-            ]
-          }
-        ]
-      },
-      "FSA-STDEV-cps-MAINT": {
-        "name": "FSA-STDEV-cps-MAINT",
-        "description": "cps MAINT crawler ",
-        "databaseName": "FSA-STDEV-ccms",
-        "s3TargetsByBucket": [
-          {
-            "bucket": "punkdev-fpacfsa-final-zone",
-            "prefixes": [
-              "contract_maintenance/"
-            ]
-          }
-        ]
-      },
-       "FSA-STDEV-cps-MAINT-cdc": {
-        "name": "FSA-STDEV-cps-MAINT-cdc",
-        "description": "cps MAINT crawler ",
-        "databaseName": "FSA-STDEV-ccms-cdc",
-        "s3TargetsByBucket": [
-          {
-            "bucket": "punkdev-fpacfsa-final-zone",
-            "prefixes": [
-              "contract_maintenance/_cdc/"
-            ]
-          }
-        ]
-      },
-      "FSA-STDEV-cps-CONS-PYMTS": {
-        "name": "FSA-STDEV-cps-CONS-PYMTS",
-        "description": "cps PYMTS crawler ",
-        "databaseName": "FSA-STDEV-ccpf",
-        "s3TargetsByBucket": [
-          {
-            "bucket": "punkdev-fpacfsa-final-zone",
-            "prefixes": [
-              "conservation_payments/"
-            ]
-          }
-        ]
-      },
-      "FSA-STDEV-cps-CONS-PYMTS-cdc": {
-        "name": "FSA-STDEV-cps-CONS-PYMTS-cdc",
-        "description": "cps PYMTS crawler ",
-        "databaseName": "FSA-STDEV-ccpf-cdc",
-        "s3TargetsByBucket": [
-          {
-            "bucket": "punkdev-fpacfsa-final-zone",
-            "prefixes": [
-              "conservation_payments/_cdc/"
-            ]
-          }
-        ]
-      }
+      "crawlerName": "FSA-{deployEnv}-{projectName}",
+      "description": "cps crawler data sources (grouped by bucket)",
+      "databaseName": "FSA-STDEV-cps",
+      "recrawlBehavior": "CRAWL_EVERYTHING",
+      "excludePatterns": ["_cdc/**", "_configs/**"],
+      "s3TargetsByBucket": [
+        {
+          "bucket": "punkdev-fpacfsa-final-zone",
+          "prefixes": [
+            "cps/"
+          ]
+        }
+      ]
+    },
+    {
+      "crawlerName": "FSA-{deployEnv}-{projectName}-cdc",
+      "description": "cps crawler data sources (grouped by bucket)",
+      "databaseName": "FSA-STDEV-cps-cdc",
+      "recrawlBehavior": "CRAWL_EVERYTHING",
+      "s3TargetsByBucket": [
+        {
+          "bucket": "punkdev-fpacfsa-final-zone",
+          "prefixes": [
+            "cps/_cdc/"
+          ]
+        }
+      ]
     }
   ]
   

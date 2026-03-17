@@ -13,9 +13,11 @@ import boto3
 
 from common.aws_common import (
     GlueJobSpec,
+    GlueCrawlerSpec,
     LambdaSpec,
     StateMachineSpec,
     ensure_bucket_exists,
+    ensure_glue_crawler,
     ensure_glue_job,
     ensure_lambda,
     ensure_state_machine,
@@ -218,6 +220,92 @@ def os_common_prefix(a: str, b: str) -> str:
     while i < max_i and a[i] == b[i]:
         i += 1
     return a[:i]
+
+
+def _is_cdc_crawler(name_or_key: str) -> bool:
+    n = _norm(name_or_key)
+    return n.endswith("CDC")
+
+
+def _build_crawler_targets(crawler_cfg: Dict[str, Any], exclude_patterns: List[str]) -> List[Dict[str, Any]]:
+    targets: List[Dict[str, Any]] = []
+    by_bucket = crawler_cfg.get("s3TargetsByBucket")
+    if isinstance(by_bucket, list):
+        for item in by_bucket:
+            if not isinstance(item, dict):
+                continue
+            bucket = _as_str(item.get("bucket"))
+            prefixes = _as_str_list(item.get("prefixes"))
+            if not bucket or not prefixes:
+                continue
+            for pref in prefixes:
+                path = f"s3://{bucket}/{pref.lstrip('/')}"
+                targets.append({"Path": path, "Exclusions": exclude_patterns})
+
+    if targets:
+        return targets
+
+    target_path = _as_str(crawler_cfg.get("targetS3Path"))
+    if target_path:
+        return [{"Path": target_path, "Exclusions": exclude_patterns}]
+
+    return []
+
+
+def _resolve_crawler_deploy_name(
+    *,
+    cfg_key: str,
+    crawler_cfg: Dict[str, Any],
+    names: Names,
+    deploy_env: str,
+    project: str,
+) -> str:
+    # Explicit override wins. Supports full names and tokenized forms.
+    override = _as_str(crawler_cfg.get("crawlerName"))
+    if override:
+        resolved = (
+            override.replace("{deployEnv}", deploy_env)
+            .replace("{project}", project)
+            .replace("{projectName}", project)
+            .replace("__ENV__", deploy_env)
+            .replace("__PROJECT__", project)
+            .replace("__PROJECT_NAME__", project)
+        )
+        if not resolved.startswith("FSA-"):
+            resolved = f"FSA-{deploy_env}-{resolved}"
+        return resolved
+
+    raw_name = _as_str(crawler_cfg.get("name")) or _as_str(cfg_key)
+    return names.crawler_cdc if _is_cdc_crawler(raw_name or cfg_key) else names.crawler_main
+
+
+def _iter_crawler_config_entries(crawlers_cfg: Any) -> List[Tuple[str, Dict[str, Any]]]:
+    """
+    Normalize crawler config into (cfg_key, crawler_dict) pairs.
+
+    Supported shapes:
+    1) Legacy: [{"FSA-ENV-PROJ": {...}, "FSA-ENV-PROJ-cdc": {...}}]
+    2) Preferred: [{"crawlerName": "...", ...}, {"crawlerName": "...", ...}]
+    """
+    entries: List[Tuple[str, Dict[str, Any]]] = []
+    if not isinstance(crawlers_cfg, list):
+        return entries
+
+    for item in crawlers_cfg:
+        if not isinstance(item, dict):
+            continue
+
+        # Preferred shape: direct crawler object with databaseName/crawlerName.
+        if isinstance(item.get("databaseName"), str) or isinstance(item.get("crawlerName"), str):
+            entries.append(("", item))
+            continue
+
+        # Legacy shape: dict keyed by crawler aliases.
+        for k, v in item.items():
+            if isinstance(v, dict):
+                entries.append((_as_str(k), v))
+
+    return entries
 
 
 @dataclass(frozen=True)
@@ -499,6 +587,41 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
     if not crawler_names:
         crawler_names = [names.crawler_main, names.crawler_cdc]
 
+    crawler_results: Dict[str, str] = {}
+    for cfg_key, item in _iter_crawler_config_entries(cfg.get("crawlers")):
+        db_name = _as_str(item.get("databaseName"))
+        if not db_name:
+            continue
+
+        target_name = _resolve_crawler_deploy_name(
+            cfg_key=_as_str(cfg_key),
+            crawler_cfg=item,
+            names=names,
+            deploy_env=deploy_env,
+            project=project,
+        )
+        recrawl_behavior = _as_str(item.get("recrawlBehavior"), "CRAWL_EVERYTHING")
+        exclude_patterns = _as_str_list(item.get("excludePatterns"))
+        targets = _build_crawler_targets(item, exclude_patterns)
+
+        if not targets:
+            continue
+
+        ensure_glue_crawler(
+            glue,
+            GlueCrawlerSpec(
+                name=target_name,
+                role_arn=glue_role_arn,
+                database_name=db_name,
+                target_s3_path=targets[0]["Path"],
+                s3_targets=targets,
+                recrawl_behavior=recrawl_behavior,
+                exclude_patterns=exclude_patterns,
+                description=_as_str(item.get("description")),
+            ),
+        )
+        crawler_results[target_name] = db_name
+
     glue_names = {
         "LandingFiles": names.glue_landing_files,
         "Raw-DM": names.glue_raw_dm,
@@ -546,6 +669,8 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
         "artifact_prefix": prefix,
         "glue_jobs": glue_results,
         "lambda_count": len(lambda_arns),
+        "crawler_count": len(crawler_results),
+        "crawlers": crawler_results,
         "state_machine_count": len(state_machine_arns),
         "state_machines": state_machine_arns,
     }

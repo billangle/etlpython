@@ -395,16 +395,39 @@ class GlueCrawlerSpec:
     role_arn: str
     database_name: str
     target_s3_path: str
+    s3_targets: Optional[List[Dict[str, Any]]] = None
+    recrawl_behavior: str = "CRAWL_EVERYTHING"
+    exclude_patterns: Optional[List[str]] = None
+    description: str = ""
 
 
 def ensure_glue_crawler(glue, spec: GlueCrawlerSpec) -> str:
+    s3_targets: List[Dict[str, Any]] = []
+    for target in spec.s3_targets or []:
+        if isinstance(target, dict) and target.get("Path"):
+            t = {"Path": target["Path"]}
+            exclusions = target.get("Exclusions")
+            if isinstance(exclusions, list) and exclusions:
+                t["Exclusions"] = exclusions
+            s3_targets.append(t)
+
+    if not s3_targets:
+        t: Dict[str, Any] = {"Path": spec.target_s3_path}
+        if spec.exclude_patterns:
+            t["Exclusions"] = list(spec.exclude_patterns)
+        s3_targets = [t]
+
     crawler_def = {
         "Name": spec.name,
         "Role": spec.role_arn,
         "DatabaseName": spec.database_name,
-        "Targets": {"S3Targets": [{"Path": spec.target_s3_path}]},
+        "Targets": {"S3Targets": s3_targets},
+        "RecrawlPolicy": {"RecrawlBehavior": spec.recrawl_behavior},
         "SchemaChangePolicy": {"UpdateBehavior": "UPDATE_IN_DATABASE", "DeleteBehavior": "DEPRECATE_IN_DATABASE"},
     }
+
+    if spec.description:
+        crawler_def["Description"] = spec.description
 
     try:
         glue.get_crawler(Name=spec.name)

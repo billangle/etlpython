@@ -93,14 +93,28 @@ def _base_cfg() -> dict:
         ],
         "crawlers": [
             {
-                "FSA-TST-CPS": {
-                    "name": "FSA-TST-CPS",
-                    "databaseName": "fsa-tst-cps",
-                },
-                "FSA-TST-CPS-cdc": {
-                    "name": "FSA-TST-CPS-cdc",
-                    "databaseName": "fsa-tst-cps-cdc",
-                },
+                "crawlerName": "FSA-{deployEnv}-{projectName}",
+                "databaseName": "fsa-tst-cps",
+                "recrawlBehavior": "CRAWL_EVERYTHING",
+                "excludePatterns": ["_cdc/**", "_configs/**"],
+                "s3TargetsByBucket": [
+                    {
+                        "bucket": "c108-tst-fpacfsa-final-zone",
+                        "prefixes": ["cps/"],
+                    }
+                ],
+            },
+            {
+                "crawlerName": "FSA-{deployEnv}-{projectName}-cdc",
+                "databaseName": "fsa-tst-cps-cdc",
+                "recrawlBehavior": "CRAWL_EVERYTHING",
+                "excludePatterns": ["_cdc/**", "_configs/**"],
+                "s3TargetsByBucket": [
+                    {
+                        "bucket": "c108-tst-fpacfsa-final-zone",
+                        "prefixes": ["cps/_cdc/"],
+                    }
+                ],
             }
         ],
     }
@@ -115,6 +129,7 @@ class TestCpsDeployRegression(unittest.TestCase):
         captured = {
             "glue_specs": [],
             "lambda_specs": [],
+            "crawler_specs": [],
             "state_specs": [],
         }
 
@@ -130,17 +145,41 @@ class TestCpsDeployRegression(unittest.TestCase):
             captured["state_specs"].append(spec)
             return f"arn:aws:states:us-east-1:123456789012:stateMachine:{spec.name}"
 
+        def _capture_crawler(_client, spec):
+            captured["crawler_specs"].append(spec)
+            return spec.name
+
         with (
             patch("projects.cps.deploy.boto3.Session") as mock_session,
             patch("projects.cps.deploy.ensure_bucket_exists"),
             patch("projects.cps.deploy.ensure_glue_job", side_effect=_capture_glue),
             patch("projects.cps.deploy.ensure_lambda", side_effect=_capture_lambda),
+            patch("projects.cps.deploy.ensure_glue_crawler", side_effect=_capture_crawler),
             patch("projects.cps.deploy.ensure_state_machine", side_effect=_capture_state),
         ):
             mock_session.return_value = MagicMock()
             result = cps_deploy.deploy(self.cfg, self.region)
 
         return result, captured
+
+    def test_crawlers_deploy_with_env_names_recrawl_and_exclusions(self):
+        _, captured = self._run_deploy()
+        self.assertEqual(len(captured["crawler_specs"]), 2)
+        by_name = {s.name: s for s in captured["crawler_specs"]}
+
+        self.assertIn("FSA-TST-CPS", by_name)
+        self.assertIn("FSA-TST-CPS-cdc", by_name)
+
+        main = by_name["FSA-TST-CPS"]
+        self.assertEqual(main.recrawl_behavior, "CRAWL_EVERYTHING")
+        self.assertEqual(main.exclude_patterns, ["_cdc/**", "_configs/**"])
+        self.assertEqual(main.s3_targets[0]["Path"], "s3://c108-tst-fpacfsa-final-zone/cps/")
+
+    def test_crawler_name_override_is_used_when_provided(self):
+        _, captured = self._run_deploy()
+        deployed_names = {s.name for s in captured["crawler_specs"]}
+        self.assertIn("FSA-TST-CPS", deployed_names)
+        self.assertIn("FSA-TST-CPS-cdc", deployed_names)
 
     def test_glue_jobs_wired_from_config(self):
         _, captured = self._run_deploy()

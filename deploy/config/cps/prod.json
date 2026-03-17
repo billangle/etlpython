@@ -126,28 +126,29 @@
   ],
   "crawlers": [
     {
-      "FSA-PROD-CPS": {
-        "name": "FSA-PROD-cps",
-        "description": "cps BASE crawler",
-        "databaseName": "fsa-prod-cps",
-        "s3TargetsByBucket": [
-          {
-            "bucket": "c108-prod-fpacfsa-final-zone",
-            "prefixes": ["cps/"]
-          }
-        ]
-      },
-      "FSA-PROD-CPS-cdc": {
-        "name": "FSA-PROD-CPS-cdc",
-        "description": "cps BASE CDC crawler",
-        "databaseName": "fsa-prod-cps-cdc",
-        "s3TargetsByBucket": [
-          {
-            "bucket": "c108-prod-fpacfsa-final-zone",
-            "prefixes": ["cps/_cdc/"]
-          }
-        ]
-      }
+      "crawlerName": "FSA-{deployEnv}-{projectName}",
+      "description": "cps BASE crawler",
+      "databaseName": "fsa-prod-cps",
+      "recrawlBehavior": "CRAWL_EVERYTHING",
+      "excludePatterns": ["_cdc/**", "_configs/**"],
+      "s3TargetsByBucket": [
+        {
+          "bucket": "c108-prod-fpacfsa-final-zone",
+          "prefixes": ["cps/"]
+        }
+      ]
+    },
+    {
+      "crawlerName": "FSA-{deployEnv}-{projectName}-cdc",
+      "description": "cps BASE CDC crawler",
+      "databaseName": "fsa-prod-cps-cdc",
+      "recrawlBehavior": "CRAWL_EVERYTHING",
+      "s3TargetsByBucket": [
+        {
+          "bucket": "c108-prod-fpacfsa-final-zone",
+          "prefixes": ["cps/_cdc/"]
+        }
+      ]
     }
   ]
 }

@@ -1,0 +1,359 @@
+{
+  "Comment": "DM PostgreSQL Pipeline: Executes DM SQL for DIM L1 -> DIM L2 -> FACT -> SUMMARY tables in PostgreSQL",
+  "StartAt": "ProcessDimTables",
+  "States": {
+    "ProcessDimTables": {
+      "Type": "Map",
+      "ItemsPath": "$.dim_tables",
+      "MaxConcurrency": 5,
+      "Parameters": {
+        "table_name.$": "$$.Map.Item.Value.table_name",
+        "date_column.$": "$$.Map.Item.Value.date_column",
+        "data_src_nm.$": "$.data_src_nm",
+        "env.$": "$.env",
+        "layer.$": "$.layer",
+        "run_type.$": "$.run_type",
+        "start_date.$": "$.start_date",
+        "source_schema.$": "$.source_schema",
+        "target_schema.$": "$.target_schema"
+      },
+      "Iterator": {
+        "StartAt": "ExecuteDimSQL",
+        "States": {
+          "ExecuteDimSQL": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+            "Parameters": {
+              "JobName": "FSA-PROD-DATAMART-EXEC-DB-SQL",
+              "Arguments": {
+                "--JOB_NAME": "FSA-PROD-DATAMART-EXEC-DB-SQL",
+                "--table_name.$": "$.table_name",
+                "--data_src_nm.$": "$.data_src_nm",
+                "--env.$": "$.env",
+                "--layer.$": "$.layer",
+                "--run_type.$": "$.run_type",
+                "--start_date.$": "$.start_date"
+              }
+            },
+            "ResultPath": "$.glueResult",
+            "Next": "DimSuccess",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "DimFailed",
+                "ResultPath": "$.error"
+              }
+            ]
+          },
+          "DimSuccess": {
+            "Type": "Pass",
+            "Parameters": {
+              "table_name.$": "$.table_name",
+              "status": "SUCCESS",
+              "group": "PG-DIM-L1"
+            },
+            "End": true
+          },
+          "DimFailed": {
+            "Type": "Pass",
+            "Parameters": {
+              "table_name.$": "$.table_name",
+              "status": "FAILED",
+              "group": "PG-DIM-L1",
+              "error.$": "$.error"
+            },
+            "End": true
+          }
+        }
+      },
+      "ResultPath": "$.dimResults",
+      "Next": "CheckDimLevel2",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "PipelineFailed",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "CheckDimLevel2": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.dim_tables_level2[0]",
+          "IsPresent": true,
+          "Next": "ProcessDimTablesLevel2"
+        }
+      ],
+      "Default": "CheckFactTables"
+    },
+    "ProcessDimTablesLevel2": {
+      "Type": "Map",
+      "ItemsPath": "$.dim_tables_level2",
+      "MaxConcurrency": 5,
+      "Parameters": {
+        "table_name.$": "$$.Map.Item.Value.table_name",
+        "date_column.$": "$$.Map.Item.Value.date_column",
+        "data_src_nm.$": "$.data_src_nm",
+        "env.$": "$.env",
+        "layer.$": "$.layer",
+        "run_type.$": "$.run_type",
+        "start_date.$": "$.start_date",
+        "source_schema.$": "$.source_schema",
+        "target_schema.$": "$.target_schema"
+      },
+      "Iterator": {
+        "StartAt": "ExecuteDimL2SQL",
+        "States": {
+          "ExecuteDimL2SQL": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+            "Parameters": {
+              "JobName": "FSA-PROD-DATAMART-EXEC-DB-SQL",
+              "Arguments": {
+                "--JOB_NAME": "FSA-PROD-DATAMART-EXEC-DB-SQL",
+                "--table_name.$": "$.table_name",
+                "--data_src_nm.$": "$.data_src_nm",
+                "--env.$": "$.env",
+                "--layer.$": "$.layer",
+                "--run_type.$": "$.run_type",
+                "--start_date.$": "$.start_date"
+              }
+            },
+            "ResultPath": "$.glueResult",
+            "Next": "DimL2Success",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "DimL2Failed",
+                "ResultPath": "$.error"
+              }
+            ]
+          },
+          "DimL2Success": {
+            "Type": "Pass",
+            "Parameters": {
+              "table_name.$": "$.table_name",
+              "status": "SUCCESS",
+              "group": "PG-DIM-L2"
+            },
+            "End": true
+          },
+          "DimL2Failed": {
+            "Type": "Pass",
+            "Parameters": {
+              "table_name.$": "$.table_name",
+              "status": "FAILED",
+              "group": "PG-DIM-L2",
+              "error.$": "$.error"
+            },
+            "End": true
+          }
+        }
+      },
+      "ResultPath": "$.dimL2Results",
+      "Next": "CheckFactTables",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "PipelineFailed",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "CheckFactTables": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.fact_tables[0]",
+          "IsPresent": true,
+          "Next": "ProcessFactTables"
+        }
+      ],
+      "Default": "CheckSummaryTables"
+    },
+    "ProcessFactTables": {
+      "Type": "Map",
+      "ItemsPath": "$.fact_tables",
+      "MaxConcurrency": 5,
+      "Parameters": {
+        "table_name.$": "$$.Map.Item.Value.table_name",
+        "date_column.$": "$$.Map.Item.Value.date_column",
+        "data_src_nm.$": "$.data_src_nm",
+        "env.$": "$.env",
+        "layer.$": "$.layer",
+        "run_type.$": "$.run_type",
+        "start_date.$": "$.start_date",
+        "source_schema.$": "$.source_schema",
+        "target_schema.$": "$.target_schema"
+      },
+      "Iterator": {
+        "StartAt": "ExecuteFactSQL",
+        "States": {
+          "ExecuteFactSQL": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+            "Parameters": {
+              "JobName": "FSA-PROD-DATAMART-EXEC-DB-SQL",
+              "Arguments": {
+                "--JOB_NAME": "FSA-PROD-DATAMART-EXEC-DB-SQL",
+                "--table_name.$": "$.table_name",
+                "--data_src_nm.$": "$.data_src_nm",
+                "--env.$": "$.env",
+                "--layer.$": "$.layer",
+                "--run_type.$": "$.run_type",
+                "--start_date.$": "$.start_date"
+              }
+            },
+            "ResultPath": "$.glueResult",
+            "Next": "FactSuccess",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "FactFailed",
+                "ResultPath": "$.error"
+              }
+            ]
+          },
+          "FactSuccess": {
+            "Type": "Pass",
+            "Parameters": {
+              "table_name.$": "$.table_name",
+              "status": "SUCCESS",
+              "group": "PG-FACT"
+            },
+            "End": true
+          },
+          "FactFailed": {
+            "Type": "Pass",
+            "Parameters": {
+              "table_name.$": "$.table_name",
+              "status": "FAILED",
+              "group": "PG-FACT",
+              "error.$": "$.error"
+            },
+            "End": true
+          }
+        }
+      },
+      "ResultPath": "$.factResults",
+      "Next": "CheckSummaryTables",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "PipelineFailed",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "CheckSummaryTables": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.summary_tables[0]",
+          "IsPresent": true,
+          "Next": "ProcessSummaryTables"
+        }
+      ],
+      "Default": "PipelineSuccess"
+    },
+    "ProcessSummaryTables": {
+      "Type": "Map",
+      "ItemsPath": "$.summary_tables",
+      "MaxConcurrency": 5,
+      "Parameters": {
+        "table_name.$": "$$.Map.Item.Value.table_name",
+        "date_column.$": "$$.Map.Item.Value.date_column",
+        "data_src_nm.$": "$.data_src_nm",
+        "env.$": "$.env",
+        "layer.$": "$.layer",
+        "run_type.$": "$.run_type",
+        "start_date.$": "$.start_date",
+        "source_schema.$": "$.source_schema",
+        "target_schema.$": "$.target_schema"
+      },
+      "Iterator": {
+        "StartAt": "ExecuteSummarySQL",
+        "States": {
+          "ExecuteSummarySQL": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+            "Parameters": {
+              "JobName": "FSA-PROD-DATAMART-EXEC-DB-SQL",
+              "Arguments": {
+                "--JOB_NAME": "FSA-PROD-DATAMART-EXEC-DB-SQL",
+                "--table_name.$": "$.table_name",
+                "--data_src_nm.$": "$.data_src_nm",
+                "--env.$": "$.env",
+                "--layer.$": "$.layer",
+                "--run_type.$": "$.run_type",
+                "--start_date.$": "$.start_date"
+              }
+            },
+            "ResultPath": "$.glueResult",
+            "Next": "SummarySuccess",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "SummaryFailed",
+                "ResultPath": "$.error"
+              }
+            ]
+          },
+          "SummarySuccess": {
+            "Type": "Pass",
+            "Parameters": {
+              "table_name.$": "$.table_name",
+              "status": "SUCCESS",
+              "group": "PG-SUMMARY"
+            },
+            "End": true
+          },
+          "SummaryFailed": {
+            "Type": "Pass",
+            "Parameters": {
+              "table_name.$": "$.table_name",
+              "status": "FAILED",
+              "group": "PG-SUMMARY",
+              "error.$": "$.error"
+            },
+            "End": true
+          }
+        }
+      },
+      "ResultPath": "$.summaryResults",
+      "Next": "PipelineSuccess",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "PipelineFailed",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "PipelineSuccess": {
+      "Type": "Succeed"
+    },
+    "PipelineFailed": {
+      "Type": "Fail",
+      "Error": "PipelineExecutionFailed",
+      "Cause": "DM PostgreSQL Pipeline execution failed - check logs for details"
+    }
+  }
+}

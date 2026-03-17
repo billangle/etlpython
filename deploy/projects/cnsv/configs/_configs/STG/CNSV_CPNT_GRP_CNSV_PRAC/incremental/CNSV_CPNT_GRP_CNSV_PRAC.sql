@@ -1,0 +1,143 @@
+SELECT CPNT_GRP_CNSV_PRAC,
+CPNT_GRP_ID,
+CNSV_PRAC_ID,
+CNSV_PRAC_CD,
+ST_FSA_CD,
+CNTY_FSA_CD,
+CPNT_GRP_NM,
+DATA_STAT_CD,
+CRE_DT,
+LAST_CHG_DT,
+LAST_CHG_USER_NM,
+CDC_OPER_CD,
+''  HASH_DIF,
+current_timestamp LOAD_DT,
+'CNSV'  DATA_SRC_NM,
+'{ETL_START_DATE}' AS CDC_DT
+FROM(
+SELECT * FROM
+(
+SELECT DISTINCT CPNT_GRP_CNSV_PRAC,
+CPNT_GRP_ID,
+CNSV_PRAC_ID,
+CNSV_PRAC_CD,
+ST_FSA_CD,
+CNTY_FSA_CD,
+CPNT_GRP_NM,
+DATA_STAT_CD,
+CRE_DT,
+LAST_CHG_DT,
+LAST_CHG_USER_NM,
+OP CDC_OPER_CD,
+ROW_NUMBER() over ( partition by 
+CPNT_GRP_CNSV_PRAC
+order by TBL_PRIORITY ASC, LAST_CHG_DT DESC ) AS row_num_part
+FROM
+(
+SELECT 
+component_group_conservation_practice.CPNT_GRP_CNSV_PRAC CPNT_GRP_CNSV_PRAC,
+component_group_conservation_practice.CPNT_GRP_ID CPNT_GRP_ID,
+component_group_conservation_practice.CNSV_PRAC_ID CNSV_PRAC_ID,
+CONSERVATION_PRACTICE.CNSV_PRAC_CD CNSV_PRAC_CD,
+component_group.ST_FSA_CD ST_FSA_CD,
+component_group.CNTY_FSA_CD CNTY_FSA_CD,
+component_group.CPNT_GRP_NM CPNT_GRP_NM,
+component_group_conservation_practice.DATA_STAT_CD DATA_STAT_CD,
+component_group_conservation_practice.CRE_DT CRE_DT,
+component_group_conservation_practice.LAST_CHG_DT LAST_CHG_DT,
+component_group_conservation_practice.LAST_CHG_USER_NM LAST_CHG_USER_NM,
+COMPONENT_GROUP_CONSERVATION_PRACTICE.OP,
+1 AS TBL_PRIORITY
+FROM "fsa-{env}-cnsv-cdc"."COMPONENT_GROUP_CONSERVATION_PRACTICE" COMPONENT_GROUP_CONSERVATION_PRACTICE
+
+LEFT JOIN "fsa-{env}-cnsv"."COMPONENT_GROUP" COMPONENT_GROUP
+
+ON(COMPONENT_GROUP_CONSERVATION_PRACTICE.CPNT_GRP_ID = COMPONENT_GROUP.CPNT_GRP_ID) 
+
+LEFT JOIN "fsa-{env}-cnsv"."CONSERVATION_PRACTICE" CONSERVATION_PRACTICE
+
+ON(COMPONENT_GROUP_CONSERVATION_PRACTICE.CNSV_PRAC_ID = CONSERVATION_PRACTICE.CNSV_PRAC_ID)
+WHERE COMPONENT_GROUP_CONSERVATION_PRACTICE.dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}'
+AND COMPONENT_GROUP_CONSERVATION_PRACTICE.OP <> 'D'
+
+UNION
+SELECT 
+component_group_conservation_practice.CPNT_GRP_CNSV_PRAC CPNT_GRP_CNSV_PRAC,
+component_group_conservation_practice.CPNT_GRP_ID CPNT_GRP_ID,
+component_group_conservation_practice.CNSV_PRAC_ID CNSV_PRAC_ID,
+CONSERVATION_PRACTICE.CNSV_PRAC_CD CNSV_PRAC_CD,
+component_group.ST_FSA_CD ST_FSA_CD,
+component_group.CNTY_FSA_CD CNTY_FSA_CD,
+component_group.CPNT_GRP_NM CPNT_GRP_NM,
+component_group_conservation_practice.DATA_STAT_CD DATA_STAT_CD,
+component_group_conservation_practice.CRE_DT CRE_DT,
+component_group_conservation_practice.LAST_CHG_DT LAST_CHG_DT,
+component_group_conservation_practice.LAST_CHG_USER_NM LAST_CHG_USER_NM,
+COMPONENT_GROUP.OP,
+2 AS TBL_PRIORITY
+FROM "fsa-{env}-cnsv-cdc"."COMPONENT_GROUP" COMPONENT_GROUP
+
+JOIN "fsa-{env}-cnsv"."COMPONENT_GROUP_CONSERVATION_PRACTICE"
+
+ON(COMPONENT_GROUP_CONSERVATION_PRACTICE.CPNT_GRP_ID = COMPONENT_GROUP.CPNT_GRP_ID) 
+
+LEFT JOIN "fsa-{env}-cnsv"."CONSERVATION_PRACTICE"
+
+ON(COMPONENT_GROUP_CONSERVATION_PRACTICE.CNSV_PRAC_ID = CONSERVATION_PRACTICE.CNSV_PRAC_ID)
+WHERE COMPONENT_GROUP.dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}'
+AND COMPONENT_GROUP.OP <> 'D'
+
+UNION
+SELECT 
+component_group_conservation_practice.CPNT_GRP_CNSV_PRAC CPNT_GRP_CNSV_PRAC,
+component_group_conservation_practice.CPNT_GRP_ID CPNT_GRP_ID,
+component_group_conservation_practice.CNSV_PRAC_ID CNSV_PRAC_ID,
+CONSERVATION_PRACTICE.CNSV_PRAC_CD CNSV_PRAC_CD,
+component_group.ST_FSA_CD ST_FSA_CD,
+component_group.CNTY_FSA_CD CNTY_FSA_CD,
+component_group.CPNT_GRP_NM CPNT_GRP_NM,
+component_group_conservation_practice.DATA_STAT_CD DATA_STAT_CD,
+component_group_conservation_practice.CRE_DT CRE_DT,
+component_group_conservation_practice.LAST_CHG_DT LAST_CHG_DT,
+component_group_conservation_practice.LAST_CHG_USER_NM LAST_CHG_USER_NM,
+CONSERVATION_PRACTICE.OP,
+3 AS TBL_PRIORITY
+FROM "fsa-{env}-cnsv-cdc"."CONSERVATION_PRACTICE" CONSERVATION_PRACTICE
+
+JOIN "fsa-{env}-cnsv"."COMPONENT_GROUP_CONSERVATION_PRACTICE" COMPONENT_GROUP_CONSERVATION_PRACTICE
+
+ON(COMPONENT_GROUP_CONSERVATION_PRACTICE.CNSV_PRAC_ID = CONSERVATION_PRACTICE.CNSV_PRAC_ID) 
+
+LEFT JOIN "fsa-{env}-cnsv"."COMPONENT_GROUP" COMPONENT_GROUP
+
+ON(COMPONENT_GROUP_CONSERVATION_PRACTICE.CPNT_GRP_ID = COMPONENT_GROUP.CPNT_GRP_ID) 
+
+WHERE CONSERVATION_PRACTICE.dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}'
+AND CONSERVATION_PRACTICE.OP <> 'D'
+
+) STG_ALL
+) STG_UNQ
+WHERE row_num_part = 1
+AND (
+ (COALESCE(CAST(CRE_DT AS DATE), DATE '1900-01-01') <= CAST('{ETL_START_DATE}'  AS DATE))
+    AND
+    (COALESCE(CAST(LAST_CHG_DT AS DATE), DATE '1900-01-01') <= CAST('{ETL_START_DATE}'  AS DATE))
+)
+UNION
+SELECT DISTINCT
+component_group_conservation_practice.CPNT_GRP_CNSV_PRAC CPNT_GRP_CNSV_PRAC,
+component_group_conservation_practice.CPNT_GRP_ID CPNT_GRP_ID,
+component_group_conservation_practice.CNSV_PRAC_ID CNSV_PRAC_ID,
+NULL CNSV_PRAC_CD,
+NULL ST_FSA_CD,
+NULL CNTY_FSA_CD,
+NULL CPNT_GRP_NM,
+component_group_conservation_practice.DATA_STAT_CD DATA_STAT_CD,
+component_group_conservation_practice.CRE_DT CRE_DT,
+component_group_conservation_practice.LAST_CHG_DT LAST_CHG_DT,
+component_group_conservation_practice.LAST_CHG_USER_NM LAST_CHG_USER_NM,
+'D' OP,
+1 AS row_num_part
+FROM "fsa-{env}-cnsv-cdc"."component_group_conservation_practice" component_group_conservation_practice
+WHERE component_group_conservation_practice.dart_filedate BETWEEN DATE '{ETL_START_DATE}' AND DATE '{ETL_END_DATE}'
+AND component_group_conservation_practice.OP = 'D'

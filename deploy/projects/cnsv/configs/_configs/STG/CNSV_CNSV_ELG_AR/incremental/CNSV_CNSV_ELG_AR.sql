@@ -1,0 +1,29 @@
+SELECT DISTINCT
+conservation_eligibility_area.CNSV_ELG_AREA_NM CNSV_ELG_AR_NM,
+conservation_eligibility_area.CNSV_ELG_AREA_TYPE CNSV_ELG_AR_TYPE,
+conservation_eligibility_area.CNSV_ELG_AREA_CD CNSV_ELG_AR_CD,
+conservation_eligibility_area.CNSV_ELG_AREA_MIN CNSV_ELG_AR_MIN_PCT,
+conservation_eligibility_area.CNSV_ELG_AREA_ID CNSV_ELG_AR_ID,
+conservation_eligibility_area.DATA_STAT_CD DATA_STAT_CD,
+conservation_eligibility_area.CRE_DT CRE_DT,
+conservation_eligibility_area.LAST_CHG_DT LAST_CHG_DT,
+conservation_eligibility_area.LAST_CHG_USER_NM LAST_CHG_USER_NM,
+--OP AS CDC_OPER_CD,
+1 AS row_num_part
+FROM conservation_eligibility_area
+--WHERE OP <> 'D'
+UNION
+SELECT DISTINCT
+conservation_eligibility_area.CNSV_ELG_AREA_NM CNSV_ELG_AR_NM,
+conservation_eligibility_area.CNSV_ELG_AREA_TYPE CNSV_ELG_AR_TYPE,
+conservation_eligibility_area.CNSV_ELG_AREA_CD CNSV_ELG_AR_CD,
+conservation_eligibility_area.CNSV_ELG_AREA_MIN CNSV_ELG_AR_MIN_PCT,
+conservation_eligibility_area.CNSV_ELG_AREA_ID CNSV_ELG_AR_ID,
+conservation_eligibility_area.DATA_STAT_CD DATA_STAT_CD,
+conservation_eligibility_area.CRE_DT CRE_DT,
+conservation_eligibility_area.LAST_CHG_DT LAST_CHG_DT,
+conservation_eligibility_area.LAST_CHG_USER_NM LAST_CHG_USER_NM,
+--'D' CDC_OPER_CD,
+1 AS row_num_part
+FROM conservation_eligibility_area
+--WHERE OP = 'D'

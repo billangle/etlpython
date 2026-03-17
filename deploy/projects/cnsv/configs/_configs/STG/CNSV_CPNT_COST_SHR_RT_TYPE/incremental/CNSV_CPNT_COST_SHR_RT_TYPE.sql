@@ -1,0 +1,23 @@
+SELECT DISTINCT
+component_cost_share_rate_type.CPNT_CS_RT_TYPE_NM CPNT_CS_RT_TYPE_NM,
+component_cost_share_rate_type.CPNT_CS_RT_TYPE_ID CPNT_CS_RT_TYPE_ID,
+component_cost_share_rate_type.CRE_DT CRE_DT,
+component_cost_share_rate_type.LAST_CHG_DT LAST_CHG_DT,
+component_cost_share_rate_type.LAST_CHG_USER_NM LAST_CHG_USER_NM,
+component_cost_share_rate_type.DATA_STAT_CD DATA_STAT_CD,
+--OP AS CDC_OPER_CD,
+1 AS row_num_part
+FROM component_cost_share_rate_type
+--WHERE OP <> 'D'
+UNION
+SELECT DISTINCT
+component_cost_share_rate_type.CPNT_CS_RT_TYPE_NM CPNT_CS_RT_TYPE_NM,
+component_cost_share_rate_type.CPNT_CS_RT_TYPE_ID CPNT_CS_RT_TYPE_ID,
+component_cost_share_rate_type.CRE_DT CRE_DT,
+component_cost_share_rate_type.LAST_CHG_DT LAST_CHG_DT,
+component_cost_share_rate_type.LAST_CHG_USER_NM LAST_CHG_USER_NM,
+component_cost_share_rate_type.DATA_STAT_CD DATA_STAT_CD,
+--'D' CDC_OPER_CD,
+1 AS row_num_part
+FROM component_cost_share_rate_type
+WHERE OP = 'D'

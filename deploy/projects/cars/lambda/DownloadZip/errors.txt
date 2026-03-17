@@ -1,0 +1,22 @@
+./run_downloadzip_cloudshell.sh
+Invoking function: FSA-FPACDEV-DownloadZip
+Region: us-east-1
+Payload file: /tmp/downloadzip_payload.GL7OSq.json
+
+Invoke metadata:
+{
+	    "StatusCode": 200,
+	        "FunctionError": "Unhandled",
+		    "ExecutedVersion": "$LATEST"
+}
+
+Lambda response body (lambda_output.json):
+{"errorType":"Sandbox.Timedout","errorMessage":"RequestId: ec74575d-830c-4d0f-b5ce-4179b1b84e48 Error: Task timed out after 30.00 seconds"}
+DownloadZip $ ./run_downloadzip_cloudshell.sh
+Invoking function: FSA-FPACDEV-DownloadZip
+Region: us-east-1
+Payload file: /tmp/downloadzip_payload.xFF5U7.json
+
+
+aws: [ERROR]: Read timeout on endpoint URL: "https://lambda.us-east-1.amazonaws.com/2015-03-31/functions/FSA-FPACDEV-DownloadZip/invocations"
+DownloadZip $ 

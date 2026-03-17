@@ -1,8 +1,8 @@
 {
-  "source_bucket": "c108-dev-fpacfsa-landing-zone",
-  "source_folder": "incoming/data",
-  "destination_bucket": "c108-dev-fpacfsa-final-zone",
-  "destination_key": "exports/incoming-data.zip",
+  "source_bucket": "c108-cert-fpacfsa-final-zone",
+  "source_folder": "cnsv/_configs",
+  "destination_bucket": "fsa-dev-ops",
+  "destination_key": "output/cnsv/configs-cert.zip",
   "ignore_patterns": ["*.zip", "*.tmp", "*.bak", "*/_SUCCESS"],
   "include_source_folder_in_zip": false
 }

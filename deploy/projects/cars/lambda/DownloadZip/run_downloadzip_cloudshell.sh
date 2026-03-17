@@ -8,7 +8,7 @@ set -euo pipefail
 #
 # Example:
 #   ./run_downloadzip_cloudshell.sh \
-#     --env STEAMDEV \
+#     --env FPACDEV \
 #     --region us-east-1 \
 #     --source-bucket c108-dev-fpacfsa-landing-zone \
 #     --source-folder cars/etl-jobs \
@@ -23,7 +23,7 @@ Defaults are loaded from parms.json in this same directory.
 If parms.json contains valid values, the script can run with no arguments.
 
 Optional:
-  --env <name>                   Deploy environment used in function name (default: STEAMDEV)
+  --env <name>                   Deploy environment used in function name (default: FPACDEV)
   --project <name>               Project token in function name (default: CARS)
   --function-name <name>         Explicit Lambda function name (overrides env/project naming)
   --region <name>                AWS region (default: us-east-1)
@@ -36,9 +36,9 @@ Optional:
 EOF
 }
 
-DEPLOY_ENV="STEAMDEV"
+DEPLOY_ENV="FPACDEV"
 PROJECT="CARS"
-FUNCTION_NAME=""
+FUNCTION_NAME="FSA-FPACDEV-DownloadZip"
 REGION="us-east-1"
 SOURCE_BUCKET=""
 SOURCE_FOLDER=""

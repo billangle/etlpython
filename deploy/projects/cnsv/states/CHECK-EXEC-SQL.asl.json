@@ -1,0 +1,127 @@
+{
+    "Comment": "EDV Pipeline: S3 Parquet → Stage → DataVault. Preflight Check for SQL Execution.",
+    "StartAt": "ResolveDataSrcNm",
+    "States": {
+        "ResolveDataSrcNm": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.data_src_nm",
+                    "IsPresent": true,
+                    "Next": "ResolveRunType"
+                }
+            ],
+            "Default": "SetDefaultDataSrcNm"
+        },
+        "SetDefaultDataSrcNm": {
+            "Type": "Pass",
+            "Result": "__DATA_SRC_NM__",
+            "ResultPath": "$.data_src_nm",
+            "Next": "ResolveRunType"
+        },
+        "ResolveRunType": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.run_type",
+                    "IsPresent": true,
+                    "Next": "ResolveStartDate"
+                }
+            ],
+            "Default": "SetDefaultRunType"
+        },
+        "SetDefaultRunType": {
+            "Type": "Pass",
+            "Result": "__RUN_TYPE__",
+            "ResultPath": "$.run_type",
+            "Next": "ResolveStartDate"
+        },
+        "ResolveStartDate": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.start_date",
+                    "IsPresent": true,
+                    "Next": "ResolveEnv"
+                }
+            ],
+            "Default": "SetDefaultStartDate"
+        },
+        "SetDefaultStartDate": {
+            "Type": "Pass",
+            "Result": "__START_DATE__",
+            "ResultPath": "$.start_date",
+            "Next": "ResolveEnv"
+        },
+        "ResolveEnv": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.env",
+                    "IsPresent": true,
+                    "Next": "BuildProcessingPlan"
+                }
+            ],
+            "Default": "SetDefaultEnv"
+        },
+        "SetDefaultEnv": {
+            "Type": "Pass",
+            "Result": "__ENV__",
+            "ResultPath": "$.env",
+            "Next": "BuildProcessingPlan"
+        },
+        "BuildProcessingPlan": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+                "FunctionName": "__BUILD_PROCESSING_PLAN_FN_ARN__",
+                "Payload": {
+                    "data_src_nm.$": "$.data_src_nm",
+                    "run_type.$": "$.run_type",
+                    "start_date.$": "$.start_date",
+                    "env.$": "$.env"
+                }
+            },
+            "ResultSelector": {
+                "stgTables.$": "$.Payload.stgTables",
+                "dvGroups.$": "$.Payload.dvGroups",
+                "counts.$": "$.Payload.counts",
+                "data_src_nm.$": "$.Payload.data_src_nm",
+                "run_type.$": "$.Payload.run_type",
+                "start_date.$": "$.Payload.start_date",
+                "env.$": "$.Payload.env"
+            },
+            "ResultPath": "$.plan",
+            "Next": "CheckSqlFilesExist",
+            "Catch": [
+                {
+                    "ErrorEquals": ["States.ALL"],
+                    "Next": "HandlePipelineFailure",
+                    "ResultPath": "$.error"
+                }
+            ]
+        },
+        "CheckSqlFilesExist": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+                "FunctionName": "__CHECK_SQL_FN_ARN__",
+                "Payload.$": "$"
+            },
+            "ResultPath": "$.checkSqlResult",
+            "Next": "PreflightCheckComplete",
+            "Catch": [
+                {"ErrorEquals": ["States.ALL"], "Next": "HandlePipelineFailure", "ResultPath": "$.error"}
+            ]
+        },
+        "PreflightCheckComplete": {
+            "Type": "Succeed",
+            "Comment": "Preflight SQL file check complete. See S3 report."
+        },
+        "HandlePipelineFailure": {
+            "Type": "Fail",
+            "Error": "PipelineFailed",
+            "Cause": "A step failed."
+        }
+    }
+}

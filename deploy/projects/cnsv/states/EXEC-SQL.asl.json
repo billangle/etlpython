@@ -1,17 +1,85 @@
 {
     "Comment": "EDV Pipeline: S3 Parquet → Stage → DataVault. Input: start_date",
-    "StartAt": "BuildProcessingPlan",
+    "StartAt": "ResolveDataSrcNm",
     "States": {
+        "ResolveDataSrcNm": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.data_src_nm",
+                    "IsPresent": true,
+                    "Next": "ResolveRunType"
+                }
+            ],
+            "Default": "SetDefaultDataSrcNm"
+        },
+        "SetDefaultDataSrcNm": {
+            "Type": "Pass",
+            "Result": "__DATA_SRC_NM__",
+            "ResultPath": "$.data_src_nm",
+            "Next": "ResolveRunType"
+        },
+        "ResolveRunType": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.run_type",
+                    "IsPresent": true,
+                    "Next": "ResolveStartDate"
+                }
+            ],
+            "Default": "SetDefaultRunType"
+        },
+        "SetDefaultRunType": {
+            "Type": "Pass",
+            "Result": "__RUN_TYPE__",
+            "ResultPath": "$.run_type",
+            "Next": "ResolveStartDate"
+        },
+        "ResolveStartDate": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.start_date",
+                    "IsPresent": true,
+                    "Next": "ResolveEnv"
+                }
+            ],
+            "Default": "SetDefaultStartDate"
+        },
+        "SetDefaultStartDate": {
+            "Type": "Pass",
+            "Result": "__START_DATE__",
+            "ResultPath": "$.start_date",
+            "Next": "ResolveEnv"
+        },
+        "ResolveEnv": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.env",
+                    "IsPresent": true,
+                    "Next": "BuildProcessingPlan"
+                }
+            ],
+            "Default": "SetDefaultEnv"
+        },
+        "SetDefaultEnv": {
+            "Type": "Pass",
+            "Result": "__ENV__",
+            "ResultPath": "$.env",
+            "Next": "BuildProcessingPlan"
+        },
         "BuildProcessingPlan": {
             "Type": "Task",
             "Resource": "arn:aws:states:::lambda:invoke",
             "Parameters": {
                 "FunctionName": "__BUILD_PROCESSING_PLAN_FN_ARN__",
                 "Payload": {
-                    "data_src_nm": "__DATA_SRC_NM__",
-                    "run_type": "__RUN_TYPE__",
-                    "start_date": "__START_DATE__",
-                    "env": "__ENV__"
+                    "data_src_nm.$": "$.data_src_nm",
+                    "run_type.$": "$.run_type",
+                    "start_date.$": "$.start_date",
+                    "env.$": "$.env"
                 }
             },
             "ResultSelector": {
@@ -56,10 +124,10 @@
             "MaxConcurrency": 3,
             "Parameters": {
                 "table_name.$": "$$.Map.Item.Value",
-                "data_src_nm": "__DATA_SRC_NM__",
-                "run_type": "__RUN_TYPE__",
-                "start_date": "__START_DATE__",
-                "env": "__ENV__",
+                "data_src_nm.$": "$.data_src_nm",
+                "run_type.$": "$.run_type",
+                "start_date.$": "$.start_date",
+                "env.$": "$.env",
                 "layer": "STG"
             },
             "Iterator": {
@@ -73,10 +141,10 @@
                             "Arguments": {
                                 "--JOB_NAME": "__EXEC_SQL_GLUE_JOB_NAME__",
                                 "--table_name.$": "$.table_name",
-                                "--data_src_nm": "__DATA_SRC_NM__",
-                                "--run_type": "__RUN_TYPE__",
-                                "--start_date": "__START_DATE__",
-                                "--env": "__ENV__",
+                                "--data_src_nm.$": "$.data_src_nm",
+                                "--run_type.$": "$.run_type",
+                                "--start_date.$": "$.start_date",
+                                "--env.$": "$.env",
                                 "--layer.$": "$.layer"
                             }
                         },
@@ -203,10 +271,10 @@
             "Parameters": {
                 "tables.$": "$$.Map.Item.Value",
                 "groupIndex.$": "$$.Map.Item.Index",
-                "data_src_nm": "__DATA_SRC_NM__",
-                "run_type": "__RUN_TYPE__",
-                "start_date": "__START_DATE__",
-                "env": "__ENV__"
+                "data_src_nm.$": "$.data_src_nm",
+                "run_type.$": "$.run_type",
+                "start_date.$": "$.start_date",
+                "env.$": "$.env"
             },
             "Iterator": {
                 "StartAt": "ProcessEDVTablesInGroup",
@@ -218,10 +286,10 @@
                         "Parameters": {
                             "table_name.$": "$$.Map.Item.Value",
                             "groupIndex.$": "$.groupIndex",
-                            "data_src_nm": "__DATA_SRC_NM__",
-                            "run_type": "__RUN_TYPE__",
-                            "start_date": "__START_DATE__",
-                            "env": "__ENV__",
+                            "data_src_nm.$": "$.data_src_nm",
+                            "run_type.$": "$.run_type",
+                            "start_date.$": "$.start_date",
+                            "env.$": "$.env",
                             "layer": "EDV"
                         },
                         "Iterator": {
@@ -235,10 +303,10 @@
                                         "Arguments": {
                                             "--JOB_NAME": "__EXEC_SQL_GLUE_JOB_NAME__",
                                             "--table_name.$": "$.table_name",
-                                            "--data_src_nm": "__DATA_SRC_NM__",
-                                            "--run_type": "__RUN_TYPE__",
-                                            "--start_date": "__START_DATE__",
-                                            "--env": "__ENV__",
+                                            "--data_src_nm.$": "$.data_src_nm",
+                                            "--run_type.$": "$.run_type",
+                                            "--start_date.$": "$.start_date",
+                                            "--env.$": "$.env",
                                             "--layer.$": "$.layer"
                                         }
                                     },
@@ -339,9 +407,9 @@
             "Parameters": {
                 "FunctionName": "__FINALIZE_PIPELINE_FN_ARN__",
                 "Payload": {
-                    "data_src_nm": "__DATA_SRC_NM__",
-                    "run_type": "__RUN_TYPE__",
-                    "start_date": "__START_DATE__",
+                    "data_src_nm.$": "$.data_src_nm",
+                    "run_type.$": "$.run_type",
+                    "start_date.$": "$.start_date",
                     "stageCheck.$": "$.stageCheck",
                     "edvCheck.$": "$.edvCheck",
                     "counts.$": "$.plan.counts"
@@ -369,9 +437,9 @@
                 "FunctionName": "__HANDLE_FAILURE_FN_ARN__",
                 "Payload": {
                     "error.$": "$.error",
-                    "data_src_nm": "__DATA_SRC_NM__",
-                    "run_type": "__RUN_TYPE__",
-                    "start_date": "__START_DATE__"
+                    "data_src_nm.$": "$.data_src_nm",
+                    "run_type.$": "$.run_type",
+                    "start_date.$": "$.start_date"
                 }
             },
             "Next": "PipelineFailed"

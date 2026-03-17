@@ -211,10 +211,12 @@ class Names:
     prefix: str
     exec_sql_glue_job: str
     sm_exec_sql: str
+    sm_check_exec_sql: str
     fn_build_processing_plan: str
     fn_check_results: str
     fn_finalize_pipeline: str
     fn_handle_failure: str
+    fn_check_sql: str
 
 
 def build_names(deploy_env: str, project: str) -> Names:
@@ -229,10 +231,12 @@ def build_names(deploy_env: str, project: str) -> Names:
         prefix=prefix,
         exec_sql_glue_job=f"{prefix}-EXEC-SQL",
         sm_exec_sql=f"{prefix}-EXEC-SQL",
+        sm_check_exec_sql=f"{prefix}-CHECK-EXEC-SQL",
         fn_build_processing_plan=f"{prefix}-edv-build-processing-plan",
         fn_check_results=f"{prefix}-edv-check-results",
         fn_finalize_pipeline=f"{prefix}-edv-finalize-pipeline",
         fn_handle_failure=f"{prefix}-edv-handle-failure",
+        fn_check_sql=f"{prefix}-check-sql",
     )
 
 
@@ -240,7 +244,8 @@ def build_names(deploy_env: str, project: str) -> Names:
 # ASL loader
 # --------------------------------------------------------------------------------------
 
-_PARAM_ASL_FILE = "EXEC-SQL.asl.json"
+_EXEC_SQL_ASL_FILE = "EXEC-SQL.asl.json"
+_CHECK_EXEC_SQL_ASL_FILE = "CHECK-EXEC-SQL.asl.json"
 
 
 def _load_asl_file(project_dir: Path, filename: str) -> Dict[str, Any]:
@@ -261,10 +266,11 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     """
     CNSV EXEC-SQL deployer.
 
-    Deploys:
-      - Glue job:       FSA-{ENV}-CNSV-EXEC-SQL         (glue/EXEC-SQL.py)
-      - Lambda x4:      FSA-{ENV}-CNSV-edv-*             (lambda/edv-*/lambda_function.py)
-      - State machine:  FSA-{ENV}-CNSV-EXEC-SQL          (states/EXEC-SQL.asl.json)
+        Deploys:
+            - Glue job:       FSA-{ENV}-CNSV-EXEC-SQL         (glue/EXEC-SQL.py)
+            - Lambda x5:      FSA-{ENV}-CNSV-edv-* + check-sql
+            - State machine:  FSA-{ENV}-CNSV-EXEC-SQL         (states/EXEC-SQL.asl.json)
+            - State machine:  FSA-{ENV}-CNSV-CHECK-EXEC-SQL   (states/CHECK-EXEC-SQL.asl.json)
 
     All names derived from cfg.deployEnv and cfg.project — no hardcoding.
     Lambda ARNs are obtained from ensure_lambda and substituted into the ASL at deploy time.
@@ -380,6 +386,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         (names.fn_check_results,          "edv-check-results"),
         (names.fn_finalize_pipeline,      "edv-finalize-pipeline"),
         (names.fn_handle_failure,         "edv-handle-failure"),
+        (names.fn_check_sql,              "check-sql"),
     ]
 
     lambda_arns: Dict[str, str] = {}
@@ -391,13 +398,18 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         if not handler_file.exists():
             raise FileNotFoundError(f"Missing lambda_function.py in: {src_dir}")
         entrypoint = _detect_lambda_handler_symbol(handler_file)
+
+        env_vars = dict(shared_env)
+        if fn_name == names.fn_check_sql:
+            env_vars.setdefault("ARTIFACT_BUCKET", artifact_bucket)
+
         spec = LambdaSpec(
             name=fn_name,
             role_arn=etl_role_arn,
             handler=f"lambda_function.{entrypoint}",
             runtime=shared_runtime,
             source_dir=str(src_dir),
-            env=dict(shared_env),
+            env=env_vars,
             layers=list(shared_layers),
             timeout=shared_timeout,
             memory=shared_memory,
@@ -408,10 +420,14 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         lambda_arns[fn_name] = arn
         print(f"  {fn_name}: {arn}")
 
-    # --- State machine ---
-    print(f"[3/3] Deploying State Machine: {names.sm_exec_sql}")
-    raw_asl = _load_asl_file(project_dir, _PARAM_ASL_FILE)
-    asl_text = json.dumps(raw_asl)
+    # --- State machines ---
+    print(f"[3/4] Deploying State Machine: {names.sm_exec_sql}")
+    raw_exec_asl = _load_asl_file(project_dir, _EXEC_SQL_ASL_FILE)
+    exec_asl_text = json.dumps(raw_exec_asl)
+
+    print(f"[4/4] Deploying State Machine: {names.sm_check_exec_sql}")
+    raw_check_asl = _load_asl_file(project_dir, _CHECK_EXEC_SQL_ASL_FILE)
+    check_asl_text = json.dumps(raw_check_asl)
 
     # Read deploy-time payload values from EXEC-SQL.JobParameters in the config
     exec_sql_job_params = exec_sql_params.get("JobParameters") or {}
@@ -422,23 +438,34 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     substitutions = {
         "__EXEC_SQL_GLUE_JOB_NAME__":       names.exec_sql_glue_job,
         "__BUILD_PROCESSING_PLAN_FN_ARN__": lambda_arns[names.fn_build_processing_plan],
-        "__CHECK_RESULTS_FN_ARN__":          lambda_arns[names.fn_check_results],
-        "__FINALIZE_PIPELINE_FN_ARN__":      lambda_arns[names.fn_finalize_pipeline],
-        "__HANDLE_FAILURE_FN_ARN__":         lambda_arns[names.fn_handle_failure],
+        "__CHECK_RESULTS_FN_ARN__":         lambda_arns[names.fn_check_results],
+        "__FINALIZE_PIPELINE_FN_ARN__":     lambda_arns[names.fn_finalize_pipeline],
+        "__HANDLE_FAILURE_FN_ARN__":        lambda_arns[names.fn_handle_failure],
+        "__CHECK_SQL_FN_ARN__":             lambda_arns[names.fn_check_sql],
         "__DATA_SRC_NM__":                  data_src_nm,
         "__RUN_TYPE__":                     run_type,
         "__START_DATE__":                   start_date,
         "__ENV__":                          str(deploy_env),
     }
     for placeholder, value in substitutions.items():
-        asl_text = asl_text.replace(placeholder, value)
+        exec_asl_text = exec_asl_text.replace(placeholder, value)
+        check_asl_text = check_asl_text.replace(placeholder, value)
 
-    sm_arn = ensure_state_machine(
+    sm_exec_arn = ensure_state_machine(
         sfn,
         StateMachineSpec(
             name=names.sm_exec_sql,
             role_arn=sfn_role_arn,
-            definition=json.loads(asl_text),
+            definition=json.loads(exec_asl_text),
+        ),
+    )
+
+    sm_check_arn = ensure_state_machine(
+        sfn,
+        StateMachineSpec(
+            name=names.sm_check_exec_sql,
+            role_arn=sfn_role_arn,
+            definition=json.loads(check_asl_text),
         ),
     )
 
@@ -459,8 +486,12 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         "fn_finalize_pipeline_arn":         lambda_arns[names.fn_finalize_pipeline],
         "fn_handle_failure_name":           names.fn_handle_failure,
         "fn_handle_failure_arn":            lambda_arns[names.fn_handle_failure],
-        "state_machine_name":               names.sm_exec_sql,
-        "state_machine_arn":                sm_arn,
+        "fn_check_sql_name":                names.fn_check_sql,
+        "fn_check_sql_arn":                 lambda_arns[names.fn_check_sql],
+        "state_machine_exec_sql_name":      names.sm_exec_sql,
+        "state_machine_exec_sql_arn":       sm_exec_arn,
+        "state_machine_check_exec_sql_name": names.sm_check_exec_sql,
+        "state_machine_check_exec_sql_arn":  sm_check_arn,
     }
 
 

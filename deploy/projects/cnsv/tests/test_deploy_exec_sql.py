@@ -79,7 +79,7 @@ class TestExecSqlDeployRegression(unittest.TestCase):
         captured = {
             "glue_spec": None,
             "lambda_specs": [],
-            "state_spec": None,
+            "state_specs": [],
         }
 
         def _capture_glue(_client, _s3_client, spec):
@@ -91,7 +91,7 @@ class TestExecSqlDeployRegression(unittest.TestCase):
             return f"arn:aws:lambda:us-east-1:123456789012:function:{spec.name}"
 
         def _capture_state_machine(_client, spec):
-            captured["state_spec"] = spec
+            captured["state_specs"].append(spec)
             return f"arn:aws:states:us-east-1:123456789012:stateMachine:{spec.name}"
 
         with (
@@ -113,7 +113,7 @@ class TestExecSqlDeployRegression(unittest.TestCase):
 
     def test_lambda_handler_auto_alignment_uses_lambda_handler(self):
         _, captured = self._run_deploy()
-        self.assertEqual(len(captured["lambda_specs"]), 4)
+        self.assertEqual(len(captured["lambda_specs"]), 5)
         for spec in captured["lambda_specs"]:
             self.assertEqual(spec.handler, "lambda_function.lambda_handler")
 
@@ -123,28 +123,68 @@ class TestExecSqlDeployRegression(unittest.TestCase):
         for spec in captured["lambda_specs"]:
             self.assertEqual(spec.layers, expected_layers)
 
-    def test_state_machine_has_default_edv_check_path(self):
+    def test_check_sql_lambda_uses_artifact_bucket_from_artifacts_config(self):
         _, captured = self._run_deploy()
-        definition = captured["state_spec"].definition
-        states = definition["States"]
-
-        self.assertIn("SetDefaultEDVCheck", states)
-        self.assertEqual(states["ShouldProcessEDV"]["Default"], "SetDefaultEDVCheck")
-        self.assertEqual(states["SetDefaultEDVCheck"]["ResultPath"], "$.edvCheck")
+        check_sql_spec = next(
+            s for s in captured["lambda_specs"] if s.name.endswith("-check-sql")
+        )
         self.assertEqual(
-            states["FinalizePipeline"]["Parameters"]["Payload"]["edvCheck.$"],
-            "$.edvCheck",
+            check_sql_spec.env.get("ARTIFACT_BUCKET"),
+            self.cfg["artifacts"]["artifactBucket"],
         )
 
-    def test_state_machine_substitutions_from_job_parameters(self):
+    def test_state_machine_has_preflight_check_sql_task(self):
         _, captured = self._run_deploy()
-        definition = captured["state_spec"].definition
+        check_spec = next(
+            s for s in captured["state_specs"] if s.name.endswith("-CHECK-EXEC-SQL")
+        )
+        definition = check_spec.definition
+        states = definition["States"]
+
+        self.assertIn("BuildProcessingPlan", states)
+        self.assertIn("CheckSqlFilesExist", states)
+        self.assertEqual(states["BuildProcessingPlan"]["Next"], "CheckSqlFilesExist")
+        self.assertEqual(states["CheckSqlFilesExist"]["ResultPath"], "$.checkSqlResult")
+        self.assertEqual(states["CheckSqlFilesExist"]["Next"], "PreflightCheckComplete")
+
+    def test_state_machine_runtime_parameters_with_defaults(self):
+        _, captured = self._run_deploy()
+        check_spec = next(
+            s for s in captured["state_specs"] if s.name.endswith("-CHECK-EXEC-SQL")
+        )
+        definition = check_spec.definition
 
         payload = definition["States"]["BuildProcessingPlan"]["Parameters"]["Payload"]
-        self.assertEqual(payload["data_src_nm"], "cnsv")
-        self.assertEqual(payload["run_type"], "incremental")
-        self.assertEqual(payload["start_date"], "2026-01-27")
-        self.assertEqual(payload["env"], "TST")
+        self.assertEqual(payload["data_src_nm.$"], "$.data_src_nm")
+        self.assertEqual(payload["run_type.$"], "$.run_type")
+        self.assertEqual(payload["start_date.$"], "$.start_date")
+        self.assertEqual(payload["env.$"], "$.env")
+
+        states = definition["States"]
+        self.assertEqual(states["SetDefaultDataSrcNm"]["Result"], "cnsv")
+        self.assertEqual(states["SetDefaultRunType"]["Result"], "incremental")
+        self.assertEqual(states["SetDefaultStartDate"]["Result"], "2026-01-27")
+        self.assertEqual(states["SetDefaultEnv"]["Result"], "TST")
+
+    def test_deploys_both_exec_sql_and_check_exec_sql_state_machines(self):
+        _, captured = self._run_deploy()
+        names = {s.name for s in captured["state_specs"]}
+        self.assertIn("FSA-TST-CNSV-EXEC-SQL", names)
+        self.assertIn("FSA-TST-CNSV-CHECK-EXEC-SQL", names)
+
+    def test_exec_sql_state_machine_uses_runtime_parameters(self):
+        _, captured = self._run_deploy()
+        exec_spec = next(
+            s for s in captured["state_specs"] if s.name.endswith("-EXEC-SQL") and not s.name.endswith("-CHECK-EXEC-SQL")
+        )
+        states = exec_spec.definition["States"]
+        payload = states["BuildProcessingPlan"]["Parameters"]["Payload"]
+
+        self.assertEqual(payload["data_src_nm.$"], "$.data_src_nm")
+        self.assertEqual(payload["run_type.$"], "$.run_type")
+        self.assertEqual(payload["start_date.$"], "$.start_date")
+        self.assertEqual(payload["env.$"], "$.env")
+        self.assertEqual(states["SetDefaultDataSrcNm"]["Result"], "cnsv")
 
     def test_detect_lambda_handler_symbol_prefers_lambda_handler(self):
         with tempfile.TemporaryDirectory() as tmp:

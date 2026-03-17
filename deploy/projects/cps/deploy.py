@@ -80,6 +80,56 @@ def _parse_glue_config_array(cfg: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     return out
 
 
+def _parse_lambda_config_array(cfg: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    root = cfg.get("LambdaConfig")
+    if not isinstance(root, list):
+        return {}
+    out: Dict[str, Dict[str, Any]] = {}
+    for item in root:
+        if not isinstance(item, dict):
+            continue
+        for k, v in item.items():
+            if isinstance(k, str) and isinstance(v, dict):
+                out[k] = v
+    return out
+
+
+def _resolve_lambda_env_vars(
+    env_cfg: Dict[str, Any],
+    *,
+    deploy_env: str,
+    project: str,
+    names: Names,
+    secret_id: str,
+    sns_arn: str,
+) -> Dict[str, str]:
+    if not isinstance(env_cfg, dict):
+        return {}
+
+    tokens = {
+        "{deployEnv}": deploy_env,
+        "{project}": project,
+        "{projectLower}": project.lower(),
+        "{secretId}": secret_id,
+        "{snsArn}": sns_arn,
+        "{crawlerMain}": names.crawler_main,
+        "{crawlerCdc}": names.crawler_cdc,
+        "__ENV__": deploy_env,
+        "__PROJECT__": project,
+    }
+
+    out: Dict[str, str] = {}
+    for k, v in env_cfg.items():
+        key = _as_str(k)
+        if not key:
+            continue
+        val = "" if v is None else str(v)
+        for token, repl in tokens.items():
+            val = val.replace(token, repl)
+        out[key] = val
+    return out
+
+
 def _parse_connection_names(glue_job_params: Dict[str, Any]) -> List[str]:
     conns = glue_job_params.get("Connections") or []
     if not isinstance(conns, list):
@@ -536,6 +586,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
     lambda_dirs = sorted([p for p in lambda_root.iterdir() if p.is_dir()])
 
     lambda_shared = _as_dict(cfg.get("lambdas") or cfg.get("lambda"))
+    lambda_cfg = _parse_lambda_config_array(cfg)
     shared_layers = _as_str_list(lambda_shared.get("layers"))
     shared_runtime = _as_str(lambda_shared.get("runtime"), "python3.11")
     shared_timeout = _as_int(lambda_shared.get("timeoutSeconds"), 30)
@@ -543,18 +594,36 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
 
     for src_dir in lambda_dirs:
         fn_name = f"{names.prefix}-{src_dir.name}"
+        lcfg = _as_dict(lambda_cfg.get(src_dir.name))
+        runtime = _as_str(lcfg.get("runtime"), shared_runtime)
+        timeout = _as_int(lcfg.get("timeoutSeconds"), shared_timeout)
+        memory = _as_int(lcfg.get("memoryMb"), shared_memory)
+        if isinstance(lcfg.get("layers"), list):
+            layers = _as_str_list(lcfg.get("layers"))
+        else:
+            layers = shared_layers
         source_path, tmp_ctx = _prepare_lambda_source(src_dir)
         try:
             handler_sym = _detect_handler_symbol(Path(source_path) / "lambda_function.py")
-            fn_env: Dict[str, str] = {}
-            if src_dir.name == "get-incremental-tables":
-                fn_env["source_folder"] = project.lower()
-            if src_dir.name in {"RAW-DM-sns-pub-step-func-errs", "sns-publish-validations-report"} and sns_arn:
-                fn_env["SNS_ARN"] = sns_arn
-            if src_dir.name in {"Job-Logging-End", "validation-check"}:
-                if secret_id:
-                    fn_env["SecretId"] = secret_id
-                fn_env["CRAWLER_NAME"] = names.crawler_main
+            fn_env = _resolve_lambda_env_vars(
+                _as_dict(lcfg.get("environmentVariables")),
+                deploy_env=deploy_env,
+                project=project,
+                names=names,
+                secret_id=secret_id,
+                sns_arn=sns_arn,
+            )
+
+            # Backward-compatible fallback for configs that do not define LambdaConfig env vars.
+            if not fn_env:
+                if src_dir.name == "get-incremental-tables":
+                    fn_env["source_folder"] = project.lower()
+                if src_dir.name in {"RAW-DM-sns-pub-step-func-errs", "sns-publish-validations-report"} and sns_arn:
+                    fn_env["SNS_ARN"] = sns_arn
+                if src_dir.name in {"Job-Logging-End", "validation-check"}:
+                    if secret_id:
+                        fn_env["SecretId"] = secret_id
+                    fn_env["CRAWLER_NAME"] = names.crawler_main
 
             arn = ensure_lambda(
                 lam,
@@ -562,12 +631,12 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
                     name=fn_name,
                     role_arn=etl_role_arn,
                     handler=f"lambda_function.{handler_sym}",
-                    runtime=shared_runtime,
+                    runtime=runtime,
                     source_dir=source_path,
                     env=fn_env,
-                    layers=shared_layers,
-                    timeout=shared_timeout,
-                    memory=shared_memory,
+                    layers=layers,
+                    timeout=timeout,
+                    memory=memory,
                 ),
             )
             lambda_arns[fn_name] = arn

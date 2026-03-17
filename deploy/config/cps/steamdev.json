@@ -36,6 +36,73 @@
   "roleArn": "arn:aws:iam::335965711887:role/FSA-dev-FPACCARS-SfnExec",
    "nestedCallerRoleArn": "arn:aws:iam::335965711887:role/FSA-dev-FPACCARS-SfnNestedCaller"
   },
+  "LambdaConfig": [
+    {
+      "Job-Logging-End": {
+        "runtime": "python3.11",
+        "timeoutSeconds": 30,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SecretId": "FSA-DEV-Secrets",
+          "CRAWLER_NAME": "FSA-STEAMDEV-CPS"
+        }
+      }
+    },
+    {
+      "RAW-DM-etl-workflow-update": {
+        "runtime": "python3.11",
+        "timeoutSeconds": 30,
+        "memoryMb": 256,
+        "layers": []
+      }
+    },
+    {
+      "RAW-DM-sns-pub-step-func-errs": {
+        "runtime": "python3.11",
+        "timeoutSeconds": 30,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SNS_ARN": "arn:aws:sns:us-east-1:335965711887:FSA-DEV-FMMI"
+        }
+      }
+    },
+    {
+      "get-incremental-tables": {
+        "runtime": "python3.11",
+        "timeoutSeconds": 30,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "source_folder": "cps"
+        }
+      }
+    },
+    {
+      "sns-publish-validations-report": {
+        "runtime": "python3.11",
+        "timeoutSeconds": 30,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SNS_ARN": "arn:aws:sns:us-east-1:335965711887:FSA-DEV-FMMI"
+        }
+      }
+    },
+    {
+      "validation-check": {
+        "runtime": "python3.11",
+        "timeoutSeconds": 30,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SecretId": "FSA-DEV-Secrets",
+          "CRAWLER_NAME": "FSA-STEAMDEV-CPS"
+        }
+      }
+    }
+  ],
   "configUpload": {
     "functionName": "FSA-steam-dev-UploadConfig",
     "sourceDir": "configs",

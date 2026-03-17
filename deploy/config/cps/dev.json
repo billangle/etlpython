@@ -33,6 +33,73 @@
     "roleName": "disc-fsa-dev-stepfunction",
     "roleArn": "arn:aws:iam::241533156429:role/disc-fsa-dev-stepfunction"
   },
+  "LambdaConfig": [
+    {
+      "Job-Logging-End": {
+        "runtime": "python3.11",
+        "timeoutSeconds": 30,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SecretId": "FSA-DEV-secrets",
+          "CRAWLER_NAME": "FSA-FPACDEV-CPS"
+        }
+      }
+    },
+    {
+      "RAW-DM-etl-workflow-update": {
+        "runtime": "python3.11",
+        "timeoutSeconds": 30,
+        "memoryMb": 256,
+        "layers": []
+      }
+    },
+    {
+      "RAW-DM-sns-pub-step-func-errs": {
+        "runtime": "python3.11",
+        "timeoutSeconds": 30,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SNS_ARN": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-FMMI"
+        }
+      }
+    },
+    {
+      "get-incremental-tables": {
+        "runtime": "python3.11",
+        "timeoutSeconds": 30,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "source_folder": "cps"
+        }
+      }
+    },
+    {
+      "sns-publish-validations-report": {
+        "runtime": "python3.11",
+        "timeoutSeconds": 30,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SNS_ARN": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-FMMI"
+        }
+      }
+    },
+    {
+      "validation-check": {
+        "runtime": "python3.11",
+        "timeoutSeconds": 30,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SecretId": "FSA-DEV-secrets",
+          "CRAWLER_NAME": "FSA-FPACDEV-CPS"
+        }
+      }
+    }
+  ],
   "configUpload": {
     "functionName": "FSA-FPACDEV-UploadConfig",
     "sourceDir": "configs",

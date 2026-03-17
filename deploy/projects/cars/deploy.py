@@ -298,6 +298,10 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
     download_zip_dirname = dz_cfg.get("sourceDirName", "DownloadZip")
     download_zip_dir = lambda_root / download_zip_dirname
     download_zip_handler = dz_cfg.get("handler", "lambda_function.lambda_handler")
+    download_zip_timeout = _as_int(dz_cfg.get("timeoutSeconds"), default=900)
+
+    upload_cfg = cfg.get("configUpload") or {}
+    upload_config_timeout = _as_int(upload_cfg.get("timeoutSeconds"), default=900)
 
     exec_sql_script_local = glue_root / "FSA-CERT-DATAMART-EXEC-DB-SQL.py"
     pg_to_rs_script_local = glue_root / "FSA-CERT-DART-PG-TO-REDSHIFT.py"
@@ -379,6 +383,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
             source_dir=str(download_zip_dir),
             env=env_vars,
             layers=layers,
+            timeout=download_zip_timeout,
         ),
     )
 
@@ -392,6 +397,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
             source_dir=str(lambda_root / "UploadConfig"),
             env=env_vars,
             layers=layers,
+            timeout=upload_config_timeout,
         ),
     )
 

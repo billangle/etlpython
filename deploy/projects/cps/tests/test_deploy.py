@@ -44,12 +44,73 @@ def _base_cfg() -> dict:
         "stepFunctions": {
             "roleArn": "arn:aws:iam::123456789012:role/test-sfn-role",
         },
-        "lambdas": {
-            "runtime": "python3.11",
-            "timeoutSeconds": 30,
-            "memoryMb": 256,
-            "layers": ["arn:aws:lambda:us-east-1:123456789012:layer:test:1"],
-        },
+        "LambdaConfig": [
+            {
+                "Job-Logging-End": {
+                    "runtime": "python3.11",
+                    "timeoutSeconds": 30,
+                    "memoryMb": 256,
+                    "layers": ["arn:aws:lambda:us-east-1:123456789012:layer:test:1"],
+                    "environmentVariables": {
+                        "SecretId": "FSA-TST-secrets",
+                        "CRAWLER_NAME": "FSA-TST-CPS",
+                    },
+                }
+            },
+            {
+                "RAW-DM-etl-workflow-update": {
+                    "runtime": "python3.11",
+                    "timeoutSeconds": 30,
+                    "memoryMb": 256,
+                    "layers": ["arn:aws:lambda:us-east-1:123456789012:layer:test:1"],
+                }
+            },
+            {
+                "RAW-DM-sns-pub-step-func-errs": {
+                    "runtime": "python3.11",
+                    "timeoutSeconds": 30,
+                    "memoryMb": 256,
+                    "layers": ["arn:aws:lambda:us-east-1:123456789012:layer:test:1"],
+                    "environmentVariables": {
+                        "SNS_ARN": "arn:aws:sns:us-east-1:123456789012:FSA-TST-CPS",
+                    },
+                }
+            },
+            {
+                "get-incremental-tables": {
+                    "runtime": "python3.11",
+                    "timeoutSeconds": 30,
+                    "memoryMb": 256,
+                    "layers": ["arn:aws:lambda:us-east-1:123456789012:layer:test:1"],
+                    "environmentVariables": {
+                        "source_folder": "cps",
+                    },
+                }
+            },
+            {
+                "sns-publish-validations-report": {
+                    "runtime": "python3.11",
+                    "timeoutSeconds": 30,
+                    "memoryMb": 256,
+                    "layers": ["arn:aws:lambda:us-east-1:123456789012:layer:test:1"],
+                    "environmentVariables": {
+                        "SNS_ARN": "arn:aws:sns:us-east-1:123456789012:FSA-TST-CPS",
+                    },
+                }
+            },
+            {
+                "validation-check": {
+                    "runtime": "python3.11",
+                    "timeoutSeconds": 30,
+                    "memoryMb": 256,
+                    "layers": ["arn:aws:lambda:us-east-1:123456789012:layer:test:1"],
+                    "environmentVariables": {
+                        "SecretId": "FSA-TST-secrets",
+                        "CRAWLER_NAME": "FSA-TST-CPS",
+                    },
+                }
+            },
+        ],
         "GlueConfig": [
             {
                 "LandingFiles": {
@@ -212,6 +273,10 @@ class TestCpsDeployRegression(unittest.TestCase):
         self.assertEqual(len(captured["lambda_specs"]), 6)
         for spec in captured["lambda_specs"]:
             self.assertEqual(spec.handler, "lambda_function.lambda_handler")
+            self.assertEqual(spec.runtime, "python3.11")
+            self.assertEqual(spec.timeout, 30)
+            self.assertEqual(spec.memory, 256)
+            self.assertEqual(spec.layers, ["arn:aws:lambda:us-east-1:123456789012:layer:test:1"])
 
     def test_prepare_lambda_source_normalizes_hyphen_filename(self):
         with tempfile.TemporaryDirectory() as tmp:

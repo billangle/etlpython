@@ -4,7 +4,7 @@ set -euo pipefail
 # CloudShell helper to invoke the CARS DownloadZip Lambda.
 #
 # Default function naming convention:
-#   FSA-<DEPLOY_ENV>-CARS-DownloadZip
+#   FSA-<DEPLOY_ENV>-DownloadZip
 #
 # Example:
 #   ./run_downloadzip_cloudshell.sh \
@@ -27,6 +27,8 @@ Optional:
   --project <name>               Project token in function name (default: CARS)
   --function-name <name>         Explicit Lambda function name (overrides env/project naming)
   --region <name>                AWS region (default: us-east-1)
+  --cli-read-timeout <seconds>   AWS CLI read timeout; 0 disables timeout (default: 0)
+  --cli-connect-timeout <sec>    AWS CLI connect timeout (default: 60)
   --destination-key <key>        Destination S3 key for output zip
   --ignore-patterns <csv>        Comma-separated patterns (default: *.zip)
   --include-source-folder-in-zip <true|false>  (default: true)
@@ -40,6 +42,8 @@ DEPLOY_ENV="FPACDEV"
 PROJECT="CARS"
 FUNCTION_NAME="FSA-FPACDEV-DownloadZip"
 REGION="us-east-1"
+CLI_READ_TIMEOUT="0"
+CLI_CONNECT_TIMEOUT="60"
 SOURCE_BUCKET=""
 SOURCE_FOLDER=""
 DEST_BUCKET=""
@@ -65,6 +69,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --region)
       REGION="$2"
+      shift 2
+      ;;
+    --cli-read-timeout)
+      CLI_READ_TIMEOUT="$2"
+      shift 2
+      ;;
+    --cli-connect-timeout)
+      CLI_CONNECT_TIMEOUT="$2"
       shift 2
       ;;
     --source-bucket)
@@ -157,7 +169,7 @@ fi
 [[ -z "$DEST_KEY" ]] && DEST_KEY="exports/incoming-data.zip"
 
 if [[ -z "$FUNCTION_NAME" ]]; then
-  FUNCTION_NAME="FSA-${DEPLOY_ENV}-${PROJECT}-DownloadZip"
+  FUNCTION_NAME="FSA-${DEPLOY_ENV}-DownloadZip"
 fi
 
 TMP_PAYLOAD="$(mktemp /tmp/downloadzip_payload.XXXXXX.json)"
@@ -193,6 +205,8 @@ echo "Payload file: $TMP_PAYLOAD"
 aws lambda invoke \
   --function-name "$FUNCTION_NAME" \
   --region "$REGION" \
+  --cli-read-timeout "$CLI_READ_TIMEOUT" \
+  --cli-connect-timeout "$CLI_CONNECT_TIMEOUT" \
   --cli-binary-format raw-in-base64-out \
   --payload "fileb://$TMP_PAYLOAD" \
   "$OUT_FILE" \

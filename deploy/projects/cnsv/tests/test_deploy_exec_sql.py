@@ -133,6 +133,13 @@ class TestExecSqlDeployRegression(unittest.TestCase):
             self.cfg["artifacts"]["artifactBucket"],
         )
 
+    def test_check_sql_lambda_timeout_is_max_900_seconds(self):
+        _, captured = self._run_deploy()
+        check_sql_spec = next(
+            s for s in captured["lambda_specs"] if s.name.endswith("-check-sql")
+        )
+        self.assertEqual(check_sql_spec.timeout, 900)
+
     def test_state_machine_has_preflight_check_sql_task(self):
         _, captured = self._run_deploy()
         check_spec = next(

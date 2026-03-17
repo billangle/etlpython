@@ -403,6 +403,8 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         if fn_name == names.fn_check_sql:
             env_vars.setdefault("ARTIFACT_BUCKET", artifact_bucket)
 
+        timeout_seconds = 900 if fn_name == names.fn_check_sql else shared_timeout
+
         spec = LambdaSpec(
             name=fn_name,
             role_arn=etl_role_arn,
@@ -411,7 +413,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
             source_dir=str(src_dir),
             env=env_vars,
             layers=list(shared_layers),
-            timeout=shared_timeout,
+            timeout=timeout_seconds,
             memory=shared_memory,
             subnet_ids=subnet_ids,
             security_group_ids=security_group_ids,

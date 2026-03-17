@@ -97,3 +97,44 @@ def test_lambda_handler_returns_error_when_required_parameters_missing():
     mod = _load_module()
     result = mod.lambda_handler({}, None)
     assert result == {"error": "Missing required parameters"}
+
+
+def test_lambda_logs_progress_in_ten_percent_increments_with_function_name_logger():
+    mod = _load_module()
+
+    event = {
+        "env": "STEAMDEV",
+        "data_src_nm": "cnsv",
+        "run_type": "incremental",
+        "start_date": "2026-03-17",
+        "stgTables": [f"TABLE_{i}" for i in range(10)],
+    }
+
+    s3 = MagicMock()
+    s3.head_object.return_value = {"ResponseMetadata": {"HTTPStatusCode": 200}}
+
+    def _resolve(_s3_client, _bucket, _prefix, target):
+        return target
+
+    context = MagicMock()
+    context.function_name = "FSA-STEAMDEV-CNSV-check-sql"
+
+    logger = MagicMock()
+
+    with (
+        patch.object(mod.boto3, "client", return_value=s3),
+        patch.object(mod, "_resolve_s3_path_case", side_effect=_resolve),
+        patch.object(mod.logging, "getLogger", return_value=logger) as mock_get_logger,
+    ):
+        mod.lambda_handler(event, context)
+
+    mock_get_logger.assert_called_once_with("FSA-STEAMDEV-CNSV-check-sql")
+
+    progress_calls = [
+        c for c in logger.info.call_args_list
+        if len(c.args) >= 5 and isinstance(c.args[0], str) and c.args[0] == "[%s] Progress: %d%% (%d/%d tables checked)"
+    ]
+
+    # Message format includes [function_name], then percentage, processed, total.
+    progress_values = [c.args[2] for c in progress_calls]
+    assert progress_values == [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]

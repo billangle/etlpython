@@ -1,8 +1,15 @@
 import os
-import json
+import logging
 import boto3
 from datetime import datetime
-from pathlib import Path
+
+
+def _get_function_name(context):
+    if context is not None:
+        fn_name = getattr(context, "function_name", None)
+        if fn_name:
+            return fn_name
+    return os.environ.get("AWS_LAMBDA_FUNCTION_NAME", "check-sql")
 
 def _resolve_s3_path_case(s3_client, bucket, prefix, target):
     """
@@ -19,13 +26,20 @@ def _resolve_s3_path_case(s3_client, bucket, prefix, target):
 def lambda_handler(event, context):
     # Accepts same arguments as EXEC-SQL Glue job
     # event should contain: env, application (data_src_nm), run_type, start_date, stgTables, etc.
+    function_name = _get_function_name(context)
+    logger = logging.getLogger(function_name)
+    logger.setLevel(logging.INFO)
+
     env = event.get('env')
     application = event.get('data_src_nm')
     run_type = event.get('run_type')
     start_date = event.get('start_date')
     stg_tables = event.get('plan', {}).get('stgTables') or event.get('stgTables')
     if not (env and application and run_type and start_date and stg_tables):
+        logger.error("[%s] Missing required parameters in event", function_name)
         return {"error": "Missing required parameters"}
+
+    logger.info("[%s] Starting SQL preflight for %d tables", function_name, len(stg_tables))
 
     s3 = boto3.client('s3')
     bucket = f"c108-{env.lower()}-fpacfsa-final-zone"
@@ -33,6 +47,8 @@ def lambda_handler(event, context):
 
     found = []
     missing = []
+    last_logged_progress = 0
+    total = len(stg_tables)
     for table in stg_tables:
         try:
             table_folder = _resolve_s3_path_case(s3, bucket, base_prefix, table.upper())
@@ -47,7 +63,18 @@ def lambda_handler(event, context):
         except Exception as e:
             missing.append(f"{table} ({str(e)})")
 
-    total = len(stg_tables)
+        processed = len(found) + len(missing)
+        progress_pct = int((processed * 100) / total) if total else 100
+        while last_logged_progress + 10 <= progress_pct:
+            last_logged_progress += 10
+            logger.info(
+                "[%s] Progress: %d%% (%d/%d tables checked)",
+                function_name,
+                last_logged_progress,
+                processed,
+                total,
+            )
+
     found_pct = (len(found) / total * 100) if total else 0
     now = datetime.utcnow().strftime('%Y-%m-%dT%H%M%S')
     report = [
@@ -66,6 +93,15 @@ def lambda_handler(event, context):
     artifact_bucket = os.environ.get('ARTIFACT_BUCKET', 'fsa-dev-ops')
     s3_key = f"report/cnsv/exec-sql-{now}.md"
     s3.put_object(Bucket=artifact_bucket, Key=s3_key, Body=md_report.encode('utf-8'))
+
+    logger.info(
+        "[%s] Completed SQL preflight. Found=%d Missing=%d PercentFound=%.1f Report=%s",
+        function_name,
+        len(found),
+        len(missing),
+        found_pct,
+        f"s3://{artifact_bucket}/{s3_key}",
+    )
 
     return {
         "report_s3": f"s3://{artifact_bucket}/{s3_key}",

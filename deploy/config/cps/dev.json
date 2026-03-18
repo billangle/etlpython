@@ -18,7 +18,7 @@
     "etlRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-lambda",
     "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1",
     "customLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:FSA-polars:2",
-    "snsArnParam": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-FMMI"
+    "snsArnParam": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-CPS"
   },
   "paths": {
     "glueRootPath": "glue/",
@@ -39,7 +39,7 @@
         "runtime": "python3.11",
         "timeoutSeconds": 30,
         "memoryMb": 256,
-        "layers": [],
+        "layers": ["arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1"],
         "environmentVariables": {
           "SecretId": "FSA-DEV-secrets",
           "CRAWLER_NAME": "FSA-FPACDEV-CPS"
@@ -51,7 +51,7 @@
         "runtime": "python3.11",
         "timeoutSeconds": 30,
         "memoryMb": 256,
-        "layers": []
+        "layers": ["arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1"]
       }
     },
     {
@@ -83,7 +83,7 @@
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {
-          "SNS_ARN": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-FMMI"
+          "SNS_ARN": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-CPS"
         }
       }
     },
@@ -92,7 +92,7 @@
         "runtime": "python3.11",
         "timeoutSeconds": 30,
         "memoryMb": 256,
-        "layers": [],
+        "layers": ["arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1"],
         "environmentVariables": {
           "SecretId": "FSA-DEV-secrets",
           "CRAWLER_NAME": "FSA-FPACDEV-CPS"

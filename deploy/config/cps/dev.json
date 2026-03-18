@@ -40,6 +40,18 @@
         "timeoutSeconds": 30,
         "memoryMb": 256,
         "layers": ["arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1"],
+        "networking": {
+          "vpcId": "vpc-05f9625eecaabbfd4",
+          "subnetIds": [
+            "subnet-07fe1e0a3104aa512",
+            "subnet-0757d215da1902198"
+          ],
+          "securityGroupIds": [
+            "sg-06e3bf9b59cf6be6a",
+            "sg-02bc63ec00da5f850",
+            "sg-0906c3d7352c5889e"
+          ]
+        },
         "environmentVariables": {
           "SecretId": "FSA-DEV-secrets",
           "CRAWLER_NAME": "FSA-FPACDEV-CPS"
@@ -51,7 +63,19 @@
         "runtime": "python3.11",
         "timeoutSeconds": 30,
         "memoryMb": 256,
-        "layers": ["arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1"]
+        "layers": ["arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1"],
+        "networking": {
+          "vpcId": "vpc-05f9625eecaabbfd4",
+          "subnetIds": [
+            "subnet-07fe1e0a3104aa512",
+            "subnet-0757d215da1902198"
+          ],
+          "securityGroupIds": [
+            "sg-06e3bf9b59cf6be6a",
+            "sg-02bc63ec00da5f850",
+            "sg-0906c3d7352c5889e"
+          ]
+        }
       }
     },
     {
@@ -71,6 +95,18 @@
         "timeoutSeconds": 30,
         "memoryMb": 256,
         "layers": [],
+        "networking": {
+          "vpcId": "vpc-05f9625eecaabbfd4",
+          "subnetIds": [
+            "subnet-07fe1e0a3104aa512",
+            "subnet-0757d215da1902198"
+          ],
+          "securityGroupIds": [
+            "sg-06e3bf9b59cf6be6a",
+            "sg-02bc63ec00da5f850",
+            "sg-0906c3d7352c5889e"
+          ]
+        },
         "environmentVariables": {
           "source_folder": "cps"
         }
@@ -93,6 +129,18 @@
         "timeoutSeconds": 30,
         "memoryMb": 256,
         "layers": ["arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1"],
+        "networking": {
+          "vpcId": "vpc-05f9625eecaabbfd4",
+          "subnetIds": [
+            "subnet-07fe1e0a3104aa512",
+            "subnet-0757d215da1902198"
+          ],
+          "securityGroupIds": [
+            "sg-06e3bf9b59cf6be6a",
+            "sg-02bc63ec00da5f850",
+            "sg-0906c3d7352c5889e"
+          ]
+        },
         "environmentVariables": {
           "SecretId": "FSA-DEV-secrets",
           "CRAWLER_NAME": "FSA-FPACDEV-CPS"

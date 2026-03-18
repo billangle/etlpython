@@ -45,6 +45,15 @@
         "layers": [
           "arn:aws:lambda:us-east-1:253490756794:layer:FSA-DEV-psycopg2-python311:1"
         ],
+        "networking": {
+          "vpcId": "vpc-092b2aee3fba9e5e6",
+          "subnetIds": [
+            "subnet-0d4691e36b391b17f"
+          ],
+          "securityGroupIds": [
+            "sg-05e3e3fd000913769"
+          ]
+        },
         "environmentVariables": {
           "SecretId": "FSA-PROD-secrets",
           "CRAWLER_NAME": "FSA-PROD-CPS"
@@ -58,7 +67,16 @@
         "memoryMb": 256,
         "layers": [
           "arn:aws:lambda:us-east-1:253490756794:layer:FSA-DEV-psycopg2-python311:1"
-        ]
+        ],
+        "networking": {
+          "vpcId": "vpc-092b2aee3fba9e5e6",
+          "subnetIds": [
+            "subnet-0d4691e36b391b17f"
+          ],
+          "securityGroupIds": [
+            "sg-05e3e3fd000913769"
+          ]
+        }
       }
     },
     {
@@ -78,6 +96,15 @@
         "timeoutSeconds": 30,
         "memoryMb": 256,
         "layers": [],
+        "networking": {
+          "vpcId": "vpc-092b2aee3fba9e5e6",
+          "subnetIds": [
+            "subnet-0d4691e36b391b17f"
+          ],
+          "securityGroupIds": [
+            "sg-05e3e3fd000913769"
+          ]
+        },
         "environmentVariables": {
           "source_folder": "cps"
         }
@@ -102,6 +129,15 @@
         "layers": [
           "arn:aws:lambda:us-east-1:253490756794:layer:FSA-DEV-psycopg2-python311:1"
         ],
+        "networking": {
+          "vpcId": "vpc-092b2aee3fba9e5e6",
+          "subnetIds": [
+            "subnet-0d4691e36b391b17f"
+          ],
+          "securityGroupIds": [
+            "sg-05e3e3fd000913769"
+          ]
+        },
         "environmentVariables": {
           "SecretId": "FSA-PROD-secrets",
           "CRAWLER_NAME": "FSA-PROD-CPS"

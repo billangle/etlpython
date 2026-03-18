@@ -130,6 +130,28 @@ def _resolve_lambda_env_vars(
     return out
 
 
+def _resolve_lambda_networking(lcfg: Dict[str, Any]) -> Tuple[Optional[List[str]], Optional[List[str]]]:
+    net = _as_dict(lcfg.get("networking"))
+
+    # Preferred shape: networking.subnetIds/securityGroupIds
+    subnet_ids_val = net.get("subnetIds")
+    sg_ids_val = net.get("securityGroupIds")
+
+    # Fallback shape: top-level keys on the lambda config block.
+    if subnet_ids_val is None:
+        subnet_ids_val = lcfg.get("subnetIds")
+    if sg_ids_val is None:
+        sg_ids_val = lcfg.get("securityGroupIds")
+
+    subnet_ids = _as_str_list(subnet_ids_val)
+    security_group_ids = _as_str_list(sg_ids_val)
+
+    if subnet_ids and security_group_ids:
+        return subnet_ids, security_group_ids
+
+    return None, None
+
+
 def _parse_connection_names(glue_job_params: Dict[str, Any]) -> List[str]:
     conns = glue_job_params.get("Connections") or []
     if not isinstance(conns, list):
@@ -602,6 +624,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
             layers = _as_str_list(lcfg.get("layers"))
         else:
             layers = shared_layers
+        subnet_ids, security_group_ids = _resolve_lambda_networking(lcfg)
         source_path, tmp_ctx = _prepare_lambda_source(src_dir)
         try:
             handler_sym = _detect_handler_symbol(Path(source_path) / "lambda_function.py")
@@ -637,6 +660,8 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
                     layers=layers,
                     timeout=timeout,
                     memory=memory,
+                    subnet_ids=subnet_ids,
+                    security_group_ids=security_group_ids,
                 ),
             )
             lambda_arns[fn_name] = arn

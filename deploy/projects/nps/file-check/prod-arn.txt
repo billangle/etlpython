@@ -1,5 +1,7 @@
 arn:aws:states:us-east-1:253490756794:execution:FSA-PROD-FWADM-FTP_nps_fsafs:06ee2ff3-0e0e-4149-8356-f3da23ef08a9
 
+arn: arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FWADM-FTP_nps_fsafs
+
 
 
 

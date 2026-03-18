@@ -61,7 +61,7 @@
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {
-          "SNS_ARN": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-FMMI"
+          "SNS_ARN": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-CPS"
         }
       }
     },

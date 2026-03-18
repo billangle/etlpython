@@ -18,7 +18,7 @@
     "etlRoleArnParam": "arn:aws:iam::253490756794:role/disc-fsa-prod-lambda-servicerole",
     "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:253490756794:layer:FSA-DEV-psycopg2-python311:1",
     "customLayerArnParam": "arn:aws:lambda:us-east-1:253490756794:layer:FSA-polars:1",
-    "snsArnParam": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-cps"
+    "snsArnParam": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-CPS"
   },
   "paths": {
     "glueRootPath": "glue/",
@@ -42,7 +42,9 @@
         "runtime": "python3.11",
         "timeoutSeconds": 30,
         "memoryMb": 256,
-        "layers": [],
+        "layers": [
+          "arn:aws:lambda:us-east-1:253490756794:layer:FSA-DEV-psycopg2-python311:1"
+        ],
         "environmentVariables": {
           "SecretId": "FSA-PROD-secrets",
           "CRAWLER_NAME": "FSA-PROD-CPS"
@@ -54,7 +56,9 @@
         "runtime": "python3.11",
         "timeoutSeconds": 30,
         "memoryMb": 256,
-        "layers": []
+        "layers": [
+          "arn:aws:lambda:us-east-1:253490756794:layer:FSA-DEV-psycopg2-python311:1"
+        ]
       }
     },
     {
@@ -64,7 +68,7 @@
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {
-          "SNS_ARN": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-cps"
+          "SNS_ARN": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-CPS"
         }
       }
     },
@@ -86,7 +90,7 @@
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {
-          "SNS_ARN": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-cps"
+          "SNS_ARN": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-CPS"
         }
       }
     },
@@ -95,7 +99,9 @@
         "runtime": "python3.11",
         "timeoutSeconds": 30,
         "memoryMb": 256,
-        "layers": [],
+        "layers": [
+          "arn:aws:lambda:us-east-1:253490756794:layer:FSA-DEV-psycopg2-python311:1"
+        ],
         "environmentVariables": {
           "SecretId": "FSA-PROD-secrets",
           "CRAWLER_NAME": "FSA-PROD-CPS"

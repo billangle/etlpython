@@ -70,6 +70,11 @@
       "s3_bucket": "dev-cars-artifacts",
       "s3_key": "testdata/data/mrtxdb-in/daily/CONGDIST_REPORT.20250107.csv",
       "remote_path": "mrtxdb/in/daily/CONGDIST_REPORT.20250107.csv"
+    },
+     {
+      "s3_bucket": "dev-cars-artifacts",
+      "s3_key": "testdata/data/nps/in/M_DB2_SAMPLE_20250318.txt",
+      "remote_path": "nps/in/M_DB2_SAMPLE_20250318.txt"
     }
   ]
 }

@@ -19,6 +19,9 @@ aws s3 sync "${SCRIPT_DIR}/gls-in" "s3://${S3_BUCKET}/${S3_PREFIX}/gls-in" --no-
 # mrtxdb-in (new: caorpt daily + weekly)
 aws s3 sync "${SCRIPT_DIR}/mrtxdb-in" "s3://${S3_BUCKET}/${S3_PREFIX}/mrtxdb-in" --no-progress
 
+# nps/in
+aws s3 sync "${SCRIPT_DIR}/nps/in" "s3://${S3_BUCKET}/${S3_PREFIX}/nps/in" --no-progress
+
 echo "Sync complete. Invoking TestFileLoader lambda ..."
 
 aws lambda invoke \

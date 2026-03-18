@@ -9,3 +9,5 @@
 [Pipeline NATS /nats ]  (https://jenkinsfsa-dev.dl.usda.gov/job/FSA-CERT-FLPIDS-NATS-FileChecker/)
 
 [Pipeline RPT /plas ]  (https://jenkinsfsa-dev.dl.usda.gov/job/FSA-CERT-FLPIDS-RPT-FileChecker/)
+
+[Pipeline NPSDB2 /nps ]  (npsdb2/jenkins)

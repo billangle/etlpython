@@ -6,3 +6,4 @@
 ./test_flpidsrpt.sh
 ./test_rc540_monthly.sh
 ./test_rc540_weekly.sh
+./test_nps_db2.sh

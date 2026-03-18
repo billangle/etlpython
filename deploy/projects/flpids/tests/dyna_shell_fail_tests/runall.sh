@@ -15,3 +15,4 @@
 ./test_flpids_caorpt_organization.sh
 ./test_flpids_oblrpt.sh
 ./test_flpids_ofcrpt.sh
+./test_nps_db2.sh

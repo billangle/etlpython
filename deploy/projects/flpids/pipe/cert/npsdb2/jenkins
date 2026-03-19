@@ -3,15 +3,15 @@ pipeline {
 
   environment {
     AWS_REGION    = 'us-east-1'
-    SECRET_NAME   = 'FSA-DEV-secrets'
-    SECRET_ID     = 'FSA-DEV-secrets'
+    SECRET_NAME   = 'FSA-CERT-Secrets'
+    SECRET_ID     = 'FSA-CERT-Secrets'
 
     FUNCTION_NAME = 'FSA-dev-FpacFLPIDSCHK-DynaCheckFile'
     FTPS_PORT     = '990'
-    LAMBDA_ARN    = 'arn:aws:states:us-east-1:241533156429:stateMachine:FSA-DEV-FWADM-FTP_nps_fsafs'
-    STEP          = 'FSA-DEV-DART-ECHO-FETCH-NPS-DB2'
+    LAMBDA_ARN    = 'arn:aws:states:us-east-1:241533156429:stateMachine:FSA-CERT-FWADM-FTP_nps_fsafs'
+    STEP          = 'FSA-CERT-DART-ECHO-FETCH-NPS-DB2'
     PIPELINE      = 'NPS-DB2'
-    ENV           = 'DEV'
+    ENV           = 'CERT'
   }
 
   stages {

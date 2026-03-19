@@ -35,7 +35,7 @@ PROJECT_NAME="${JENKINS_JOB_NAME#*ECHO-FETCH-}"
 export PROJECT_NAME
 
 # Defaults (regex can contain braces, so avoid shell parameter default syntax with embedded braces)
-if [ -z "${FILE_PATTERN:-}" ]; then FILE_PATTERN='^M.*$'; fi
+if [ -z "${FILE_PATTERN:-}" ]; then FILE_PATTERN='^(MQ.*\.zip)$'; fi
 if [ -z "${ECHO_FOLDER:-}" ]; then ECHO_FOLDER='nps'; fi
 if [ -z "${ECHO_SUBFOLDER:-}" ]; then ECHO_SUBFOLDER='in'; fi
 if [ -z "${PIPELINE:-}" ]; then PIPELINE='NPS-DB2'; fi

@@ -73,8 +73,8 @@
     },
      {
       "s3_bucket": "dev-cars-artifacts",
-      "s3_key": "testdata/data/nps/in/M_DB2_SAMPLE_20250318.txt",
-      "remote_path": "nps/in/M_DB2_SAMPLE_20250318.txt"
+      "s3_key": "testdata/data/nps/in/MQ_DB2_SAMPLE_20250318.zip",
+      "remote_path": "nps/in/MQ_DB2_SAMPLE_20250318.zip"
     }
   ]
 }

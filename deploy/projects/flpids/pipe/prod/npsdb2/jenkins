@@ -68,7 +68,7 @@ PROJECT_NAME="${JENKINS_JOB_NAME#*ECHO-FETCH-}"
 : "${ENV:=PROD}"
 export PROJECT_NAME
 
-if [ -z "${FILE_PATTERN:-}" ]; then FILE_PATTERN='^(M.*)$'; fi
+if [ -z "${FILE_PATTERN:-}" ]; then FILE_PATTERN='^(MQ.*\.zip)$'; fi
 if [ -z "${ECHO_FOLDER:-}" ]; then ECHO_FOLDER='nps'; fi
 if [ -z "${ECHO_SUBFOLDER:-}" ]; then ECHO_SUBFOLDER=''; fi
 if [ -z "${PIPELINE:-}" ]; then PIPELINE='NPS-DB2'; fi

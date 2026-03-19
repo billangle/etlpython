@@ -9,6 +9,16 @@
     "databaseName": "fsa-fpac-db",
     "dynamoTableName": "FsaFpacMetadata"
   },
+  "glueDatabases": [
+    {
+      "name": "fsa-{deployEnvLower}-{projectLower}",
+      "description": "Primary Glue database for {projectLower}"
+    },
+    {
+      "name": "fsa-{deployEnvLower}-{projectLower}-cdc",
+      "description": "CDC Glue database for {projectLower}"
+    }
+  ],
   "strparams": {
     "landingBucketNameParam": "c108-prod-fpacfsa-landing-zone",
     "cleanBucketNameParam": "c108-prod-fpacfsa-cleansed-zone",
@@ -228,7 +238,7 @@
     {
       "crawlerName": "FSA-{deployEnv}-{projectName}",
       "description": "cps BASE crawler",
-      "databaseName": "fsa-prod-cps",
+      "databaseName": "fsa-{deployEnvLower}-{projectLower}",
       "recrawlBehavior": "CRAWL_EVERYTHING",
       "excludePatterns": ["_cdc/**", "_configs/**"],
       "s3TargetsByBucket": [
@@ -241,7 +251,7 @@
     {
       "crawlerName": "FSA-{deployEnv}-{projectName}-cdc",
       "description": "cps BASE CDC crawler",
-      "databaseName": "fsa-prod-cps-cdc",
+      "databaseName": "fsa-{deployEnvLower}-{projectLower}-cdc",
       "recrawlBehavior": "CRAWL_EVERYTHING",
       "s3TargetsByBucket": [
         {

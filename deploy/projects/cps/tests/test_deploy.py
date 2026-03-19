@@ -44,6 +44,16 @@ def _base_cfg() -> dict:
         "stepFunctions": {
             "roleArn": "arn:aws:iam::123456789012:role/test-sfn-role",
         },
+        "glueDatabases": [
+            {
+                "name": "fsa-{deployEnvLower}-{projectLower}",
+                "description": "primary {projectLower} database",
+            },
+            {
+                "name": "fsa-{deployEnvLower}-{projectLower}-cdc",
+                "description": "cdc {projectLower} database",
+            },
+        ],
         "LambdaConfig": [
             {
                 "Job-Logging-End": {
@@ -155,7 +165,7 @@ def _base_cfg() -> dict:
         "crawlers": [
             {
                 "crawlerName": "FSA-{deployEnv}-{projectName}",
-                "databaseName": "fsa-tst-cps",
+                "databaseName": "fsa-{deployEnvLower}-{projectLower}",
                 "recrawlBehavior": "CRAWL_EVERYTHING",
                 "excludePatterns": ["_cdc/**", "_configs/**"],
                 "s3TargetsByBucket": [
@@ -167,7 +177,7 @@ def _base_cfg() -> dict:
             },
             {
                 "crawlerName": "FSA-{deployEnv}-{projectName}-cdc",
-                "databaseName": "fsa-tst-cps-cdc",
+                "databaseName": "fsa-{deployEnvLower}-{projectLower}-cdc",
                 "recrawlBehavior": "CRAWL_EVERYTHING",
                 "excludePatterns": ["_cdc/**", "_configs/**"],
                 "s3TargetsByBucket": [
@@ -189,6 +199,7 @@ class TestCpsDeployRegression(unittest.TestCase):
     def _run_deploy(self):
         captured = {
             "glue_specs": [],
+            "glue_dbs": [],
             "lambda_specs": [],
             "crawler_specs": [],
             "state_specs": [],
@@ -197,6 +208,10 @@ class TestCpsDeployRegression(unittest.TestCase):
         def _capture_glue(_client, _s3_client, spec):
             captured["glue_specs"].append(spec)
             return None
+
+        def _capture_glue_db(_client, name, description=""):
+            captured["glue_dbs"].append((name, description))
+            return name
 
         def _capture_lambda(_client, spec):
             captured["lambda_specs"].append(spec)
@@ -214,6 +229,7 @@ class TestCpsDeployRegression(unittest.TestCase):
             patch("projects.cps.deploy.boto3.Session") as mock_session,
             patch("projects.cps.deploy.ensure_bucket_exists"),
             patch("projects.cps.deploy.ensure_glue_job", side_effect=_capture_glue),
+            patch("projects.cps.deploy.ensure_glue_database", side_effect=_capture_glue_db),
             patch("projects.cps.deploy.ensure_lambda", side_effect=_capture_lambda),
             patch("projects.cps.deploy.ensure_glue_crawler", side_effect=_capture_crawler),
             patch("projects.cps.deploy.ensure_state_machine", side_effect=_capture_state),
@@ -235,6 +251,11 @@ class TestCpsDeployRegression(unittest.TestCase):
         self.assertEqual(main.recrawl_behavior, "CRAWL_EVERYTHING")
         self.assertEqual(main.exclude_patterns, ["_cdc/**", "_configs/**"])
         self.assertEqual(main.s3_targets[0]["Path"], "s3://c108-tst-fpacfsa-final-zone/cps/")
+
+    def test_glue_databases_ensured_before_crawlers(self):
+        _, captured = self._run_deploy()
+        db_names = {name for name, _desc in captured["glue_dbs"]}
+        self.assertEqual(db_names, {"fsa-tst-cps", "fsa-tst-cps-cdc"})
 
     def test_crawler_name_override_is_used_when_provided(self):
         _, captured = self._run_deploy()

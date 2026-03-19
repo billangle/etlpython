@@ -389,6 +389,24 @@ def ensure_glue_job(glue, s3, spec: GlueJobSpec) -> str:
         return spec.name
 
 
+def ensure_glue_database(glue, name: str, description: str = "") -> str:
+    db_input: Dict[str, Any] = {"Name": name}
+    if description:
+        db_input["Description"] = description
+
+    try:
+        glue.get_database(Name=name)
+        glue.update_database(Name=name, DatabaseInput=db_input)
+        print(f"[glue-db] updated {name}")
+        return name
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "EntityNotFoundException":
+            raise
+        glue.create_database(DatabaseInput=db_input)
+        print(f"[glue-db] created {name}")
+        return name
+
+
 @dataclass(frozen=True)
 class GlueCrawlerSpec:
     name: str

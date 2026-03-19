@@ -13,6 +13,7 @@ import boto3
 
 from common.aws_common import (
     GlueJobSpec,
+    ensure_glue_database,
     GlueCrawlerSpec,
     LambdaSpec,
     StateMachineSpec,
@@ -333,17 +334,22 @@ def _resolve_crawler_deploy_name(
     deploy_env: str,
     project: str,
 ) -> str:
-    # Explicit override wins. Supports full names and tokenized forms.
-    override = _as_str(crawler_cfg.get("crawlerName"))
-    if override:
-        resolved = (
-            override.replace("{deployEnv}", deploy_env)
+    def _resolve_tokens(value: str) -> str:
+        return (
+            value.replace("{deployEnv}", deploy_env)
+            .replace("{deployEnvLower}", deploy_env.lower())
             .replace("{project}", project)
             .replace("{projectName}", project)
+            .replace("{projectLower}", project.lower())
             .replace("__ENV__", deploy_env)
             .replace("__PROJECT__", project)
             .replace("__PROJECT_NAME__", project)
         )
+
+    # Explicit override wins. Supports full names and tokenized forms.
+    override = _as_str(crawler_cfg.get("crawlerName"))
+    if override:
+        resolved = _resolve_tokens(override)
         if not resolved.startswith("FSA-"):
             resolved = f"FSA-{deploy_env}-{resolved}"
         return resolved
@@ -378,6 +384,40 @@ def _iter_crawler_config_entries(crawlers_cfg: Any) -> List[Tuple[str, Dict[str,
             if isinstance(v, dict):
                 entries.append((_as_str(k), v))
 
+    return entries
+
+
+def _resolve_database_name(raw_name: str, *, deploy_env: str, project: str) -> str:
+    if not raw_name:
+        return ""
+    return (
+        raw_name.replace("{deployEnv}", deploy_env)
+        .replace("{deployEnvLower}", deploy_env.lower())
+        .replace("{project}", project)
+        .replace("{projectName}", project)
+        .replace("{projectLower}", project.lower())
+        .replace("__ENV__", deploy_env)
+        .replace("__PROJECT__", project)
+        .replace("__PROJECT_NAME__", project)
+    )
+
+
+def _iter_glue_database_entries(glue_dbs_cfg: Any) -> List[Tuple[str, str]]:
+    entries: List[Tuple[str, str]] = []
+    if not isinstance(glue_dbs_cfg, list):
+        return entries
+    for item in glue_dbs_cfg:
+        if isinstance(item, str):
+            name = _as_str(item)
+            if name:
+                entries.append((name, ""))
+            continue
+        if not isinstance(item, dict):
+            continue
+        name = _as_str(item.get("name"))
+        if not name:
+            continue
+        entries.append((name, _as_str(item.get("description"))))
     return entries
 
 
@@ -694,9 +734,28 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
     if not crawler_names:
         crawler_names = [names.crawler_main, names.crawler_cdc]
 
+    glue_database_results: Dict[str, str] = {}
+    database_descriptions: Dict[str, str] = {}
+
+    for raw_name, raw_desc in _iter_glue_database_entries(cfg.get("glueDatabases")):
+        db_name = _resolve_database_name(raw_name, deploy_env=deploy_env, project=project)
+        if not db_name:
+            continue
+        database_descriptions[db_name] = _resolve_database_name(raw_desc, deploy_env=deploy_env, project=project)
+
+    crawler_entries = _iter_crawler_config_entries(cfg.get("crawlers"))
+    for _cfg_key, item in crawler_entries:
+        db_name = _resolve_database_name(_as_str(item.get("databaseName")), deploy_env=deploy_env, project=project)
+        if db_name and db_name not in database_descriptions:
+            database_descriptions[db_name] = ""
+
+    for db_name, db_desc in database_descriptions.items():
+        ensure_glue_database(glue, db_name, db_desc)
+        glue_database_results[db_name] = db_desc
+
     crawler_results: Dict[str, str] = {}
-    for cfg_key, item in _iter_crawler_config_entries(cfg.get("crawlers")):
-        db_name = _as_str(item.get("databaseName"))
+    for cfg_key, item in crawler_entries:
+        db_name = _resolve_database_name(_as_str(item.get("databaseName")), deploy_env=deploy_env, project=project)
         if not db_name:
             continue
 
@@ -806,6 +865,8 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
         "artifact_bucket": artifact_bucket,
         "artifact_prefix": prefix,
         "glue_jobs": glue_results,
+        "glue_database_count": len(glue_database_results),
+        "glue_databases": glue_database_results,
         "lambda_count": len(lambda_arns),
         "crawler_count": len(crawler_results),
         "crawlers": crawler_results,

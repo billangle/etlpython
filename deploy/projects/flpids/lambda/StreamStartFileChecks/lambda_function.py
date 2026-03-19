@@ -7,8 +7,10 @@ from botocore.exceptions import ClientError
 
 
 STATE_MACHINE_ARN = os.environ.get("STATE_MACHINE_ARN")
-if not STATE_MACHINE_ARN:
-    raise RuntimeError("Missing required env var: STATE_MACHINE_ARN")
+STATE_MACHINE_ARN_LAMBDA = os.environ.get("STATE_MACHINE_ARN_LAMBDA") or STATE_MACHINE_ARN
+STATE_MACHINE_ARN_STEPFN = os.environ.get("STATE_MACHINE_ARN_STEPFN")
+if not STATE_MACHINE_ARN_LAMBDA:
+    raise RuntimeError("Missing required env var: STATE_MACHINE_ARN (or STATE_MACHINE_ARN_LAMBDA)")
 
 TABLE_NAME = os.environ.get("TABLE_NAME") or "FSA-FileChecks"
 
@@ -102,30 +104,42 @@ def _execution_arn_from_sm_arn(state_machine_arn: str, name: str) -> str | None:
     return state_machine_arn.replace(":stateMachine:", ":execution:") + f":{name}"
 
 
-def _start_execution_safe(name: str, payload: dict) -> dict:
+def _start_execution_safe(state_machine_arn: str, name: str, payload: dict) -> dict:
     try:
         resp = sfn.start_execution(
-            stateMachineArn=STATE_MACHINE_ARN,
+            stateMachineArn=state_machine_arn,
             name=name,
             input=json.dumps([payload]),  # ARRAY for UnwrapRecord
         )
-        print(f"[SFN] STARTED name={name} executionArn={resp.get('executionArn')}")
+        print(f"[SFN] STARTED sm={state_machine_arn} name={name} executionArn={resp.get('executionArn')}")
         return {"already_exists": False, **resp}
     except ClientError as e:
         err = e.response.get("Error", {}) or {}
         code = err.get("Code", "")
         msg = err.get("Message", "")
         if code == "ExecutionAlreadyExists" or "already exists" in msg.lower():
-            exec_arn = _execution_arn_from_sm_arn(STATE_MACHINE_ARN, name)
-            print(f"[SFN] ALREADY_EXISTS name={name} executionArn={exec_arn}")
+            exec_arn = _execution_arn_from_sm_arn(state_machine_arn, name)
+            print(f"[SFN] ALREADY_EXISTS sm={state_machine_arn} name={name} executionArn={exec_arn}")
             return {"already_exists": True, "executionArn": exec_arn}
         raise
+
+
+def _classify_target_arn(value: str | None) -> str:
+    arn = (value or "").strip().lower()
+    if arn.startswith("arn:aws:lambda:"):
+        return "lambda"
+    if arn.startswith("arn:aws:states:"):
+        return "stepfunction"
+    return "unknown"
 
 
 def lambda_handler(event, context):
     records = event.get("Records") or []
     print(f"[INFO] records={len(records)} TABLE_NAME={TABLE_NAME} enable_lock={ENABLE_LOCK}")
-    print(f"[INFO] state_machine_arn={STATE_MACHINE_ARN}")
+    print(
+        f"[INFO] state_machine_arn_lambda={STATE_MACHINE_ARN_LAMBDA} "
+        f"state_machine_arn_stepfn={STATE_MACHINE_ARN_STEPFN}"
+    )
 
     if not DEFAULT_BUCKET:
         raise RuntimeError("Missing LANDING_BUCKET (or BUCKET) env var for StreamStartFileChecks")
@@ -183,6 +197,20 @@ def lambda_handler(event, context):
             if not secret_id:
                 raise RuntimeError("DynamoDB item missing event.secret_id (required)")
 
+            target_arn = (event_cfg.get("lambda_arn") or "").strip()
+            target_type = _classify_target_arn(target_arn)
+
+            if target_type == "stepfunction":
+                if not STATE_MACHINE_ARN_STEPFN:
+                    raise RuntimeError(
+                        "Target is StepFunction ARN but STATE_MACHINE_ARN_STEPFN env var is not configured"
+                    )
+                selected_sm_arn = STATE_MACHINE_ARN_STEPFN
+            elif target_type == "lambda":
+                selected_sm_arn = STATE_MACHINE_ARN_LAMBDA
+            else:
+                raise RuntimeError(f"Unsupported event.lambda_arn value: {target_arn!r}")
+
             payload = {
                 "jobId": job_id,
                 "project": project,
@@ -195,10 +223,13 @@ def lambda_handler(event, context):
                 "stream": {"source": "ddb-stream-lambda"},
             }
 
-            print(f"[SFN] StartExecution input bucket={payload['bucket']} secret_id={payload['secret_id']}")
+            print(
+                f"[SFN] StartExecution target_type={target_type} sm={selected_sm_arn} "
+                f"input bucket={payload['bucket']} secret_id={payload['secret_id']}"
+            )
 
             name = _execution_name(job_id, project)
-            resp = _start_execution_safe(name, payload)
+            resp = _start_execution_safe(selected_sm_arn, name, payload)
 
             if resp.get("already_exists"):
                 already_exists += 1

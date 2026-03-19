@@ -41,6 +41,7 @@ class FpacNames:
 
     # state machine
     sm_filechecks: str
+    sm_filechecks_stepfn_target: str
 
 
 def build_names(deploy_env: str, project: str) -> FpacNames:
@@ -60,6 +61,7 @@ def build_names(deploy_env: str, project: str) -> FpacNames:
         transferfile_fn=f"{base}-TransferFile",
         finalizejob_fn=f"{base}-FinalizeJob",
         sm_filechecks=f"{base}-FileChecks",
+        sm_filechecks_stepfn_target=f"{base}-FileChecks-StepFnTarget",
     )
 
 
@@ -274,6 +276,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         finalize_job_lambda_arn=finalizejob_arn,
     )
     sm_def = FsaFileChecksStateMachineBuilder.filechecks_asl(sm_inputs)
+    sm_stepfn_target_def = FsaFileChecksStateMachineBuilder.filechecks_stepfn_target_asl(sm_inputs)
 
     filechecks_sm_arn = ensure_state_machine(
         sfn,
@@ -284,10 +287,21 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         ),
     )
 
+    filechecks_stepfn_target_sm_arn = ensure_state_machine(
+        sfn,
+        StateMachineSpec(
+            name=names.sm_filechecks_stepfn_target,
+            role_arn=sfn_role_arn,
+            definition=sm_stepfn_target_def,
+        ),
+    )
+
     # ---- deploy stream trigger lambda LAST (needs the SM ARN) ----
     stream_env = {
         **base_env,
         "STATE_MACHINE_ARN": filechecks_sm_arn,
+        "STATE_MACHINE_ARN_LAMBDA": filechecks_sm_arn,
+        "STATE_MACHINE_ARN_STEPFN": filechecks_stepfn_target_sm_arn,
         # Optional behavior knobs (enable if desired):
         # "ENABLE_LOCK": "true",
         # "LOCK_STATUS_VALUE": "QUEUED",
@@ -322,6 +336,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, str]:
         "finalizejob_lambda_arn": finalizejob_arn,
 
         "filechecks_state_machine_arn": filechecks_sm_arn,
+        "filechecks_stepfn_target_state_machine_arn": filechecks_stepfn_target_sm_arn,
         "streamstartfilechecks_lambda_arn": streamstartfilechecks_arn,
         "realjobname_lambda_arn": realjobname_arn,
         "testfailurejob_lambda_arn": testfailurejob_arn,

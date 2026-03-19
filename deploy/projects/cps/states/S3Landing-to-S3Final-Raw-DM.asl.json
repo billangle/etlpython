@@ -4,7 +4,7 @@
   "States": {
     "Get Incremental Table list From S3": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-1:241533156429:function:FSA-DEV-CPS-get-incremental-tables",
+      "Resource": "__GET_INCREMENTAL_TABLES_FN_ARN__",
       "Parameters": {
         "JobId.$": "$.JobId",
         "SfName.$": "$.SfName"
@@ -45,15 +45,15 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::glue:startJobRun.sync",
             "Parameters": {
-              "JobName": "FSA-DEV-CPS-Raw-DM",
+              "JobName": "__RAW_DM_GLUE_JOB_NAME__",
               "Arguments": {
                 "--JobId.$": "States.Format('{}', $.JobId)",
                 "--TableName.$": "$.output.table",
-                "--env": "dev",
-                "--postgres_prcs_ctrl_dbname": "metadata_edw",
-                "--region_name": "us-east-1",
-                "--secret_name": "FSA-DEV-secrets",
-                "--target_bucket": "c108-dev-fpacfsa-final-zone",
+                "--env": "__DEPLOY_ENV_LOWER__",
+                "--postgres_prcs_ctrl_dbname": "__RAW_DM_POSTGRES_PRCS_CTRL_DBNAME__",
+                "--region_name": "__REGION__",
+                "--secret_name": "__SECRET_ID__",
+                "--target_bucket": "__FINAL_BUCKET__",
                 "--target_prefix.$": "$.Target"
               }
             },
@@ -72,7 +72,7 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::lambda:invoke",
             "Parameters": {
-              "FunctionName": "arn:aws:lambda:us-east-1:241533156429:function:FSA-DEV-CPS-RAW-DM-sns-publish-step-function-errors",
+              "FunctionName": "__RAW_DM_SNS_ERRORS_FN_ARN__",
               "Payload.$": "$"
             },
             "Retry": [
@@ -121,7 +121,7 @@
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
         "Payload.$": "$",
-        "FunctionName": "arn:aws:lambda:us-east-1:241533156429:function:FSA-DEV-CPS-RAW-DM-etl-workflow-update-data-ppln-job"
+        "FunctionName": "__RAW_DM_ETL_WORKFLOW_UPDATE_FN_ARN__"
       },
       "Retry": [
         {
@@ -148,7 +148,7 @@
             "FSA-DEV-CPS Final Zone Crawler": {
               "Type": "Task",
               "Parameters": {
-                "Name": "FSA-DEV-CPS-CRAWLER"
+                "Name": "__MAIN_CRAWLER_NAME__"
               },
               "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
               "ResultPath": null,
@@ -176,7 +176,7 @@
             "FSA-DEV-CPS CDC Crawler": {
               "Type": "Task",
               "Parameters": {
-                "Name": "FSA-DEV-CPS-cdc"
+                "Name": "__CDC_CRAWLER_NAME__"
               },
               "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
               "ResultPath": null,

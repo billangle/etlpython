@@ -419,6 +419,18 @@ def _load_asl(project_dir: Path, filename: str) -> Dict[str, Any]:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
+def _replace_asl_placeholders(definition: Dict[str, Any], substitutions: Dict[str, str]) -> Dict[str, Any]:
+    text = json.dumps(definition)
+    for placeholder, value in substitutions.items():
+        text = text.replace(placeholder, value)
+
+    unresolved = sorted(set(re.findall(r"__[A-Z0-9_]+__", text)))
+    if unresolved:
+        raise RuntimeError(f"Unresolved ASL placeholders: {unresolved}")
+
+    return json.loads(text)
+
+
 def _rewrite_definition(
     obj: Any,
     *,
@@ -716,15 +728,19 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
         )
         crawler_results[target_name] = db_name
 
-    glue_names = {
-        "LandingFiles": names.glue_landing_files,
-        "Raw-DM": names.glue_raw_dm,
-    }
-
     raw_dm_job_params = {
         k: str(v)
         for k, v in _as_dict(glue_cfg.get("Raw-DM", {}).get("JobParameters")).items()
     }
+
+    crawler_main_name = names.crawler_main
+    crawler_cdc_name = names.crawler_cdc
+    if crawler_results:
+        for crawler_name in crawler_results.keys():
+            if _is_cdc_crawler(crawler_name):
+                crawler_cdc_name = crawler_name
+            else:
+                crawler_main_name = crawler_name
 
     sm_files = [
         ("Incremental-to-S3Landing.asl.json", names.sm_incremental_to_landing),
@@ -736,16 +752,42 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
     state_machine_arns: Dict[str, str] = {}
     for asl_file, sm_name in sm_files:
         definition = _load_asl(project_dir, asl_file)
-        rewritten = _rewrite_definition(
-            definition,
-            lambda_arns=lambda_arns,
-            glue_names=glue_names,
-            state_machine_arns=state_machine_arns,
-            crawler_names=crawler_names,
-            landing_bucket=landing_bucket,
-            job_id_key=job_id_key,
-            raw_dm_job_params=raw_dm_job_params,
-        )
+
+        substitutions = {
+            "__LANDING_FILES_GLUE_JOB_NAME__": names.glue_landing_files,
+            "__RAW_DM_GLUE_JOB_NAME__": names.glue_raw_dm,
+            "__LANDING_BUCKET__": landing_bucket,
+            "__FINAL_BUCKET__": final_bucket,
+            "__JOB_ID_KEY__": job_id_key,
+            "__DEPLOY_ENV_LOWER__": deploy_env.lower(),
+            "__REGION__": region,
+            "__SECRET_ID__": secret_id,
+            "__RAW_DM_POSTGRES_PRCS_CTRL_DBNAME__": raw_dm_job_params.get("--postgres_prcs_ctrl_dbname", "metadata_edw"),
+            "__GET_INCREMENTAL_TABLES_FN_ARN__": lambda_arns[f"{names.prefix}-get-incremental-tables"],
+            "__RAW_DM_SNS_ERRORS_FN_ARN__": lambda_arns[f"{names.prefix}-RAW-DM-sns-pub-step-func-errs"],
+            "__RAW_DM_ETL_WORKFLOW_UPDATE_FN_ARN__": lambda_arns[f"{names.prefix}-RAW-DM-etl-workflow-update"],
+            "__JOB_LOGGING_END_FN_ARN__": lambda_arns[f"{names.prefix}-Job-Logging-End"],
+            "__VALIDATION_CHECK_FN_ARN__": lambda_arns[f"{names.prefix}-validation-check"],
+            "__SNS_PUBLISH_VALIDATIONS_REPORT_FN_ARN__": lambda_arns[f"{names.prefix}-sns-publish-validations-report"],
+            "__MAIN_CRAWLER_NAME__": crawler_main_name,
+            "__CDC_CRAWLER_NAME__": crawler_cdc_name,
+            "__INCREMENTAL_TO_LANDING_SM_ARN__": state_machine_arns.get(
+                names.sm_incremental_to_landing,
+                names.sm_incremental_to_landing,
+            ),
+            "__S3LANDING_TO_RAWDM_SM_ARN__": state_machine_arns.get(
+                names.sm_s3landing_to_rawdm,
+                names.sm_s3landing_to_rawdm,
+            ),
+            "__PROCESS_CONTROL_UPDATE_SM_ARN__": state_machine_arns.get(
+                names.sm_process_control_update,
+                names.sm_process_control_update,
+            ),
+            "__S3LANDING_TO_RAWDM_SM_NAME__": names.sm_s3landing_to_rawdm,
+        }
+
+        rewritten = _replace_asl_placeholders(definition, substitutions)
+
         sm_arn = ensure_state_machine(
             sfn,
             StateMachineSpec(

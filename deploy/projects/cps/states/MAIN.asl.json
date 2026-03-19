@@ -5,10 +5,10 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::states:startExecution.sync:2",
       "Parameters": {
-        "StateMachineArn": "arn:aws:states:us-east-1:241533156429:stateMachine:FSA-DEV-CPS-Incremental-to-S3Landing",
+        "StateMachineArn": "__INCREMENTAL_TO_LANDING_SM_ARN__",
         "Input": {
-          "Bucket": "c108-prod-fpacfsa-landing-zone",
-          "Key": "cps/etl-jobs/job_id.json"
+          "Bucket": "__LANDING_BUCKET__",
+          "Key": "__JOB_ID_KEY__"
         }
       },
       "ResultSelector": {
@@ -34,12 +34,12 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::states:startExecution.sync:2",
       "Parameters": {
-        "StateMachineArn": "arn:aws:states:us-east-1:241533156429:stateMachine:FSA-DEV-CPS-S3Landing-to-S3Final-Raw-DM",
+        "StateMachineArn": "__S3LANDING_TO_RAWDM_SM_ARN__",
         "Input": {
           "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
           "JobId.$": "$.JobId",
           "step_seq_nbr": "2",
-          "SfName": "FSA-DEV-CPS-S3Landing-to-S3Final-Raw-DM"
+          "SfName": "__S3LANDING_TO_RAWDM_SM_NAME__"
         }
       },
       "ResultPath": "$.ProcessControlResult",
@@ -49,7 +49,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::states:startExecution.sync:2",
       "Parameters": {
-        "StateMachineArn": "arn:aws:states:us-east-1:241533156429:stateMachine:FSA-DEV-CPS-Process-Control-Update",
+        "StateMachineArn": "__PROCESS_CONTROL_UPDATE_SM_ARN__",
         "Input": {
           "JobId.$": "$.JobId",
           "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id"
@@ -62,7 +62,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "FunctionName": "arn:aws:lambda:us-east-1:241533156429:function:FSA-DEV-CPS-sns-publish-validations-report",
+        "FunctionName": "__SNS_PUBLISH_VALIDATIONS_REPORT_FN_ARN__",
         "Payload": {
           "JobId.$": "$.JobId",
           "noFiles.$": "$.noFiles",

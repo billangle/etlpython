@@ -6,7 +6,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::glue:startJobRun.sync",
       "Parameters": {
-        "JobName": "FSA-DEV-CPS-LandingFiles"
+        "JobName": "__LANDING_FILES_GLUE_JOB_NAME__"
       },
       "Retry": [
         {
@@ -35,8 +35,8 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:s3:getObject",
       "Parameters": {
-        "Bucket": "c108-dev-fpacfsa-landing-zone",
-        "Key": "cps/etl-jobs/job_id.json"
+        "Bucket": "__LANDING_BUCKET__",
+        "Key": "__JOB_ID_KEY__"
       },
       "ResultSelector": {
         "JobId.$": "States.StringToJson($.Body)"

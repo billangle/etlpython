@@ -39,8 +39,8 @@
   "LambdaConfig": [
     {
       "Job-Logging-End": {
-        "runtime": "python3.11",
-        "timeoutSeconds": 30,
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
         "memoryMb": 256,
         "layers": [
           "arn:aws:lambda:us-east-1:253490756794:layer:FSA-DEV-psycopg2-python311:1"
@@ -62,8 +62,8 @@
     },
     {
       "RAW-DM-etl-workflow-update": {
-        "runtime": "python3.11",
-        "timeoutSeconds": 30,
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
         "memoryMb": 256,
         "layers": [
           "arn:aws:lambda:us-east-1:253490756794:layer:FSA-DEV-psycopg2-python311:1"
@@ -81,8 +81,8 @@
     },
     {
       "RAW-DM-sns-pub-step-func-errs": {
-        "runtime": "python3.11",
-        "timeoutSeconds": 30,
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {
@@ -92,8 +92,8 @@
     },
     {
       "get-incremental-tables": {
-        "runtime": "python3.11",
-        "timeoutSeconds": 30,
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
         "memoryMb": 256,
         "layers": [],
         "networking": {
@@ -112,8 +112,8 @@
     },
     {
       "sns-publish-validations-report": {
-        "runtime": "python3.11",
-        "timeoutSeconds": 30,
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {
@@ -123,8 +123,8 @@
     },
     {
       "validation-check": {
-        "runtime": "python3.11",
-        "timeoutSeconds": 30,
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
         "memoryMb": 256,
         "layers": [
           "arn:aws:lambda:us-east-1:253490756794:layer:FSA-DEV-psycopg2-python311:1"

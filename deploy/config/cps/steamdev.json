@@ -39,8 +39,8 @@
   "LambdaConfig": [
     {
       "Job-Logging-End": {
-        "runtime": "python3.11",
-        "timeoutSeconds": 30,
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {
@@ -51,16 +51,16 @@
     },
     {
       "RAW-DM-etl-workflow-update": {
-        "runtime": "python3.11",
-        "timeoutSeconds": 30,
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
         "memoryMb": 256,
         "layers": []
       }
     },
     {
       "RAW-DM-sns-pub-step-func-errs": {
-        "runtime": "python3.11",
-        "timeoutSeconds": 30,
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {
@@ -70,8 +70,8 @@
     },
     {
       "get-incremental-tables": {
-        "runtime": "python3.11",
-        "timeoutSeconds": 30,
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {
@@ -81,8 +81,8 @@
     },
     {
       "sns-publish-validations-report": {
-        "runtime": "python3.11",
-        "timeoutSeconds": 30,
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {
@@ -92,8 +92,8 @@
     },
     {
       "validation-check": {
-        "runtime": "python3.11",
-        "timeoutSeconds": 30,
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {

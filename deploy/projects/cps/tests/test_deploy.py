@@ -291,6 +291,7 @@ class TestCpsDeployRegression(unittest.TestCase):
             try:
                 staged = Path(staged_path)
                 self.assertTrue((staged / "lambda_function.py").exists())
+                self.assertFalse((staged / "lambda-function.py").exists())
                 sym = cps_deploy._detect_handler_symbol(staged / "lambda_function.py")
                 self.assertEqual(sym, "lambda_handler")
             finally:

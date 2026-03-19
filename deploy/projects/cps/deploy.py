@@ -239,7 +239,8 @@ def _prepare_lambda_source(src_dir: Path) -> Tuple[str, Optional[tempfile.Tempor
         tmp_dir = Path(tmp.name)
         shutil.copytree(src_dir, tmp_dir / src_dir.name, dirs_exist_ok=True)
         staged = tmp_dir / src_dir.name
-        shutil.copy2(staged / "lambda-function.py", staged / "lambda_function.py")
+        # Rename in staged copy so deployment package contains only one handler module.
+        shutil.move(staged / "lambda-function.py", staged / "lambda_function.py")
         return str(staged), tmp
     raise FileNotFoundError(f"No lambda handler file found in {src_dir}")
 

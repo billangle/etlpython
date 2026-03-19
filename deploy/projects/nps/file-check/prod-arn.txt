@@ -3,7 +3,9 @@ arn:aws:states:us-east-1:253490756794:execution:FSA-PROD-FWADM-FTP_nps_fsafs:06e
 arn: arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FWADM-FTP_nps_fsafs
 
 
+CERT:  arn:aws:states:us-east-1:241533156429:stateMachine:FSA-CERT-FWADM-FTP_nps_fsafs
 
+DEV:  arn:aws:states:us-east-1:241533156429:stateMachine:FSA-DEV-FWADM-FTP_nps_fsafs
 
 
 

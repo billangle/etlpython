@@ -8,7 +8,7 @@ pipeline {
 
     FUNCTION_NAME = 'FSA-prod-FpacFLPIDSCHK-DynaCheckFile'
     FTPS_PORT     = '990'
-    LAMBDA_ARN    = 'arn: arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FWADM-FTP_nps_fsafs'
+    LAMBDA_ARN    = 'arn:aws:states:us-east-1:253490756794:stateMachine:FSA-PROD-FWADM-FTP_nps_fsafs'
     STEP          = 'FSA-PROD-DART-ECHO-FETCH-NPS-DB2'
     PIPELINE      = 'NPS-DB2'
     ENV           = 'PROD'

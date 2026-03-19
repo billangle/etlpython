@@ -775,6 +775,7 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
                 names.sm_incremental_to_landing,
                 names.sm_incremental_to_landing,
             ),
+            "__INCREMENTAL_TO_LANDING_SM_NAME__": names.sm_incremental_to_landing,
             "__S3LANDING_TO_RAWDM_SM_ARN__": state_machine_arns.get(
                 names.sm_s3landing_to_rawdm,
                 names.sm_s3landing_to_rawdm,

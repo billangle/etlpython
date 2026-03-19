@@ -1,5 +1,5 @@
 {
-  "Comment": "FSA-DEV-CPS-S3Landing-to-S3Final-Raw-DM",
+  "Comment": "__S3LANDING_TO_RAWDM_SM_NAME__",
   "StartAt": "Get Incremental Table list From S3",
   "States": {
     "Get Incremental Table list From S3": {
@@ -143,9 +143,9 @@
       "Type": "Parallel",
       "Branches": [
         {
-          "StartAt": "FSA-DEV-CPS Final Zone Crawler",
+          "StartAt": "__MAIN_CRAWLER_NAME__ Final Zone Crawler",
           "States": {
-            "FSA-DEV-CPS Final Zone Crawler": {
+            "__MAIN_CRAWLER_NAME__ Final Zone Crawler": {
               "Type": "Task",
               "Parameters": {
                 "Name": "__MAIN_CRAWLER_NAME__"
@@ -171,9 +171,9 @@
           }
         },
         {
-          "StartAt": "FSA-DEV-CPS CDC Crawler",
+          "StartAt": "__CDC_CRAWLER_NAME__ CDC Crawler",
           "States": {
-            "FSA-DEV-CPS CDC Crawler": {
+            "__CDC_CRAWLER_NAME__ CDC Crawler": {
               "Type": "Task",
               "Parameters": {
                 "Name": "__CDC_CRAWLER_NAME__"

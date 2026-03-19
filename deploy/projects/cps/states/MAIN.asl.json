@@ -1,7 +1,7 @@
 {
-  "StartAt": "FSA-DEV-CPS-Incremental-to-S3Landing",
+  "StartAt": "__INCREMENTAL_TO_LANDING_SM_NAME__",
   "States": {
-    "FSA-DEV-CPS-Incremental-to-S3Landing": {
+    "__INCREMENTAL_TO_LANDING_SM_NAME__": {
       "Type": "Task",
       "Resource": "arn:aws:states:::states:startExecution.sync:2",
       "Parameters": {

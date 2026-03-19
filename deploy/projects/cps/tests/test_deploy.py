@@ -354,9 +354,14 @@ class TestCpsDeployRegression(unittest.TestCase):
         _, captured = self._run_deploy()
         main_spec = next(s for s in captured["state_specs"] if s.name.endswith("-MAIN"))
         states = main_spec.definition["States"]
+        start_state = "FSA-TST-CPS-Incremental-to-S3Landing"
 
         self.assertEqual(
-            states["FSA-DEV-CPS-Incremental-to-S3Landing"]["Parameters"]["StateMachineArn"],
+            main_spec.definition["StartAt"],
+            start_state,
+        )
+        self.assertEqual(
+            states[start_state]["Parameters"]["StateMachineArn"],
             "arn:aws:states:us-east-1:123456789012:stateMachine:FSA-TST-CPS-Incremental-to-S3Landing",
         )
         self.assertEqual(

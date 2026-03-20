@@ -104,6 +104,11 @@ def size_tb(num_bytes: int) -> str:
     return f"{tb:.2f} TB"
 
 
+def monthly_cost_usd_from_bytes(num_bytes: int, rate_per_gb_month: float = 0.023) -> float:
+    gb = float(num_bytes) / (1024 ** 3)
+    return gb * rate_per_gb_month
+
+
 def get_bucket_region(s3_global, bucket: str) -> str:
     resp = s3_global.get_bucket_location(Bucket=bucket)
     loc = resp.get("LocationConstraint")
@@ -514,8 +519,20 @@ def main():
     print(f"Migration candidate size: {human_size(total_migration_bytes)}")
     print(f"Total old object space found: {size_tb(total_old_space_found)}")
     print(f"Total deletable object space: {size_tb(total_bytes)}")
-    print(f"New total space utilized: {size_tb(max(total_old_space_found - total_bytes, 0))}")
+    remaining_space = max(total_old_space_found - total_bytes, 0)
+    print(f"New total space utilized: {size_tb(remaining_space)}")
     print("===================")
+
+    old_monthly = monthly_cost_usd_from_bytes(total_old_space_found)
+    new_monthly = monthly_cost_usd_from_bytes(remaining_space)
+    annual_savings = (old_monthly - new_monthly) * 12
+
+    print("\n===== COST ESTIMATE (S3 STANDARD, us-east-1) =====")
+    print("Assumed rate: $0.023 per GB-month")
+    print(f"Previous monthly cost: ${old_monthly:,.2f}")
+    print(f"New monthly cost: ${new_monthly:,.2f}")
+    print(f"Annual savings: ${annual_savings:,.2f}")
+    print("===============================================")
 
     if not args.execute:
         print("\nDRY RUN - nothing deleted.")

@@ -83,18 +83,9 @@ class CleanupRule:
             len(self.folder),
         )
 
-    def _files_is_specific(self) -> bool:
-        if not self.files:
-            return False
-        return not any(ch in self.files for ch in ["*", "?", "[", "]"])
-
     def summary_target(self, runtime_bucket: str) -> str:
-        # Folder summary by default; if a specific file is referenced in rules,
-        # summarize at that file path instead.
-        if self.files and self._files_is_specific():
-            target = f"{self.folder}{self.files}" if self.folder else self.files
-        else:
-            target = self.folder or "/"
+        # Always summarize by folder path for compact dry-run output.
+        target = self.folder or "/"
         target = _normalize_slashes(target)
         return f"{runtime_bucket}:{target}"
 
@@ -446,16 +437,21 @@ def main():
 
         if not args.execute and matched_rule_summary:
             print("  ***** Rule match summary *****")
-            for label in sorted(matched_rule_summary):
-                item = matched_rule_summary[label]
+            ranked = sorted(
+                matched_rule_summary.items(),
+                key=lambda kv: (int(kv[1]["size"]), int(kv[1]["count"])),
+                reverse=True,
+            )
+            for label, item in ranked[:3]:
                 print(
                     f"  ***** {item['reason']}: {label} -> "
                     f"{item['count']} objects ({human_size(item['size'])})"
                 )
+            remaining = len(ranked) - 3
+            if remaining > 0:
+                print(f"  ***** ... plus {remaining} more matched folders")
         if not args.execute and migration_candidates:
-            print("  ***** Marked for cheaper storage migration *****")
-            for key, _ in migration_candidates:
-                print(f"  ***** MIGRATE: {key}")
+            print("  ***** Marked for cheaper storage migration (summary only) *****")
 
         if not keys:
             print("  No old objects found.")

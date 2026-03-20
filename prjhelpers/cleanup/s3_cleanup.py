@@ -43,7 +43,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import boto3
 from botocore.exceptions import ClientError
@@ -82,6 +82,21 @@ class CleanupRule:
             1 if self.files else 0,
             len(self.folder),
         )
+
+    def _files_is_specific(self) -> bool:
+        if not self.files:
+            return False
+        return not any(ch in self.files for ch in ["*", "?", "[", "]"])
+
+    def summary_target(self, runtime_bucket: str) -> str:
+        # Folder summary by default; if a specific file is referenced in rules,
+        # summarize at that file path instead.
+        if self.files and self._files_is_specific():
+            target = f"{self.folder}{self.files}" if self.folder else self.files
+        else:
+            target = self.folder or "/"
+        target = _normalize_slashes(target)
+        return f"{runtime_bucket}:{target}"
 
 
 def human_size(num_bytes: int) -> str:
@@ -223,23 +238,37 @@ def load_rules(path: Optional[str]) -> List[CleanupRule]:
     return rules
 
 
-def resolve_rule_effect(rules: List[CleanupRule], bucket: str, key: str) -> Tuple[bool, Optional[int], bool]:
+def resolve_rule_effect(
+    rules: List[CleanupRule], bucket: str, key: str
+) -> Tuple[bool, Optional[int], bool, Optional[CleanupRule]]:
     matched = [r for r in rules if r.matches(bucket, key)]
     if not matched:
-        return False, None, False
+        return False, None, False, None
 
     matched.sort(key=lambda r: r.score(), reverse=True)
 
     # Ignore wins if any matching ignore rule exists.
     ignore_matches = [r for r in matched if r.ignore]
     if ignore_matches:
-        return True, None, True
+        return True, None, True, ignore_matches[0]
 
     for r in matched:
         if r.retention_days is not None:
-            return False, r.retention_days, True
+            return False, r.retention_days, True, r
 
-    return False, None, True
+    return False, None, True, matched[0]
+
+
+def _add_rule_summary(
+    summary: Dict[str, Dict[str, Union[int, str]]],
+    label: str,
+    size: int,
+    reason: str,
+) -> None:
+    if label not in summary:
+        summary[label] = {"count": 0, "size": 0, "reason": reason}
+    summary[label]["count"] += 1
+    summary[label]["size"] += size
 
 
 def find_old_objects(
@@ -249,7 +278,7 @@ def find_old_objects(
     default_days: int,
     obj_prefix: Optional[str],
     rules: List[CleanupRule],
-) -> Tuple[List[str], int, int, int, List[Tuple[str, int]], List[Tuple[str, str]]]:
+) -> Tuple[List[str], int, int, int, List[Tuple[str, int]], Dict[str, Dict[str, Union[int, str]]], int]:
     paginator = s3.get_paginator("list_objects_v2")
 
     keys: List[str] = []
@@ -257,7 +286,8 @@ def find_old_objects(
     ignored_by_rule = 0
     retention_override_hits = 0
     migration_candidates: List[Tuple[str, int]] = []
-    matched_rule_items: List[Tuple[str, str]] = []
+    matched_rule_summary: Dict[str, Dict[str, Union[int, str]]] = {}
+    ignored_by_rule_size = 0
 
     params = {"Bucket": bucket}
     if obj_prefix:
@@ -268,20 +298,24 @@ def find_old_objects(
             key = obj["Key"]
             last_modified = obj["LastModified"]
 
-            ignore, retention_days, had_match = resolve_rule_effect(rules, bucket, key)
+            obj_size = obj.get("Size", 0)
+            ignore, retention_days, had_match, matched_rule = resolve_rule_effect(rules, bucket, key)
             if ignore:
                 ignored_by_rule += 1
-                matched_rule_items.append((key, "IGNORE"))
+                ignored_by_rule_size += obj_size
+                label = matched_rule.summary_target(bucket) if matched_rule else f"{bucket}:/"
+                _add_rule_summary(matched_rule_summary, label, obj_size, "IGNORE")
                 continue
 
             if retention_days is not None and had_match:
                 retention_override_hits += 1
-                matched_rule_items.append((key, f"RETENTION={retention_days}"))
+                label = matched_rule.summary_target(bucket) if matched_rule else f"{bucket}:/"
+                _add_rule_summary(matched_rule_summary, label, obj_size, f"RETENTION={retention_days}")
                 # Retention rule objects are not deletion candidates.
                 # If beyond retention, classify for migration to cheaper storage.
                 retention_cutoff = now_utc - timedelta(days=retention_days)
                 if last_modified < retention_cutoff:
-                    migration_candidates.append((key, obj.get("Size", 0)))
+                    migration_candidates.append((key, obj_size))
                 continue
 
             cutoff = now_utc - timedelta(days=default_days)
@@ -295,7 +329,8 @@ def find_old_objects(
         ignored_by_rule,
         retention_override_hits,
         migration_candidates,
-        matched_rule_items,
+        matched_rule_summary,
+        ignored_by_rule_size,
     )
 
 
@@ -353,6 +388,7 @@ def main():
     total_retention_overrides = 0
     total_migration_candidates = 0
     total_migration_bytes = 0
+    total_rule_ignored_size = 0
 
     buckets = list_account_buckets(s3_global)
 
@@ -371,7 +407,15 @@ def main():
                 region_clients[region] = boto3.client("s3", region_name=region)
             s3 = region_clients[region]
 
-            keys, size, ignored_by_rule, retention_hits, migration_candidates, matched_rule_items = find_old_objects(
+            (
+                keys,
+                size,
+                ignored_by_rule,
+                retention_hits,
+                migration_candidates,
+                matched_rule_summary,
+                ignored_by_rule_size,
+            ) = find_old_objects(
                 s3=s3,
                 bucket=bucket,
                 now_utc=now_utc,
@@ -385,12 +429,13 @@ def main():
             continue
 
         total_ignored_by_rule += ignored_by_rule
+        total_rule_ignored_size += ignored_by_rule_size
         total_retention_overrides += retention_hits
         total_migration_candidates += len(migration_candidates)
         total_migration_bytes += sum(sz for _, sz in migration_candidates)
 
         if ignored_by_rule:
-            print(f"  Rule-ignored objects: {ignored_by_rule}")
+            print(f"  Rule-ignored objects: {ignored_by_rule} ({human_size(ignored_by_rule_size)})")
         if retention_hits:
             print(f"  Objects evaluated with retention override: {retention_hits}")
         if migration_candidates:
@@ -399,10 +444,14 @@ def main():
                 f"{len(migration_candidates)} ({human_size(sum(sz for _, sz in migration_candidates))})"
             )
 
-        if not args.execute and matched_rule_items:
-            print("  ***** Rule matches *****")
-            for key, label in matched_rule_items:
-                print(f"  ***** {label}: {key}")
+        if not args.execute and matched_rule_summary:
+            print("  ***** Rule match summary *****")
+            for label in sorted(matched_rule_summary):
+                item = matched_rule_summary[label]
+                print(
+                    f"  ***** {item['reason']}: {label} -> "
+                    f"{item['count']} objects ({human_size(item['size'])})"
+                )
         if not args.execute and migration_candidates:
             print("  ***** Marked for cheaper storage migration *****")
             for key, _ in migration_candidates:
@@ -427,6 +476,7 @@ def main():
     print(f"Deleted: {total_deleted}")
     print(f"Errors: {total_errors}")
     print(f"Rule-ignored: {total_ignored_by_rule}")
+    print(f"Rule-ignored size: {human_size(total_rule_ignored_size)}")
     print(f"Retention overrides evaluated: {total_retention_overrides}")
     print(f"Migration candidates: {total_migration_candidates}")
     print(f"Migration candidate size: {human_size(total_migration_bytes)}")

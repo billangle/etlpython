@@ -1,0 +1,107 @@
+Mode: DRY RUN (default, nothing deleted)
+Loaded 51 cleanup rules from /home/cloudshell-user/etlpython/prjhelpers/cleanup/S3-NON-PROD.json
+
+Scanning buckets for objects older than 60 days...
+
+Skipping bucket: aws-athena-query-results-241533156429-us-east-1
+Skipping bucket: aws-glue-assets-241533156429-us-east-1
+
+Bucket: c108-cert-fpacfsa-cleansed-zone
+  Found 55062 old objects (1.86 TB)
+
+Bucket: c108-cert-fpacfsa-cleansed-zone-we
+  No old objects found.
+
+Bucket: c108-cert-fpacfsa-crm-stg
+  Found 12 old objects (5.45 KB)
+
+Bucket: c108-cert-fpacfsa-final-zone
+  Found 154939 old objects (3.57 TB)
+
+Bucket: c108-cert-fpacfsa-landing-scripts
+  No old objects found.
+
+Bucket: c108-cert-fpacfsa-landing-zone
+  Rule-ignored objects: 6366 (40.32 GB)
+  Objects evaluated with retention override: 2589
+  Migration candidates (retention reached): 2589 (84.42 GB)
+  ***** Rule match summary *****
+  ***** RETENTION=35: c108-cert-fpacfsa-landing-zone:dart/incremental/flpids_load/ -> 2557 objects (81.79 GB)
+  ***** IGNORE: c108-cert-fpacfsa-landing-zone:dmart/raw/fwadm/historic/ -> 5816 objects (26.00 GB)
+  ***** IGNORE: c108-cert-fpacfsa-landing-zone:r540/ -> 32 objects (13.80 GB)
+  ***** ... plus 9 more matched folders
+  ***** Marked for cheaper storage migration (summary only) *****
+  Found 252186 old objects (26.23 TB)
+
+Bucket: c108-cert-fpacfsa-landing-zone-we
+  Found 2678 old objects (1.16 TB)
+
+Bucket: c108-cert-fpacfsa-quarentine-zone
+  No old objects found.
+
+Bucket: c108-cert-fpacfsa-retrieval-zone-we
+  Found 170 old objects (98.49 GB)
+
+Bucket: c108-dev-fpacfsa-cleansed-zone
+  Found 121799 old objects (1.35 TB)
+
+Bucket: c108-dev-fpacfsa-cleansed-zone-we
+  Found 1 old objects (2.34 KB)
+
+Bucket: c108-dev-fpacfsa-crm-stg
+  Found 773 old objects (1.30 GB)
+
+Bucket: c108-dev-fpacfsa-final-zone
+  Found 192364 old objects (2.20 TB)
+
+Bucket: c108-dev-fpacfsa-landing-zone
+  Rule-ignored objects: 17739 (30.34 GB)
+  Objects evaluated with retention override: 1096
+  Migration candidates (retention reached): 1014 (35.41 GB)
+  ***** Rule match summary *****
+  ***** IGNORE: c108-dev-fpacfsa-landing-zone:r540/ -> 63 objects (20.79 GB)
+  ***** RETENTION=35: c108-dev-fpacfsa-landing-zone:dart/incremental/flpids_load/ -> 828 objects (20.18 GB)
+  ***** RETENTION=35: c108-dev-fpacfsa-landing-zone:fmmi/fmmi_ocfo_files/ -> 227 objects (18.56 GB)
+  ***** ... plus 16 more matched folders
+  ***** Marked for cheaper storage migration (summary only) *****
+  Found 940720 old objects (8.95 TB)
+
+Bucket: c108-dev-fpacfsa-landing-zone-we
+  Found 4 old objects (8.30 KB)
+
+Bucket: c108-dev-fpacfsa-quarentine-zone
+  No old objects found.
+
+Bucket: c108-dev-fpacfsa-redshift-audit-logs
+  Found 78 old objects (4.98 MB)
+
+Bucket: c108-dev-fpacfsa-retrieval-zone-we
+  No old objects found.
+Skipping bucket: cdo-fsa-dev-databricks-glue-ext
+Skipping bucket: dms-vqgxzfabr5deteas263pd7b5ha
+Skipping bucket: dms-xj7eqjo5pbbkhaa2t4lad24ale
+
+Bucket: fsa-dev-devops
+  Found 2435 old objects (55.48 MB)
+Skipping bucket: fsa-dev-ops
+
+Bucket: fsa-fpacdev-ops
+  No old objects found.
+
+===== SUMMARY =====
+Candidates: 1723221
+Space: 45.41 TB
+Deleted: 0
+Errors: 0
+Folder markers skipped: 892
+Rule-ignored: 24105
+Rule-ignored size: 70.66 GB
+Retention overrides evaluated: 3685
+Migration candidates: 3603
+Migration candidate size: 119.82 GB
+Total old object space found: 45.58 TB
+Total deletable object space: 45.41 TB
+New total space utilized: 0.17 TB
+===================
+
+DRY RUN - nothing deleted.

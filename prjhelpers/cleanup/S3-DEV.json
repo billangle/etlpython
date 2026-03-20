@@ -1,0 +1,139 @@
+[
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dmart/fwadm_utils/",
+    "action": "IGNORE"
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dmart/fwadm/fwadm_utils/",
+    "action": "IGNORE"
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dmart/raw/fwadm/SCHEMA_JSON/",
+    "action": "IGNORE"
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dmart/raw/",
+    "action": "IGNORE",
+    "files": "FSA-dev-BPMS_incrementals.py"
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dmart/",
+    "action": "IGNORE",
+    "files": "*.py"
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dmart/raw/fwadm/CFI/",
+    "action": "IGNORE"
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dmart/raw/fwadm/historic/",
+    "action": "IGNORE"
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dmart/raw/fwadm/nps_arch/",
+    "action": "IGNORE"
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dmart/raw/fwadm/",
+    "action": "IGNORE",
+    "files": "validation.py"
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dmart/raw/fwadm/",
+    "action": "Rotate to glacier after 35 days (or more)",
+    "files": "20??????"
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "fmmi/config/",
+    "action": "IGNORE"
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "fmmi/fmmi_ocfo_files/",
+    "action": "Keep files for 35 days",
+    "retention": 35
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "r540/",
+    "action": "IGNORE"
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dart/dart/",
+    "action": "IGNORE"
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dart/dart/scripts/",
+    "action": "IGNORE"
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dart/dart/temp/",
+    "action": "IGNORE"
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dart//dart/full-refresh/flpids_rpt_stg/obl_rpt/",
+    "action": "Keep files for 35 days",
+    "retention": 35
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dart//dart/full-refresh/flpids_rpt_stg/ofc_rpt/",
+    "action": "Keep files for 35 days",
+    "retention": 35
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dart/full-refresh/cao_rpt_stg/districts/",
+    "action": "IGNORE"
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dart/full-refresh/cao_rpt_stg/dvsn/",
+    "action": "Keep files for 35 days",
+    "retention": 35
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "dart/full-refresh/cao_rpt_stg/orgn/",
+    "action": "Keep files for 35 days",
+    "retention": 35
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "s3:c108-dev-fpacfsa-landing-zone/dart/incremental/cao_rpt_stg/",
+    "action": "Keep files for 35 days",
+    "retention": 35
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "s3:c108-dev-fpacfsa-landing-zone/dart/incremental/flpids_load/",
+    "action": "Keep files for 35 days",
+    "retention": 35
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "s3:c108-dev-fpacfsa-landing-zone/dart/incremental/flpids_rpt_stg/",
+    "action": "Keep files for 35 days",
+    "retention": 35
+  },
+  {
+    "Bucket Name": "c108-dev-fpacfsa-landing-zone",
+    "Folder": "s3:c108-dev-fpacfsa-landing-zone/dart/incremental/flpra_ods/",
+    "action": "IGNORE"
+  }
+]

@@ -1,0 +1,75 @@
+{
+  "StartAt": "__INCREMENTAL_TO_LANDING_SM_NAME__",
+  "States": {
+    "__INCREMENTAL_TO_LANDING_SM_NAME__": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "__INCREMENTAL_TO_LANDING_SM_ARN__",
+        "Input": {
+          "Bucket": "__LANDING_BUCKET__",
+          "Key": "__JOB_ID_KEY__"
+        }
+      },
+      "ResultSelector": {
+        "JobId.$": "$.Output.JobId.JobId",
+        "noFiles.$": "$.Output.JobId.noFiles",
+        "FileList.$": "$.Output.JobId.FileList"
+      },
+      "ResultPath": "$",
+      "Next": "BranchOnNoFiles"
+    },
+    "BranchOnNoFiles": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.noFiles",
+          "BooleanEquals": true,
+          "Next": "Notify"
+        }
+      ],
+      "Default": "Update ECP RAW-DM"
+    },
+    "Update ECP RAW-DM": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "__S3LANDING_TO_RAWDM_SM_ARN__",
+        "Input": {
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+          "JobId.$": "$.JobId",
+          "step_seq_nbr": "2",
+          "SfName": "__S3LANDING_TO_RAWDM_SM_NAME__"
+        }
+      },
+      "ResultPath": "$.ProcessControlResult",
+      "Next": "Update Process Control"
+    },
+    "Update Process Control": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "__PROCESS_CONTROL_UPDATE_SM_ARN__",
+        "Input": {
+          "JobId.$": "$.JobId",
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id"
+        }
+      },
+      "ResultPath": "$.ProcessControlResult",
+      "Next": "Notify"
+    },
+    "Notify": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "__SNS_PUBLISH_VALIDATIONS_REPORT_FN_ARN__",
+        "Payload": {
+          "JobId.$": "$.JobId",
+          "noFiles.$": "$.noFiles",
+          "files.$": "$.FileList"
+        }
+      },
+      "End": true
+    }
+  }
+}

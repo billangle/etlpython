@@ -1,1 +1,1 @@
-{"errorType":"Sandbox.Timedout","errorMessage":"RequestId: ec74575d-830c-4d0f-b5ce-4179b1b84e48 Error: Task timed out after 30.00 seconds"}
+{"ok": true, "source_bucket": "c108-cert-fpacfsa-final-zone", "source_folder": "cnsv/_configs/STG/", "destination_bucket": "fsa-dev-ops", "destination_key": "output/cnsv/configs-cert-stg.zip", "ignore_patterns": ["*.zip", "*.tmp", "*.bak", "*/_SUCCESS"], "include_source_folder_in_zip": false, "zipped_files": 132, "skipped_files": 0, "zip_size_bytes": 147467}

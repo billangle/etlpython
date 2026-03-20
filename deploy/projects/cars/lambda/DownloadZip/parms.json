@@ -1,8 +1,8 @@
 {
   "source_bucket": "c108-cert-fpacfsa-final-zone",
-  "source_folder": "cnsv/_configs",
+  "source_folder": "cnsv/_configs/STG",
   "destination_bucket": "fsa-dev-ops",
-  "destination_key": "output/cnsv/configs-cert.zip",
+  "destination_key": "output/cnsv/configs-cert-stg.zip",
   "ignore_patterns": ["*.zip", "*.tmp", "*.bak", "*/_SUCCESS"],
   "include_source_folder_in_zip": false
 }

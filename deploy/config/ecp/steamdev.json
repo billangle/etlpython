@@ -1,0 +1,398 @@
+{
+  "deployEnv": "STEAMDEV",
+  "project": "ECP",
+  "region": "us-east-1",
+  "bucketRegion": "us-east-1",
+  "secretId": "FSA-DEV-Secrets",
+
+  "configData": {
+    "databaseName": "fsa-fpac-db",
+    "dynamoTableName": "FsaFpacMetadata"
+  },
+  "glueDatabases": [
+    {
+      "name": "fsa-steamdev-ecp",
+      "description": "Primary Glue database for ecp"
+    },
+    {
+      "name": "fsa-steamdev-ecp-cdc",
+      "description": "CDC Glue database for ecp"
+    }
+  ],
+  "strparams": {
+    "landingBucketNameParam": "punkdev-fpacfsa-landing-zone",
+    "cleanBucketNameParam": "punkdev-fpacfsa-cleansed-zone",
+    "finalBucketNameParam": "punkdev-fpacfsa-final-zone",
+    "jobIdKeyParam": "ecp/etl-jobs/job_id.json",
+    "glueJobRoleArnParam": "arn:aws:iam::335965711887:role/FPACGlueCDKRole",
+    "etlRoleArnParam": "arn:aws:iam::335965711887:role/FPACLambdaCDKRole",
+    "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:335965711887:layer:FSA-DEV-MDART-layer:1",
+    "customLayerArnParam": "arn:aws:lambda:us-east-1:335965711887:layer:FSA-polars:1",
+    "snsArnParam": "arn:aws:sns:us-east-1:335965711887:FSA-DEV-FMMI"
+  },
+  "paths": {
+    "glueRootPath": "glue/",
+    "lambdaRootPath": "lambda/"
+  },
+
+  "artifacts": {
+    "artifactBucket": "dev-cars-artifacts",
+    "prefix": "ecp/"
+  },
+
+  "stepFunctions": {
+    "createRoleIfMissing": false,
+    "roleName": "FSA-dev-FPACCARS-SfnExec",
+    "roleArn": "arn:aws:iam::335965711887:role/FSA-dev-FPACCARS-SfnExec",
+    "nestedCallerRoleArn": "arn:aws:iam::335965711887:role/FSA-dev-FPACCARS-SfnNestedCaller"
+  },
+  "LambdaConfig": [
+    {
+      "Job-Logging-End": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SecretId": "FSA-DEV-Secrets",
+          "CRAWLER_NAME": "FSA-STEAMDEV-ECP"
+        }
+      }
+    },
+    {
+      "RAW-DM-etl-workflow-update": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": []
+      }
+    },
+    {
+      "RAW-DM-sns-pub-step-func-errs": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SNS_ARN": "arn:aws:sns:us-east-1:335965711887:FSA-DEV-FMMI"
+        }
+      }
+    },
+    {
+      "get-incremental-tables": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "source_folder": "ecp"
+        }
+      }
+    },
+    {
+      "sns-publish-validations-report": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SNS_ARN": "arn:aws:sns:us-east-1:335965711887:FSA-DEV-FMMI"
+        }
+      }
+    },
+    {
+      "validation-check": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SecretId": "FSA-DEV-Secrets",
+          "CRAWLER_NAME": "FSA-STEAMDEV-ECP"
+        }
+      }
+    }
+  ],
+  "configUpload": {
+    "functionName": "FSA-steam-dev-UploadConfig",
+    "sourceDir": "configs",
+    "inputBucket": "dev-cars-artifacts",
+    "inputPrefix": "input/zips",
+    "outputBucket": "punkdev-fpacfsa-final-zone",
+    "outputPrefix": "ecp",
+    "minExpectedObjects": 2,
+    "debug": true
+  },
+   "GlueConfig": [ 
+    { 
+      "LandingFiles": {
+        "Connections" : [{
+      "ConnectionName": ""
+                    }] ,
+          "MaxConcurrency": "1",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "2880",
+          "WorkerType": "G.2X",
+          "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/ecp/",
+          "NumberOfWorkers": "2",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+          "PythonLibraryPath": "",
+          "ReferencePath": "",
+          "AdditionalPythonModulesPath": "",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+            "--DestinationBucket": "punkdev-fpacfsa-landing-zone",
+            "--DestinationPrefix": "ecp/etl-jobs",
+             "--PipelineName": "ecp",
+            "--SecretId": "FSA-CERT-Secrets",
+            "--SourcePrefix": "ecp/dbo"
+          }
+      }
+    },
+     { 
+      "Cntr-Maint-LandingFiles": {
+        "Connections" : [{
+            "ConnectionName": ""
+                    }] ,
+          "MaxConcurrency": "1",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "2880",
+          "WorkerType": "G.2X",
+          "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/ecp/",
+          "NumberOfWorkers": "2",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+          "PythonLibraryPath": "",
+          "ReferencePath": "",
+          "AdditionalPythonModulesPath": "",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+            "--DestinationBucket": "punkdev-fpacfsa-landing-zone",
+            "--DestinationPrefix": "ecp/etl-jobs",
+             "--PipelineName": "ecp",
+            "--SecretId": "FSA-CERT-Secrets",
+            "--SourcePrefix": "ecp/dbo"
+          }
+      }
+    },
+    {
+      "EXEC-SQL": {
+        "Connections": [{ "ConnectionName": "" }],
+        "MaxConcurrency": "3",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "480",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/ecp/",
+        "NumberOfWorkers": "2",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+        "PythonLibraryPath": "",
+        "ReferencePath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--data_src_nm": "ecp",
+          "--end_date": "2026-02-11",
+          "--layer": "stg",
+          "--run_type": "incremental",
+          "--start_date": "2026-01-27",
+          "--table_name": "ecp_LOSS_UNIT"
+        }
+      }
+    },
+    { 
+      "Cons-Pymts-LandingFiles": {
+        "Connections" : [{
+            "ConnectionName": ""
+                    }] ,
+          "MaxConcurrency": "1",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "2880",
+          "WorkerType": "G.2X",
+          "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/ecp/",
+          "NumberOfWorkers": "2",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+          "PythonLibraryPath": "",
+          "ReferencePath": "",
+          "AdditionalPythonModulesPath": "",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+            "--DestinationBucket": "punkdev-fpacfsa-landing-zone",
+            "--DestinationPrefix": "ecp/etl-jobs",
+             "--PipelineName": "ecp",
+            "--SecretId": "FSA-CERT-Secrets",
+            "--SourcePrefix": "ecp/dbo"
+          }
+      }
+    },
+    {
+     "Raw-DM": {
+        "Connections" : [{
+            "ConnectionName": ""
+                      }] ,
+          "MaxConcurrency": "30",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "720",
+          "WorkerType": "G.2X",
+          "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/ecp/",
+          "NumberOfWorkers": "2",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+          "PythonLibraryPath": "",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+              "--ENABLE_DQ_METRICS": "true",
+              "--JobId": "30741",
+              "--SKIP_COUNT_TABLES": "ewt86shloc",
+              "--SKIP_DQ_TABLES": "ewt86shloc",
+              "--TableName": "ewt86shloc",
+              "--env": "dev",
+              "--extra-jars": "metadata_edw",
+              "--region_name": "us-east-1",
+              "--secret_name": "FSA-STDEV-Secrets",
+              "--source_prefix": "ecp",
+              "--target_bucket": "punkdev-fpacfsa-final-zone",
+              "--target_prefix": "ecp"
+            }
+      }
+    },
+    {
+     "Cntr-Maint-Raw-DM": {
+        "Connections" : [{
+            "ConnectionName": ""
+                      }] ,
+          "MaxConcurrency": "30",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "720",
+          "WorkerType": "G.2X",
+          "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/ecp/",
+          "NumberOfWorkers": "2",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+          "PythonLibraryPath": "",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+              "--ENABLE_DQ_METRICS": "true",
+              "--JobId": "30741",
+              "--SKIP_COUNT_TABLES": "ewt86shloc",
+              "--SKIP_DQ_TABLES": "ewt86shloc",
+              "--TableName": "ewt86shloc",
+              "--env": "dev",
+              "--extra-jars": "metadata_edw",
+              "--region_name": "us-east-1",
+              "--secret_name": "FSA-STDEV-Secrets",
+              "--source_prefix": "ecp",
+              "--target_bucket": "punkdev-fpacfsa-final-zone",
+              "--target_prefix": "ecp"
+            }
+      }
+    },
+    {
+     "Cons-Pymts-Raw-DM": {
+        "Connections" : [{
+            "ConnectionName": ""
+                      }] ,
+          "MaxConcurrency": "30",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "720",
+          "WorkerType": "G.2X",
+          "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/ecp/",
+          "NumberOfWorkers": "2",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+          "PythonLibraryPath": "",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+              "--ENABLE_DQ_METRICS": "true",
+              "--JobId": "30741",
+              "--SKIP_COUNT_TABLES": "ewt86shloc",
+              "--SKIP_DQ_TABLES": "ewt86shloc",
+              "--TableName": "ewt86shloc",
+              "--env": "dev",
+              "--extra-jars": "metadata_edw",
+              "--region_name": "us-east-1",
+              "--secret_name": "FSA-STDEV-Secrets",
+              "--source_prefix": "ecp",
+              "--target_bucket": "punkdev-fpacfsa-final-zone",
+              "--target_prefix": "ecp"
+            }
+      }
+    }
+  ],
+  "crawlers": [
+    {
+      "crawlerName": "FSA-{deployEnv}-{projectName}",
+      "description": "ecp crawler data sources (grouped by bucket)",
+      "databaseName": "fsa-steamdev-ecp",
+      "recrawlBehavior": "CRAWL_EVERYTHING",
+      "excludePatterns": ["_cdc/**", "_configs/**"],
+      "s3TargetsByBucket": [
+        {
+          "bucket": "punkdev-fpacfsa-final-zone",
+          "prefixes": [
+            "ecp/"
+          ]
+        }
+      ]
+    },
+    {
+      "crawlerName": "FSA-{deployEnv}-{projectName}-cdc",
+      "description": "ecp crawler data sources (grouped by bucket)",
+      "databaseName": "fsa-steamdev-ecp-cdc",
+      "recrawlBehavior": "CRAWL_EVERYTHING",
+      "s3TargetsByBucket": [
+        {
+          "bucket": "punkdev-fpacfsa-final-zone",
+          "prefixes": [
+            "ecp/_cdc/"
+          ]
+        }
+      ]
+    }
+  ]
+  
+}

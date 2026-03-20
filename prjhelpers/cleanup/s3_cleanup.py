@@ -99,6 +99,11 @@ def human_size(num_bytes: int) -> str:
     return f"{b:.2f} EB"
 
 
+def size_tb(num_bytes: int) -> str:
+    tb = float(num_bytes) / (1024 ** 4)
+    return f"{tb:.2f} TB"
+
+
 def get_bucket_region(s3_global, bucket: str) -> str:
     resp = s3_global.get_bucket_location(Bucket=bucket)
     loc = resp.get("LocationConstraint")
@@ -269,7 +274,17 @@ def find_old_objects(
     default_days: int,
     obj_prefix: Optional[str],
     rules: List[CleanupRule],
-) -> Tuple[List[str], int, int, int, List[Tuple[str, int]], Dict[str, Dict[str, Union[int, str]]], int]:
+) -> Tuple[
+    List[str],
+    int,
+    int,
+    int,
+    List[Tuple[str, int]],
+    Dict[str, Dict[str, Union[int, str]]],
+    int,
+    int,
+    int,
+]:
     paginator = s3.get_paginator("list_objects_v2")
 
     keys: List[str] = []
@@ -279,6 +294,8 @@ def find_old_objects(
     migration_candidates: List[Tuple[str, int]] = []
     matched_rule_summary: Dict[str, Dict[str, Union[int, str]]] = {}
     ignored_by_rule_size = 0
+    total_old_space_found = 0
+    folder_marker_skipped = 0
 
     params = {"Bucket": bucket}
     if obj_prefix:
@@ -290,6 +307,16 @@ def find_old_objects(
             last_modified = obj["LastModified"]
 
             obj_size = obj.get("Size", 0)
+
+            # Never delete S3 folder marker objects.
+            if key.endswith("/"):
+                folder_marker_skipped += 1
+                continue
+
+            default_cutoff = now_utc - timedelta(days=default_days)
+            if last_modified < default_cutoff:
+                total_old_space_found += obj_size
+
             ignore, retention_days, had_match, matched_rule = resolve_rule_effect(rules, bucket, key)
             if ignore:
                 ignored_by_rule += 1
@@ -322,6 +349,8 @@ def find_old_objects(
         migration_candidates,
         matched_rule_summary,
         ignored_by_rule_size,
+        total_old_space_found,
+        folder_marker_skipped,
     )
 
 
@@ -380,6 +409,8 @@ def main():
     total_migration_candidates = 0
     total_migration_bytes = 0
     total_rule_ignored_size = 0
+    total_old_space_found = 0
+    total_folder_markers_skipped = 0
 
     buckets = list_account_buckets(s3_global)
 
@@ -406,6 +437,8 @@ def main():
                 migration_candidates,
                 matched_rule_summary,
                 ignored_by_rule_size,
+                old_space_found,
+                folder_markers_skipped,
             ) = find_old_objects(
                 s3=s3,
                 bucket=bucket,
@@ -421,6 +454,8 @@ def main():
 
         total_ignored_by_rule += ignored_by_rule
         total_rule_ignored_size += ignored_by_rule_size
+        total_old_space_found += old_space_found
+        total_folder_markers_skipped += folder_markers_skipped
         total_retention_overrides += retention_hits
         total_migration_candidates += len(migration_candidates)
         total_migration_bytes += sum(sz for _, sz in migration_candidates)
@@ -471,11 +506,15 @@ def main():
     print(f"Space: {human_size(total_bytes)}")
     print(f"Deleted: {total_deleted}")
     print(f"Errors: {total_errors}")
+    print(f"Folder markers skipped: {total_folder_markers_skipped}")
     print(f"Rule-ignored: {total_ignored_by_rule}")
     print(f"Rule-ignored size: {human_size(total_rule_ignored_size)}")
     print(f"Retention overrides evaluated: {total_retention_overrides}")
     print(f"Migration candidates: {total_migration_candidates}")
     print(f"Migration candidate size: {human_size(total_migration_bytes)}")
+    print(f"Total old object space found: {size_tb(total_old_space_found)}")
+    print(f"Total deletable object space: {size_tb(total_bytes)}")
+    print(f"New total space utilized: {size_tb(max(total_old_space_found - total_bytes, 0))}")
     print("===================")
 
     if not args.execute:

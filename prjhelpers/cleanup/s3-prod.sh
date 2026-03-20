@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 DEFAULT_DAYS="${DAYS:-60}"
-DEFAULT_IGNORE_BUCKETS=("cdk" "dms" "cdo" "aws")
+DEFAULT_IGNORE_BUCKETS=("cdk" "dms" "cdo" "aws" "fsa-prod-ops")
 
 has_days=0
 has_execute=0
@@ -29,6 +29,7 @@ if [[ $has_days -eq 1 ]]; then
     --ignore-bucket "${DEFAULT_IGNORE_BUCKETS[1]}" \
     --ignore-bucket "${DEFAULT_IGNORE_BUCKETS[2]}" \
     --ignore-bucket "${DEFAULT_IGNORE_BUCKETS[3]}" \
+    --ignore-bucket "${DEFAULT_IGNORE_BUCKETS[4]}" \
     --rules-json "$SCRIPT_DIR/S3-PROD.json" \
     "$@"
 else
@@ -38,6 +39,7 @@ else
     --ignore-bucket "${DEFAULT_IGNORE_BUCKETS[1]}" \
     --ignore-bucket "${DEFAULT_IGNORE_BUCKETS[2]}" \
     --ignore-bucket "${DEFAULT_IGNORE_BUCKETS[3]}" \
+    --ignore-bucket "${DEFAULT_IGNORE_BUCKETS[4]}" \
     --rules-json "$SCRIPT_DIR/S3-PROD.json" \
     "$@"
 fi

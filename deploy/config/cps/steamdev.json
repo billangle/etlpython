@@ -11,12 +11,12 @@
   },
   "glueDatabases": [
     {
-      "name": "fsa-{deployEnvLower}-{projectLower}",
-      "description": "Primary Glue database for {projectLower}"
+      "name": "fsa-steamdev-cps",
+      "description": "Primary Glue database for cps"
     },
     {
-      "name": "fsa-{deployEnvLower}-{projectLower}-cdc",
-      "description": "CDC Glue database for {projectLower}"
+      "name": "fsa-steamdev-cps-cdc",
+      "description": "CDC Glue database for cps"
     }
   ],
   "strparams": {
@@ -367,7 +367,7 @@
     {
       "crawlerName": "FSA-{deployEnv}-{projectName}",
       "description": "cps crawler data sources (grouped by bucket)",
-      "databaseName": "fsa-{deployEnvLower}-{projectLower}",
+      "databaseName": "fsa-steamdev-cps",
       "recrawlBehavior": "CRAWL_EVERYTHING",
       "excludePatterns": ["_cdc/**", "_configs/**"],
       "s3TargetsByBucket": [
@@ -382,7 +382,7 @@
     {
       "crawlerName": "FSA-{deployEnv}-{projectName}-cdc",
       "description": "cps crawler data sources (grouped by bucket)",
-      "databaseName": "fsa-{deployEnvLower}-{projectLower}-cdc",
+      "databaseName": "fsa-steamdev-cps-cdc",
       "recrawlBehavior": "CRAWL_EVERYTHING",
       "s3TargetsByBucket": [
         {

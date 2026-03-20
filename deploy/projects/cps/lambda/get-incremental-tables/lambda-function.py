@@ -7,10 +7,10 @@ def lambda_handler(event, context):
     job_id = str(event["JobId"]).strip()
     sf_name = event["SfName"]
 
-    parts = sf_name.split("-")
+    parts = sf_name.split("-")[1].lower()
     if len(parts) < 3:
         raise ValueError("Invalid SfName format. Expected format like FSA-DEV-CPS-*")
-    env = parts[1].lower()
+    env = parts[len("fpac"):] if parts.startswith("fpac") else parts
     bucket = f"c108-{env}-fpacfsa-landing-zone"
     print(f"Landing Bucket: {bucket}")
 

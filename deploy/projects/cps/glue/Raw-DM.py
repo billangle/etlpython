@@ -105,7 +105,7 @@ log = logging.getLogger("raw_dm")
 # Basic config
 # ------------------------------
 JOB_NAME   = args["JOB_NAME"]
-ENV        = args["env"]
+ENV        = args["env"].upper()[len("FPAC"):] if args["env"].upper().startswith("FPAC") else args["env"].upper()
 JOB_ID     = args["JobId"]
 TABLE      = args["TableName"]
 PCDB_NAME  = args["postgres_prcs_ctrl_dbname"]
@@ -211,7 +211,7 @@ log.info(f"[CONFIG] CDC Retention: {CDC_RETENTION_COUNT} days")
 from py4j.java_gateway import java_import
 java_import(sc._gateway.jvm, "java.sql.DriverManager")
 
-GLUE_CONN_NAME = f"FSA-{ENV.upper()}-PG-DART114" if ENV == "dev" else f"FSA-{ENV.upper()}-PG-DART115"
+GLUE_CONN_NAME = f"FSA-{ENV}-PG-DART114" if ENV.lower() == "dev" else f"FSA-{ENV}-PG-DART115"
 
 def pcdb_connect():
     """

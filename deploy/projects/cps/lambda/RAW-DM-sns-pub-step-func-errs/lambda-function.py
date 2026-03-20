@@ -6,11 +6,11 @@ Function to publish errors incase of any glue job failed .
 import json
 import boto3
 import os
-from sns_topics import sns_topics
+#from sns_topics import sns_topics
 
 
 REGION = os.getenv("AWS_REGION")
-#SNS_ARN = "arn:aws:sns:us-east-1:241533156429:FSA-DEV-CPS"
+SNS_ARN = "arn:aws:sns:us-east-1:241533156429:FSA-DEV-CPS"
 
 
 def lambda_handler(event, context):
@@ -79,7 +79,7 @@ def lambda_handler(event, context):
     print(f"All Fails: {all_fails}")  
                      
     #Assign SNS Topic
-    SNS_ARN = sns_topics[target.upper()].format(env.upper())
+    #SNS_ARN = sns_topics[target.upper()].format(env.upper())
     print("SNS_ARN: " + SNS_ARN)
     # if there were any failures in the preceeding steps send sns notification and fail state function
     if all_fails:

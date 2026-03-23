@@ -208,12 +208,12 @@
   },
   {
     "Bucket Name": "c108-cert-fpacfsa-landing-zone",
-    "Folder": "dart/dart/",
+    "Folder": "dart/",
     "action": "IGNORE"
   },
   {
     "Bucket Name": "c108-cert-fpacfsa-landing-zone",
-    "Folder": "dart/dart/scripts/",
+    "Folder": "dart/scripts/",
     "action": "IGNORE"
   },
   {

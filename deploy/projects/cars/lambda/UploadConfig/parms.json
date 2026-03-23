@@ -6,7 +6,7 @@
     "key": "input/zips/scripts.zip"
   },
   "target": {
-    "bucket": "c108-dev-fpacfsa-final-zone",
+    "bucket": "c108-dev-fpacfsa-landing-zone",
     "key": "dart/scripts"
   },
   "debug": true,

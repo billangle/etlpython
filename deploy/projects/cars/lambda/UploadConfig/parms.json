@@ -1,0 +1,14 @@
+{
+  "function_name": "FSA-FPACDEV-UploadConfig",
+  "region": "us-east-1",
+  "source": {
+    "bucket": "fsa-dev-ops",
+    "key": "input/zips/scripts.zip"
+  },
+  "target": {
+    "bucket": "c108-dev-fpacfsa-final-zone",
+    "key": "dart/scripts"
+  },
+  "debug": true,
+  "out": "lambda_response_existing_zip.json"
+}

@@ -64,7 +64,8 @@
         },
         "environmentVariables": {
           "SecretId": "FSA-DEV-secrets",
-          "CRAWLER_NAME": "FSA-FPACDEV-CPS"
+          "CRAWLER_NAME": "FSA-FPACDEV-CPS",
+          "LAST_COMPLETE_TARGET": "FSA-FPACDEV-CPS"
         }
       }
     },
@@ -74,6 +75,11 @@
         "timeoutSeconds": 120,
         "memoryMb": 256,
         "layers": ["arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1"],
+        "environmentVariables": {
+          "SecretId": "FSA-DEV-secrets",
+          "LAST_COMPLETE_TARGET": "FSA-FPACDEV-CPS",
+          "STEP2_NAME": "FSA-FPACDEV-CPS-S3Landing-to-S3Final-Raw-DM"
+        },
         "networking": {
           "vpcId": "vpc-05f9625eecaabbfd4",
           "subnetIds": [
@@ -95,7 +101,9 @@
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {
-          "SNS_ARN": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-CPS"
+          "SNS_ARN": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-CPS",
+          "SNS_SUBJECT": "FSA-FPACDEV-CPS-RAW-DM-NOTIFICATIONS",
+          "STATE_MACHINE_NAME": "FSA-FPACDEV-CPS-S3Landing-to-S3Final-Raw-DM"
         }
       }
     },
@@ -118,7 +126,8 @@
           ]
         },
         "environmentVariables": {
-          "source_folder": "cps"
+          "source_folder": "cps",
+          "LANDING_BUCKET": "c108-dev-fpacfsa-landing-zone"
         }
       }
     },
@@ -129,7 +138,8 @@
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {
-          "SNS_ARN": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-CPS"
+          "SNS_ARN": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-CPS",
+          "REPORT_ENV_LABEL": "FPACDEV"
         }
       }
     },

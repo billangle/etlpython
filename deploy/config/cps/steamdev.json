@@ -55,7 +55,8 @@
         "layers": [],
         "environmentVariables": {
           "SecretId": "FSA-DEV-Secrets",
-          "CRAWLER_NAME": "FSA-STEAMDEV-CPS"
+          "CRAWLER_NAME": "FSA-STEAMDEV-CPS",
+          "LAST_COMPLETE_TARGET": "FSA-STEAMDEV-CPS"
         }
       }
     },
@@ -64,7 +65,12 @@
         "runtime": "python3.10",
         "timeoutSeconds": 120,
         "memoryMb": 256,
-        "layers": []
+        "layers": [],
+        "environmentVariables": {
+          "SecretId": "FSA-DEV-Secrets",
+          "LAST_COMPLETE_TARGET": "FSA-STEAMDEV-CPS",
+          "STEP2_NAME": "FSA-STEAMDEV-CPS-S3Landing-to-S3Final-Raw-DM"
+        }
       }
     },
     {
@@ -74,7 +80,9 @@
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {
-          "SNS_ARN": "arn:aws:sns:us-east-1:335965711887:FSA-DEV-FMMI"
+          "SNS_ARN": "arn:aws:sns:us-east-1:335965711887:FSA-DEV-FMMI",
+          "SNS_SUBJECT": "FSA-STEAMDEV-CPS-RAW-DM-NOTIFICATIONS",
+          "STATE_MACHINE_NAME": "FSA-STEAMDEV-CPS-S3Landing-to-S3Final-Raw-DM"
         }
       }
     },
@@ -85,7 +93,8 @@
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {
-          "source_folder": "cps"
+          "source_folder": "cps",
+          "LANDING_BUCKET": "punkdev-fpacfsa-landing-zone"
         }
       }
     },
@@ -96,7 +105,8 @@
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {
-          "SNS_ARN": "arn:aws:sns:us-east-1:335965711887:FSA-DEV-FMMI"
+          "SNS_ARN": "arn:aws:sns:us-east-1:335965711887:FSA-DEV-FMMI",
+          "REPORT_ENV_LABEL": "STEAMDEV"
         }
       }
     },

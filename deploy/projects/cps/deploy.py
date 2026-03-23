@@ -690,16 +690,33 @@ def deploy(cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
                 sns_arn=sns_arn,
             )
 
-            # Backward-compatible fallback for configs that do not define LambdaConfig env vars.
-            if not fn_env:
-                if src_dir.name == "get-incremental-tables":
-                    fn_env["source_folder"] = project.lower()
-                if src_dir.name in {"RAW-DM-sns-pub-step-func-errs", "sns-publish-validations-report"} and sns_arn:
-                    fn_env["SNS_ARN"] = sns_arn
-                if src_dir.name in {"Job-Logging-End", "validation-check"}:
-                    if secret_id:
-                        fn_env["SecretId"] = secret_id
-                    fn_env["CRAWLER_NAME"] = names.crawler_main
+            # Apply per-function defaults while allowing config-provided env vars to override.
+            if src_dir.name == "get-incremental-tables":
+                fn_env.setdefault("source_folder", project.lower())
+                fn_env.setdefault("LANDING_BUCKET", landing_bucket)
+
+            if src_dir.name in {"RAW-DM-sns-pub-step-func-errs", "sns-publish-validations-report"} and sns_arn:
+                fn_env.setdefault("SNS_ARN", sns_arn)
+
+            if src_dir.name == "RAW-DM-sns-pub-step-func-errs":
+                fn_env.setdefault("SNS_SUBJECT", f"{names.prefix}-RAW-DM-NOTIFICATIONS")
+                fn_env.setdefault("STATE_MACHINE_NAME", names.sm_s3landing_to_rawdm)
+
+            if src_dir.name == "sns-publish-validations-report":
+                fn_env.setdefault("REPORT_ENV_LABEL", deploy_env)
+
+            if src_dir.name in {"RAW-DM-etl-workflow-update", "Job-Logging-End", "validation-check"}:
+                if secret_id:
+                    fn_env.setdefault("SecretId", secret_id)
+
+            if src_dir.name in {"Job-Logging-End", "validation-check"}:
+                fn_env.setdefault("CRAWLER_NAME", names.crawler_main)
+
+            if src_dir.name in {"RAW-DM-etl-workflow-update", "Job-Logging-End"}:
+                fn_env.setdefault("LAST_COMPLETE_TARGET", names.prefix)
+
+            if src_dir.name == "RAW-DM-etl-workflow-update":
+                fn_env.setdefault("STEP2_NAME", names.sm_s3landing_to_rawdm)
 
             arn = ensure_lambda(
                 lam,

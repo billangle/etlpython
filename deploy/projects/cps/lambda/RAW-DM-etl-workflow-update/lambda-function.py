@@ -4,8 +4,10 @@ import os
 import psycopg2
 from datetime import datetime
 
-SECRET_NAME = "FSA-DEV-secrets"
+SECRET_NAME = os.environ["SecretId"]
 REGION = os.getenv("AWS_REGION")
+LAST_COMPLETE_TARGET = os.getenv("LAST_COMPLETE_TARGET", "CPS")
+STEP2_NAME = os.getenv("STEP2_NAME", "CPS-Step2")
 
 def lambda_handler(event, context):
 
@@ -43,7 +45,7 @@ def lambda_handler(event, context):
     else:
         job_stat_nm = 'Failed'
         data_ppln_job_id = event["JobId"]
-        err_msg_txt = 'errors occured when executing state machine: FSA-DEV-CPS-Step2' 
+        err_msg_txt = f"errors occured when executing state machine: {STEP2_NAME}"
 
    
     # update data pipeline job
@@ -56,7 +58,7 @@ def lambda_handler(event, context):
         """
         
     cursor.execute(data_ppln_job_update_on_complete_sql, (  datetime.utcnow(), 
-                                                            "FSA-DEV-CPS",
+                                                            LAST_COMPLETE_TARGET,
                                                             job_stat_nm,err_msg_txt,
                                                             data_ppln_job_id))
                                             

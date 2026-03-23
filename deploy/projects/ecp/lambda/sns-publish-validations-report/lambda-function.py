@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 sns = boto3.client("sns")
 SNS_TOPIC_ARN = os.environ["SNS_ARN"]
+REPORT_ENV_LABEL = os.getenv("REPORT_ENV_LABEL", "")
 
 def lambda_handler(event, context):
     """
@@ -34,15 +35,18 @@ def lambda_handler(event, context):
     file_list_str = "\n".join(display_files)
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     
+    env_label = REPORT_ENV_LABEL.strip().upper()
+    env_suffix = f" {env_label}" if env_label else ""
+
     if no_files:
-        subject = f"No Incremental Files for ECP Raw-DM on {today} PROD"
+        subject = f"No Incremental Files for ECP Raw-DM on {today}{env_suffix}"
         message = (
             f"No incremental files found for job {job_id} on {today}.\n\n"
             "Please check your source if you were expecting data."
         )
         
     else:
-        subject = f"ECP Raw-DM: {len(display_files)} file(s) processed on {today} PROD"
+        subject = f"ECP Raw-DM: {len(display_files)} file(s) processed on {today}{env_suffix}"
         message = (
             f"ECP RAW-DM Job {job_id} on {today} successfully processed "
             f"{len(display_files)} file(s):\n\n{file_list_str}"

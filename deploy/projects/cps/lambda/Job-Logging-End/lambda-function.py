@@ -9,6 +9,7 @@ from datetime import datetime
 SECRET_NAME = os.environ["SecretId"]
 REGION = os.getenv("AWS_REGION")
 CRAWLER_NAME = os.environ["CRAWLER_NAME"]
+LAST_COMPLETE_TARGET = os.getenv("LAST_COMPLETE_TARGET", "CPS")
 
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -104,7 +105,7 @@ def lambda_handler(event, context):
                 last_cplt_data_load_tgt_nm = row[1]                                        
         
             
-            if job_stat_nm == 'In Progress' and last_cplt_data_load_tgt_nm == 'FSA-DEV-CPS' and crawler_status == 'SUCCEEDED':
+            if job_stat_nm == 'In Progress' and last_cplt_data_load_tgt_nm == LAST_COMPLETE_TARGET and crawler_status == 'SUCCEEDED':
                 job_stat_nm = 'Complete'
                 err_msg_txt = ''
                 data_stat_cd = 'I'

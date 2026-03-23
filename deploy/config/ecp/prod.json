@@ -78,6 +78,11 @@
         "layers": [
           "arn:aws:lambda:us-east-1:253490756794:layer:FSA-DEV-psycopg2-python311:1"
         ],
+        "environmentVariables": {
+          "SecretId": "FSA-PROD-secrets",
+          "LAST_COMPLETE_TARGET": "FSA-PROD-ECP",
+          "STEP2_NAME": "FSA-PROD-ECP-S3Landing-to-S3Final-Raw-DM"
+        },
         "networking": {
           "vpcId": "vpc-092b2aee3fba9e5e6",
           "subnetIds": [
@@ -96,7 +101,9 @@
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {
-          "SNS_ARN": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-ECP"
+          "SNS_ARN": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-ECP",
+          "SNS_SUBJECT": "FSA-PROD-ECP-RAW-DM-NOTIFICATIONS",
+          "STATE_MACHINE_NAME": "FSA-PROD-ECP-S3Landing-to-S3Final-Raw-DM"
         }
       }
     },
@@ -116,7 +123,8 @@
           ]
         },
         "environmentVariables": {
-          "source_folder": "ecp"
+          "source_folder": "ecp",
+          "LANDING_BUCKET": "c108-prod-fpacfsa-landing-zone"
         }
       }
     },
@@ -127,7 +135,8 @@
         "memoryMb": 256,
         "layers": [],
         "environmentVariables": {
-          "SNS_ARN": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-ECP"
+          "SNS_ARN": "arn:aws:sns:us-east-1:253490756794:FSA-PROD-ECP",
+          "REPORT_ENV_LABEL": "PROD"
         }
       }
     },
@@ -150,7 +159,8 @@
         },
         "environmentVariables": {
           "SecretId": "FSA-PROD-secrets",
-          "CRAWLER_NAME": "FSA-PROD-ECP"
+          "CRAWLER_NAME": "FSA-PROD-ECP",
+          "LAST_COMPLETE_TARGET": "FSA-PROD-ECP"
         }
       }
     }

@@ -10,7 +10,9 @@ import os
 
 
 REGION = os.getenv("AWS_REGION")
-SNS_ARN = "arn:aws:sns:us-east-1:241533156429:FSA-DEV-CPS"
+SNS_ARN = os.environ["SNS_ARN"]
+SNS_SUBJECT = os.getenv("SNS_SUBJECT", "CPS-RAW-DM-NOTIFICATIONS")
+STATE_MACHINE_NAME = os.getenv("STATE_MACHINE_NAME", "CPS-S3Landing-to-S3Final-Raw-DM")
 
 
 def lambda_handler(event, context):
@@ -57,15 +59,15 @@ def lambda_handler(event, context):
     print(f"error: {error}")
     error_json = json.loads(error['Cause'])
     print(f"error_json: {error_json}")
-    target = error_json["Arguments"]["--target_prefix"]
+    target = error_json["Arguments"].get("--target_prefix")
     print(f"target: {target}")
-    env = error_json["Arguments"]["--env"]
+    env = error_json["Arguments"].get("--env")
     print(f"env: {env}")
 
     # iterate over input to extract and process all errors    
     counter = 1
     #sf_name = event.get('SfName', '')
-    sf_name = 'FSA-DEV-CPS-S3Landing-to-S3Final-Raw-DM'
+    sf_name = event.get("SfName") or STATE_MACHINE_NAME
     all_fails = ''
 
     if isinstance(event, list):
@@ -91,7 +93,7 @@ def lambda_handler(event, context):
         response = sns_client.publish(
             TopicArn = SNS_ARN,
             Message = sns_msg,
-            Subject= 'FSA-DEV-CPS-RAW-DM-NOTIFICATIONS'
+            Subject= SNS_SUBJECT
         )
         
         

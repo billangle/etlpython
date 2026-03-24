@@ -16,6 +16,7 @@ and Glue crawlers. No AWS CDK is used.
 | [deploy/projects/cars/lambda/UploadConfig/README.md](deploy/projects/cars/lambda/UploadConfig/README.md) | CARS UploadConfig runner docs for deploying an existing ZIP from S3 using JSON parameters |
 | [deploy/projects/cars/lambda/DownloadZip/README.md](deploy/projects/cars/lambda/DownloadZip/README.md) | CARS DownloadZip runner docs for downloading and extracting ZIP inputs using JSON parameters |
 | [prjhelpers/cleanup/readme.md](prjhelpers/cleanup/readme.md) | S3 and infrastructure cleanup scripts documentation for non-prod/prod operations |
+| [git-branching.md](git-branching.md) | Standard Git branch naming, BitBucket webhook DEV automation, PR-to-main promotion, and daily sync commands |
 
 ---
 

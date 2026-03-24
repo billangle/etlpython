@@ -163,3 +163,38 @@ nps/
 └── states/
     └── NPS_build_archive_tables.asl.json
 ```
+
+
+## Git Branching and Automated DEV Builds
+
+All projects follow the same branch-driven CI/CD model.
+
+- Branch naming: `<PROJECT>-<JIRA-TICKET>` (example: `CPS-POPSUP-7557`)
+- `CPS` is used in commands as an example only; replace it with your assigned project code.
+- Pushing a feature branch triggers the BitBucket webhook and builds/deploys to DEV using FPACDEV naming.
+- A pull request into `main` is required before PROD deployment.
+
+For the full standard, see:
+- [Project-level branching standard](../README.md#git-branching-and-automated-dev-builds)
+
+### Common Git Commands
+
+```bash
+# Start feature work from latest main
+git checkout main
+git pull origin main
+git checkout -b CPS-POPSUP-7557
+
+# Commit and push (triggers DEV automation)
+git add .
+git commit -m "CPS-POPSUP-7557: describe change"
+git push -u origin CPS-POPSUP-7557
+
+# Daily sync main into feature branch to reduce merge conflicts
+git fetch origin
+git checkout main
+git pull origin main
+git checkout CPS-POPSUP-7557
+git merge main
+git push
+```

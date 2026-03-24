@@ -89,15 +89,40 @@ git merge origin/main
 git push
 ```
 
-## Pull Request Completion
+## Create Pull Request
 
 ```bash
-# After PR is merged, clean up local branch
+# Switch to your feature branch
+# Replace CPS with your assigned project code and POPSUP-7557 with your Jira ticket
+git checkout CPS-POPSUP-7557
+
+# Ensure your branch is current with main and pushed
+git fetch origin
+git merge origin/main
+git push
+
+# Optional review check before opening PR
+git log --oneline origin/main..HEAD
+```
+
+Create the pull request in BitBucket:
+1. Source branch: `CPS-POPSUP-7557` (replace with your project/Jira branch)
+2. Target branch: `main`
+3. Add reviewers and complete PR details, then submit
+
+## Delete Feature Branch
+
+After the pull request is merged, delete the feature branch both locally and remotely.
+
+```bash
+# Switch to main and sync
 git checkout main
 git pull origin main
-# Replace CPS with your assigned project code
+
+# Delete local feature branch
+# Replace CPS with your assigned project code and POPSUP-7557 with your Jira ticket
 git branch -d CPS-POPSUP-7557
 
-# Remove remote feature branch
+# Delete remote feature branch
 git push origin --delete CPS-POPSUP-7557
 ```

@@ -1,0 +1,291 @@
+{
+	"tables": [
+		{
+			"source_table": "accounting_program",
+			"target_table": "accounting_program",
+			"columns": [
+				{ "src_col_nm": "accounting_program_identifier", "target_column_name": "accounting_program_identifier", "data_type": "int" },
+				{ "src_col_nm": "accounting_program_code", "target_column_name": "accounting_program_code", "data_type": "char(4)" },
+				{ "src_col_nm": "accounting_program_description", "target_column_name": "accounting_program_description", "data_type": "varchar(50)" },
+				{ "src_col_nm": "processing_sequence_number", "target_column_name": "processing_sequence_number", "data_type": "int" },
+				{ "src_col_nm": "program_year", "target_column_name": "program_year", "data_type": "char(4)" },
+				{ "src_col_nm": "prompt_pay_applicable_indicator", "target_column_name": "prompt_pay_applicable_indicator", "data_type": "char(1)" },
+				{ "src_col_nm": "accounting_program_payment_processing_indicator", "target_column_name": "accounting_program_payment_processing_indicator", "data_type": "char(1)" },
+				{ "src_col_nm": "Payment_program_code", "target_column_name": "Payment_program_code", "data_type": "char(2)" },
+				{ "src_col_nm": "creation_date", "target_column_name": "creation_date", "data_type": "datetime" },
+				{ "src_col_nm": "creation_user_name", "target_column_name": "creation_user_name", "data_type": "varchar(50)" },
+				{ "src_col_nm": "last_change_date", "target_column_name": "last_change_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_user_name", "target_column_name": "last_change_user_name", "data_type": "varchar(50)" },
+				{ "src_col_nm": "data_status_code", "target_column_name": "data_status_code", "data_type": "char(1)" },
+				{ "src_col_nm": "accounting_program_prepayment_processing_indicator", "target_column_name": "accounting_program_prepayment_processing_indicator", "data_type": "char(1)" },
+            	{ "src_col_nm": "dart_filedate" , "target_column_name": "dart_filedate" , "data_type": "datetime" },
+            	{ "src_col_nm": "op" , "target_column_name": "op" , "data_type": "varchar(2)" }
+			],
+			"primary_key": "accounting_program_identifier",
+			"dedupe_key": "last_change_date"
+		},
+		{
+			"source_table": "accounting_program_commodity",
+			"target_table": "accounting_program_commodity",
+			"columns": [
+				{ "src_col_nm": "accounting_program_commodity_identifier", "target_column_name": "accounting_program_commodity_identifier", "data_type": "int" },
+				{ "src_col_nm": "payment_commodity_identifier", "target_column_name": "payment_commodity_identifier", "data_type": "int" },
+				{ "src_col_nm": "accounting_program_identifier", "target_column_name": "accounting_program_identifier", "data_type": "int" },
+				{ "src_col_nm": "creation_date", "target_column_name": "creation_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_date", "target_column_name": "last_change_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_user_name", "target_column_name": "last_change_user_name", "data_type": "varchar(50)" },
+				{ "src_col_nm": "data_status_code", "target_column_name": "data_status_code", "data_type": "char(1)" },
+				{ "src_col_nm": "display_sequence_number", "target_column_name": "display_sequence_number", "data_type": "int" },
+            	{ "src_col_nm": "dart_filedate" , "target_column_name": "dart_filedate" , "data_type": "datetime" },
+            	{ "src_col_nm": "op" , "target_column_name": "op" , "data_type": "varchar(2)" }
+			],
+			"primary_key": "accounting_program_commodity_identifier",
+			"dedupe_key": "last_change_date"
+		},
+		{
+			"source_table": "direct_attribution_confirmation",
+			"target_table": "direct_attribution_confirmation",
+			"columns": [
+				{ "src_col_nm": "direct_attribution_confirmation_identifier", "target_column_name": "direct_attribution_confirmation_identifier", "data_type": "int" },
+				{ "src_col_nm": "payment_event_identifier", "target_column_name": "payment_event_identifier", "data_type": "int" },
+				{ "src_col_nm": "direct_attribution_confirmation_number", "target_column_name": "direct_attribution_confirmation_number", "data_type": "bigint" },
+				{ "src_col_nm": "creation_date", "target_column_name": "creation_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_date", "target_column_name": "last_change_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_user_name", "target_column_name": "last_change_user_name", "data_type": "varchar(50)" },
+				{ "src_col_nm": "data_status_code", "target_column_name": "data_status_code", "data_type": "char(1)" },
+            	{ "src_col_nm": "dart_filedate" , "target_column_name": "dart_filedate" , "data_type": "datetime" },
+            	{ "src_col_nm": "op" , "target_column_name": "op" , "data_type": "varchar(2)" }
+			],
+			"primary_key": "direct_attribution_confirmation_identifier",
+			"dedupe_key": "last_change_date"
+		},
+		{
+			"source_table": "financial_transaction_type",
+			"target_table": "financial_transaction_type",
+			"columns": [
+				{ "src_col_nm": "financial_transaction_type_code", "target_column_name": "financial_transaction_type_code", "data_type": "varchar(5)" },
+				{ "src_col_nm": "creation_date", "target_column_name": "creation_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_date", "target_column_name": "last_change_date", "data_type": "datetime" },
+				{ "src_col_nm": "creation_user_name", "target_column_name": "creation_user_name", "data_type": "varchar(50)" },
+				{ "src_col_nm": "last_change_user_name", "target_column_name": "last_change_user_name", "data_type": "varchar(50)" },
+				{ "src_col_nm": "data_status_code", "target_column_name": "data_status_code", "data_type": "char(1)" },
+				{ "src_col_nm": "financial_transaction_type_description", "target_column_name": "financial_transaction_type_description", "data_type": "varchar(50)" },
+            	{ "src_col_nm": "dart_filedate" , "target_column_name": "dart_filedate" , "data_type": "datetime" },
+            	{ "src_col_nm": "op" , "target_column_name": "op" , "data_type": "varchar(2)" }
+			],
+			"primary_key": "financial_transaction_type_code",
+			"dedupe_key": "last_change_date"
+		},
+		{
+			"source_table": "payment_attribution_reduction",
+			"target_table": "payment_attribution_reduction",
+			"columns": [
+				{ "src_col_nm": "payment_attribution_reduction_identifier", "target_column_name": "payment_attribution_reduction_identifier", "data_type": "int" },
+				{ "src_col_nm": "proposed_payment_identifier", "target_column_name": "proposed_payment_identifier", "data_type": "int" },
+				{ "src_col_nm": "payment_attribution_reduction_type_code", "target_column_name": "payment_attribution_reduction_type_code", "data_type": "char(5)" },
+				{ "src_col_nm": "payment_attribution_reduction_amount", "target_column_name": "payment_attribution_reduction_amount", "data_type": "decimal(16,2)" },
+				{ "src_col_nm": "creation_date", "target_column_name": "creation_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_date", "target_column_name": "last_change_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_user_name", "target_column_name": "last_change_user_name", "data_type": "varchar(50)" },
+				{ "src_col_nm": "data_status_code", "target_column_name": "data_status_code", "data_type": "char(1)" },
+				{ "src_col_nm": "payment_attribution_reduction_percentage", "target_column_name": "payment_attribution_reduction_percentage", "data_type": "decimal(9,8)" },
+				{ "src_col_nm": "percentage_based_reduction_indicator", "target_column_name": "percentage_based_reduction_indicator", "data_type": "char(1)" },
+            	{ "src_col_nm": "dart_filedate" , "target_column_name": "dart_filedate" , "data_type": "datetime" },
+            	{ "src_col_nm": "op" , "target_column_name": "op" , "data_type": "varchar(2)" }
+			],
+			"primary_key": "payment_attribution_reduction_identifier",
+			"dedupe_key": "last_change_date"
+		},
+		{
+			"source_table": "payment_commodity",
+			"target_table": "payment_commodity",
+			"columns": [
+				{ "src_col_nm": "payment_commodity_identifier", "target_column_name": "payment_commodity_identifier", "data_type": "int" },
+				{ "src_col_nm": "payment_commodity_code", "target_column_name": "payment_commodity_code", "data_type": "varchar(30)" },
+				{ "src_col_nm": "payment_commodity_name", "target_column_name": "payment_commodity_name", "data_type": "varchar(255)" },
+				{ "src_col_nm": "creation_date", "target_column_name": "creation_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_date", "target_column_name": "last_change_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_user_name", "target_column_name": "last_change_user_name", "data_type": "varchar(50)" },
+				{ "src_col_nm": "data_status_code", "target_column_name": "data_status_code", "data_type": "char(1)" },
+				{ "src_col_nm": "Commodity_Report_Display_Name", "target_column_name": "Commodity_Report_Display_Name", "data_type": "varchar(30)" },
+            	{ "src_col_nm": "dart_filedate" , "target_column_name": "dart_filedate" , "data_type": "datetime" },
+            	{ "src_col_nm": "op" , "target_column_name": "op" , "data_type": "varchar(2)" }
+			],
+			"primary_key": "payment_commodity_identifier",
+			"dedupe_key": "last_change_date"
+		},
+		{
+			"source_table": "payment_entity",
+			"target_table": "payment_entity",
+			"columns": [
+				{ "src_col_nm": "payment_entity_identifier", "target_column_name": "payment_entity_identifier", "data_type": "int" },
+				{ "src_col_nm": "core_customer_identifier", "target_column_name": "core_customer_identifier", "data_type": "int" },
+				{ "src_col_nm": "common_customer_name", "target_column_name": "common_customer_name", "data_type": "varchar(100)" },
+				{ "src_col_nm": "application_identifier", "target_column_name": "application_identifier", "data_type": "varchar(30)" },
+				{ "src_col_nm": "payment_program_type_short_name", "target_column_name": "payment_program_type_short_name", "data_type": "varchar(30)" },
+				{ "src_col_nm": "county_fsa_code", "target_column_name": "county_fsa_code", "data_type": "char(3)" },
+				{ "src_col_nm": "state_fsa_code", "target_column_name": "state_fsa_code", "data_type": "char(2)" },
+				{ "src_col_nm": "program_year", "target_column_name": "program_year", "data_type": "char(4)" },
+				{ "src_col_nm": "creation_date", "target_column_name": "creation_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_date", "target_column_name": "last_change_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_user_name", "target_column_name": "last_change_user_name", "data_type": "varchar(50)" },
+				{ "src_col_nm": "data_status_code", "target_column_name": "data_status_code", "data_type": "char(1)" },
+				{ "src_col_nm": "prompt_payment_interest_date", "target_column_name": "prompt_payment_interest_date", "data_type": "datetime" },
+				{ "src_col_nm": "payment_queue_status_code", "target_column_name": "payment_queue_status_code", "data_type": "char(1)" },
+				{ "src_col_nm": "pre_payment_indicator", "target_column_name": "pre_payment_indicator", "data_type": "char(1)" },
+            	{ "src_col_nm": "dart_filedate" , "target_column_name": "dart_filedate" , "data_type": "datetime" },
+            	{ "src_col_nm": "op" , "target_column_name": "op" , "data_type": "varchar(2)" }
+			],
+			"primary_key": "payment_entity_identifier",
+			"dedupe_key": "last_change_date"
+		},
+		{
+			"source_table": "payment_entity_intervention",
+			"target_table": "payment_entity_intervention",
+			"columns": [
+				{ "src_col_nm": "payment_entity_intervention_identifier", "target_column_name": "payment_entity_intervention_identifier", "data_type": "int" },
+				{ "src_col_nm": "creation_date", "target_column_name": "creation_date", "data_type": "datetime" },
+				{ "src_col_nm": "creation_user_name", "target_column_name": "creation_user_name", "data_type": "varchar(50)" },
+				{ "src_col_nm": "last_change_date", "target_column_name": "last_change_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_user_name", "target_column_name": "last_change_user_name", "data_type": "varchar(50)" },
+				{ "src_col_nm": "data_status_code", "target_column_name": "data_status_code", "data_type": "char(1)" },
+				{ "src_col_nm": "payment_entity_identifier", "target_column_name": "payment_entity_identifier", "data_type": "int" },
+				{ "src_col_nm": "payment_entity_intervention_type_code", "target_column_name": "payment_entity_intervention_type_code", "data_type": "varchar(1)" },
+				{ "src_col_nm": "note_text", "target_column_name": "note_text", "data_type": "varchar(255)" },
+            	{ "src_col_nm": "dart_filedate" , "target_column_name": "dart_filedate" , "data_type": "datetime" },
+            	{ "src_col_nm": "op" , "target_column_name": "op" , "data_type": "varchar(2)" }
+			],
+			"primary_key": "payment_entity_intervention_identifier",
+			"dedupe_key": "last_change_date"
+		},
+		{
+			"source_table": "payment_event",
+			"target_table": "payment_event",
+			"columns": [
+				{ "src_col_nm": "payment_event_identifier", "target_column_name": "payment_event_identifier", "data_type": "int" },
+				{ "src_col_nm": "payment_entity_identifier", "target_column_name": "payment_entity_identifier", "data_type": "int" },
+				{ "src_col_nm": "payment_event_type_code", "target_column_name": "payment_event_type_code", "data_type": "char(1)" },
+				{ "src_col_nm": "payment_amount", "target_column_name": "payment_amount", "data_type": "decimal(16,2)" },
+				{ "src_col_nm": "event_confirmation_number", "target_column_name": "event_confirmation_number", "data_type": "varchar(15)" },
+				{ "src_col_nm": "creation_date", "target_column_name": "creation_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_date", "target_column_name": "last_change_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_user_name", "target_column_name": "last_change_user_name", "data_type": "varchar(50)" },
+				{ "src_col_nm": "data_status_code", "target_column_name": "data_status_code", "data_type": "char(1)" },
+				{ "src_col_nm": "debt_basis_code", "target_column_name": "debt_basis_code", "data_type": "char(5)" },
+				{ "src_col_nm": "payment_reduction_indicator", "target_column_name": "payment_reduction_indicator", "data_type": "char(1)" },
+				{ "src_col_nm": "payment_event_date", "target_column_name": "payment_event_date", "data_type": "datetime" },
+				{ "src_col_nm": "accounting_program_identifier", "target_column_name": "accounting_program_identifier", "data_type": "int" },
+				{ "src_col_nm": "proposed_payment_status_reason_code", "target_column_name": "proposed_payment_status_reason_code", "data_type": "varchar(10)" },
+            	{ "src_col_nm": "dart_filedate" , "target_column_name": "dart_filedate" , "data_type": "datetime" },
+            	{ "src_col_nm": "op" , "target_column_name": "op" , "data_type": "varchar(2)" }
+			],
+			"primary_key": "payment_event_identifier",
+			"dedupe_key": "last_change_date"
+		},
+		{
+			"source_table": "payment_program",
+			"target_table": "payment_program",
+			"columns": [
+				{ "src_col_nm": "payment_program_identifier", "target_column_name": "payment_program_identifier", "data_type": "int" },
+				{ "src_col_nm": "payment_program_code", "target_column_name": "payment_program_code", "data_type": "char(2)" },
+				{ "src_col_nm": "payment_program_abbreviation", "target_column_name": "payment_program_abbreviation", "data_type": "varchar(50)" },
+				{ "src_col_nm": "payment_program_name", "target_column_name": "payment_program_name", "data_type": "varchar(255)" },
+				{ "src_col_nm": "payment_program_type_short_name", "target_column_name": "payment_program_type_short_name", "data_type": "varchar(30)" },
+				{ "src_col_nm": "obligation_indicator", "target_column_name": "obligation_indicator", "data_type": "char(1)" },
+				{ "src_col_nm": "creation_date", "target_column_name": "creation_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_date", "target_column_name": "last_change_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_user_name", "target_column_name": "last_change_user_name", "data_type": "varchar(50)" },
+				{ "src_col_nm": "data_status_code", "target_column_name": "data_status_code", "data_type": "char(1)" },
+				{ "src_col_nm": "payment_program_display_name", "target_column_name": "payment_program_display_name", "data_type": "varchar(50)" },
+				{ "src_col_nm": "responsible_system_identifier", "target_column_name": "responsible_system_identifier", "data_type": "varchar(50)" },
+            	{ "src_col_nm": "dart_filedate" , "target_column_name": "dart_filedate" , "data_type": "datetime" },
+            	{ "src_col_nm": "op" , "target_column_name": "op" , "data_type": "varchar(2)" }
+			],
+			"primary_key": "payment_program_identifier",
+			"dedupe_key": "last_change_date"
+		},
+		{
+			"source_table": "proposed_payment",
+			"target_table": "proposed_payment",
+			"columns": [
+				{ "src_col_nm": "proposed_payment_identifier", "target_column_name": "proposed_payment_identifier", "data_type": "int" },
+				{ "src_col_nm": "payment_entity_identifier", "target_column_name": "payment_entity_identifier", "data_type": "int" },
+				{ "src_col_nm": "accounting_program_identifier", "target_column_name": "accounting_program_identifier", "data_type": "int" },
+				{ "src_col_nm": "proposed_payment_amount", "target_column_name": "proposed_payment_amount", "data_type": "decimal(16,2)" },
+				{ "src_col_nm": "proposed_payment_transaction_identification", "target_column_name": "proposed_payment_transaction_identification", "data_type": "int" },
+				{ "src_col_nm": "accounting_confirmation_number", "target_column_name": "accounting_confirmation_number", "data_type": "varchar(15)" },
+				{ "src_col_nm": "cancellation_reference_number", "target_column_name": "cancellation_reference_number", "data_type": "varchar(20)" },
+				{ "src_col_nm": "obligation_request_identification", "target_column_name": "obligation_request_identification", "data_type": "varchar(20)" },
+				{ "src_col_nm": "obligation_adjustment_request_identification", "target_column_name": "obligation_adjustment_request_identification", "data_type": "varchar(20)" },
+				{ "src_col_nm": "obligation_confirmation_number", "target_column_name": "obligation_confirmation_number", "data_type": "int" },
+				{ "src_col_nm": "direct_attribution_confirmation_number", "target_column_name": "direct_attribution_confirmation_number", "data_type": "bigint" },
+				{ "src_col_nm": "direct_attribution_cancellation_number", "target_column_name": "direct_attribution_cancellation_number", "data_type": "bigint" },
+				{ "src_col_nm": "attributed_payment_amount", "target_column_name": "attributed_payment_amount", "data_type": "decimal(16,2)" },
+				{ "src_col_nm": "record_reference_primary_identification", "target_column_name": "record_reference_primary_identification", "data_type": "varchar(30)" },
+				{ "src_col_nm": "record_reference_primary_identification_type_code", "target_column_name": "record_reference_primary_identification_type_code", "data_type": "char(2)" },
+				{ "src_col_nm": "record_reference_secondary_identification", "target_column_name": "record_reference_secondary_identification", "data_type": "varchar(30)" },
+				{ "src_col_nm": "record_reference_secondary_identification_type_code", "target_column_name": "record_reference_secondary_identification_type_code", "data_type": "char(2)" },
+				{ "src_col_nm": "creation_date", "target_column_name": "creation_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_date", "target_column_name": "last_change_date", "data_type": "datetime" },
+				{ "src_col_nm": "last_change_user_name", "target_column_name": "last_change_user_name", "data_type": "varchar(50)" },
+				{ "src_col_nm": "data_status_code", "target_column_name": "data_status_code", "data_type": "char(1)" },
+				{ "src_col_nm": "deobligation_confirmation_number", "target_column_name": "deobligation_confirmation_number", "data_type": "int" },
+				{ "src_col_nm": "batch_daily_load_number", "target_column_name": "batch_daily_load_number", "data_type": "int" },
+				{ "src_col_nm": "obligation_amount", "target_column_name": "obligation_amount", "data_type": "decimal(16,2)" },
+				{ "src_col_nm": "receivable_date", "target_column_name": "receivable_date", "data_type": "datetime" },
+				{ "src_col_nm": "obligation_budget_fiscal_year", "target_column_name": "obligation_budget_fiscal_year", "data_type": "char(4)" },
+				{ "src_col_nm": "proposed_payment_status_reason_code", "target_column_name": "proposed_payment_status_reason_code", "data_type": "varchar(10)" },
+				{ "src_col_nm": "reduction_reason_text", "target_column_name": "reduction_reason_text", "data_type": "varchar(10)" },
+				{ "src_col_nm": "overpayment_date_code", "target_column_name": "overpayment_date_code", "data_type": "char(1)" },
+				{ "src_col_nm": "required_overpayment_date", "target_column_name": "required_overpayment_date", "data_type": "datetime" },
+				{ "src_col_nm": "previous_direct_attribution_confirmation_number", "target_column_name": "previous_direct_attribution_confirmation_number", "data_type": "bigint" },
+				{ "src_col_nm": "total_attributed_amount", "target_column_name": "total_attributed_amount", "data_type": "decimal(16,2)" },
+				{ "src_col_nm": "application_description_text", "target_column_name": "application_description_text", "data_type": "varchar(255)" },
+				{ "src_col_nm": "prior_overpayment_date_code", "target_column_name": "prior_overpayment_date_code", "data_type": "char(1)" },
+				{ "src_col_nm": "contract_original_approved_date", "target_column_name": "contract_original_approved_date", "data_type": "datetime" },
+				{ "src_col_nm": "sequestration_percentage", "target_column_name": "sequestration_percentage", "data_type": "decimal(5,4)" },
+				{ "src_col_nm": "registration_date", "target_column_name": "registration_date", "data_type": "datetime" },
+				{ "src_col_nm": "financial_transaction_type_code", "target_column_name": "financial_transaction_type_code", "data_type": "varchar(5)" },
+            	{ "src_col_nm": "dart_filedate" , "target_column_name": "dart_filedate" , "data_type": "datetime" },
+            	{ "src_col_nm": "op" , "target_column_name": "op" , "data_type": "varchar(2)" }
+			],
+			"primary_key": "proposed_payment_identifier",
+			"dedupe_key": "last_change_date"
+		},
+		{
+			"source_table": "proposed_payment_status",
+			"target_table": "proposed_payment_status",
+			"columns": [
+				{ "src_col_nm": "proposed_payment_status_code", "target_column_name": "proposed_payment_status_code", "data_type": "char(1)" },
+				{ "src_col_nm": "proposed_payment_status_description", "target_column_name": "proposed_payment_status_description", "data_type": "varchar(30)" },
+            	{ "src_col_nm": "dart_filedate" , "target_column_name": "dart_filedate" , "data_type": "datetime" },
+            	{ "src_col_nm": "op" , "target_column_name": "op" , "data_type": "varchar(2)" }
+			],
+			"primary_key": "proposed_payment_status_code",
+			"dedupe_key": ""
+		},
+		{
+			"source_table": "proposed_payment_status_reason",
+			"target_table": "proposed_payment_status_reason",
+			"columns": [
+				{ "src_col_nm": "proposed_payment_status_code", "target_column_name": "proposed_payment_status_code", "data_type": "char(1)" },
+				{ "src_col_nm": "proposed_payment_status_reason_code", "target_column_name": "proposed_payment_status_reason_code", "data_type": "varchar(10)" },
+				{ "src_col_nm": "proposed_payment_status_reason_text", "target_column_name": "proposed_payment_status_reason_text", "data_type": "varchar(100)" },
+				{ "src_col_nm": "payment_reprocess_allowed_indicator", "target_column_name": "payment_reprocess_allowed_indicator", "data_type": "char(1)" },
+				{ "src_col_nm": "debt_discovery_code", "target_column_name": "debt_discovery_code", "data_type": "char(2)" },
+				{ "src_col_nm": "debt_reason_code", "target_column_name": "debt_reason_code", "data_type": "char(3)" },
+				{ "src_col_nm": "status_reason_priority_number", "target_column_name": "status_reason_priority_number", "data_type": "smallint" },
+				{ "src_col_nm": "selective_non_payment_enabled_indicator", "target_column_name": "selective_non_payment_enabled_indicator", "data_type": "char(1)" },
+				{ "src_col_nm": "Creation_date", "target_column_name": "Creation_date", "data_type": "datetime" },
+				{ "src_col_nm": "Creation_user_Name", "target_column_name": "Creation_user_Name", "data_type": "varchar(50)" },
+				{ "src_col_nm": "Data_status_code", "target_column_name": "Data_status_code", "data_type": "char(1)" },
+				{ "src_col_nm": "Last_change_date", "target_column_name": "Last_change_date", "data_type": "datetime" },
+				{ "src_col_nm": "Last_change_user_name", "target_column_name": "Last_change_user_name", "data_type": "varchar(50)" },
+            	{ "src_col_nm": "dart_filedate" , "target_column_name": "dart_filedate" , "data_type": "datetime" },
+            	{ "src_col_nm": "op" , "target_column_name": "op" , "data_type": "varchar(2)" }
+			],
+			"primary_key": "proposed_payment_status_code",
+			"dedupe_key": "last_change_date"
+		}
+	]
+}

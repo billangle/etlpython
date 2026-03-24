@@ -1,0 +1,206 @@
+{
+  "Comment": "__S3LANDING_TO_RAWDM_SM_NAME__",
+  "StartAt": "Get Incremental Table list From S3",
+  "States": {
+    "Get Incremental Table list From S3": {
+      "Type": "Task",
+      "Resource": "__GET_INCREMENTAL_TABLES_FN_ARN__",
+      "Parameters": {
+        "JobId.$": "$.JobId",
+        "SfName.$": "$.SfName"
+      },
+      "ResultPath": "$.incremental_tables",
+      "Next": "DMC Tables"
+    },
+    "DMC Tables": {
+      "Type": "Pass",
+      "Next": "Map",
+      "Parameters": {
+        "JobId.$": "$.JobId",
+        "SfName.$": "$.SfName",
+        "Target": "dmc",
+        "tables.$": "$.incremental_tables.tables"
+      },
+      "ResultPath": "$.input"
+    },
+    "Map": {
+      "Type": "Map",
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "INLINE"
+        },
+        "StartAt": "Pass (1)",
+        "States": {
+          "Pass (1)": {
+            "Type": "Pass",
+            "Next": "Move to Final Zone",
+            "ResultPath": "$.output",
+            "Parameters": {
+              "JobId.$": "$.JobId",
+              "table.$": "$.app_name.tablename",
+              "Target.$": "$.Target"
+            }
+          },
+          "Move to Final Zone": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+            "Parameters": {
+              "JobName": "__RAW_DM_GLUE_JOB_NAME__",
+              "Arguments": {
+                "--JobId.$": "States.Format('{}', $.JobId)",
+                "--TableName.$": "$.output.table",
+                "--env": "__DEPLOY_ENV_LOWER__",
+                "--postgres_prcs_ctrl_dbname": "__RAW_DM_POSTGRES_PRCS_CTRL_DBNAME__",
+                "--region_name": "__REGION__",
+                "--secret_name": "__SECRET_ID__",
+                "--target_bucket": "__FINAL_BUCKET__",
+                "--target_prefix.$": "$.Target"
+              }
+            },
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "SNS Lambda RAW DM",
+                "ResultPath": "$.Error"
+              }
+            ],
+            "End": true
+          },
+          "SNS Lambda RAW DM": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "FunctionName": "__RAW_DM_SNS_ERRORS_FN_ARN__",
+              "Payload.$": "$"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Pass",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "Next": "Pass"
+              }
+            ]
+          },
+          "Pass": {
+            "Type": "Pass",
+            "ResultPath": "$.status",
+            "Result": "Error",
+            "End": true
+          }
+        }
+      },
+      "Next": "data_ppl_job_update RAW DM",
+      "MaxConcurrency": 12,
+      "ItemsPath": "$.input.tables",
+      "ItemSelector": {
+        "JobId.$": "$.JobId",
+        "app_name.$": "$$.Map.Item.Value",
+        "Target.$": "$.input.Target"
+      },
+      "ResultPath": "$.MapOut"
+    },
+    "data_ppl_job_update RAW DM": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "__RAW_DM_ETL_WORKFLOW_UPDATE_FN_ARN__"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "BackoffRate": 2,
+          "MaxAttempts": 3
+        }
+      ],
+      "ResultPath": "$.Update",
+      "Next": "Run Both Crawlers"
+    },
+    "Run Both Crawlers": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "__MAIN_CRAWLER_NAME__ Final Zone Crawler",
+          "States": {
+            "__MAIN_CRAWLER_NAME__ Final Zone Crawler": {
+              "Type": "Task",
+              "Parameters": {
+                "Name": "__MAIN_CRAWLER_NAME__"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+              "ResultPath": null,
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "ResultPath": null,
+                  "Next": "Final Crawler Failed"
+                }
+              ]
+            },
+            "Final Crawler Failed": {
+              "Type": "Pass",
+              "Result": "Failed",
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "__CDC_CRAWLER_NAME__ CDC Crawler",
+          "States": {
+            "__CDC_CRAWLER_NAME__ CDC Crawler": {
+              "Type": "Task",
+              "Parameters": {
+                "Name": "__CDC_CRAWLER_NAME__"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+              "ResultPath": null,
+              "End": true,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "ResultPath": null,
+                  "Next": "CDC Crawler Failed"
+                }
+              ]
+            },
+            "CDC Crawler Failed": {
+              "Type": "Pass",
+              "Result": "Failed",
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": null,
+      "End": true
+    }
+  }
+}

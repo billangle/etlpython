@@ -1,0 +1,287 @@
+{
+  "deployEnv": "FPACDEV",
+  "project": "DMC",
+  "region": "us-east-1",
+  "bucketRegion": "us-east-1",
+  "secretId": "FSA-DEV-secrets",
+
+  "configData": {
+    "databaseName": "fsa-fpac-db",
+    "dynamoTableName": "FsaFpacMetadata"
+  },
+  "glueDatabases": [
+    {
+      "name": "fsa-dev-dmc",
+      "description": "Primary Glue database for dmc"
+    },
+    {
+      "name": "fsa-dev-dmc-cdc",
+      "description": "CDC Glue database for dmc"
+    }
+  ],
+  "strparams": {
+    "landingBucketNameParam": "c108-dev-fpacfsa-landing-zone",
+    "cleanBucketNameParam": "c108-dev-fpacfsa-cleansed-zone",
+    "finalBucketNameParam": "c108-dev-fpacfsa-final-zone",
+    "jobIdKeyParam": "dmc/etl-jobs/job_id.json",
+    "glueJobRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-servicerole-glue",
+    "etlRoleArnParam": "arn:aws:iam::241533156429:role/disc-fsa-dev-lambda",
+    "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1",
+    "customLayerArnParam": "arn:aws:lambda:us-east-1:241533156429:layer:FSA-polars:2",
+    "snsArnParam": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-DMC"
+  },
+  "paths": {
+    "glueRootPath": "glue/",
+    "lambdaRootPath": "lambda/"
+  },
+  "artifacts": {
+    "artifactBucket": "fsa-dev-ops",
+    "prefix": "dmc/"
+  },
+  "stepFunctions": {
+    "createRoleIfMissing": false,
+    "roleName": "disc-fsa-dev-stepfunction",
+    "roleArn": "arn:aws:iam::241533156429:role/disc-fsa-dev-stepfunction"
+  },
+  "LambdaConfig": [
+    {
+      "Job-Logging-End": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": ["arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1"],
+        "networking": {
+          "vpcId": "vpc-05f9625eecaabbfd4",
+          "subnetIds": [
+            "subnet-07fe1e0a3104aa512",
+            "subnet-0757d215da1902198"
+          ],
+          "securityGroupIds": [
+            "sg-06e3bf9b59cf6be6a",
+            "sg-02bc63ec00da5f850",
+            "sg-0906c3d7352c5889e"
+          ]
+        },
+        "environmentVariables": {
+          "SecretId": "FSA-DEV-secrets",
+          "CRAWLER_NAME": "FSA-FPACDEV-DMC",
+          "LAST_COMPLETE_TARGET": "FSA-FPACDEV-DMC"
+        }
+      }
+    },
+    {
+      "RAW-DM-etl-workflow-update": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": ["arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1"],
+        "environmentVariables": {
+          "SecretId": "FSA-DEV-secrets",
+          "LAST_COMPLETE_TARGET": "FSA-FPACDEV-DMC",
+          "STEP2_NAME": "FSA-FPACDEV-DMC-S3Landing-to-S3Final-Raw-DM"
+        },
+        "networking": {
+          "vpcId": "vpc-05f9625eecaabbfd4",
+          "subnetIds": [
+            "subnet-07fe1e0a3104aa512",
+            "subnet-0757d215da1902198"
+          ],
+          "securityGroupIds": [
+            "sg-06e3bf9b59cf6be6a",
+            "sg-02bc63ec00da5f850",
+            "sg-0906c3d7352c5889e"
+          ]
+        }
+      }
+    },
+    {
+      "RAW-DM-sns-pub-step-func-errs": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SNS_ARN": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-DMC",
+          "SNS_SUBJECT": "FSA-FPACDEV-DMC-RAW-DM-NOTIFICATIONS",
+          "STATE_MACHINE_NAME": "FSA-FPACDEV-DMC-S3Landing-to-S3Final-Raw-DM"
+        }
+      }
+    },
+    {
+      "get-incremental-tables": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": [],
+        "networking": {
+          "vpcId": "vpc-05f9625eecaabbfd4",
+          "subnetIds": [
+            "subnet-07fe1e0a3104aa512",
+            "subnet-0757d215da1902198"
+          ],
+          "securityGroupIds": [
+            "sg-06e3bf9b59cf6be6a",
+            "sg-02bc63ec00da5f850",
+            "sg-0906c3d7352c5889e"
+          ]
+        },
+        "environmentVariables": {
+          "source_folder": "dmc",
+          "LANDING_BUCKET": "c108-dev-fpacfsa-landing-zone"
+        }
+      }
+    },
+    {
+      "sns-publish-validations-report": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SNS_ARN": "arn:aws:sns:us-east-1:241533156429:FSA-DEV-DMC",
+          "REPORT_ENV_LABEL": "FPACDEV"
+        }
+      }
+    },
+    {
+      "validation-check": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": ["arn:aws:lambda:us-east-1:241533156429:layer:FSA_DEV-psycopg2:1"],
+        "networking": {
+          "vpcId": "vpc-05f9625eecaabbfd4",
+          "subnetIds": [
+            "subnet-07fe1e0a3104aa512",
+            "subnet-0757d215da1902198"
+          ],
+          "securityGroupIds": [
+            "sg-06e3bf9b59cf6be6a",
+            "sg-02bc63ec00da5f850",
+            "sg-0906c3d7352c5889e"
+          ]
+        },
+        "environmentVariables": {
+          "SecretId": "FSA-DEV-secrets",
+          "CRAWLER_NAME": "FSA-FPACDEV-DMC"
+        }
+      }
+    }
+  ],
+  "configUpload": {
+    "functionName": "FSA-FPACDEV-UploadConfig",
+    "sourceDir": "configs",
+    "inputBucket": "fsa-dev-ops",
+    "inputPrefix": "input/zips",
+    "outputBucket": "c108-dev-fpacfsa-final-zone",
+    "outputPrefix": "dmc",
+    "minExpectedObjects": 1,
+    "debug": true
+  },
+  "GlueConfig": [ 
+    { 
+      "LandingFiles": {
+        "Connections" : [{
+            "ConnectionName": "FSA-DEV-PG-DART114"
+                    }] ,
+          "MaxConcurrency": "1",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "2880",
+          "WorkerType": "G.2X",
+          "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/dmc/",
+          "NumberOfWorkers": "8",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://fsa-dev-ops/temp/glue/",
+          "PythonLibraryPath": "",
+          "ReferencePath": "s3://c108-cert-fpacfsa-landing-zone/dart/scripts/python-modules/dart/glue/psycopg2_binary-2.9.9-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+          "AdditionalPythonModulesPath": "s3://c108-cert-fpacfsa-landing-zone/dart/scripts/python-modules/dart/glue/psycopg2_binary-2.9.9-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+            "--DestinationBucket": "c108-dev-fpacfsa-landing-zone",
+            "--DestinationPrefix": "dmc/etl-jobs",
+            "--PipelineName": "dmc",
+            "--SecretId": "FSA-DEV-secrets",
+            "--SourcePrefix": "dmc/dbo",
+            "--Config_key": "dmc/_configs/dmc_target_schema.json"
+          }
+      }
+    },
+    {
+     "Raw-DM": {
+        "Connections" : [{
+            "ConnectionName": "FSA-DEV-PG-DART114"
+                      }] ,
+          "MaxConcurrency": "20",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "600",
+          "WorkerType": "G.2X",
+          "SparkUILogsPath": "s3://fsa-dev-ops/glue-logs/spark-ui/dmc/",
+          "NumberOfWorkers": "2",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://fsa-dev-ops/temp/glue/",
+          "PythonLibraryPath": "",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+              "--ENABLE_DQ_METRICS": "true",
+              "--JobId": "30741",
+              "--SKIP_COUNT_TABLES": "ewt86shloc",
+              "--SKIP_DQ_TABLES": "dev",
+              "--TableName": "abc",
+              "--env": "dev",
+              "--postgres_prcs_ctrl_dbname": "metadata_edw",
+              "--region_name": "us-east-1",
+              "--secret_name": "FSA-DEV-Secrets",
+              "--source_prefix": "dmc",
+              "--target_bucket": "c108-dev-fpacfsa-final-zone",
+              "--target_prefix": "dmc"
+            }
+      }
+    }
+  ],
+  "crawlers": [
+    {
+      "crawlerName": "FSA-{deployEnv}-{projectName}",
+      "description": "dmc crawler data sources (grouped by bucket)",
+      "databaseName": "fsa-dev-dmc",
+      "recrawlBehavior": "CRAWL_EVERYTHING",
+      "excludePatterns": ["_cdc/**", "_configs/**"],
+      "s3TargetsByBucket": [
+        {
+          "bucket": "c108-dev-fpacfsa-final-zone",
+          "prefixes": [
+            "dmc/"
+          ]
+        }
+      ]
+    },
+    {
+      "crawlerName": "FSA-{deployEnv}-{projectName}-cdc",
+      "description": "dmc crawler data sources (grouped by bucket)",
+      "databaseName": "fsa-dev-dmc-cdc",
+      "recrawlBehavior": "CRAWL_EVERYTHING",
+      "s3TargetsByBucket": [
+        {
+          "bucket": "c108-dev-fpacfsa-final-zone",
+          "prefixes": [
+            "dmc/_cdc/"
+          ]
+        }
+      ]
+    }
+  ]
+  
+}
+
+

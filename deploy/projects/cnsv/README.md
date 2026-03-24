@@ -15,7 +15,7 @@ All projects follow the same branch-driven CI/CD model.
 - A pull request into `main` is required before PROD deployment.
 
 For the full standard, see:
-- [Project-level branching standard](../README.md#git-branching-and-automated-dev-builds)
+- [Git branching standard](../../../git-branching.md)
 
 ### Common Git Commands
 
@@ -29,7 +29,7 @@ git checkout -b CNSV-POPSUP-7557
 
 # Commit and push (triggers DEV automation)
 git add .
-git commit -m "CNSV-POPSUP-7557: describe change"
+git commit -m "POPSUP-7557: describe change"
 git push -u origin CNSV-POPSUP-7557
 
 # Daily sync main into feature branch to reduce merge conflicts

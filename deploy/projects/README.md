@@ -496,7 +496,7 @@ git checkout -b CPS-POPSUP-7557
 
 # 3) Work and commit
 git add .
-git commit -m "CPS-POPSUP-7557: describe change"
+git commit -m "POPSUP-7557: describe change"
 
 # 4) Push branch (triggers BitBucket webhook/DEV pipeline)
 git push -u origin CPS-POPSUP-7557

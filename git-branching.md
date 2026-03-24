@@ -127,6 +127,9 @@ git branch -d CPS-POPSUP-7557
 git push origin --delete CPS-POPSUP-7557
 ```
 
+https://jenkinsfsa-dev.dl.usda.gov/job/BuildProcess/job/DeployAll/
+
+
 ## Helpful Git Commands
 
 Use these commands during day-to-day feature development, syncing, and pull-request preparation.

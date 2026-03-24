@@ -127,8 +127,13 @@ git branch -d CPS-POPSUP-7557
 git push origin --delete CPS-POPSUP-7557
 ```
 
+## Jenkins Build
+
+Use the DeployAll Jenkins job to monitor automated build activity:
+
 https://jenkinsfsa-dev.dl.usda.gov/job/BuildProcess/job/DeployAll/
 
+This URL provides status information for all automated builds (for example queued, running, succeeded, or failed).
 
 ## Helpful Git Commands
 

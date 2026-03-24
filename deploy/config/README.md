@@ -34,6 +34,19 @@ deploy/config/
 │   ├── prod.json
 │   ├── steamdev.json
 │   └── crawlers.example.json
+├── cps/
+│   ├── dev.json
+│   ├── prod.json
+│   └── steamdev.json
+├── dmc/
+│   ├── dev.json
+│   ├── prod.json
+│   └── steamdev.json
+├── ecp/
+│   ├── dev.json
+│   ├── prod.json
+│   └── steamdev.json
+├── farmdatav2/               # Reserved (no active JSON configs)
 ├── farmdm/
 │   ├── dev.json
 │   ├── prod.json
@@ -240,10 +253,10 @@ entries override these.
 
 ---
 
-### `configUpload` — S3 Config Data Upload (cnsv only)
+### `configUpload` — S3 Config Data Upload
 
-Present only in projects that push local configuration data to S3 as part of
-deployment (currently **cnsv**).
+Present in projects that push local configuration data to S3 as part of
+deployment (for example **cars, carsdm, cnsv, cps, dmc, ecp, farmdm, fmmi, nps, pmrds, sbsd**).
 
 ```json
 "configUpload": {
@@ -258,10 +271,12 @@ deployment (currently **cnsv**).
 }
 ```
 
-The deployer zips `projects/cnsv/configs/_configs/`, uploads the ZIP to
+When used with UploadConfig-style flows, the deployer zips
+`projects/<project>/configs/_configs/`, uploads the ZIP to
 `inputBucket/inputPrefix`, then invokes `functionName` to unzip and distribute
-the contents to `outputBucket/outputPrefix/`. For **sbsd** and **farmdm** the
-equivalent upload is handled directly by `deploy_config.sh` without a Lambda.
+the contents to `outputBucket/outputPrefix/`.
+
+Some projects also support script-driven uploads via `deploy_config.sh`.
 
 ---
 

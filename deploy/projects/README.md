@@ -32,6 +32,9 @@ deploy/
     ├── cars/
     ├── carsdm/
     ├── cnsv/
+  ├── cps/
+  ├── dmc/
+  ├── ecp/
     ├── farm_records/
     ├── farmdm/
     ├── fbp_rpt/
@@ -171,6 +174,9 @@ merged with global Glue defaults before calling `ensure_glue_job()`.
 | **cars** | 1 | 5 | — | 3 | — |
 | **carsdm** | 1 | 2 | — | 2 | — |
 | **cnsv** | 5 | 7 | 22 | 13 | ✓ |
+| **cps** | 1 | 2 | 6 | 4 | — |
+| **dmc** | 1 | 2 | 6 | 4 | — |
+| **ecp** | 1 | 2 | 6 | 4 | — |
 | **farm_records** | 1 | 3 | — | 4 | — |
 | **farmdm** | 1 | — | — | — | ✓ |
 | **fbp_rpt** | — | — | — | — | — |
@@ -254,6 +260,50 @@ data. The most complex project with 5 separate deployment pipelines.
 and uploads it to S3 via the `configUpload` block in the config JSON. This
 provides EDV query templates, staging mappings, and DM transformation rules
 consumed at runtime by the Glue jobs and Lambdas.
+
+---
+
+### cps
+
+**Purpose:** CPS ETL pipeline — orchestrates incremental landing ingestion,
+raw-to-DM processing, process-control updates, crawler refresh, and validation
+notifications.
+
+| Resource | Count | Notes |
+|---|:---:|---|
+| Glue jobs | 2 | `LandingFiles`, `Raw-DM` |
+| Lambda functions | 6 | Logging, validation, SNS publish, incremental-table discovery, and workflow update |
+| Step Functions | 4 | `MAIN`, `Incremental-to-S3Landing`, `S3Landing-to-S3Final-Raw-DM`, `Process-Control-Update` |
+| Config environments | 3 | dev, prod, steamdev |
+
+---
+
+### dmc
+
+**Purpose:** DMC ETL pipeline — CPS-derived deployment with DMC naming,
+resource wiring, and environment-specific configuration.
+
+| Resource | Count | Notes |
+|---|:---:|---|
+| Glue jobs | 2 | `LandingFiles`, `Raw-DM` |
+| Lambda functions | 6 | Logging, validation, SNS publish, incremental-table discovery, and workflow update |
+| Step Functions | 4 | `MAIN`, `Incremental-to-S3Landing`, `S3Landing-to-S3Final-Raw-DM`, `Process-Control-Update` |
+| Config environments | 3 | dev, prod, steamdev |
+
+---
+
+### ecp
+
+**Purpose:** ECP ETL pipeline — orchestrates incremental landing ingestion,
+raw-to-DM processing, process-control updates, crawler refresh, and validation
+notifications.
+
+| Resource | Count | Notes |
+|---|:---:|---|
+| Glue jobs | 2 | `LandingFiles`, `Raw-DM` |
+| Lambda functions | 6 | Logging, validation, SNS publish, incremental-table discovery, and workflow update |
+| Step Functions | 4 | `MAIN`, `Incremental-to-S3Landing`, `S3Landing-to-S3Final-Raw-DM`, `Process-Control-Update` |
+| Config environments | 3 | dev, prod, steamdev |
 
 ---
 

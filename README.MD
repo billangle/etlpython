@@ -11,8 +11,11 @@ and Glue crawlers. No AWS CDK is used.
 
 | Document | Description |
 |---|---|
-| [deploy/projects/README.md](deploy/projects/README.md) | Project catalogue — all 14 pipelines, resource counts, S3 config upload details |
+| [deploy/projects/README.md](deploy/projects/README.md) | Project catalogue — all 17 pipelines, resource counts, S3 config upload details |
 | [deploy/config/README.md](deploy/config/README.md) | Config file structure — full field reference with annotated examples |
+| [deploy/projects/cars/lambda/UploadConfig/README.md](deploy/projects/cars/lambda/UploadConfig/README.md) | CARS UploadConfig runner docs for deploying an existing ZIP from S3 using JSON parameters |
+| [deploy/projects/cars/lambda/DownloadZip/README.md](deploy/projects/cars/lambda/DownloadZip/README.md) | CARS DownloadZip runner docs for downloading and extracting ZIP inputs using JSON parameters |
+| [prjhelpers/cleanup/readme.md](prjhelpers/cleanup/readme.md) | S3 and infrastructure cleanup scripts documentation for non-prod/prod operations |
 
 ---
 
@@ -30,7 +33,7 @@ deploy/
 │   │   ├── dev.json
 │   │   ├── prod.json
 │   │   └── steamdev.json
-│   └── <project>/              # Same pattern for all 14 projects
+│   └── <project>/              # Same pattern for all 17 projects
 │       ├── dev.json
 │       ├── steamdev.json
 │       ├── cert.json           # Selected projects only
@@ -41,8 +44,12 @@ deploy/
     ├── cars/                   # CARS reporting pipeline
     ├── carsdm/                 # CARS data mart
     ├── cnsv/                   # Conservation multi-pipeline (5 deployers)
+    ├── cps/                    # CPS pipeline
+    ├── dmc/                    # DMC pipeline
+    ├── ecp/                    # ECP pipeline
     ├── farm_records/           # Farm Records pipeline
     ├── farmdm/                 # Farm Data Mart config upload
+    ├── fbp_rpt/                # FBP reporting SQL reference project
     ├── flpids/                 # FLPIDS FTPS file checks
     ├── fmmi/                   # FMMI CSV→ODS pipeline
     ├── fpac_pipeline/          # Shared FPAC landing/cleaning/final jobs
@@ -54,7 +61,7 @@ deploy/
 
 ## Overview
 
-The framework supports **14 independent ETL projects**, each deploying a
+The framework supports **17 independent ETL projects**, each deploying a
 combination of Glue Spark jobs, Lambda functions, and Step Functions state
 machines. All resource names, IAM ARNs, bucket references, and job parameters
 are driven by JSON config files — nothing is hardcoded in the deployer scripts.
@@ -146,7 +153,7 @@ projects/
     └── ...                          # One .param.asl.json per state machine
 ```
 
-Projects using this approach include: **athenafarm**, **cars**, **cnsv**, **nps**
+Projects using this approach include: **athenafarm**, **cars**, **cnsv**, **cps**, **dmc**, **ecp**, **nps**
 
 #### Legacy Design — Python-Based ASL Builder
 

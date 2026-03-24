@@ -2,9 +2,9 @@ pipeline {
     agent any
  
     environment {
-      DEPLOY_ENV = 'config/cps/dev.json'
+      DEPLOY_ENV = 'config/dmc/dev.json'
       AWS_REGION = 'us-east-1'
-      PROJECT = 'cps'
+      PROJECT = 'dmc'
     }
  
     stages {

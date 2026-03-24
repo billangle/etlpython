@@ -1,5 +1,47 @@
 # Fpac FLPIDS DynaCheckFile Lambda
 
+
+## Git Branching and Automated DEV Builds
+
+All projects follow the same branch-driven CI/CD model.
+
+- Branch naming: `<PROJECT>-<JIRA-TICKET>` (example: `FLPIDS-POPSUP-7557`)
+- `FLPIDS` is the project code used in the command examples below.
+- Pushing a feature branch triggers the BitBucket webhook and builds/deploys to DEV using FPACDEV naming.
+- A pull request into `main` is required before PROD deployment.
+
+For the full standard, see:
+- [Project-level branching standard](../README.md#git-branching-and-automated-dev-builds)
+
+### Common Git Commands
+
+Branch names shown here are examples only; replace POPSUP-7557 with your assigned Jira ticket when creating your branch.
+
+```bash
+# Start feature work from latest main
+git checkout main
+git pull origin main
+git checkout -b FLPIDS-POPSUP-7557
+
+# Commit and push (triggers DEV automation)
+git add .
+git commit -m "FLPIDS-POPSUP-7557: describe change"
+git push -u origin FLPIDS-POPSUP-7557
+
+# Daily sync main into feature branch to reduce merge conflicts
+git fetch origin
+git checkout main
+git pull origin main
+git checkout FLPIDS-POPSUP-7557
+git merge main
+git push
+```
+
+## Naming Convention
+
+FPACDEV indicates resources created by CI/CD automation in the development environment. Resources named with DEV were created manually and are NOT overwritten by automation.
+
+
 ## Overview
 
 `FSA-steam-dev-FpacFLPIDS-DynaCheckFile` is an AWS Lambda function that monitors an FTPS directory for expected inbound files and records inspection activity in DynamoDB.
@@ -108,38 +150,3 @@ Testing is done with POSIX-compliant shell scripts that:
 - The Lambda is safe to run repeatedly on a schedule.
 - Downstream systems should update job status to PROCESSING and COMPLETED.
 - All inspection activity is retained for auditing and diagnostics.
-
-
-## Git Branching and Automated DEV Builds
-
-All projects follow the same branch-driven CI/CD model.
-
-- Branch naming: `<PROJECT>-<JIRA-TICKET>` (example: `CPS-POPSUP-7557`)
-- `CPS` is used in commands as an example only; replace it with your assigned project code.
-- Pushing a feature branch triggers the BitBucket webhook and builds/deploys to DEV using FPACDEV naming.
-- A pull request into `main` is required before PROD deployment.
-
-For the full standard, see:
-- [Project-level branching standard](../README.md#git-branching-and-automated-dev-builds)
-
-### Common Git Commands
-
-```bash
-# Start feature work from latest main
-git checkout main
-git pull origin main
-git checkout -b CPS-POPSUP-7557
-
-# Commit and push (triggers DEV automation)
-git add .
-git commit -m "CPS-POPSUP-7557: describe change"
-git push -u origin CPS-POPSUP-7557
-
-# Daily sync main into feature branch to reduce merge conflicts
-git fetch origin
-git checkout main
-git pull origin main
-git checkout CPS-POPSUP-7557
-git merge main
-git push
-```

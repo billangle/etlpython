@@ -284,7 +284,7 @@
             	{ "src_col_nm": "dart_filedate" , "target_column_name": "dart_filedate" , "data_type": "datetime" },
             	{ "src_col_nm": "op" , "target_column_name": "op" , "data_type": "varchar(2)" }
 			],
-			"primary_key": "proposed_payment_status_code",
+			"primary_key": "proposed_payment_status_reason_code",
 			"dedupe_key": "last_change_date"
 		}
 	]

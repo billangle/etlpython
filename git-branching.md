@@ -50,7 +50,7 @@ git push -u origin CPS-POPSUP-7557
 
 # 5) Continue updates on same branch
 git add .
-git commit -m "CPS-POPSUP-7557: follow-up update"
+git commit -m "POPSUP-7557: follow-up update"
 git push
 ```
 
@@ -126,3 +126,107 @@ git branch -d CPS-POPSUP-7557
 # Delete remote feature branch
 git push origin --delete CPS-POPSUP-7557
 ```
+
+## Helpful Git Commands
+
+Use these commands during day-to-day feature development, syncing, and pull-request preparation.
+
+### `git status`
+
+```bash
+git status
+```
+
+- Output: current branch name, staged files, unstaged files, and untracked files.
+- Value: quickest way to confirm what will be committed and whether your working tree is clean before a commit, merge, or PR.
+
+### `git fetch origin`
+
+```bash
+git fetch origin
+```
+
+- Output: updates remote-tracking refs such as `origin/main` and `origin/<feature-branch>`.
+- Value: safely refreshes what exists on remote without changing local files; ideal before merge/rebase decisions.
+
+### `git branch --show-current`
+
+```bash
+git branch --show-current
+```
+
+- Output: a single line with your current branch name.
+- Value: avoids accidental commits/pushes to the wrong branch.
+
+### `git log --oneline --decorate --graph -20`
+
+```bash
+git log --oneline --decorate --graph -20
+```
+
+- Output: compact commit history with branch/tag labels and merge graph for the last 20 commits.
+- Value: quickly visualizes branch divergence and confirms whether main has already been merged into your feature branch.
+
+### `git diff`
+
+```bash
+git diff
+```
+
+- Output: line-by-line unstaged changes compared to the last commit.
+- Value: review exact edits before staging.
+
+### `git diff --staged`
+
+```bash
+git diff --staged
+```
+
+- Output: line-by-line staged changes that will go into the next commit.
+- Value: final safety check before `git commit`.
+
+### `git add -p`
+
+```bash
+git add -p
+```
+
+- Output: interactive hunk-by-hunk prompt for staging selected changes.
+- Value: create clean, focused commits instead of bundling unrelated edits.
+
+### `git log --oneline origin/main..HEAD`
+
+```bash
+git log --oneline origin/main..HEAD
+```
+
+- Output: commits that are in your current branch but not in `origin/main`.
+- Value: verifies exactly what your pull request will include.
+
+### `git restore --staged <file>`
+
+```bash
+git restore --staged <file>
+```
+
+- Output: removes `<file>` from staging while keeping local edits in your working directory.
+- Value: undo accidental staging without losing work.
+
+### `git stash push -m "wip"` and `git stash pop`
+
+```bash
+git stash push -m "wip"
+git stash pop
+```
+
+- Output: temporarily stores uncommitted changes, then reapplies them later.
+- Value: lets you quickly switch branches or pull latest main without committing incomplete work.
+
+### `git remote -v`
+
+```bash
+git remote -v
+```
+
+- Output: remote names and URLs (fetch/push), usually `origin`.
+- Value: confirms you are pushing to the expected BitBucket repository.

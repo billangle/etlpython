@@ -503,7 +503,7 @@ git push -u origin CPS-POPSUP-7557
 
 # 5) Continue updates on same branch
 git add .
-git commit -m "CPS-POPSUP-7557: follow-up update"
+git commit -m "POPSUP-7557: follow-up update"
 git push
 ```
 

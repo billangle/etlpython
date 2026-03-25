@@ -71,8 +71,8 @@ Postgres: EDV.FARM_RECORDS_REPORTING
 |                                                               |
 |  Optional Sync-Iceberg-To-RDS (skip_rds_sync=false)           |
 |   - Writes to EDV.FARM_RECORDS_REPORTING                      |
-|     - tract_producer_year                                     |
-|     - farm_producer_year                                      |
+|     - tract_producer_year  - failed to complete               |
+|     - farm_producer_year   - succeeded                        |
 +---------------------------------------------------------------+
 ```
 

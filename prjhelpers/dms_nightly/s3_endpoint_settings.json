@@ -1,0 +1,9 @@
+{
+  "BucketName": "your-target-bucket",
+  "BucketFolder": "dms/daily",
+  "DataFormat": "csv",
+  "CompressionType": "NONE",
+  "CdcPath": "cdc",
+  "CdcMaxBatchInterval": 86400,
+  "CdcMinFileSize": 10485760
+}

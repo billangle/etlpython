@@ -1,0 +1,24 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DmsControl",
+      "Effect": "Allow",
+      "Action": [
+        "dms:StartReplicationTask",
+        "dms:DescribeReplicationTasks"
+      ],
+      "Resource": "arn:aws:dms:us-east-1:123456789012:task:YOUR_TASK_ID"
+    },
+    {
+      "Sid": "Logs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

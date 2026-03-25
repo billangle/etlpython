@@ -1,0 +1,168 @@
+{
+  "Comment": "athenafarm tract_producer_year split pipeline. Runs tract transformation as bounded fan-in Glue jobs with persisted intermediates.",
+  "StartAt": "TPY01SpineBase",
+  "States": {
+    "TPY01SpineBase": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "__TPY_01_SPINE_BASE_GLUE_JOB_NAME__",
+        "Arguments": {
+          "--env.$": "$.env",
+          "--iceberg_warehouse.$": "$.iceberg_warehouse"
+        }
+      },
+      "ResultPath": "$.tpy_01",
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "TPYFail" }],
+      "Next": "TPY02InstanceGuidMap"
+    },
+    "TPY02InstanceGuidMap": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "__TPY_02_INSTANCE_GUID_GLUE_JOB_NAME__",
+        "Arguments": {
+          "--env.$": "$.env",
+          "--iceberg_warehouse.$": "$.iceberg_warehouse"
+        }
+      },
+      "ResultPath": "$.tpy_02",
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "TPYFail" }],
+      "Next": "TPY03And04And05"
+    },
+    "TPY03And04And05": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "TPY03PartnerMap",
+          "States": {
+            "TPY03PartnerMap": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TPY_03_PARTNER_MAP_GLUE_JOB_NAME__",
+                "Arguments": {
+                  "--env.$": "$.env",
+                  "--iceberg_warehouse.$": "$.iceberg_warehouse"
+                }
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "TPY04ZmiMap",
+          "States": {
+            "TPY04ZmiMap": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TPY_04_ZMI_MAP_GLUE_JOB_NAME__",
+                "Arguments": {
+                  "--env.$": "$.env",
+                  "--iceberg_warehouse.$": "$.iceberg_warehouse"
+                }
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "TPY05CocTimeMap",
+          "States": {
+            "TPY05CocTimeMap": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "__TPY_05_COC_TIME_MAP_GLUE_JOB_NAME__",
+                "Arguments": {
+                  "--env.$": "$.env",
+                  "--iceberg_warehouse.$": "$.iceberg_warehouse"
+                }
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": "$.tpy_03_04_05",
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "TPYFail" }],
+      "Next": "TPY06TractCandidateAssemble"
+    },
+    "TPY06TractCandidateAssemble": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "__TPY_06_CANDIDATE_ASSEMBLE_GLUE_JOB_NAME__",
+        "Arguments": {
+          "--env.$": "$.env",
+          "--iceberg_warehouse.$": "$.iceberg_warehouse"
+        }
+      },
+      "ResultPath": "$.tpy_06",
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "TPYFail" }],
+      "Next": "TPY07PartnerCustomerResolve"
+    },
+    "TPY07PartnerCustomerResolve": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "__TPY_07_PARTNER_CUSTOMER_GLUE_JOB_NAME__",
+        "Arguments": {
+          "--env.$": "$.env",
+          "--iceberg_warehouse.$": "$.iceberg_warehouse"
+        }
+      },
+      "ResultPath": "$.tpy_07",
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "TPYFail" }],
+      "Next": "TPY08FarmTractResolve"
+    },
+    "TPY08FarmTractResolve": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "__TPY_08_FARM_TRACT_RESOLVE_GLUE_JOB_NAME__",
+        "Arguments": {
+          "--env.$": "$.env",
+          "--iceberg_warehouse.$": "$.iceberg_warehouse"
+        }
+      },
+      "ResultPath": "$.tpy_08",
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "TPYFail" }],
+      "Next": "TPY09TractYearResolve"
+    },
+    "TPY09TractYearResolve": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "__TPY_09_TRACT_YEAR_RESOLVE_GLUE_JOB_NAME__",
+        "Arguments": {
+          "--env.$": "$.env",
+          "--iceberg_warehouse.$": "$.iceberg_warehouse"
+        }
+      },
+      "ResultPath": "$.tpy_09",
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "TPYFail" }],
+      "Next": "TPY10DedupAndPublish"
+    },
+    "TPY10DedupAndPublish": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "__TPY_10_PUBLISH_GLUE_JOB_NAME__",
+        "Arguments": {
+          "--env.$": "$.env",
+          "--iceberg_warehouse.$": "$.iceberg_warehouse"
+        }
+      },
+      "ResultPath": "$.tpy_10",
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "TPYFail" }],
+      "End": true
+    },
+    "TPYFail": {
+      "Type": "Fail",
+      "Cause": "Tract producer year split pipeline failed",
+      "Error": "TractPipelineError"
+    }
+  }
+}

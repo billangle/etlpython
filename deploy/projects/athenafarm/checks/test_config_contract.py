@@ -37,6 +37,7 @@ _PROJ = _HERE.parent
 _GLUE_DIR = _PROJ / "glue"
 _CONFIG_DIR = _PROJ.parent.parent / "config" / "athenafarm"
 _STATE_FILE = _PROJ / "states" / "Main.param.asl.json"
+_TRACT_STATE_FILE = _PROJ / "states" / "TractProducerYear.param.asl.json"
 
 # ---------------------------------------------------------------------------
 # Scripts under test.
@@ -164,6 +165,10 @@ def _strip_dashes(key: str) -> str:
 
 def _state_text() -> str:
     return _STATE_FILE.read_text(encoding="utf-8")
+
+
+def _tract_state_text() -> str:
+    return _TRACT_STATE_FILE.read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -617,9 +622,10 @@ class TestTractModeDispatchContract(unittest.TestCase):
     Step Functions must dispatch tract transform via explicit full-load job only.
     """
 
-    def test_state_machine_uses_full_load_tract_placeholder(self):
+    def test_state_machine_uses_nested_tract_pipeline_placeholder(self):
         text = _state_text()
-        self.assertIn("__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__", text)
+        self.assertIn("__TRACT_TPY_PIPELINE_SM_ARN__", text)
+        self.assertNotIn("__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__", text)
         self.assertNotIn("__TRANSFORM_TRACT_PY_INCR_GLUE_JOB_NAME__", text)
 
     def test_state_machine_no_choice_for_tract_mode(self):
@@ -631,29 +637,38 @@ class TestTractModeDispatchContract(unittest.TestCase):
         self.assertNotIn("SelectTransformTractPath", text)
         self.assertNotIn("force_legacy_tract_path", text)
 
-    def test_state_machine_tract_branch_single_fast_only(self):
+    def test_state_machine_runs_farm_then_tract_pipeline(self):
         sm = json.loads(_state_text())
-        transform_parallel = sm["States"]["TransformParallel"]
-        branches = transform_parallel["Branches"]
+        states = sm["States"]
 
-        tract_branch = None
-        for branch in branches:
-            states = branch.get("States", {})
-            if "TransformTractProducerYearSingleFast" in states:
-                tract_branch = branch
-                break
+        self.assertIn("TransformFarmProducerYear", states)
+        self.assertIn("RunTractProducerYearPipeline", states)
+        self.assertEqual(states["TransformFarmProducerYear"]["Next"], "RunTractProducerYearPipeline")
+        self.assertEqual(states["RunTractProducerYearPipeline"]["Resource"], "arn:aws:states:::states:startExecution.sync")
+        self.assertEqual(
+            states["RunTractProducerYearPipeline"]["Parameters"].get("StateMachineArn"),
+            "__TRACT_TPY_PIPELINE_SM_ARN__",
+        )
 
-        self.assertIsNotNone(tract_branch, "Tract branch with TransformTractProducerYearSingleFast was not found")
-        self.assertEqual(
-            tract_branch["StartAt"],
-            "TransformTractProducerYearSingleFast",
-            "Tract branch must start at single_fast",
-        )
-        self.assertEqual(
-            set(tract_branch["States"].keys()),
-            {"TransformTractProducerYearSingleFast"},
-            "Tract branch must contain only the single_fast state",
-        )
+    def test_tract_pipeline_state_machine_contains_all_tpy_jobs(self):
+        tract_sm = json.loads(_tract_state_text())
+        states = tract_sm["States"]
+
+        expected_states = {
+            "TPY01SpineBase",
+            "TPY02InstanceGuidMap",
+            "TPY03And04And05",
+            "TPY06TractCandidateAssemble",
+            "TPY07PartnerCustomerResolve",
+            "TPY08FarmTractResolve",
+            "TPY09TractYearResolve",
+            "TPY10DedupAndPublish",
+            "TPYFail",
+        }
+        self.assertTrue(expected_states.issubset(set(states.keys())))
+
+        self.assertEqual(tract_sm["StartAt"], "TPY01SpineBase")
+        self.assertEqual(states["TPY10DedupAndPublish"].get("End"), True)
 
     def test_core_tract_script_forces_full_mode(self):
         text = _script_text("Transform-Tract-Producer-Year")

@@ -124,14 +124,25 @@ class Names:
     ingest_sss_job: str
     ingest_pg_refs_job: str
     ingest_pg_cdc_job: str
-    transform_tpy_job: str
     transform_fpy_job: str
+    # Tract split pipeline jobs
+    tpy_j1_spine_base_job: str
+    tpy_j2_instance_guid_job: str
+    tpy_j3_partner_map_job: str
+    tpy_j4_zmi_map_job: str
+    tpy_j5_coc_time_map_job: str
+    tpy_j6_candidate_assemble_job: str
+    tpy_j7_partner_customer_job: str
+    tpy_j8_farm_tract_resolve_job: str
+    tpy_j9_tract_year_resolve_job: str
+    tpy_j10_publish_job: str
     sync_rds_job: str
     iceberg_maint_job: str
     # Lambda functions
     notify_fn: str
     # State machines
     sm_main: str
+    sm_tract_pipeline: str
     sm_maintenance: str
 
 
@@ -148,12 +159,22 @@ def build_names(deploy_env: str, project: str) -> Names:
         ingest_sss_job=f"{pfx}-Ingest-SSS-Farmrecords",
         ingest_pg_refs_job=f"{pfx}-Ingest-PG-Reference-Tables",
         ingest_pg_cdc_job=f"{pfx}-Ingest-PG-CDC-Targets",
-        transform_tpy_job=f"{pfx}-Transform-Tract-Producer-Year",
         transform_fpy_job=f"{pfx}-Transform-Farm-Producer-Year",
+        tpy_j1_spine_base_job=f"{pfx}-TPY-01-SpineBase",
+        tpy_j2_instance_guid_job=f"{pfx}-TPY-02-InstanceGuidMap",
+        tpy_j3_partner_map_job=f"{pfx}-TPY-03-PartnerMap",
+        tpy_j4_zmi_map_job=f"{pfx}-TPY-04-ZmiMap",
+        tpy_j5_coc_time_map_job=f"{pfx}-TPY-05-CocTimeMap",
+        tpy_j6_candidate_assemble_job=f"{pfx}-TPY-06-TractCandidateAssemble",
+        tpy_j7_partner_customer_job=f"{pfx}-TPY-07-PartnerCustomerResolve",
+        tpy_j8_farm_tract_resolve_job=f"{pfx}-TPY-08-FarmTractResolve",
+        tpy_j9_tract_year_resolve_job=f"{pfx}-TPY-09-TractYearResolve",
+        tpy_j10_publish_job=f"{pfx}-TPY-10-DedupAndPublish",
         sync_rds_job=f"{pfx}-Sync-Iceberg-To-RDS",
         iceberg_maint_job=f"{pfx}-Iceberg-Maintenance",
         notify_fn=f"{pfx}-NotifyPipeline",
         sm_main=f"{pfx}-Main",
+        sm_tract_pipeline=f"{pfx}-TractProducerYear",
         sm_maintenance=f"{pfx}-Maintenance",
     )
 
@@ -291,8 +312,17 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
         ("Ingest-SSS-Farmrecords",          names.ingest_sss_job),
         ("Ingest-PG-Reference-Tables",      names.ingest_pg_refs_job),
         ("Ingest-PG-CDC-Targets",           names.ingest_pg_cdc_job),
-        ("Transform-Tract-Producer-Year",   names.transform_tpy_job),
         ("Transform-Farm-Producer-Year",    names.transform_fpy_job),
+        ("TPY-01-SpineBase",                names.tpy_j1_spine_base_job),
+        ("TPY-02-InstanceGuidMap",          names.tpy_j2_instance_guid_job),
+        ("TPY-03-PartnerMap",               names.tpy_j3_partner_map_job),
+        ("TPY-04-ZmiMap",                   names.tpy_j4_zmi_map_job),
+        ("TPY-05-CocTimeMap",               names.tpy_j5_coc_time_map_job),
+        ("TPY-06-TractCandidateAssemble",   names.tpy_j6_candidate_assemble_job),
+        ("TPY-07-PartnerCustomerResolve",   names.tpy_j7_partner_customer_job),
+        ("TPY-08-FarmTractResolve",         names.tpy_j8_farm_tract_resolve_job),
+        ("TPY-09-TractYearResolve",         names.tpy_j9_tract_year_resolve_job),
+        ("TPY-10-DedupAndPublish",          names.tpy_j10_publish_job),
         ("Sync-Iceberg-To-RDS",             names.sync_rds_job),
         ("Iceberg-Maintenance",             names.iceberg_maint_job),
     ]
@@ -300,6 +330,7 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
     LEGACY_JOB_NAMES = [
         f"{names.prefix}-Transform-Tract-Producer-Year-Incremental",
         f"{names.prefix}-Transform-Tract-Producer-Year-FullLoad",
+        f"{names.prefix}-Transform-Tract-Producer-Year",
     ]
 
     print(f"\n{'='*60}")
@@ -397,8 +428,12 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
 
     # ── Create / update Glue jobs ────────────────────────────────────────────
     print("\n[2/4] Creating/updating Glue jobs...")
+    base_tpy_cfg = _glue_config_for_script(cfg, "Transform-Tract-Producer-Year")
     for stem, job_name in SCRIPT_SPECS:
         per = _glue_config_for_script(cfg, stem)
+        if not per and stem.startswith("TPY-"):
+            # Reuse legacy tract transform sizing/args unless explicitly overridden.
+            per = base_tpy_cfg
         worker    = _as_str(per.get("WorkerType"), default_worker)
         n_workers = _as_int(per.get("NumberOfWorkers"), default_workers)
         timeout   = _as_int(per.get("TimeoutMinutes"), default_timeout)
@@ -434,10 +469,13 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
 
         # Transform runtime profile defaults (AQE-first partition sizing).
         # Keep these as setdefault so config-level/per-job overrides still win.
-        if stem == "Transform-Tract-Producer-Year":
-            job_params.setdefault("--advisory_partition_size_mb", "96")
-        elif stem == "Transform-Farm-Producer-Year":
+        if stem == "Transform-Farm-Producer-Year":
             job_params.setdefault("--advisory_partition_size_mb", "128")
+        if stem.startswith("TPY-"):
+            job_params.setdefault("--advisory_partition_size_mb", "96")
+            job_params.setdefault("--sss_database", _as_str(base_tpy_cfg.get("JobParameters", {}).get("--sss_database"), "athenafarm_prod_raw"))
+            job_params.setdefault("--ref_database", _as_str(base_tpy_cfg.get("JobParameters", {}).get("--ref_database"), "athenafarm_prod_ref"))
+            job_params.setdefault("--target_database", _as_str(base_tpy_cfg.get("JobParameters", {}).get("--target_database"), "athenafarm_prod_gold"))
 
         # Map AdditionalPythonModulesPath → --extra-py-files (WHL/egg/zip on S3)
         extra_py = _as_str(per.get("AdditionalPythonModulesPath"))
@@ -503,6 +541,10 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
     # Token map shared by both ASL files
     sss_crawler_name = f"FSA-{deploy_env}-SSS-Farmrecords-Crawler"
 
+    sts = boto3.client("sts", region_name=region)
+    account_id = sts.get_caller_identity()["Account"]
+    tract_pipeline_sm_arn = f"arn:aws:states:{region}:{account_id}:stateMachine:{names.sm_tract_pipeline}"
+
     tokens = {
         "__ENV__":                           deploy_env,
         "__ICEBERG_WAREHOUSE__":             iceberg_warehouse,
@@ -511,14 +553,25 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
         "__INGEST_SSS_GLUE_JOB_NAME__":      names.ingest_sss_job,
         "__INGEST_PG_REFS_GLUE_JOB_NAME__":  names.ingest_pg_refs_job,
         "__INGEST_PG_CDC_GLUE_JOB_NAME__":   names.ingest_pg_cdc_job,
-        "__TRANSFORM_TRACT_PY_GLUE_JOB_NAME__": names.transform_tpy_job,
         "__TRANSFORM_FARM_PY_GLUE_JOB_NAME__": names.transform_fpy_job,
+        "__TPY_01_SPINE_BASE_GLUE_JOB_NAME__": names.tpy_j1_spine_base_job,
+        "__TPY_02_INSTANCE_GUID_GLUE_JOB_NAME__": names.tpy_j2_instance_guid_job,
+        "__TPY_03_PARTNER_MAP_GLUE_JOB_NAME__": names.tpy_j3_partner_map_job,
+        "__TPY_04_ZMI_MAP_GLUE_JOB_NAME__": names.tpy_j4_zmi_map_job,
+        "__TPY_05_COC_TIME_MAP_GLUE_JOB_NAME__": names.tpy_j5_coc_time_map_job,
+        "__TPY_06_CANDIDATE_ASSEMBLE_GLUE_JOB_NAME__": names.tpy_j6_candidate_assemble_job,
+        "__TPY_07_PARTNER_CUSTOMER_GLUE_JOB_NAME__": names.tpy_j7_partner_customer_job,
+        "__TPY_08_FARM_TRACT_RESOLVE_GLUE_JOB_NAME__": names.tpy_j8_farm_tract_resolve_job,
+        "__TPY_09_TRACT_YEAR_RESOLVE_GLUE_JOB_NAME__": names.tpy_j9_tract_year_resolve_job,
+        "__TPY_10_PUBLISH_GLUE_JOB_NAME__": names.tpy_j10_publish_job,
+        "__TRACT_TPY_PIPELINE_SM_ARN__":     tract_pipeline_sm_arn,
         "__SYNC_RDS_GLUE_JOB_NAME__":        names.sync_rds_job,
         "__ICEBERG_MAINT_GLUE_JOB_NAME__":   names.iceberg_maint_job,
         "__SNS_NOTIFY_FN_ARN__":             sns_notify_fn_arn,
     }
 
     SM_SPECS = [
+        ("TractProducerYear.param.asl.json", names.sm_tract_pipeline),
         ("Main.param.asl.json",        names.sm_main),
         ("Maintenance.param.asl.json", names.sm_maintenance),
     ]
@@ -555,14 +608,24 @@ def deploy(cfg: Dict[str, Any], region: Optional[str] = None, dry_run: bool = Fa
         "glue_job_ingest_sss": names.ingest_sss_job,
         "glue_job_ingest_pg_refs": names.ingest_pg_refs_job,
         "glue_job_ingest_pg_cdc": names.ingest_pg_cdc_job,
-        "glue_job_transform_tpy": names.transform_tpy_job,
         "glue_job_transform_fpy": names.transform_fpy_job,
+        "glue_job_tpy_01_spine_base": names.tpy_j1_spine_base_job,
+        "glue_job_tpy_02_instance_guid": names.tpy_j2_instance_guid_job,
+        "glue_job_tpy_03_partner_map": names.tpy_j3_partner_map_job,
+        "glue_job_tpy_04_zmi_map": names.tpy_j4_zmi_map_job,
+        "glue_job_tpy_05_coc_time_map": names.tpy_j5_coc_time_map_job,
+        "glue_job_tpy_06_candidate_assemble": names.tpy_j6_candidate_assemble_job,
+        "glue_job_tpy_07_partner_customer": names.tpy_j7_partner_customer_job,
+        "glue_job_tpy_08_farm_tract_resolve": names.tpy_j8_farm_tract_resolve_job,
+        "glue_job_tpy_09_tract_year_resolve": names.tpy_j9_tract_year_resolve_job,
+        "glue_job_tpy_10_publish": names.tpy_j10_publish_job,
         "glue_job_sync_rds": names.sync_rds_job,
         "glue_job_iceberg_maint": names.iceberg_maint_job,
         # Lambda
         "lambda_notify_fn": names.notify_fn,
         # Step Functions
         "state_machine_main": names.sm_main,
+        "state_machine_tract_pipeline": names.sm_tract_pipeline,
         "state_machine_maintenance": names.sm_maintenance,
         "sfn_role_arn": sfn_role_arn,
     }

@@ -1,4 +1,11 @@
-"""TPY-01-SpineBase: build normalized tract/farm structural base rows."""
+"""TPY-01-SpineBase: build lightweight normalized spine rows from ibsp only.
+
+Version History:
+  - 2026-03-25: Initial split-pipeline implementation.
+  - 2026-03-26: Performance hotfix for new-errors-1 timeout; removed ibst/ibib
+    joins from TPY-01 and kept this stage ibsp-only to target sub-10-minute run
+    time.
+"""
 
 import sys
 from awsglue.utils import getResolvedOptions
@@ -30,6 +37,9 @@ conf.set("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws.
 conf.set("spark.sql.catalog.glue_catalog.io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
 conf.set("spark.sql.catalog.glue_catalog.warehouse", args["iceberg_warehouse"])
 conf.set("spark.sql.catalog.glue_catalog.write.spark.fanout.enabled", "true")
+conf.set("spark.sql.adaptive.enabled", "true")
+conf.set("spark.sql.adaptive.skewJoin.enabled", "true")
+conf.set("spark.sql.shuffle.partitions", _opt("shuffle_partitions", "800"))
 
 sc = SparkContext(conf=conf)
 glue_ctx = GlueContext(sc)
@@ -37,15 +47,12 @@ spark = glue_ctx.spark_session
 job = Job(glue_ctx)
 job.init(args["JOB_NAME"], args)
 
-for t in ["ibsp", "ibst", "ibib"]:
-    spark.table(f"glue_catalog.{SSS_DB}.{t}").createOrReplaceTempView(t)
+spark.table(f"glue_catalog.{SSS_DB}.ibsp").createOrReplaceTempView("ibsp")
 
 sql = """
 SELECT
   CAST(sp.instance AS STRING) AS instance,
   CAST(sp.client AS STRING) AS client,
-  CAST(st.ibase AS STRING) AS f_ibase,
-  LPAD(COALESCE(ib.ZZFLD000000, '0'), 7, '0') AS farm_number,
   CASE
     WHEN sp.ZZFLD00000T IS NOT NULL AND sp.ZZFLD00000T <> '0' THEN LPAD(sp.ZZFLD00000T, 7, '0')
     WHEN sp.ZZFLD00001O IS NOT NULL AND TRIM(sp.ZZFLD00001O) <> ' ' THEN LPAD(SPLIT(sp.ZZFLD00001O, '-')[3], 7, '0')
@@ -62,11 +69,6 @@ SELECT
     ELSE 'BLANK'
   END AS last_change_user_name
 FROM ibsp sp
-JOIN ibst st
-  ON st.instance = sp.instance
- AND st.parent = '0'
-LEFT JOIN ibib ib
-  ON CAST(st.ibase AS STRING) = CAST(ib.ibase AS STRING)
 """
 
 out = spark.sql(sql)

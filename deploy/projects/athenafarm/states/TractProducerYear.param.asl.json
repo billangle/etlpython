@@ -1,5 +1,5 @@
 {
-  "Comment": "athenafarm tract_producer_year split pipeline. Runs tract transformation as bounded fan-in Glue jobs with persisted intermediates.",
+  "Comment": "athenafarm tract_producer_year split pipeline. Version history: 2026-03-25 introduced TPY split DAG; 2026-03-26 applied TPY-01 performance hotfix by moving heavy expansion to TPY-02. Runs tract transformation as bounded fan-in Glue jobs with persisted intermediates.",
   "StartAt": "TPY01SpineBase",
   "States": {
     "TPY01SpineBase": {

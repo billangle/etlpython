@@ -8,6 +8,50 @@ for the full architecture rationale.
 
 ---
 
+## Change Log (Errors and Requests)
+
+### 2026-03-26
+
+- Request: reduce `TPY-01-SpineBase` runtime to less than 10 minutes after
+  report of unacceptable 8-hour runtime.
+- Error evidence: `errors/new-errors-1.txt` showed
+  `FSA-PROD-ATHENAFARM-TPY-01-SpineBase` timeout after ~8 hours
+  (`JobRunState=TIMEOUT`, `ExecutionTime=28810`).
+- Change applied:
+  - `glue/TPY-01-SpineBase.py` now performs ibsp-only spine normalization.
+  - `glue/TPY-02-InstanceGuidMap.py` now performs structure/farm/in_guid
+    expansion previously done in TPY-01.
+  - `glue/TPY-06-TractCandidateAssemble.py` updated to consume enriched
+    `tpy_instance_guid_map` rows.
+- Deploy status: changes deployed to STEAMDEV through master deployer.
+- Validation status: local contract tests passed; direct steamdev TPY-01 test
+  run failed due to missing `glue_catalog.athenafarm_prod_raw.ibsp` in that
+  account catalog, so production-duration confirmation remains pending.
+- Unit tests and data added for effectiveness tracking:
+  - `checks/test_config_contract.py` now includes
+    `TestTPYSplitEffectivenessContract` to enforce TPY-01/TPY-02/TPY-06
+    stage-boundary performance contract.
+  - `checks/data/tpy01_effectiveness_eval.json` stores baseline timeout
+    evidence, target threshold (<10 minutes), and validation run records.
+
+### 2026-03-25
+
+- Request: replace direct tract transform with a dedicated tract split pipeline
+  called by `ATHENAFARM-Main` after farm completion.
+- Change applied:
+  - Added TPY split orchestration state machine
+    (`states/TractProducerYear.param.asl.json`).
+  - Updated `states/Main.param.asl.json` to call nested tract pipeline after
+    `TransformFarmProducerYear`.
+  - Added TPY Glue jobs/scripts `TPY-01` through `TPY-10` and corresponding
+    deploy wiring in `deploy.py`.
+- Runtime issue observed during verification:
+  - Main execution in STEAMDEV short-circuited to Notify due to
+    `Ingest-PG-Reference-Tables` connection error
+    (`Could not find connection ... FSA-DEV-PG-EDV`).
+
+---
+
 
 ## Git Branching and Automated DEV Builds
 

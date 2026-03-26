@@ -1,4 +1,10 @@
-"""TPY-02-InstanceGuidMap: resolve in_guid for base structure keys."""
+"""TPY-02-InstanceGuidMap: expand spine rows to f_ibase/farm_number/in_guid.
+
+Version History:
+  - 2026-03-25: Initial split-pipeline implementation.
+  - 2026-03-26: Took over heavy structure/farm expansion from TPY-01 as part of
+    timeout mitigation driven by new-errors-1.
+"""
 
 import sys
 from awsglue.utils import getResolvedOptions
@@ -30,6 +36,9 @@ conf.set("spark.sql.catalog.glue_catalog", "org.apache.iceberg.spark.SparkCatalo
 conf.set("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws.glue.GlueCatalog")
 conf.set("spark.sql.catalog.glue_catalog.io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
 conf.set("spark.sql.catalog.glue_catalog.warehouse", args["iceberg_warehouse"])
+conf.set("spark.sql.adaptive.enabled", "true")
+conf.set("spark.sql.adaptive.skewJoin.enabled", "true")
+conf.set("spark.sql.shuffle.partitions", _opt("shuffle_partitions", "1000"))
 
 sc = SparkContext(conf=conf)
 glue_ctx = GlueContext(sc)
@@ -38,19 +47,66 @@ job = Job(glue_ctx)
 job.init(args["JOB_NAME"], args)
 
 spark.table(f"glue_catalog.{TGT_DB}.{IN_TBL}").createOrReplaceTempView("spine")
+spark.table(f"glue_catalog.{SSS_DB}.ibst").createOrReplaceTempView("ibst")
+spark.table(f"glue_catalog.{SSS_DB}.ibib").createOrReplaceTempView("ibib")
 spark.table(f"glue_catalog.{SSS_DB}.ibin").createOrReplaceTempView("ibin")
 
 sql = """
+WITH root_struct AS (
+  SELECT DISTINCT
+    CAST(st.instance AS STRING) AS instance,
+    CAST(st.ibase AS STRING) AS f_ibase
+  FROM ibst st
+  WHERE st.parent = '0'
+),
+core AS (
+  SELECT
+    s.instance,
+    s.client,
+    r.f_ibase,
+    s.tract_number,
+    s.admin_state,
+    s.admin_county,
+    s.data_status_code,
+    s.creation_date,
+    s.last_change_date,
+    s.last_change_user_name
+  FROM spine s
+  JOIN root_struct r
+    ON r.instance = s.instance
+),
+core_keys AS (
+  SELECT DISTINCT f_ibase
+  FROM core
+),
+farm_lookup AS (
+  SELECT
+    CAST(ib.ibase AS STRING) AS f_ibase,
+    LPAD(COALESCE(ib.ZZFLD000000, '0'), 7, '0') AS farm_number
+  FROM ibib ib
+  JOIN core_keys k
+    ON CAST(ib.ibase AS STRING) = k.f_ibase
+)
 SELECT DISTINCT
-  spine.instance,
-  spine.client,
-  spine.f_ibase,
+  c.instance,
+  c.client,
+  c.f_ibase,
+  COALESCE(f.farm_number, '0000000') AS farm_number,
+  c.tract_number,
+  c.admin_state,
+  c.admin_county,
+  c.data_status_code,
+  c.creation_date,
+  c.last_change_date,
+  c.last_change_user_name,
   CAST(ibin.in_guid AS STRING) AS in_guid
-FROM spine
+FROM core c
+LEFT JOIN farm_lookup f
+  ON f.f_ibase = c.f_ibase
 JOIN ibin
-  ON CAST(ibin.instance AS STRING) = spine.instance
- AND CAST(ibin.client AS STRING) = spine.client
- AND CAST(ibin.ibase AS STRING) = spine.f_ibase
+  ON CAST(ibin.instance AS STRING) = c.instance
+ AND CAST(ibin.client AS STRING) = c.client
+ AND CAST(ibin.ibase AS STRING) = c.f_ibase
 """
 
 out = spark.sql(sql)

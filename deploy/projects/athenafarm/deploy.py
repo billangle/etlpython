@@ -2,6 +2,12 @@
 """
 Athenafarm deployer.
 
+Version History:
+    - 2026-03-25: Replaced direct tract transform with nested tract split pipeline
+        state machine and TPY-01..TPY-10 Glue jobs.
+    - 2026-03-26: Deployed TPY runtime hotfix that makes TPY-01 lightweight
+        (ibsp-only) and shifts structure/farm/in_guid expansion into TPY-02.
+
 Deploys the following AWS resources for the athenafarm ETL pipeline:
   - 7 Glue Spark jobs (Iceberg-enabled)
   - 2 Step Functions state machines (Main + Maintenance)

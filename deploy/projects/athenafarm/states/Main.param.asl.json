@@ -1,5 +1,5 @@
 {
-  "Comment": "athenafarm — tract/farm producer year ETL pipeline. Parallel ingest of SSS + PG reference + PG CDC tables, then farm transform, then tract split-pipeline orchestration, followed by optional RDS sync.",
+  "Comment": "athenafarm — tract/farm producer year ETL pipeline. Version history: 2026-03-25 replaced direct tract transform with nested tract split-pipeline; 2026-03-26 runtime tuning updates applied in TPY scripts. Parallel ingest of SSS + PG reference + PG CDC tables, then farm transform, then tract split-pipeline orchestration, followed by optional RDS sync.",
   "StartAt": "IngestParallel",
   "States": {
     "IngestParallel": {

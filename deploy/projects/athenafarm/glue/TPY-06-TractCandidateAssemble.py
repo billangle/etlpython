@@ -1,4 +1,10 @@
-"""TPY-06-TractCandidateAssemble: assemble tract candidate rows from staged maps."""
+"""TPY-06-TractCandidateAssemble: assemble tract candidate rows from staged maps.
+
+Version History:
+  - 2026-03-25: Initial split-pipeline implementation.
+  - 2026-03-26: Updated to use enriched tpy_instance_guid_map payload after
+    TPY-01/TPY-02 stage boundary shift for timeout mitigation.
+"""
 
 import sys
 from awsglue.utils import getResolvedOptions
@@ -35,14 +41,14 @@ spark = glue_ctx.spark_session
 job = Job(glue_ctx)
 job.init(args["JOB_NAME"], args)
 
-for t in ["tpy_spine_base", "tpy_instance_guid_map", "tpy_partner_map", "tpy_zmi_map", "tpy_coc_time_map"]:
+for t in ["tpy_instance_guid_map", "tpy_partner_map", "tpy_zmi_map", "tpy_coc_time_map"]:
     spark.table(f"glue_catalog.{TGT_DB}.{t}").createOrReplaceTempView(t)
 
 sql = """
 SELECT
-  s.instance,
-  s.client,
-  s.f_ibase,
+  ig.instance,
+  ig.client,
+  ig.f_ibase,
   ig.in_guid,
   ctm.county_office_control_identifier,
   ctm.time_period_identifier,
@@ -53,15 +59,15 @@ SELECT
   zm.tract_producer_hel_exception_code,
   zm.tract_producer_cw_exception_code,
   zm.tract_producer_pcw_exception_code,
-  s.data_status_code,
-  s.creation_date,
-  s.last_change_date,
-  s.last_change_user_name,
+  ig.data_status_code,
+  ig.creation_date,
+  ig.last_change_date,
+  ig.last_change_user_name,
   CASE pm.partner_fct WHEN 'ZFARMONR' THEN 162 WHEN 'ZOTNT' THEN 163 ELSE NULL END AS producer_involvement_code,
-  s.admin_state AS state_fsa_code,
-  s.admin_county AS county_fsa_code,
-  s.farm_number,
-  s.tract_number,
+  ig.admin_state AS state_fsa_code,
+  ig.admin_county AS county_fsa_code,
+  ig.farm_number,
+  ig.tract_number,
   zm.hel_appeals_exhausted_date,
   zm.cw_appeals_exhausted_date,
   zm.pcw_appeals_exhausted_date,
@@ -70,19 +76,15 @@ SELECT
   zm.tract_producer_rma_pcw_exception_code,
   pm.partner_no,
   zm.ZZK0011
-FROM tpy_spine_base s
-JOIN tpy_instance_guid_map ig
-  ON ig.instance = s.instance
- AND ig.client = s.client
- AND ig.f_ibase = s.f_ibase
+FROM tpy_instance_guid_map ig
 LEFT JOIN tpy_partner_map pm
   ON pm.in_guid = ig.in_guid
 LEFT JOIN tpy_zmi_map zm
-  ON zm.instance = s.instance
- AND zm.f_ibase = s.f_ibase
+  ON zm.instance = ig.instance
+ AND zm.f_ibase = ig.f_ibase
 JOIN tpy_coc_time_map ctm
-  ON ctm.state_fsa_code = LPAD(s.admin_state, 2, '0')
- AND ctm.county_fsa_code = LPAD(s.admin_county, 3, '0')
+  ON ctm.state_fsa_code = LPAD(ig.admin_state, 2, '0')
+ AND ctm.county_fsa_code = LPAD(ig.admin_county, 3, '0')
  AND ctm.time_period_name = CAST(CASE WHEN MONTH(CURRENT_DATE) >= 10 THEN YEAR(CURRENT_DATE) + 1 ELSE YEAR(CURRENT_DATE) END AS STRING)
 """
 

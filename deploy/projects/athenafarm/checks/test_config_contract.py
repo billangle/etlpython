@@ -38,6 +38,7 @@ _GLUE_DIR = _PROJ / "glue"
 _CONFIG_DIR = _PROJ.parent.parent / "config" / "athenafarm"
 _STATE_FILE = _PROJ / "states" / "Main.param.asl.json"
 _TRACT_STATE_FILE = _PROJ / "states" / "TractProducerYear.param.asl.json"
+_EVAL_DATA_FILE = _HERE / "data" / "tpy01_effectiveness_eval.json"
 
 # ---------------------------------------------------------------------------
 # Scripts under test.
@@ -169,6 +170,10 @@ def _state_text() -> str:
 
 def _tract_state_text() -> str:
     return _TRACT_STATE_FILE.read_text(encoding="utf-8")
+
+
+def _eval_data() -> Dict:
+    return json.loads(_EVAL_DATA_FILE.read_text(encoding="utf-8"))
 
 
 # ---------------------------------------------------------------------------
@@ -676,6 +681,50 @@ class TestTractModeDispatchContract(unittest.TestCase):
         self.assertIn("forcing full-load execution", text)
 
 
+class TestTPYSplitEffectivenessContract(unittest.TestCase):
+    """
+    Contract tests for TPY split-stage effectiveness and evaluation data hygiene.
+    """
+
+    def test_tpy01_is_ibsp_only_stage(self):
+        text = _script_text("TPY-01-SpineBase")
+        self.assertIn('spark.table(f"glue_catalog.{SSS_DB}.ibsp")', text)
+        self.assertNotIn('spark.table(f"glue_catalog.{SSS_DB}.ibst")', text)
+        self.assertNotIn('spark.table(f"glue_catalog.{SSS_DB}.ibib")', text)
+        self.assertNotIn('spark.table(f"glue_catalog.{SSS_DB}.ibin")', text)
+
+    def test_tpy02_takes_over_heavy_structure_expansion(self):
+        text = _script_text("TPY-02-InstanceGuidMap")
+        self.assertIn("ibst", text)
+        self.assertIn("ibib", text)
+        self.assertIn("ibin", text)
+        self.assertIn("root_struct", text)
+
+    def test_tpy06_uses_enriched_tpy02_payload(self):
+        text = _script_text("TPY-06-TractCandidateAssemble")
+        self.assertIn("FROM tpy_instance_guid_map ig", text)
+        self.assertNotIn("FROM tpy_spine_base", text)
+
+    def test_effectiveness_eval_data_file_exists(self):
+        self.assertTrue(_EVAL_DATA_FILE.exists(), f"Missing evaluation data file: {_EVAL_DATA_FILE}")
+
+    def test_effectiveness_eval_data_schema(self):
+        d = _eval_data()
+        self.assertIn("goal", d)
+        self.assertIn("baseline_error", d)
+        self.assertIn("validation_runs", d)
+
+        self.assertEqual(d["goal"].get("max_duration_seconds"), 600)
+        self.assertEqual(d["goal"].get("max_duration_minutes"), 10)
+
+        baseline = d["baseline_error"]
+        self.assertEqual(baseline.get("run_state"), "TIMEOUT")
+        self.assertGreater(int(baseline.get("execution_time_seconds", 0)), 600)
+
+        self.assertTrue(isinstance(d["validation_runs"], list))
+        self.assertGreaterEqual(len(d["validation_runs"]), 1)
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -694,6 +743,7 @@ if __name__ == "__main__":
         TestOptionalArgParsingSafety,
         TestRuntimeOptimizationSafety,
         TestTractModeDispatchContract,
+        TestTPYSplitEffectivenessContract,
     ]:
         suite.addTests(loader.loadTestsFromTestCase(cls))
 

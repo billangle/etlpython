@@ -1,0 +1,28 @@
+{
+  "metric": "TPY-01-SpineBase runtime",
+  "goal": {
+    "max_duration_seconds": 600,
+    "max_duration_minutes": 10,
+    "definition": "TPY-01 must complete within 10 minutes."
+  },
+  "baseline_error": {
+    "source": "errors/new-errors-1.txt",
+    "job_name": "FSA-PROD-ATHENAFARM-TPY-01-SpineBase",
+    "run_state": "TIMEOUT",
+    "execution_time_seconds": 28810,
+    "duration_text": "08:02:02.263"
+  },
+  "solution_version": {
+    "date": "2026-03-26",
+    "summary": "TPY-01 reduced to ibsp-only stage; heavy joins moved to TPY-02."
+  },
+  "validation_runs": [
+    {
+      "env": "STEAMDEV",
+      "date": "2026-03-26",
+      "status": "blocked",
+      "reason": "Missing table glue_catalog.athenafarm_prod_raw.ibsp in account catalog",
+      "execution_time_seconds": 38
+    }
+  ]
+}

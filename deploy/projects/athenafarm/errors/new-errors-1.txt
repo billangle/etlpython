@@ -1,0 +1,71 @@
+
+Duration  
+08:02:02.263
+
+{
+  "env": "PROD",
+  "iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+  "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID": "arn:aws:states:us-east-1:253490756794:execution:FSA-PROD-ATHENAFARM-Main:8c3bf8ae-f8d1-4b62-849b-d4817980a4da",
+  "skip_rds_sync": true
+}
+
+{
+  "env": "PROD",
+  "iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+  "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID": "arn:aws:states:us-east-1:253490756794:execution:FSA-PROD-ATHENAFARM-Main:8c3bf8ae-f8d1-4b62-849b-d4817980a4da",
+  "skip_rds_sync": true,
+  "error": {
+    "Error": "States.TaskFailed",
+    "Cause": "{\"AllocatedCapacity\":40,\"Arguments\":{\"--iceberg_warehouse\":\"s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg\",\"--env\":\"PROD\"},\"Attempt\":0,\"CompletedOn\":1774494082416,\"ExecutionTime\":28810,\"GlueVersion\":\"4.0\",\"Id\":\"jr_1a7b00244d79c54c4e57582a8c421bda93122c5330ee312fdaa5b469dd7bdd25\",\"JobMode\":\"SCRIPT\",\"JobName\":\"FSA-PROD-ATHENAFARM-TPY-01-SpineBase\",\"JobRunState\":\"TIMEOUT\",\"LastModifiedOn\":1774494082416,\"LogGroupName\":\"/aws-glue/jobs\",\"MaxCapacity\":40.0,\"NumberOfWorkers\":20,\"PredecessorRuns\":[],\"StartedOn\":1774465264820,\"Timeout\":480,\"WorkerType\":\"G.2X\"}"
+  }
+}
+
+{
+  "resourceType": "glue",
+  "resource": "startJobRun.sync",
+  "error": "States.TaskFailed",
+  "cause": "{\"AllocatedCapacity\":40,\"Arguments\":{\"--iceberg_warehouse\":\"s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg\",\"--env\":\"PROD\"},\"Attempt\":0,\"CompletedOn\":1774494082416,\"ExecutionTime\":28810,\"GlueVersion\":\"4.0\",\"Id\":\"jr_1a7b00244d79c54c4e57582a8c421bda93122c5330ee312fdaa5b469dd7bdd25\",\"JobMode\":\"SCRIPT\",\"JobName\":\"FSA-PROD-ATHENAFARM-TPY-01-SpineBase\",\"JobRunState\":\"TIMEOUT\",\"LastModifiedOn\":1774494082416,\"LogGroupName\":\"/aws-glue/jobs\",\"MaxCapacity\":40.0,\"NumberOfWorkers\":20,\"PredecessorRuns\":[],\"StartedOn\":1774465264820,\"Timeout\":480,\"WorkerType\":\"G.2X\"}"
+}
+{
+  "error": "TractPipelineError",
+  "cause": "Tract producer year split pipeline failed"
+}
+
+26/03/25 19:01:49 INFO BlockManagerInfo: Added broadcast_3_piece0 in memory on 172.39.135.98:35391 (size: 3.4 KiB, free: 11.8 GiB)
+26/03/25 19:01:49 INFO TaskSetManager: Starting task 0.0 in stage 0.0 (TID 0) (172.39.135.98, executor 4, partition 0, PROCESS_LOCAL, 4486 bytes) taskResourceAssignments Map()
+26/03/25 19:01:49 INFO TaskSchedulerImpl: Adding task set 0.0 with 1 tasks resource profile 0
+26/03/25 19:01:49 INFO DAGScheduler: Submitting 1 missing tasks from ResultStage 0 (ParallelCollectionRDD[2] at saveAsTable at NativeMethodAccessorImpl.java:0) (first 15 tasks are for partitions Vector(0))
+26/03/25 19:01:49 INFO SparkContext: Created broadcast 3 from broadcast at DAGScheduler.scala:1570
+26/03/25 19:01:49 INFO BlockManagerInfo: Added broadcast_3_piece0 in memory on 172.35.236.210:33563 (size: 3.4 KiB, free: 11.8 GiB)
+26/03/25 19:01:49 INFO MemoryStore: Block broadcast_3_piece0 stored as bytes in memory (estimated size 3.4 KiB, free 11.8 GiB)
+26/03/25 19:01:49 INFO MemoryStore: Block broadcast_3 stored as values in memory (estimated size 5.9 KiB, free 11.8 GiB)
+26/03/25 19:01:49 INFO DAGScheduler: Submitting ResultStage 0 (ParallelCollectionRDD[2] at saveAsTable at NativeMethodAccessorImpl.java:0), which has no missing parents
+26/03/25 19:01:49 INFO DAGScheduler: Missing parents: List()
+26/03/25 19:01:49 INFO DAGScheduler: Parents of final stage: List()
+26/03/25 19:01:49 INFO DAGScheduler: Got job 0 (saveAsTable at NativeMethodAccessorImpl.java:0) with 1 output partitions
+26/03/25 19:01:49 INFO DAGScheduler: Final stage: ResultStage 0 (saveAsTable at NativeMethodAccessorImpl.java:0)
+26/03/25 19:01:49 INFO SparkContext: Starting job: saveAsTable at NativeMethodAccessorImpl.java:0
+26/03/25 19:01:49 INFO AtomicCreateTableAsSelectExec: Start processing data source write support: IcebergBatchWrite(table=athenafarm_prod_gold.tpy_spine_base, format=PARQUET). The input RDD has 1 partitions.
+26/03/25 19:01:49 INFO SparkContext: Created broadcast 2 from broadcast at SparkWrite.java:187
+26/03/25 19:01:49 INFO BlockManagerInfo: Added broadcast_2_piece0 in memory on 172.35.236.210:33563 (size: 2.5 KiB, free: 11.8 GiB)
+26/03/25 19:01:49 INFO MemoryStore: Block broadcast_2_piece0 stored as bytes in memory (estimated size 2.5 KiB, free 11.8 GiB)
+26/03/25 19:01:48 INFO MemoryStore: Block broadcast_2 stored as values in memory (estimated size 32.0 KiB, free 11.8 GiB)
+26/03/25 19:01:48 INFO BaseMetastoreCatalog: Table properties enforced at catalog level through catalog properties: {}
+26/03/25 19:01:48 INFO CatalogUtil: Loading custom FileIO implementation: org.apache.iceberg.aws.s3.S3FileIO
+26/03/25 19:01:48 INFO BaseMetastoreCatalog: Table properties set at catalog level through catalog properties: {}
+26/03/25 19:01:48 INFO BlockManagerMasterEndpoint: Registering block manager 172.39.135.98:35391 with 11.8 GiB RAM, BlockManagerId(4, 172.39.135.98, 35391, None)
+26/03/25 19:01:47 INFO ExecutorTaskManagement: connected executor 4
+26/03/25 19:01:47 INFO ExecutorEventListener: Got executor added event for 4 @ 1774465307916
+26/03/25 19:01:47 INFO JESSchedulerBackend$JESAsSchedulerBackendEndpoint: Registered executor NettyRpcEndpointRef(spark-client://Executor) (172.39.135.98:46210) with ID 4,  ResourceProfileId 0
+26/03/25 19:01:47 INFO BaseMetastoreCatalog: Table loaded by catalog: glue_catalog.athenafarm_prod_raw.ibib
+26/03/25 19:01:47 INFO BaseMetastoreTableOperations: Refreshing table metadata from new version: s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg/athenafarm_prod_raw.db/ibib/metadata/00043-ebcb2af5-23cd-46fa-8db8-1a0cbac39b81.metadata.json
+26/03/25 19:01:47 INFO CatalogUtil: Loading custom FileIO implementation: org.apache.iceberg.aws.s3.S3FileIO
+26/03/25 19:01:47 INFO BaseMetastoreCatalog: Table loaded by catalog: glue_catalog.athenafarm_prod_raw.ibst
+26/03/25 19:01:47 INFO BaseMetastoreTableOperations: Refreshing table metadata from new version: s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg/athenafarm_prod_raw.db/ibst/metadata/00043-a2059936-7c9d-497b-b601-9f9b0fa623a9.metadata.json
+26/03/25 19:01:46 WARN package: Truncated the string representation of a plan since it was too large. This behavior can be adjusted by setting 'spark.sql.debug.maxToStringFields'.
+26/03/25 19:01:44 INFO BaseMetastoreCatalog: Table loaded by catalog: glue_catalog.athenafarm_prod_raw.ibsp
+26/03/25 19:01:42 INFO BaseMetastoreTableOperations: Refreshing table metadata from new version: s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg/athenafarm_prod_raw.db/ibsp/metadata/00044-d9db2ac4-538c-44a3-a1a2-2580ddd54635.metadata.json
+26/03/25 19:01:42 INFO CatalogUtil: Loading custom FileIO implementation: org.apache.iceberg.aws.s3.S3FileIO
+26/03/25 19:01:39 INFO CatalogUtil: Loading custom FileIO implementation: org.apache.iceberg.aws.s3.S3FileIO
+26/03/25 19:01:38 INFO ExecutorTaskManagement: executor task g-1efa6bd490a3c22d10fe4f2d0968bb488f2e04da created for executor 19
+26/03/25 19:01:38 INFO TaskGroupInterface: createChildTask API response code 200

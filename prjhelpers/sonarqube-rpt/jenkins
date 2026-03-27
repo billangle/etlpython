@@ -2,18 +2,58 @@ pipeline {
     agent any
 
     environment {
-        SONAR_HOST_URL = 'https://sonarqube.example.com'
-        SONAR_PROJECT_KEY = 'your_project_key'
+        SONAR_HOST_URL = 'https://sonarqube-dev.dl.usda.gov/sonarqube'
+        SONAR_PROJECT_KEY = 'FPAC-WEBEQ-DataPipeline'
         SONAR_BRANCH = 'main'
+        SONARQUBE_URL = 'https://sonarqube-dev.dl.usda.gov/sonarqube'
+        SONARQUBE_PROJECT_KEY = 'FPAC-WEBEQ-DataPipeline'
+        SONARQUBE_TOKEN_NAME='FPAC-WEBEQ-DataPipelineTOKEN'
+        SONAR_TOKEN='sqp_a98ec3dba0a40b3f2b315b0bb34f0fe31975f69c'
     }
 
     stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+ 
+        stage('Checkout Code') {
+            steps {
+                echo 'Checking out code from Bitbucket'
+                script {
+                    checkout scm: [
+                        $class: 'GitSCM',
+                        branches: [[name: 'main']],
+                        userRemoteConfigs: [[
+                            url: 'https://bitbucket.fpac.usda.gov/scm/fsadm/fpac-py-deploy.git', 
+                            credentialsId: 'BitBucketRepoAccess'
+                        ]]
+                    ]
+                }
+            }
+        }
+
+        
+        stage('Install') {
+            steps {
+                sh '''
+                cd prjhelpers/sonarqube-rpt;
+                python3 -m venv .venv
+                . .venv/bin/activate
+                pip install -U pip
+                pip install -r requirements.txt
+                '''
+            }
+        }
+
         stage('Generate SonarQube PDF Report') {
             steps {
-                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                withCredentials([string(credentialsId: 'SonarQubeToken', variable: 'SONAR_TOKEN')]) {
                     sh '''
-                        set -euo pipefail
-                        python3 -m pip install --user requests reportlab
+                        cd prjhelpers/sonarqube-rpt;
+                        . .venv/bin/activate
+                       
                         python3 sonarqube_pdf_report.py \
                           --project-key "$SONAR_PROJECT_KEY" \
                           --branch "$SONAR_BRANCH" \

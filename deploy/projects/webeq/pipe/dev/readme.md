@@ -1,1 +1,0 @@
-[Jenkins DEV  Deploy Pipeline] (https://jenkinsfsa-dev.dl.usda.gov/job/BuildProcess/job/DeployWEBEQ/)

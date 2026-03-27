@@ -15,3 +15,20 @@
     "CompressionType": "NONE"
   }
 }
+
+
+Current:
+{
+    "ServiceAccessRoleArn": "arn:aws:iam::532577198715:role/usda-fpac-fsa-prd-s3-dms-dart-role",
+    "CsvRowDelimiter": "\\n",
+    "CsvDelimiter": "|",
+    "BucketFolder": "dairy_margin_coverage",
+    "BucketName": "gov-fpac-fsaprd-dart",
+    "CompressionType": "NONE",
+    "DataFormat": "parquet",
+    "EnableStatistics": true,
+    "TimestampColumnName": "Dart_FileDate",
+    "DatePartitionEnabled": false,
+    "AddColumnName": true,
+    "CdcMaxBatchInterval": 28800
+}

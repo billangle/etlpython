@@ -1,5 +1,0 @@
-VPC: vpc-05f9625eecaabbfd4
-
-Subnets: subnet-07fe1e0a3104aa512, subnet-0757d215da1902198 
-
-security Groups: sg-06e3bf9b59cf6be6a, sg-02bc63ec00da5f850, sg-0906c3d7352c5889e 

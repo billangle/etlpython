@@ -1,0 +1,121 @@
+TPY04ZmiMap
+
+Duration  
+08:02:42.477
+
+
+
+{
+  "env": "PROD",
+  "iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+  "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID": "arn:aws:states:us-east-1:253490756794:execution:FSA-PROD-ATHENAFARM-Main:8c3bf8ae-f8d1-4b62-849b-d4817980a4da",
+  "skip_rds_sync": true,
+  "tpy_01": {
+    "AllocatedCapacity": 40,
+    "Arguments": {
+      "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+      "--env": "PROD"
+    },
+    "Attempt": 0,
+    "CompletedOn": 1774531483318,
+    "ExecutionTime": 231,
+    "GlueVersion": "4.0",
+    "Id": "jr_9beabcb9393dd636dfc267170721eb7d3b09d6a4109cbdcb8febc1b8fd792918",
+    "JobMode": "SCRIPT",
+    "JobName": "FSA-PROD-ATHENAFARM-TPY-01-SpineBase",
+    "JobRunState": "SUCCEEDED",
+    "LastModifiedOn": 1774531483318,
+    "LogGroupName": "/aws-glue/jobs",
+    "MaxCapacity": 40,
+    "NumberOfWorkers": 20,
+    "PredecessorRuns": [],
+    "StartedOn": 1774531245204,
+    "Timeout": 480,
+    "WorkerType": "G.2X"
+  },
+  "tpy_02": {
+    "AllocatedCapacity": 40,
+    "Arguments": {
+      "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+      "--env": "PROD"
+    },
+    "Attempt": 0,
+    "CompletedOn": 1774535547227,
+    "ExecutionTime": 3999,
+    "GlueVersion": "4.0",
+    "Id": "jr_154b398afda76c47af1ac81faf61c1e0b5ab465cca9f182597bfb6f7e0d78875",
+    "JobMode": "SCRIPT",
+    "JobName": "FSA-PROD-ATHENAFARM-TPY-02-InstanceGuidMap",
+    "JobRunState": "SUCCEEDED",
+    "LastModifiedOn": 1774535547227,
+    "LogGroupName": "/aws-glue/jobs",
+    "MaxCapacity": 40,
+    "NumberOfWorkers": 20,
+    "PredecessorRuns": [],
+    "StartedOn": 1774531541275,
+    "Timeout": 480,
+    "WorkerType": "G.2X"
+  }
+}
+{
+  "JobRunId": "jr_2b83bd9a5f68a9d906346db6a95df729f8ab36f128823038ccc48bb21fa5fa27",
+  "SdkHttpMetadata": {
+    "AllHttpHeaders": {
+      "Cache-Control": [
+        "no-cache"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "x-amzn-RequestId": [
+        "3bc0a06b-b713-4f77-8cc2-c944959423ac"
+      ],
+      "Content-Length": [
+        "82"
+      ],
+      "Date": [
+        "Thu, 26 Mar 2026 14:34:10 GMT"
+      ],
+      "Content-Type": [
+        "application/x-amz-json-1.1"
+      ]
+    },
+    "HttpHeaders": {
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "Content-Length": "82",
+      "Content-Type": "application/x-amz-json-1.1",
+      "Date": "Thu, 26 Mar 2026 14:34:10 GMT",
+      "x-amzn-RequestId": "3bc0a06b-b713-4f77-8cc2-c944959423ac"
+    },
+    "HttpStatusCode": 200
+  },
+  "SdkResponseMetadata": {
+    "RequestId": "3bc0a06b-b713-4f77-8cc2-c944959423ac"
+  },
+  "JobName": "FSA-PROD-ATHENAFARM-TPY-04-ZmiMap"
+}
+{
+  "AllocatedCapacity": 40,
+  "Arguments": {
+    "--iceberg_warehouse": "s3://c108-prod-fpacfsa-final-zone/athenafarm/iceberg",
+    "--env": "PROD"
+  },
+  "Attempt": 0,
+  "CompletedOn": 1774564467220,
+  "ExecutionTime": 28810,
+  "GlueVersion": "4.0",
+  "Id": "jr_2b83bd9a5f68a9d906346db6a95df729f8ab36f128823038ccc48bb21fa5fa27",
+  "JobMode": "SCRIPT",
+  "JobName": "FSA-PROD-ATHENAFARM-TPY-04-ZmiMap",
+  "JobRunState": "TIMEOUT",
+  "LastModifiedOn": 1774564467220,
+  "LogGroupName": "/aws-glue/jobs",
+  "MaxCapacity": 40,
+  "NumberOfWorkers": 20,
+  "PredecessorRuns": [],
+  "StartedOn": 1774535650721,
+  "Timeout": 480,
+  "WorkerType": "G.2X"
+}
+

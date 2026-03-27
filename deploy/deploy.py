@@ -18,7 +18,6 @@ from projects.nps.deploy import deploy as nps_deploy
 from projects.athenafarm.deploy import deploy as athenafarm_deploy
 from projects.cnsv.deploy import deploy as cnsv_deploy
 from projects.cps.deploy import deploy as cps_deploy
-from projects.webeq.deploy import deploy as webeq_deploy
 from projects.webequity.deploy import deploy as webequity_deploy
 from projects.dmc.deploy import deploy as dmc_deploy
 from projects.ecp.deploy import deploy as ecp_deploy
@@ -28,7 +27,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
     ap.add_argument("--region", required=True)
-    ap.add_argument("--project-type", default="fpac", choices=["fpac","farmrec","flpids","tsthooks","cars","carsdm","sbsd","pmrds","fmmi","cnsvbase","cnsvmaint","cnsvpymts","nps","athenafarm","cnsv","cps","webeq","webequity","dmc","ecp"])
+    ap.add_argument("--project-type", default="fpac", choices=["fpac","farmrec","flpids","tsthooks","cars","carsdm","sbsd","pmrds","fmmi","cnsvbase","cnsvmaint","cnsvpymts","nps","athenafarm","cnsv","cps","webequity","dmc","ecp"])
     args = ap.parse_args()
 
     cfg = read_json(args.config)
@@ -65,8 +64,6 @@ def main() -> int:
         summary = cnsv_deploy(cfg, args.region)
     elif args.project_type == "cps":
         summary = cps_deploy(cfg, args.region)
-    elif args.project_type == "webeq":
-        summary = webeq_deploy(cfg, args.region)
     elif args.project_type == "webequity":
         summary = webequity_deploy(cfg, args.region)
     elif args.project_type == "dmc":

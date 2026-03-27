@@ -7,8 +7,8 @@ pipeline {
         SONAR_BRANCH = 'main'
         SONARQUBE_URL = 'https://sonarqube-dev.dl.usda.gov/sonarqube'
         SONARQUBE_PROJECT_KEY = 'FPAC-WEBEQ-DataPipeline'
-        SONARQUBE_TOKEN_NAME='FPAC-WEBEQ-DataPipelineTOKEN'
-        SONAR_TOKEN='sqp_a98ec3dba0a40b3f2b315b0bb34f0fe31975f69c'
+        SONARQUBE_TOKEN_NAME='WebAPI-TOKEN'
+        SONAR_TOKEN='squ_00b3c770f619f23369b5553615d58d0b3e5e3626'
     }
 
     stages {

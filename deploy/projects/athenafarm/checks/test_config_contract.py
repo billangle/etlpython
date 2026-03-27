@@ -3,6 +3,10 @@
 Unit tests: athenafarm Glue script / config contract
 ================================================================================
 
+Version History:
+    - 2026-03-27: Added TPY-04 runtime-hotfix contract coverage and evaluation
+        data assertions for new-errors-2 timeout remediation.
+
 Guards against the class of regressions that caused errors-10.txt and earlier:
   1. Stale database name defaults hardcoded in scripts (e.g. "sss", "farm_ref")
   2. Config JobParameters referencing stale database names
@@ -39,6 +43,7 @@ _CONFIG_DIR = _PROJ.parent.parent / "config" / "athenafarm"
 _STATE_FILE = _PROJ / "states" / "Main.param.asl.json"
 _TRACT_STATE_FILE = _PROJ / "states" / "TractProducerYear.param.asl.json"
 _EVAL_DATA_FILE = _HERE / "data" / "tpy01_effectiveness_eval.json"
+_EVAL_DATA_TPY04_FILE = _HERE / "data" / "tpy04_effectiveness_eval.json"
 
 # ---------------------------------------------------------------------------
 # Scripts under test.
@@ -174,6 +179,10 @@ def _tract_state_text() -> str:
 
 def _eval_data() -> Dict:
     return json.loads(_EVAL_DATA_FILE.read_text(encoding="utf-8"))
+
+
+def _eval_data_tpy04() -> Dict:
+    return json.loads(_EVAL_DATA_TPY04_FILE.read_text(encoding="utf-8"))
 
 
 # ---------------------------------------------------------------------------
@@ -723,6 +732,30 @@ class TestTPYSplitEffectivenessContract(unittest.TestCase):
 
         self.assertTrue(isinstance(d["validation_runs"], list))
         self.assertGreaterEqual(len(d["validation_runs"]), 1)
+
+    def test_tpy04_contains_key_pruned_staged_joins(self):
+        text = _script_text("TPY-04-ZmiMap")
+        self.assertIn("guid_keys", text)
+        self.assertIn("zd_keys", text)
+        self.assertIn("fragment_keys", text)
+        self.assertIn("zmi_filtered", text)
+
+    def test_tpy04_has_version_history_comment_for_hotfix(self):
+        text = _script_text("TPY-04-ZmiMap")
+        self.assertIn("Version History", text)
+        self.assertIn("2026-03-27", text)
+        self.assertIn("new-errors-2 timeout", text)
+
+    def test_tpy04_effectiveness_eval_data_file_exists(self):
+        self.assertTrue(_EVAL_DATA_TPY04_FILE.exists(), f"Missing evaluation data file: {_EVAL_DATA_TPY04_FILE}")
+
+    def test_tpy04_effectiveness_eval_data_schema(self):
+        d = _eval_data_tpy04()
+        self.assertEqual(d.get("metric"), "TPY-04-ZmiMap runtime")
+        self.assertEqual(d.get("goal", {}).get("max_duration_minutes"), 15)
+        self.assertEqual(d.get("baseline_error", {}).get("run_state"), "TIMEOUT")
+        self.assertGreater(int(d.get("baseline_error", {}).get("execution_time_seconds", 0)), 3600)
+        self.assertTrue(isinstance(d.get("validation_runs"), list))
 
 
 # ---------------------------------------------------------------------------

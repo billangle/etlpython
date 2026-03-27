@@ -10,6 +10,23 @@ for the full architecture rationale.
 
 ## Change Log (Errors and Requests)
 
+### 2026-03-27
+
+- Request: address `errors/new-errors-2.txt` where runtime must be measured in
+  minutes, not hours.
+- Error evidence: `FSA-PROD-ATHENAFARM-TPY-04-ZmiMap` timed out after
+  `ExecutionTime=28810` (~8h 2m).
+- Change applied:
+  - `glue/TPY-04-ZmiMap.py` refactored to key-pruned staged joins:
+    `guid_keys -> zd_keys -> fragment_keys -> zmi_filtered`.
+  - Added adaptive/skew/shuffle runtime settings in TPY-04.
+  - Added/updated source-level version-history comments for this fix path.
+  - Added effectiveness data file:
+    `checks/data/tpy04_effectiveness_eval.json`.
+  - Added contract tests in
+    `checks/test_config_contract.py` for TPY-04 optimization structure and
+    evaluation-data schema, including version-comment enforcement.
+
 ### 2026-03-26
 
 - Request: reduce `TPY-01-SpineBase` runtime to less than 10 minutes after

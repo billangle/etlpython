@@ -1,0 +1,20 @@
+{
+  "metric": "TPY-04-ZmiMap runtime",
+  "goal": {
+    "max_duration_seconds": 900,
+    "max_duration_minutes": 15,
+    "definition": "TPY-04 should complete in minutes, not hours."
+  },
+  "baseline_error": {
+    "source": "errors/new-errors-2.txt",
+    "job_name": "FSA-PROD-ATHENAFARM-TPY-04-ZmiMap",
+    "run_state": "TIMEOUT",
+    "execution_time_seconds": 28810,
+    "duration_text": "08:02:42.477"
+  },
+  "solution_version": {
+    "date": "2026-03-27",
+    "summary": "Added key-pruned staged joins in TPY-04 (guid_keys -> zd_keys -> fragment_keys -> zmi_filtered) and adaptive/skew join settings."
+  },
+  "validation_runs": []
+}

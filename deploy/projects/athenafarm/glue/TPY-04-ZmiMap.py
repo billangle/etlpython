@@ -1,4 +1,11 @@
-"""TPY-04-ZmiMap: resolve ZMI exception and producer date attributes."""
+"""TPY-04-ZmiMap: resolve ZMI exception and producer date attributes.
+
+Version History:
+    - 2026-03-25: Initial split-pipeline implementation.
+    - 2026-03-27: Performance hotfix for new-errors-2 timeout; added key-pruned
+        staged joins (guid_keys -> zd_keys -> fragment_keys) to reduce shuffle and
+        large-domain joins that pushed runtime into multi-hour execution.
+"""
 
 import sys
 from awsglue.utils import getResolvedOptions
@@ -30,6 +37,10 @@ conf.set("spark.sql.catalog.glue_catalog", "org.apache.iceberg.spark.SparkCatalo
 conf.set("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws.glue.GlueCatalog")
 conf.set("spark.sql.catalog.glue_catalog.io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
 conf.set("spark.sql.catalog.glue_catalog.warehouse", args["iceberg_warehouse"])
+conf.set("spark.sql.adaptive.enabled", "true")
+conf.set("spark.sql.adaptive.skewJoin.enabled", "true")
+conf.set("spark.sql.shuffle.partitions", _opt("shuffle_partitions", "1000"))
+conf.set("spark.sql.autoBroadcastJoinThreshold", _opt("auto_broadcast_threshold", str(64 * 1024 * 1024)))
 
 sc = SparkContext(conf=conf)
 glue_ctx = GlueContext(sc)
@@ -42,49 +53,78 @@ for t in ["z_ibase_comp_detail", "comm_pr_frg_rel", "zmi_farm_partn"]:
     spark.table(f"glue_catalog.{SSS_DB}.{t}").createOrReplaceTempView(t)
 
 sql = """
+WITH guid_keys AS (
+    SELECT DISTINCT
+        CAST(gm.instance AS STRING) AS instance,
+        CAST(gm.f_ibase AS STRING) AS f_ibase
+    FROM guid_map gm
+),
+zd_keys AS (
+    SELECT DISTINCT
+        g.instance,
+        g.f_ibase,
+        zd.prod_objnr
+    FROM guid_keys g
+    JOIN z_ibase_comp_detail zd
+        ON CAST(zd.instance AS STRING) = g.instance
+     AND CAST(zd.ibase AS STRING) = g.f_ibase
+    WHERE zd.prod_objnr IS NOT NULL
+),
+fragment_keys AS (
+    SELECT DISTINCT
+        z.instance,
+        z.f_ibase,
+        cf.fragment_guid
+    FROM zd_keys z
+    JOIN comm_pr_frg_rel cf
+        ON cf.product_guid = z.prod_objnr
+    WHERE cf.fragment_guid IS NOT NULL
+),
+zmi_filtered AS (
+    SELECT
+        fk.instance,
+        fk.f_ibase,
+        zm.*
+    FROM fragment_keys fk
+    JOIN zmi_farm_partn zm
+        ON zm.frg_guid = fk.fragment_guid
+)
 SELECT DISTINCT
-  gm.instance,
-  gm.f_ibase,
-  zm.ZZK0011,
-  CASE TRIM(zm.ZZ0011)
+    zf.instance,
+    zf.f_ibase,
+    zf.ZZK0011,
+    CASE TRIM(zf.ZZ0011)
       WHEN 'AE' THEN 41 WHEN 'AR' THEN 40 WHEN 'HA' THEN 40
       WHEN 'NP' THEN 45 WHEN 'NW' THEN 45 WHEN 'TP' THEN 44
       WHEN 'TR' THEN 44 ELSE NULL
   END AS tract_producer_cw_exception_code,
-  CASE TRIM(zm.ZZ0010)
+    CASE TRIM(zf.ZZ0010)
       WHEN 'GF' THEN 31 WHEN 'EH' THEN 34 WHEN 'AE' THEN 33
       WHEN 'NAR' THEN 33 WHEN 'AR' THEN 32 WHEN 'HA' THEN 32
       WHEN 'LT' THEN 30 ELSE NULL
   END AS tract_producer_hel_exception_code,
-  CASE TRIM(zm.ZZ0012)
+    CASE TRIM(zf.ZZ0012)
       WHEN 'AR' THEN 52 WHEN 'HA' THEN 52 WHEN 'NAR' THEN 50
       WHEN 'AE' THEN 50 WHEN 'GF' THEN 51 ELSE NULL
   END AS tract_producer_pcw_exception_code,
-  CASE TRIM(zm.ZZ0017)
+    CASE TRIM(zf.ZZ0017)
       WHEN 'WR' THEN 43 WHEN 'GF' THEN 42 WHEN 'NAR' THEN 41
       WHEN 'AR' THEN 40 WHEN 'NP' THEN 45 WHEN 'TP' THEN 44 ELSE NULL
   END AS tract_producer_rma_cw_exception_code,
-  CASE TRIM(zm.ZZ0016)
+    CASE TRIM(zf.ZZ0016)
       WHEN 'GF' THEN 31 WHEN 'EH' THEN 34 WHEN 'NAR' THEN 33
       WHEN 'AR' THEN 32 WHEN 'LT' THEN 30 ELSE NULL
   END AS tract_producer_rma_hel_exception_code,
-  CASE TRIM(zm.ZZ0018)
+    CASE TRIM(zf.ZZ0018)
       WHEN 'AR' THEN 52 WHEN 'HA' THEN 52 WHEN 'NAR' THEN 50
       WHEN 'AE' THEN 50 WHEN 'GF' THEN 51 ELSE NULL
   END AS tract_producer_rma_pcw_exception_code,
-  CASE WHEN zm.ZZ0013 IS NOT NULL THEN TO_DATE(CAST(zm.ZZ0013 AS STRING), 'yyyyMMddHHmmss') ELSE NULL END AS hel_appeals_exhausted_date,
-  CASE WHEN zm.ZZ0014 IS NOT NULL THEN TO_DATE(CAST(zm.ZZ0014 AS STRING), 'yyyyMMddHHmmss') ELSE NULL END AS cw_appeals_exhausted_date,
-  CASE WHEN zm.ZZ0015 IS NOT NULL THEN TO_DATE(CAST(zm.ZZ0015 AS STRING), 'yyyyMMddHHmmss') ELSE NULL END AS pcw_appeals_exhausted_date,
-  CASE WHEN zm.VALID_FROM IS NOT NULL AND zm.VALID_FROM <> 0 THEN TO_DATE(CAST(zm.VALID_FROM AS STRING), 'yyyyMMddHHmmss') ELSE NULL END AS producer_involvement_start_date,
-  CASE WHEN zm.VALID_TO IS NOT NULL AND zm.VALID_TO <> 0 THEN TO_DATE(CAST(zm.VALID_TO AS STRING), 'yyyyMMddHHmmss') ELSE NULL END AS producer_involvement_end_date
-FROM guid_map gm
-JOIN z_ibase_comp_detail zd
-  ON CAST(zd.instance AS STRING) = gm.instance
- AND CAST(zd.ibase AS STRING) = gm.f_ibase
-JOIN comm_pr_frg_rel cf
-  ON cf.product_guid = zd.prod_objnr
-JOIN zmi_farm_partn zm
-  ON zm.frg_guid = cf.fragment_guid
+    CASE WHEN zf.ZZ0013 IS NOT NULL THEN TO_DATE(CAST(zf.ZZ0013 AS STRING), 'yyyyMMddHHmmss') ELSE NULL END AS hel_appeals_exhausted_date,
+    CASE WHEN zf.ZZ0014 IS NOT NULL THEN TO_DATE(CAST(zf.ZZ0014 AS STRING), 'yyyyMMddHHmmss') ELSE NULL END AS cw_appeals_exhausted_date,
+    CASE WHEN zf.ZZ0015 IS NOT NULL THEN TO_DATE(CAST(zf.ZZ0015 AS STRING), 'yyyyMMddHHmmss') ELSE NULL END AS pcw_appeals_exhausted_date,
+    CASE WHEN zf.VALID_FROM IS NOT NULL AND zf.VALID_FROM <> 0 THEN TO_DATE(CAST(zf.VALID_FROM AS STRING), 'yyyyMMddHHmmss') ELSE NULL END AS producer_involvement_start_date,
+    CASE WHEN zf.VALID_TO IS NOT NULL AND zf.VALID_TO <> 0 THEN TO_DATE(CAST(zf.VALID_TO AS STRING), 'yyyyMMddHHmmss') ELSE NULL END AS producer_involvement_end_date
+FROM zmi_filtered zf
 """
 
 out = spark.sql(sql)

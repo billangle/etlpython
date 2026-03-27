@@ -57,6 +57,10 @@ pipeline {
                         python3 sonarqube_pdf_report.py \
                           --project-key "$SONAR_PROJECT_KEY" \
                           --branch "$SONAR_BRANCH" \
+                          --token "$SONAR_TOKEN" \
+                          --host-url "$SONAR_HOST_URL" \
+                          --debug-http \
+                          --debug-log-file "sonarqube_report_debug.log" \
                           --output sonar-report.pdf
                     '''
                 }

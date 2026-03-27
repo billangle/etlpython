@@ -1,0 +1,17 @@
+{
+  "EndpointIdentifier": "my-s3-target",
+  "EndpointType": "target",
+  "EngineName": "s3",
+  "S3Settings": {
+    "BucketName": "your-bucket",
+    "BucketFolder": "dms/output",
+
+    "CdcPath": "cdc",
+
+    "CdcMaxBatchInterval": 86400,
+    "CdcMinFileSize": 10485760,
+
+    "DataFormat": "csv",
+    "CompressionType": "NONE"
+  }
+}

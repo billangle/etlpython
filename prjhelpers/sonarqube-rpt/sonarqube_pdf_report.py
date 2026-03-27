@@ -3,22 +3,28 @@
 Generate a PDF report for a SonarQube project.
 
 Tested design target: SonarQube 9.9.x
-Auth: SonarQube user token via HTTP basic auth with token as username and empty password.
+Auth: SonarQube HTTP Basic authentication.
+    - token mode: token as username, empty password
+    - login mode: username/password via /api/authentication/login
 
 Version History:
     - 2026-03-27 v1.1
         - Disabled TLS certificate verification for requests to support internal/self-signed certs.
-        - Added auth mode support (`auto`, `bearer`, `basic`) with runtime fallback.
+        - Added auth diagnostics and redacted HTTP logging.
         - Added HTTP debug logging with redacted Authorization values.
         - Added persistent debug log file output (`--debug-log-file`).
-        - Added forced two-request auth probe in debug mode (Bearer then Basic).
     - 2026-03-27 v1.2
         - Added token fingerprint proof controls:
             - `--print-token-fingerprint`
             - `--expected-token-fingerprint`
         - Added fingerprint-only execution path (no project/output required).
         - Added explicit insufficient-privileges diagnostic including auth mode and token fingerprint.
-        - Added auto-mode auth pinning to successful probe mode for subsequent API requests.
+    - 2026-03-27 v1.3
+        - Removed Bearer/auto auth flow and validate-probe dependency.
+        - Added explicit Basic-only auth modes:
+            - `--auth-mode token` (token + empty password)
+            - `--auth-mode login` (username/password via /api/authentication/login)
+        - Added auth-path startup logging and login endpoint response logging.
 
 Usage:
   export SONAR_HOST_URL="https://your-sonarqube.example.com"
@@ -62,9 +68,11 @@ DEFAULT_TIMEOUT = 30
 @dataclass
 class SonarConfig:
     host_url: str
-    token: str
+    token: Optional[str] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
     timeout: int = DEFAULT_TIMEOUT
-    auth_mode: str = "auto"
+    auth_mode: str = "token"
     debug_http: bool = False
     debug_log_file: Optional[str] = None
 
@@ -78,13 +86,24 @@ class SonarQubeClient:
         # Allow self-signed/invalid certs for SonarQube instances using non-public PKI.
         self.session.verify = False
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-        self._preferred_auth_mode: Optional[str] = None
+        self._configure_auth()
 
     def _token_fingerprint(self) -> str:
+        if not self.cfg.token:
+            return "N/A"
         return hashlib.sha256(self.cfg.token.encode("utf-8")).hexdigest()[:12]
 
     def token_fingerprint(self) -> str:
         return self._token_fingerprint()
+
+    def _configure_auth(self) -> None:
+        mode = self.cfg.auth_mode.lower().strip()
+        if mode == "token":
+            self.session.auth = (self.cfg.token or "", "")
+        elif mode == "login":
+            self.session.auth = None
+        else:
+            raise ValueError(f"Unsupported auth mode: {self.cfg.auth_mode}")
 
     def _log_http(self, message: str) -> None:
         if self.cfg.debug_http:
@@ -101,123 +120,55 @@ class SonarQubeClient:
             safe["Authorization"] = "<REDACTED>"
         return safe
 
-    def _auth_attempts(self) -> List[Dict[str, Any]]:
-        mode = self.cfg.auth_mode.lower().strip()
-        bearer = {
-            "name": "bearer",
-            "auth": None,
-            "headers": {"Authorization": f"Bearer {self.cfg.token}"},
+    def login_with_password(self) -> None:
+        if self.cfg.auth_mode != "login":
+            return
+        url = f"{self.base}/api/authentication/login"
+        payload = {
+            "login": self.cfg.username or "",
+            "password": self.cfg.password or "",
         }
-        basic = {
-            "name": "basic",
-            "auth": (self.cfg.token, ""),
-            "headers": {},
-        }
-
-        if mode == "bearer":
-            return [bearer]
-        if mode == "basic":
-            return [basic]
-        if self._preferred_auth_mode == "bearer":
-            return [bearer]
-        if self._preferred_auth_mode == "basic":
-            return [basic]
-        return [bearer, basic]
-
-    def debug_auth_probe(self) -> None:
-        """Always run two auth requests (bearer and basic) to diagnose 401/403 issues."""
-        path = "/api/authentication/validate"
-        url = f"{self.base}{path}"
-        attempts = [
-            {"name": "bearer", "auth": None, "headers": {"Authorization": f"Bearer {self.cfg.token}"}},
-            {"name": "basic", "auth": (self.cfg.token, ""), "headers": {}},
-        ]
-
         self._log_http(
-            f"auth probe start host={self.base} token_fingerprint={self._token_fingerprint()} "
-            f"verify_tls={self.session.verify}"
+            f"auth login request mode=login method=POST url={url} payload={{'login': '<REDACTED>', 'password': '<REDACTED>'}}"
         )
-
-        for attempt in attempts:
-            req_headers = dict(self.session.headers)
-            req_headers.update(attempt["headers"])
-            self._log_http(
-                f"probe request mode={attempt['name']} method=GET url={url} "
-                f"params={{}} headers={self._redacted_headers(req_headers)}"
-            )
-            resp = self.session.get(
-                url,
-                timeout=self.cfg.timeout,
-                auth=attempt["auth"],
-                headers=req_headers,
-            )
-            is_valid = False
-            try:
-                payload = resp.json()
-                is_valid = bool(payload.get("valid"))
-            except Exception:
-                payload = None
-            self._log_http(
-                f"probe response mode={attempt['name']} status={resp.status_code} valid={is_valid} body={resp.text[:800]}"
-            )
-            if resp.status_code == 200 and is_valid:
-                self._preferred_auth_mode = attempt["name"]
-                self._log_http(f"auth probe selected mode={self._preferred_auth_mode}")
-                break
+        resp = self.session.post(url, data=payload, timeout=self.cfg.timeout)
+        self._log_http(f"auth login response mode=login status={resp.status_code} body={resp.text[:800]}")
+        resp.raise_for_status()
+        try:
+            body = resp.json()
+            if isinstance(body, dict) and body.get("errors"):
+                raise RuntimeError(f"SonarQube login API error: {body['errors']}")
+        except ValueError:
+            # Some installations return empty body on successful login.
+            pass
 
     def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         url = f"{self.base}{path}"
-        last_resp: Optional[requests.Response] = None
-        attempts = self._auth_attempts()
+        mode = self.cfg.auth_mode
+        self._log_http(
+            f"request mode={mode} method=GET url={url} params={params or {}} "
+            f"headers={self._redacted_headers(dict(self.session.headers))} "
+            f"token_fingerprint={self._token_fingerprint()}"
+        )
+        resp = self.session.get(
+            url,
+            params=params or {},
+            timeout=self.cfg.timeout,
+        )
+        self._log_http(f"response mode={mode} status={resp.status_code} body={resp.text[:1200]}")
 
-        for idx, attempt in enumerate(attempts):
-            req_headers = dict(self.session.headers)
-            req_headers.update(attempt["headers"])
-            self._log_http(
-                f"request mode={attempt['name']} method=GET url={url} params={params or {}} "
-                f"headers={self._redacted_headers(req_headers)} token_fingerprint={self._token_fingerprint()}"
-            )
-            resp = self.session.get(
-                url,
-                params=params or {},
-                timeout=self.cfg.timeout,
-                auth=attempt["auth"],
-                headers=req_headers,
-            )
-            last_resp = resp
-            self._log_http(
-                f"response mode={attempt['name']} status={resp.status_code} body={resp.text[:1200]}"
-            )
-
-            # If auth mode is wrong, try next strategy in auto mode.
-            if resp.status_code in (401, 403) and idx < len(attempts) - 1:
-                continue
-
-            resp.raise_for_status()
-            data = resp.json()
-            if isinstance(data, dict) and data.get("errors"):
-                if any("Insufficient privileges" in str(err.get("msg", "")) for err in data.get("errors", [])):
-                    raise RuntimeError(
-                        "SonarQube authenticated request failed with insufficient privileges. "
-                        f"mode={attempt['name']} token_fingerprint={self._token_fingerprint()} "
-                        "Verify Browse permission on the project/branch for this token user."
-                    )
-                raise RuntimeError(f"SonarQube API error from {path}: {data['errors']}")
-            if self.cfg.auth_mode == "auto" and self._preferred_auth_mode is None:
-                self._preferred_auth_mode = attempt["name"]
-                self._log_http(f"auto auth pinned mode={self._preferred_auth_mode}")
-            return data
-
-        if last_resp is not None:
-            try:
-                body = last_resp.text
-            except Exception:
-                body = ""
+        if resp.status_code == 403:
             raise RuntimeError(
-                f"Authentication failed for SonarQube API {path} "
-                f"(status={last_resp.status_code}). Response: {body}"
+                "SonarQube authenticated request failed with insufficient privileges. "
+                f"mode={mode} token_fingerprint={self._token_fingerprint()} "
+                "Verify Browse permission on the project/branch for this account."
             )
-        raise RuntimeError(f"Authentication failed for SonarQube API {path}")
+
+        resp.raise_for_status()
+        data = resp.json()
+        if isinstance(data, dict) and data.get("errors"):
+            raise RuntimeError(f"SonarQube API error from {path}: {data['errors']}")
+        return data
 
     def get_component_measures(self, project_key: str, branch: Optional[str] = None) -> Dict[str, Any]:
         metric_keys = ",".join(
@@ -523,7 +474,9 @@ def make_pdf(
 def parse_args(argv: List[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate a SonarQube project PDF report.")
     parser.add_argument("--host-url", default=None, help="SonarQube base URL. Can also use SONAR_HOST_URL env var.")
-    parser.add_argument("--token", default=None, help="SonarQube token. Can also use SONAR_TOKEN env var.")
+    parser.add_argument("--token", default=None, help="SonarQube token (for --auth-mode token). Can also use SONAR_TOKEN env var.")
+    parser.add_argument("--username", default=None, help="SonarQube username (for --auth-mode login).")
+    parser.add_argument("--password", default=None, help="SonarQube password (for --auth-mode login). Can also use SONAR_PASSWORD env var.")
     parser.add_argument(
         "--print-token-fingerprint",
         action="store_true",
@@ -536,14 +489,14 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--auth-mode",
-        choices=["auto", "bearer", "basic"],
-        default="auto",
-        help="Authentication mode. Default auto tries bearer first then basic.",
+        choices=["token", "login"],
+        default="token",
+        help="Authentication mode. token=HTTP Basic with token as username; login=POST /api/authentication/login with username/password.",
     )
     parser.add_argument(
         "--debug-http",
         action="store_true",
-        help="Enable verbose redacted request/response logging and force two auth probe requests.",
+        help="Enable verbose redacted request/response logging.",
     )
     parser.add_argument(
         "--debug-log-file",
@@ -564,6 +517,8 @@ def main(argv: List[str]) -> int:
 
     host_url = args.host_url or os.environ.get("SONAR_HOST_URL")
     token = args.token or os.environ.get("SONAR_TOKEN")
+    username = args.username or os.environ.get("SONAR_USERNAME")
+    password = args.password or os.environ.get("SONAR_PASSWORD")
 
     if not host_url:
         if args.print_token_fingerprint:
@@ -572,8 +527,11 @@ def main(argv: List[str]) -> int:
         else:
             print("ERROR: --host-url or SONAR_HOST_URL is required.", file=sys.stderr)
             return 2
-    if not token:
-        print("ERROR: --token or SONAR_TOKEN is required.", file=sys.stderr)
+    if args.auth_mode == "token" and not token:
+        print("ERROR: --token or SONAR_TOKEN is required for --auth-mode token.", file=sys.stderr)
+        return 2
+    if args.auth_mode == "login" and (not username or not password):
+        print("ERROR: --username/--password (or SONAR_USERNAME/SONAR_PASSWORD) are required for --auth-mode login.", file=sys.stderr)
         return 2
 
     if not args.project_key and not args.print_token_fingerprint:
@@ -586,12 +544,19 @@ def main(argv: List[str]) -> int:
     cfg = SonarConfig(
         host_url=host_url or "https://fingerprint-only.invalid",
         token=token,
+        username=username,
+        password=password,
         timeout=args.timeout,
         auth_mode=args.auth_mode,
         debug_http=args.debug_http,
         debug_log_file=(args.debug_log_file if args.debug_http else None),
     )
     client = SonarQubeClient(cfg)
+
+    client._log_http(
+        f"auth path selected mode={args.auth_mode} host={cfg.host_url} "
+        f"token_fingerprint={client.token_fingerprint()}"
+    )
 
     fp = client.token_fingerprint()
 
@@ -604,6 +569,9 @@ def main(argv: List[str]) -> int:
         return 2
 
     if args.print_token_fingerprint:
+        if args.auth_mode != "token":
+            print("ERROR: --print-token-fingerprint is only valid with --auth-mode token.", file=sys.stderr)
+            return 2
         print(fp)
         return 0
 
@@ -612,8 +580,8 @@ def main(argv: List[str]) -> int:
         return 2
 
     try:
-        if args.debug_http:
-            client.debug_auth_probe()
+        if args.auth_mode == "login":
+            client.login_with_password()
 
         measures = client.get_component_measures(args.project_key, args.branch)
         gate = client.get_quality_gate_status(args.project_key, args.branch)

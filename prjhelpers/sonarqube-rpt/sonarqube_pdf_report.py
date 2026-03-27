@@ -5,6 +5,21 @@ Generate a PDF report for a SonarQube project.
 Tested design target: SonarQube 9.9.x
 Auth: SonarQube user token via HTTP basic auth with token as username and empty password.
 
+Version History:
+    - 2026-03-27 v1.1
+        - Disabled TLS certificate verification for requests to support internal/self-signed certs.
+        - Added auth mode support (`auto`, `bearer`, `basic`) with runtime fallback.
+        - Added HTTP debug logging with redacted Authorization values.
+        - Added persistent debug log file output (`--debug-log-file`).
+        - Added forced two-request auth probe in debug mode (Bearer then Basic).
+    - 2026-03-27 v1.2
+        - Added token fingerprint proof controls:
+            - `--print-token-fingerprint`
+            - `--expected-token-fingerprint`
+        - Added fingerprint-only execution path (no project/output required).
+        - Added explicit insufficient-privileges diagnostic including auth mode and token fingerprint.
+        - Added auto-mode auth pinning to successful probe mode for subsequent API requests.
+
 Usage:
   export SONAR_HOST_URL="https://your-sonarqube.example.com"
   export SONAR_TOKEN="your_token"
@@ -63,6 +78,7 @@ class SonarQubeClient:
         # Allow self-signed/invalid certs for SonarQube instances using non-public PKI.
         self.session.verify = False
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        self._preferred_auth_mode: Optional[str] = None
 
     def _token_fingerprint(self) -> str:
         return hashlib.sha256(self.cfg.token.encode("utf-8")).hexdigest()[:12]
@@ -102,6 +118,10 @@ class SonarQubeClient:
             return [bearer]
         if mode == "basic":
             return [basic]
+        if self._preferred_auth_mode == "bearer":
+            return [bearer]
+        if self._preferred_auth_mode == "basic":
+            return [basic]
         return [bearer, basic]
 
     def debug_auth_probe(self) -> None:
@@ -131,9 +151,19 @@ class SonarQubeClient:
                 auth=attempt["auth"],
                 headers=req_headers,
             )
+            is_valid = False
+            try:
+                payload = resp.json()
+                is_valid = bool(payload.get("valid"))
+            except Exception:
+                payload = None
             self._log_http(
-                f"probe response mode={attempt['name']} status={resp.status_code} body={resp.text[:800]}"
+                f"probe response mode={attempt['name']} status={resp.status_code} valid={is_valid} body={resp.text[:800]}"
             )
+            if resp.status_code == 200 and is_valid:
+                self._preferred_auth_mode = attempt["name"]
+                self._log_http(f"auth probe selected mode={self._preferred_auth_mode}")
+                break
 
     def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         url = f"{self.base}{path}"
@@ -166,7 +196,16 @@ class SonarQubeClient:
             resp.raise_for_status()
             data = resp.json()
             if isinstance(data, dict) and data.get("errors"):
+                if any("Insufficient privileges" in str(err.get("msg", "")) for err in data.get("errors", [])):
+                    raise RuntimeError(
+                        "SonarQube authenticated request failed with insufficient privileges. "
+                        f"mode={attempt['name']} token_fingerprint={self._token_fingerprint()} "
+                        "Verify Browse permission on the project/branch for this token user."
+                    )
                 raise RuntimeError(f"SonarQube API error from {path}: {data['errors']}")
+            if self.cfg.auth_mode == "auto" and self._preferred_auth_mode is None:
+                self._preferred_auth_mode = attempt["name"]
+                self._log_http(f"auto auth pinned mode={self._preferred_auth_mode}")
             return data
 
         if last_resp is not None:

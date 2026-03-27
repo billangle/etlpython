@@ -1,0 +1,31 @@
+pipeline {
+    agent any
+
+    environment {
+        SONAR_HOST_URL = 'https://sonarqube.example.com'
+        SONAR_PROJECT_KEY = 'your_project_key'
+        SONAR_BRANCH = 'main'
+    }
+
+    stages {
+        stage('Generate SonarQube PDF Report') {
+            steps {
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    sh '''
+                        set -euo pipefail
+                        python3 -m pip install --user requests reportlab
+                        python3 sonarqube_pdf_report.py \
+                          --project-key "$SONAR_PROJECT_KEY" \
+                          --branch "$SONAR_BRANCH" \
+                          --output sonar-report.pdf
+                    '''
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'sonar-report.pdf', fingerprint: true
+                }
+            }
+        }
+    }
+}

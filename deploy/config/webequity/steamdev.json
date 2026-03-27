@@ -1,0 +1,408 @@
+{
+  "deployEnv": "STEAMDEV",
+  "project": "WEBEQUITY",
+  "region": "us-east-1",
+  "bucketRegion": "us-east-1",
+  "secretId": "FSA-DEV-Secrets",
+
+  "configData": {
+    "databaseName": "fsa-fpac-db",
+    "dynamoTableName": "FsaFpacMetadata"
+  },
+  "glueDatabases": [
+    {
+      "name": "fsa-steamdev-webequity",
+      "description": "Primary Glue database for webequity"
+    },
+    {
+      "name": "fsa-steamdev-webequity-cdc",
+      "description": "CDC Glue database for webequity"
+    }
+  ],
+  "strparams": {
+    "landingBucketNameParam": "punkdev-fpacfsa-landing-zone",
+    "cleanBucketNameParam": "punkdev-fpacfsa-cleansed-zone",
+    "finalBucketNameParam": "punkdev-fpacfsa-final-zone",
+    "jobIdKeyParam": "webequity/etl-jobs/job_id.json",
+    "glueJobRoleArnParam": "arn:aws:iam::335965711887:role/FPACGlueCDKRole",
+    "etlRoleArnParam": "arn:aws:iam::335965711887:role/FPACLambdaCDKRole",
+    "thirdPartyLayerArnParam": "arn:aws:lambda:us-east-1:335965711887:layer:FSA-DEV-MDART-layer:1",
+    "customLayerArnParam": "arn:aws:lambda:us-east-1:335965711887:layer:FSA-polars:1",
+    "snsArnParam": "arn:aws:sns:us-east-1:335965711887:FSA-DEV-FMMI"
+  },
+  "paths": {
+    "glueRootPath": "glue/",
+    "lambdaRootPath": "lambda/"
+  },
+
+  "artifacts": {
+    "artifactBucket": "dev-cars-artifacts",
+    "prefix": "webequity/"
+  },
+
+  "stepFunctions": {
+    "createRoleIfMissing": false,
+    "roleName": "FSA-dev-FPACCARS-SfnExec",
+    "roleArn": "arn:aws:iam::335965711887:role/FSA-dev-FPACCARS-SfnExec",
+    "nestedCallerRoleArn": "arn:aws:iam::335965711887:role/FSA-dev-FPACCARS-SfnNestedCaller"
+  },
+  "LambdaConfig": [
+    {
+      "Job-Logging-End": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SecretId": "FSA-DEV-Secrets",
+          "CRAWLER_NAME": "FSA-STEAMDEV-WEBEQUITY",
+          "LAST_COMPLETE_TARGET": "FSA-STEAMDEV-WEBEQUITY"
+        }
+      }
+    },
+    {
+      "RAW-DM-etl-workflow-update": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SecretId": "FSA-DEV-Secrets",
+          "LAST_COMPLETE_TARGET": "FSA-STEAMDEV-WEBEQUITY",
+          "STEP2_NAME": "FSA-STEAMDEV-WEBEQUITY-S3Landing-to-S3Final-Raw-DM"
+        }
+      }
+    },
+    {
+      "RAW-DM-sns-pub-step-func-errs": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SNS_ARN": "arn:aws:sns:us-east-1:335965711887:FSA-DEV-FMMI",
+          "SNS_SUBJECT": "FSA-STEAMDEV-WEBEQUITY-RAW-DM-NOTIFICATIONS",
+          "STATE_MACHINE_NAME": "FSA-STEAMDEV-WEBEQUITY-S3Landing-to-S3Final-Raw-DM"
+        }
+      }
+    },
+    {
+      "get-incremental-tables": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "source_folder": "webequity",
+          "LANDING_BUCKET": "punkdev-fpacfsa-landing-zone"
+        }
+      }
+    },
+    {
+      "sns-publish-validations-report": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SNS_ARN": "arn:aws:sns:us-east-1:335965711887:FSA-DEV-FMMI",
+          "REPORT_ENV_LABEL": "STEAMDEV"
+        }
+      }
+    },
+    {
+      "validation-check": {
+        "runtime": "python3.10",
+        "timeoutSeconds": 120,
+        "memoryMb": 256,
+        "layers": [],
+        "environmentVariables": {
+          "SecretId": "FSA-DEV-Secrets",
+          "CRAWLER_NAME": "FSA-STEAMDEV-WEBEQUITY"
+        }
+      }
+    }
+  ],
+  "configUpload": {
+    "functionName": "FSA-steam-dev-UploadConfig",
+    "sourceDir": "configs",
+    "inputBucket": "dev-cars-artifacts",
+    "inputPrefix": "input/zips",
+    "outputBucket": "punkdev-fpacfsa-final-zone",
+    "outputPrefix": "webequity",
+    "minExpectedObjects": 2,
+    "debug": true
+  },
+   "GlueConfig": [ 
+    { 
+      "LandingFiles": {
+        "Connections" : [{
+      "ConnectionName": ""
+                    }] ,
+          "MaxConcurrency": "1",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "2880",
+          "WorkerType": "G.2X",
+          "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/webequity/",
+          "NumberOfWorkers": "2",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+          "PythonLibraryPath": "",
+          "ReferencePath": "",
+          "AdditionalPythonModulesPath": "",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+            "--DestinationBucket": "punkdev-fpacfsa-landing-zone",
+            "--DestinationPrefix": "webequity/etl-jobs",
+             "--PipelineName": "webequity",
+            "--SecretId": "FSA-CERT-Secrets",
+            "--SourcePrefix": "webequity/dbo"
+          }
+      }
+    },
+     { 
+      "Cntr-Maint-LandingFiles": {
+        "Connections" : [{
+            "ConnectionName": ""
+                    }] ,
+          "MaxConcurrency": "1",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "2880",
+          "WorkerType": "G.2X",
+          "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/webequity/",
+          "NumberOfWorkers": "2",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+          "PythonLibraryPath": "",
+          "ReferencePath": "",
+          "AdditionalPythonModulesPath": "",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+            "--DestinationBucket": "punkdev-fpacfsa-landing-zone",
+            "--DestinationPrefix": "webequity/etl-jobs",
+             "--PipelineName": "webequity",
+            "--SecretId": "FSA-CERT-Secrets",
+            "--SourcePrefix": "webequity/dbo"
+          }
+      }
+    },
+    {
+      "EXEC-SQL": {
+        "Connections": [{ "ConnectionName": "" }],
+        "MaxConcurrency": "3",
+        "MaxRetries": "0",
+        "TimeoutMinutes": "480",
+        "WorkerType": "G.2X",
+        "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/webequity/",
+        "NumberOfWorkers": "2",
+        "AutomaticScalingEnabled": "true",
+        "GlueVersion": "4.0",
+        "JobLanguage": "python",
+        "GenerateMetrics": "true",
+        "EnableJobBookmarks": "false",
+        "JobObservabilityMetrics": "ENABLED",
+        "JobContinuousLogging": "ENABLED",
+        "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+        "PythonLibraryPath": "",
+        "ReferencePath": "",
+        "AdditionalPythonModulesPath": "",
+        "UseGlueDataCatalogAsTheHiveMetastore": "true",
+        "JobParameters": {
+          "--data_src_nm": "webequity",
+          "--end_date": "2026-02-11",
+          "--layer": "stg",
+          "--run_type": "incremental",
+          "--start_date": "2026-01-27",
+          "--table_name": "webequity_LOSS_UNIT"
+        }
+      }
+    },
+    { 
+      "Cons-Pymts-LandingFiles": {
+        "Connections" : [{
+            "ConnectionName": ""
+                    }] ,
+          "MaxConcurrency": "1",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "2880",
+          "WorkerType": "G.2X",
+          "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/webequity/",
+          "NumberOfWorkers": "2",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+          "PythonLibraryPath": "",
+          "ReferencePath": "",
+          "AdditionalPythonModulesPath": "",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+            "--DestinationBucket": "punkdev-fpacfsa-landing-zone",
+            "--DestinationPrefix": "webequity/etl-jobs",
+             "--PipelineName": "webequity",
+            "--SecretId": "FSA-CERT-Secrets",
+            "--SourcePrefix": "webequity/dbo"
+          }
+      }
+    },
+    {
+     "Raw-DM": {
+        "Connections" : [{
+            "ConnectionName": ""
+                      }] ,
+          "MaxConcurrency": "30",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "720",
+          "WorkerType": "G.2X",
+          "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/webequity/",
+          "NumberOfWorkers": "2",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+          "PythonLibraryPath": "",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+              "--ENABLE_DQ_METRICS": "true",
+              "--JobId": "30741",
+              "--SKIP_COUNT_TABLES": "ewt86shloc",
+              "--SKIP_DQ_TABLES": "ewt86shloc",
+              "--TableName": "ewt86shloc",
+              "--env": "dev",
+              "--extra-jars": "metadata_edw",
+              "--region_name": "us-east-1",
+              "--secret_name": "FSA-STDEV-Secrets",
+              "--source_prefix": "webequity",
+              "--target_bucket": "punkdev-fpacfsa-final-zone",
+              "--target_prefix": "webequity"
+            }
+      }
+    },
+    {
+     "Cntr-Maint-Raw-DM": {
+        "Connections" : [{
+            "ConnectionName": ""
+                      }] ,
+          "MaxConcurrency": "30",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "720",
+          "WorkerType": "G.2X",
+          "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/webequity/",
+          "NumberOfWorkers": "2",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+          "PythonLibraryPath": "",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+              "--ENABLE_DQ_METRICS": "true",
+              "--JobId": "30741",
+              "--SKIP_COUNT_TABLES": "ewt86shloc",
+              "--SKIP_DQ_TABLES": "ewt86shloc",
+              "--TableName": "ewt86shloc",
+              "--env": "dev",
+              "--extra-jars": "metadata_edw",
+              "--region_name": "us-east-1",
+              "--secret_name": "FSA-STDEV-Secrets",
+              "--source_prefix": "webequity",
+              "--target_bucket": "punkdev-fpacfsa-final-zone",
+              "--target_prefix": "webequity"
+            }
+      }
+    },
+    {
+     "Cons-Pymts-Raw-DM": {
+        "Connections" : [{
+            "ConnectionName": ""
+                      }] ,
+          "MaxConcurrency": "30",
+          "MaxRetries": "0",
+          "TimeoutMinutes": "720",
+          "WorkerType": "G.2X",
+          "SparkUILogsPath": "s3://dev-cars-artifacts/glue-logs/spark-ui/webequity/",
+          "NumberOfWorkers": "2",
+          "AutomaticScalingEnabled": "true",
+          "GlueVersion": "4.0",
+          "JobLanguage": "python",
+          "GenerateMetrics": "true",
+          "EnableJobBookmarks": "false",
+          "JobObservabilityMetrics": "ENABLED",
+          "JobContinuousLogging": "ENABLED",
+          "TemporaryPath": "s3://dev-cars-artifacts/temp/glue/",
+          "PythonLibraryPath": "",
+          "UseGlueDataCatalogAsTheHiveMetastore": "true",
+            "JobParameters": {
+              "--ENABLE_DQ_METRICS": "true",
+              "--JobId": "30741",
+              "--SKIP_COUNT_TABLES": "ewt86shloc",
+              "--SKIP_DQ_TABLES": "ewt86shloc",
+              "--TableName": "ewt86shloc",
+              "--env": "dev",
+              "--extra-jars": "metadata_edw",
+              "--region_name": "us-east-1",
+              "--secret_name": "FSA-STDEV-Secrets",
+              "--source_prefix": "webequity",
+              "--target_bucket": "punkdev-fpacfsa-final-zone",
+              "--target_prefix": "webequity"
+            }
+      }
+    }
+  ],
+  "crawlers": [
+    {
+      "crawlerName": "FSA-{deployEnv}-{projectName}",
+      "description": "webequity crawler data sources (grouped by bucket)",
+      "databaseName": "fsa-steamdev-webequity",
+      "recrawlBehavior": "CRAWL_EVERYTHING",
+      "excludePatterns": ["_cdc/**", "_configs/**"],
+      "s3TargetsByBucket": [
+        {
+          "bucket": "punkdev-fpacfsa-final-zone",
+          "prefixes": [
+            "webequity/"
+          ]
+        }
+      ]
+    },
+    {
+      "crawlerName": "FSA-{deployEnv}-{projectName}-cdc",
+      "description": "webequity crawler data sources (grouped by bucket)",
+      "databaseName": "fsa-steamdev-webequity-cdc",
+      "recrawlBehavior": "CRAWL_EVERYTHING",
+      "s3TargetsByBucket": [
+        {
+          "bucket": "punkdev-fpacfsa-final-zone",
+          "prefixes": [
+            "webequity/_cdc/"
+          ]
+        }
+      ]
+    }
+  ]
+  
+}

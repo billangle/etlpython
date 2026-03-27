@@ -50,6 +50,10 @@ deploy/config/
 │   ├── dev.json
 │   ├── prod.json
 │   └── steamdev.json
+├── webequity/
+│   ├── dev.json
+│   ├── prod.json
+│   └── steamdev.json
 ├── farmdatav2/               # Reserved (no active JSON configs)
 ├── farmdm/
 │   ├── dev.json

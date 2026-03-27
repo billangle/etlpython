@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
+import urllib3
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -57,6 +58,9 @@ class SonarQubeClient:
         # SonarQube 9.9 docs support token auth via basic auth: token as username, blank password.
         self.session.auth = (cfg.token, "")
         self.session.headers.update({"Accept": "application/json"})
+        # Allow self-signed/invalid certs for SonarQube instances using non-public PKI.
+        self.session.verify = False
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         url = f"{self.base}{path}"

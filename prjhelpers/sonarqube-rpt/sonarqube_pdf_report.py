@@ -20,6 +20,7 @@ Optional:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import math
 import sys
 from dataclasses import dataclass
@@ -49,6 +50,8 @@ class SonarConfig:
     token: str
     timeout: int = DEFAULT_TIMEOUT
     auth_mode: str = "auto"
+    debug_http: bool = False
+    debug_log_file: Optional[str] = None
 
 
 class SonarQubeClient:
@@ -60,6 +63,27 @@ class SonarQubeClient:
         # Allow self-signed/invalid certs for SonarQube instances using non-public PKI.
         self.session.verify = False
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    def _token_fingerprint(self) -> str:
+        return hashlib.sha256(self.cfg.token.encode("utf-8")).hexdigest()[:12]
+
+    def token_fingerprint(self) -> str:
+        return self._token_fingerprint()
+
+    def _log_http(self, message: str) -> None:
+        if self.cfg.debug_http:
+            line = f"[http-debug] {message}"
+            print(line, file=sys.stderr)
+            if self.cfg.debug_log_file:
+                with open(self.cfg.debug_log_file, "a", encoding="utf-8") as fh:
+                    fh.write(line + "\n")
+
+    def _redacted_headers(self, headers: Dict[str, str]) -> Dict[str, str]:
+        safe = dict(headers)
+        auth = safe.get("Authorization")
+        if auth:
+            safe["Authorization"] = "<REDACTED>"
+        return safe
 
     def _auth_attempts(self) -> List[Dict[str, Any]]:
         mode = self.cfg.auth_mode.lower().strip()
@@ -80,13 +104,49 @@ class SonarQubeClient:
             return [basic]
         return [bearer, basic]
 
+    def debug_auth_probe(self) -> None:
+        """Always run two auth requests (bearer and basic) to diagnose 401/403 issues."""
+        path = "/api/authentication/validate"
+        url = f"{self.base}{path}"
+        attempts = [
+            {"name": "bearer", "auth": None, "headers": {"Authorization": f"Bearer {self.cfg.token}"}},
+            {"name": "basic", "auth": (self.cfg.token, ""), "headers": {}},
+        ]
+
+        self._log_http(
+            f"auth probe start host={self.base} token_fingerprint={self._token_fingerprint()} "
+            f"verify_tls={self.session.verify}"
+        )
+
+        for attempt in attempts:
+            req_headers = dict(self.session.headers)
+            req_headers.update(attempt["headers"])
+            self._log_http(
+                f"probe request mode={attempt['name']} method=GET url={url} "
+                f"params={{}} headers={self._redacted_headers(req_headers)}"
+            )
+            resp = self.session.get(
+                url,
+                timeout=self.cfg.timeout,
+                auth=attempt["auth"],
+                headers=req_headers,
+            )
+            self._log_http(
+                f"probe response mode={attempt['name']} status={resp.status_code} body={resp.text[:800]}"
+            )
+
     def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         url = f"{self.base}{path}"
         last_resp: Optional[requests.Response] = None
+        attempts = self._auth_attempts()
 
-        for idx, attempt in enumerate(self._auth_attempts()):
+        for idx, attempt in enumerate(attempts):
             req_headers = dict(self.session.headers)
             req_headers.update(attempt["headers"])
+            self._log_http(
+                f"request mode={attempt['name']} method=GET url={url} params={params or {}} "
+                f"headers={self._redacted_headers(req_headers)} token_fingerprint={self._token_fingerprint()}"
+            )
             resp = self.session.get(
                 url,
                 params=params or {},
@@ -95,9 +155,12 @@ class SonarQubeClient:
                 headers=req_headers,
             )
             last_resp = resp
+            self._log_http(
+                f"response mode={attempt['name']} status={resp.status_code} body={resp.text[:1200]}"
+            )
 
             # If auth mode is wrong, try next strategy in auto mode.
-            if resp.status_code in (401, 403) and idx < len(self._auth_attempts()) - 1:
+            if resp.status_code in (401, 403) and idx < len(attempts) - 1:
                 continue
 
             resp.raise_for_status()
@@ -423,14 +486,34 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser.add_argument("--host-url", default=None, help="SonarQube base URL. Can also use SONAR_HOST_URL env var.")
     parser.add_argument("--token", default=None, help="SonarQube token. Can also use SONAR_TOKEN env var.")
     parser.add_argument(
+        "--print-token-fingerprint",
+        action="store_true",
+        help="Print token fingerprint and exit.",
+    )
+    parser.add_argument(
+        "--expected-token-fingerprint",
+        default=None,
+        help="Fail fast if the runtime token fingerprint does not match this value.",
+    )
+    parser.add_argument(
         "--auth-mode",
         choices=["auto", "bearer", "basic"],
         default="auto",
         help="Authentication mode. Default auto tries bearer first then basic.",
     )
-    parser.add_argument("--project-key", required=True, help="SonarQube project key.")
+    parser.add_argument(
+        "--debug-http",
+        action="store_true",
+        help="Enable verbose redacted request/response logging and force two auth probe requests.",
+    )
+    parser.add_argument(
+        "--debug-log-file",
+        default="sonarqube_http_debug.log",
+        help="Path to write HTTP debug logs when --debug-http is enabled.",
+    )
+    parser.add_argument("--project-key", required=False, help="SonarQube project key.")
     parser.add_argument("--branch", default=None, help="Optional branch name.")
-    parser.add_argument("--output", required=True, help="Output PDF file path.")
+    parser.add_argument("--output", required=False, help="Output PDF file path.")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help="HTTP timeout in seconds.")
     return parser.parse_args(argv)
 
@@ -444,16 +527,55 @@ def main(argv: List[str]) -> int:
     token = args.token or os.environ.get("SONAR_TOKEN")
 
     if not host_url:
-        print("ERROR: --host-url or SONAR_HOST_URL is required.", file=sys.stderr)
-        return 2
+        if args.print_token_fingerprint:
+            # Fingerprint-only mode does not require host URL.
+            pass
+        else:
+            print("ERROR: --host-url or SONAR_HOST_URL is required.", file=sys.stderr)
+            return 2
     if not token:
         print("ERROR: --token or SONAR_TOKEN is required.", file=sys.stderr)
         return 2
 
-    cfg = SonarConfig(host_url=host_url, token=token, timeout=args.timeout, auth_mode=args.auth_mode)
+    if not args.project_key and not args.print_token_fingerprint:
+        print("ERROR: --project-key is required unless --print-token-fingerprint is set.", file=sys.stderr)
+        return 2
+    if not args.output and not args.print_token_fingerprint:
+        print("ERROR: --output is required unless --print-token-fingerprint is set.", file=sys.stderr)
+        return 2
+
+    cfg = SonarConfig(
+        host_url=host_url or "https://fingerprint-only.invalid",
+        token=token,
+        timeout=args.timeout,
+        auth_mode=args.auth_mode,
+        debug_http=args.debug_http,
+        debug_log_file=(args.debug_log_file if args.debug_http else None),
+    )
     client = SonarQubeClient(cfg)
 
+    fp = client.token_fingerprint()
+
+    if args.expected_token_fingerprint and fp != args.expected_token_fingerprint:
+        print(
+            "ERROR: token fingerprint mismatch. "
+            f"expected={args.expected_token_fingerprint} actual={fp}",
+            file=sys.stderr,
+        )
+        return 2
+
+    if args.print_token_fingerprint:
+        print(fp)
+        return 0
+
+    if not host_url:
+        print("ERROR: --host-url or SONAR_HOST_URL is required.", file=sys.stderr)
+        return 2
+
     try:
+        if args.debug_http:
+            client.debug_auth_probe()
+
         measures = client.get_component_measures(args.project_key, args.branch)
         gate = client.get_quality_gate_status(args.project_key, args.branch)
         issue_total, sev_counts, type_counts, issue_examples = client.get_issues_summary(

@@ -48,6 +48,7 @@ class SonarConfig:
     host_url: str
     token: str
     timeout: int = DEFAULT_TIMEOUT
+    auth_mode: str = "auto"
 
 
 class SonarQubeClient:
@@ -55,21 +56,66 @@ class SonarQubeClient:
         self.cfg = cfg
         self.base = cfg.host_url.rstrip("/")
         self.session = requests.Session()
-        # SonarQube 9.9 docs support token auth via basic auth: token as username, blank password.
-        self.session.auth = (cfg.token, "")
         self.session.headers.update({"Accept": "application/json"})
         # Allow self-signed/invalid certs for SonarQube instances using non-public PKI.
         self.session.verify = False
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+    def _auth_attempts(self) -> List[Dict[str, Any]]:
+        mode = self.cfg.auth_mode.lower().strip()
+        bearer = {
+            "name": "bearer",
+            "auth": None,
+            "headers": {"Authorization": f"Bearer {self.cfg.token}"},
+        }
+        basic = {
+            "name": "basic",
+            "auth": (self.cfg.token, ""),
+            "headers": {},
+        }
+
+        if mode == "bearer":
+            return [bearer]
+        if mode == "basic":
+            return [basic]
+        return [bearer, basic]
+
     def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         url = f"{self.base}{path}"
-        resp = self.session.get(url, params=params or {}, timeout=self.cfg.timeout)
-        resp.raise_for_status()
-        data = resp.json()
-        if isinstance(data, dict) and data.get("errors"):
-            raise RuntimeError(f"SonarQube API error from {path}: {data['errors']}")
-        return data
+        last_resp: Optional[requests.Response] = None
+
+        for idx, attempt in enumerate(self._auth_attempts()):
+            req_headers = dict(self.session.headers)
+            req_headers.update(attempt["headers"])
+            resp = self.session.get(
+                url,
+                params=params or {},
+                timeout=self.cfg.timeout,
+                auth=attempt["auth"],
+                headers=req_headers,
+            )
+            last_resp = resp
+
+            # If auth mode is wrong, try next strategy in auto mode.
+            if resp.status_code in (401, 403) and idx < len(self._auth_attempts()) - 1:
+                continue
+
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, dict) and data.get("errors"):
+                raise RuntimeError(f"SonarQube API error from {path}: {data['errors']}")
+            return data
+
+        if last_resp is not None:
+            try:
+                body = last_resp.text
+            except Exception:
+                body = ""
+            raise RuntimeError(
+                f"Authentication failed for SonarQube API {path} "
+                f"(status={last_resp.status_code}). Response: {body}"
+            )
+        raise RuntimeError(f"Authentication failed for SonarQube API {path}")
 
     def get_component_measures(self, project_key: str, branch: Optional[str] = None) -> Dict[str, Any]:
         metric_keys = ",".join(
@@ -376,6 +422,12 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate a SonarQube project PDF report.")
     parser.add_argument("--host-url", default=None, help="SonarQube base URL. Can also use SONAR_HOST_URL env var.")
     parser.add_argument("--token", default=None, help="SonarQube token. Can also use SONAR_TOKEN env var.")
+    parser.add_argument(
+        "--auth-mode",
+        choices=["auto", "bearer", "basic"],
+        default="auto",
+        help="Authentication mode. Default auto tries bearer first then basic.",
+    )
     parser.add_argument("--project-key", required=True, help="SonarQube project key.")
     parser.add_argument("--branch", default=None, help="Optional branch name.")
     parser.add_argument("--output", required=True, help="Output PDF file path.")
@@ -398,7 +450,7 @@ def main(argv: List[str]) -> int:
         print("ERROR: --token or SONAR_TOKEN is required.", file=sys.stderr)
         return 2
 
-    cfg = SonarConfig(host_url=host_url, token=token, timeout=args.timeout)
+    cfg = SonarConfig(host_url=host_url, token=token, timeout=args.timeout, auth_mode=args.auth_mode)
     client = SonarQubeClient(cfg)
 
     try:
